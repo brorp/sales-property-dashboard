@@ -1,0 +1,60 @@
+.leads-result-count {
+    font-size: 0.813rem;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+
+.leads-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.leads-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.leads-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.leads-card-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+}
+
+.leads-card-name {
+    font-size: 0.938rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.leads-card-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.leads-card-details {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.813rem;
+    color: var(--text-secondary);
+}
+
+.leads-card-sales {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}

@@ -1,0 +1,16 @@
+{
+    "name": "property-lounge",
+    "private": true,
+    "scripts": {
+        "dev": "pnpm -r --parallel run dev",
+        "dev:web": "pnpm --filter @property-lounge/web dev",
+        "dev:server": "pnpm --filter @property-lounge/server dev",
+        "build": "pnpm -r run build",
+        "db:push": "pnpm --filter @property-lounge/server db:push",
+        "db:seed": "pnpm --filter @property-lounge/server db:seed",
+        "db:studio": "pnpm --filter @property-lounge/server db:studio"
+    },
+    "engines": {
+        "node": ">=18"
+    }
+}

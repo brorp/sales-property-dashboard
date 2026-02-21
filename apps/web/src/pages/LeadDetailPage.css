@@ -1,0 +1,136 @@
+.detail-info-card {
+    margin-bottom: 20px;
+}
+
+.detail-client-name {
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+}
+
+.detail-info-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.detail-reassign-btn {
+    font-size: 0.75rem;
+    color: var(--primary-light);
+    background: none;
+    border: none;
+    margin-left: 8px;
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
+}
+
+.detail-reassign-btn:hover {
+    background: var(--primary-glow);
+}
+
+.detail-section {
+    margin-bottom: 24px;
+}
+
+.detail-status-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.detail-status-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: var(--radius-full);
+    background: var(--bg-input);
+    border: 1.5px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 0.813rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.detail-status-btn:hover {
+    background: var(--bg-card-hover);
+}
+
+.detail-status-btn.active {
+    border-color: var(--primary);
+    background: var(--primary-glow);
+    color: var(--text-primary);
+}
+
+.detail-status-btn.active[data-status="hot"] {
+    border-color: var(--hot);
+    background: var(--hot-bg);
+}
+
+.detail-status-btn.active[data-status="warm"] {
+    border-color: var(--warm);
+    background: var(--warm-bg);
+}
+
+.detail-status-btn.active[data-status="cold"] {
+    border-color: var(--cold);
+    background: var(--cold-bg);
+}
+
+.detail-status-btn.active[data-status="lost"] {
+    border-color: var(--danger);
+    background: var(--danger-bg);
+}
+
+.detail-status-btn.active[data-status="deal"] {
+    border-color: var(--success);
+    background: var(--success-bg);
+}
+
+.detail-rejected-banner {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: var(--danger-bg);
+    color: var(--danger);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.detail-appt-card {
+    margin-bottom: 8px;
+}
+
+.detail-appt-date {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--primary-light);
+}
+
+.detail-appt-location {
+    font-size: 0.813rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+
+.detail-appt-notes {
+    font-size: 0.813rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-style: italic;
+}
+
+.detail-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}

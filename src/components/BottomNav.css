@@ -1,0 +1,108 @@
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 90;
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.bottom-nav-inner {
+    display: flex;
+    align-items: stretch;
+    justify-content: space-around;
+    max-width: 480px;
+    margin: 0 auto;
+    height: var(--bottom-nav-height);
+}
+
+.bottom-nav-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex: 1;
+    position: relative;
+    color: var(--text-muted);
+    transition: color var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+.bottom-nav-tab:active {
+    opacity: 0.7;
+}
+
+.bottom-nav-tab.active {
+    color: var(--primary);
+}
+
+.bottom-nav-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+    transition: transform var(--transition-fast);
+}
+
+.bottom-nav-tab.active .bottom-nav-icon {
+    transform: scale(1.15);
+}
+
+.bottom-nav-label {
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.bottom-nav-indicator {
+    position: absolute;
+    top: 0;
+    width: 24px;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: var(--primary);
+    box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+}
+
+@media (min-width: 1024px) {
+    .bottom-nav {
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: auto;
+        width: 72px;
+        border-top: none;
+        border-right: 1px solid var(--border);
+        padding-bottom: 0;
+    }
+
+    .bottom-nav-inner {
+        flex-direction: column;
+        height: 100%;
+        justify-content: flex-start;
+        padding-top: 24px;
+        gap: 8px;
+    }
+
+    .bottom-nav-tab {
+        flex: 0;
+        padding: 12px 0;
+        border-radius: var(--radius-md);
+        margin: 0 8px;
+    }
+
+    .bottom-nav-tab.active {
+        background: var(--primary-glow);
+    }
+
+    .bottom-nav-indicator {
+        display: none;
+    }
+}
