@@ -7,7 +7,7 @@ import apiRoutes from "./routes";
 import webhooksRoutes from "./routes/webhooks.routes";
 import { startDistributionWorker } from "./worker/distribution.worker";
 
-const app = express();
+const app: ReturnType<typeof express> = express();
 const PORT = process.env.PORT || 3001;
 
 // CORS

@@ -4,11 +4,11 @@ import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireAdmin } from "../middleware/rbac";
 import * as dashboardService from "../services/dashboard.service";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.get("/stats", async (req, res: Response) => {
     try {
-        const { user } = req as AuthenticatedRequest;
+        const { user } = req as unknown as AuthenticatedRequest;
         const stats = await dashboardService.getStats(user.id, user.role);
         res.json(stats);
     } catch (err) {
@@ -19,7 +19,7 @@ router.get("/stats", async (req, res: Response) => {
 
 router.get("/today-appointments", async (req, res: Response) => {
     try {
-        const { user } = req as AuthenticatedRequest;
+        const { user } = req as unknown as AuthenticatedRequest;
         const appointments = await dashboardService.getTodayAppointments(
             user.id,
             user.role
@@ -33,7 +33,7 @@ router.get("/today-appointments", async (req, res: Response) => {
 
 router.get("/needs-followup", async (req, res: Response) => {
     try {
-        const { user } = req as AuthenticatedRequest;
+        const { user } = req as unknown as AuthenticatedRequest;
         const leads = await dashboardService.getNeedsFollowup(
             user.id,
             user.role
@@ -47,7 +47,7 @@ router.get("/needs-followup", async (req, res: Response) => {
 
 router.get("/recent", async (req, res: Response) => {
     try {
-        const { user } = req as AuthenticatedRequest;
+        const { user } = req as unknown as AuthenticatedRequest;
         const leads = await dashboardService.getRecentLeads(
             user.id,
             user.role

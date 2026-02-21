@@ -7,7 +7,7 @@ import profileRoutes from "./profile.routes";
 import salesRoutes from "./sales.routes";
 import distributionRoutes from "./distribution.routes";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 // All API routes require authentication
 router.use(requireAuth as any);

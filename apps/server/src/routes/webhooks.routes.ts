@@ -4,7 +4,7 @@ import { ingestMetaLead } from "../services/meta.service";
 import { ingestIncomingMessage } from "../services/whatsapp.service";
 import { processExpiredAttempts } from "../services/distribution.service";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.get("/whatsapp", (req, res: Response) => {
     const mode = req.query["hub.mode"];

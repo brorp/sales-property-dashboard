@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Response } from "express";
 import { getLeadDistributionState, processExpiredAttempts } from "../services/distribution.service";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.get("/leads/:leadId", async (req, res: Response) => {
     try {

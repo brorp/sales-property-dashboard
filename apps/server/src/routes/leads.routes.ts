@@ -4,11 +4,11 @@ import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireAdmin } from "../middleware/rbac";
 import * as leadsService from "../services/leads.service";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.get("/", async (req, res: Response) => {
     try {
-        const { user } = req as AuthenticatedRequest;
+        const { user } = req as unknown as AuthenticatedRequest;
         const { search, clientStatus, progress, assignedTo } = req.query;
 
         const leads = await leadsService.findAll(
@@ -45,7 +45,7 @@ router.get("/:id", async (req, res: Response) => {
 
 router.post("/", async (req, res: Response) => {
     try {
-        const { user } = req as AuthenticatedRequest;
+        const { user } = req as unknown as AuthenticatedRequest;
         const { name, phone, source, assignedTo } = req.body ?? {};
         if (!name || !phone) {
             res.status(400).json({ error: "name and phone are required" });
@@ -67,7 +67,7 @@ router.post("/", async (req, res: Response) => {
 
 router.patch("/:id/status", async (req, res: Response) => {
     try {
-        const { user } = req as AuthenticatedRequest;
+        const { user } = req as unknown as AuthenticatedRequest;
         const { clientStatus, note } = req.body ?? {};
         if (!clientStatus) {
             res.status(400).json({ error: "clientStatus is required" });
@@ -94,7 +94,7 @@ router.patch("/:id/status", async (req, res: Response) => {
 
 router.patch("/:id/progress", async (req, res: Response) => {
     try {
-        const { user } = req as AuthenticatedRequest;
+        const { user } = req as unknown as AuthenticatedRequest;
         const { progress, note } = req.body ?? {};
         if (!progress) {
             res.status(400).json({ error: "progress is required" });
@@ -121,7 +121,7 @@ router.patch("/:id/progress", async (req, res: Response) => {
 
 router.post("/:id/assign", requireAdmin as any, async (req, res: Response) => {
     try {
-        const { user } = req as AuthenticatedRequest;
+        const { user } = req as unknown as AuthenticatedRequest;
         const { salesId, note } = req.body ?? {};
         if (!salesId) {
             res.status(400).json({ error: "salesId is required" });
@@ -149,7 +149,7 @@ router.post("/:id/assign", requireAdmin as any, async (req, res: Response) => {
 
 router.patch("/:id", async (req, res: Response) => {
     try {
-        const { user } = req as AuthenticatedRequest;
+        const { user } = req as unknown as AuthenticatedRequest;
         const { clientStatus, progress, assignedTo, activityNote } = req.body ?? {};
 
         let updatedLead = await leadsService.findById(req.params.id);
@@ -215,7 +215,7 @@ router.post("/:id/activities", async (req, res: Response) => {
 
 router.post("/:id/appointments", async (req, res: Response) => {
     try {
-        const { user } = req as AuthenticatedRequest;
+        const { user } = req as unknown as AuthenticatedRequest;
         const { date, time, location, notes } = req.body ?? {};
         if (!date || !time || !location) {
             res.status(400).json({ error: "date, time, location are required" });

@@ -3,7 +3,7 @@ import type { Response } from "express";
 import { requireAdmin } from "../middleware/rbac";
 import * as salesService from "../services/sales.service";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.get("/", async (_req, res: Response) => {
     try {

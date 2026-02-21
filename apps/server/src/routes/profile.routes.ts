@@ -3,11 +3,11 @@ import type { Response } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import * as profileService from "../services/profile.service";
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.get("/me", async (req, res: Response) => {
     try {
-        const { user } = req as AuthenticatedRequest;
+        const { user } = req as unknown as AuthenticatedRequest;
         const profile = await profileService.getProfile(user.id);
 
         if (!profile) {
