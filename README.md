@@ -24,9 +24,7 @@ Untuk setup backend detail, akses database, dan testing WhatsApp dummy distribut
 
 ## Deploy Web ke Vercel (Demo Cepat)
 
-Konfigurasi deploy sudah disiapkan di:
-
-`/Users/ryanpratama/Desktop/sales-property-dashboard/vercel.json`
+Deploy dikonfigurasi dari **Vercel Project Settings** (tanpa `vercel.json`).
 
 ### Env Variables di Vercel
 
@@ -39,8 +37,12 @@ Opsional untuk persiapan integrasi backend:
 ### Langkah Deploy
 
 1. Import repo ini ke Vercel.
-2. Framework akan terbaca sebagai Vite (via `vercel.json`).
-3. Klik Deploy.
-4. Setelah live, login demo:
+2. Set `Root Directory` ke `apps/web`.
+3. Build settings:
+   - Install Command: `pnpm install --frozen-lockfile`
+   - Build Command: `pnpm build`
+   - Output Directory: `dist`
+4. Klik Deploy.
+5. Setelah live, login demo:
    - admin: `admin@propertylounge.id` / `admin123`
    - sales: `andi@propertylounge.id` / `sales123`
