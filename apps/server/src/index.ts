@@ -5,10 +5,13 @@ import { toNodeHandler } from "better-auth/node";
 import { auth } from "./auth";
 import apiRoutes from "./routes";
 import webhooksRoutes from "./routes/webhooks.routes";
+import whatsappAdminRoutes from "./routes/whatsapp-admin.routes";
 import { startDistributionWorker } from "./worker/distribution.worker";
+import { startWhatsAppQrBridge } from "./services/whatsapp-qr.service";
 
 const app: ReturnType<typeof express> = express();
 const PORT = process.env.PORT || 3001;
+const WA_PROVIDER = (process.env.WA_PROVIDER || "dummy").toLowerCase();
 
 // CORS
 app.use(
@@ -26,6 +29,7 @@ app.use(express.json());
 
 // Public webhook routes (Meta Ads + WhatsApp)
 app.use("/webhooks", webhooksRoutes);
+app.use("/api/whatsapp-admin", whatsappAdminRoutes);
 
 // API routes
 app.use("/api", apiRoutes);
@@ -44,7 +48,15 @@ app.listen(PORT, () => {
     console.log(`🧭 Sales:     http://localhost:${PORT}/api/sales`);
     console.log(`👤 Profile:   http://localhost:${PORT}/api/profile`);
     console.log(`🔔 Webhooks:  http://localhost:${PORT}/webhooks`);
+    console.log(`⚙️  WA Admin:  http://localhost:${PORT}/api/whatsapp-admin/status`);
+    console.log(`💬 WA Mode:   ${WA_PROVIDER}`);
+    if (WA_PROVIDER === "qr_local") {
+        console.log(
+            `📱 WA QR Auth: ${process.env.WA_QR_AUTH_PATH || ".wa-qr-auth"}`
+        );
+    }
     startDistributionWorker();
+    void startWhatsAppQrBridge();
 });
 
 export default app;

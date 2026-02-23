@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
-import './LoginPage.css';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -10,9 +11,15 @@ export default function LoginPage() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const { login, user } = useAuth();
-    const navigate = useNavigate();
+    const router = useRouter();
 
-    if (user) { navigate('/', { replace: true }); return null; }
+    useEffect(() => {
+        if (user) {
+            router.replace('/');
+        }
+    }, [user, router]);
+
+    if (user) return null;
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -20,7 +27,7 @@ export default function LoginPage() {
         setLoading(true);
         setTimeout(() => {
             const result = login(email, password);
-            if (result.success) { navigate('/', { replace: true }); }
+            if (result.success) { router.replace('/'); }
             else { setError(result.error); }
             setLoading(false);
         }, 500);

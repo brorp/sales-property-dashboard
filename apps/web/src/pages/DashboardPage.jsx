@@ -1,13 +1,14 @@
-import { useNavigate } from 'react-router-dom';
+'use client';
+
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
 import { getSalesName, getTimeAgo } from '../data/mockData';
-import './DashboardPage.css';
 
 export default function DashboardPage() {
     const { user, isAdmin } = useAuth();
     const { getStats, getLeadsForUser, getSalesUsers } = useLeads();
-    const navigate = useNavigate();
+    const router = useRouter();
 
     const stats = getStats(user.id, user.role);
     const myLeads = getLeadsForUser(user.id, user.role);
@@ -71,7 +72,7 @@ export default function DashboardPage() {
                     <h2 className="section-title">📅 Appointment Hari Ini</h2>
                     <div className="card-list">
                         {todayAppointments.map(({ lead, appointment }) => (
-                            <div key={lead.id} className="card card-clickable appt-card" onClick={() => navigate(`/leads/${lead.id}`)}>
+                            <div key={lead.id} className="card card-clickable appt-card" onClick={() => router.push(`/leads/${lead.id}`)}>
                                 <div className="appt-time">🕐 {appointment.time}</div>
                                 <div className="appt-name">{lead.name}</div>
                                 <div className="appt-location">📍 {appointment.location}</div>
@@ -103,7 +104,7 @@ export default function DashboardPage() {
                     <h2 className="section-title">⚡ Perlu Follow-up</h2>
                     <div className="card-list">
                         {needsFollowUp.map(lead => (
-                            <div key={lead.id} className="card card-clickable lead-row" onClick={() => navigate(`/leads/${lead.id}`)}>
+                            <div key={lead.id} className="card card-clickable lead-row" onClick={() => router.push(`/leads/${lead.id}`)}>
                                 <div className="lead-row-top">
                                     <span className="lead-row-name">
                                         <span className={`badge ${statusClass[lead.clientStatus]}`}>{statusIcon[lead.clientStatus]} {lead.clientStatus}</span>
@@ -125,7 +126,7 @@ export default function DashboardPage() {
                 <h2 className="section-title">🕐 Leads Terbaru</h2>
                 <div className="card-list">
                     {recentLeads.map(lead => (
-                        <div key={lead.id} className="card card-clickable lead-row" onClick={() => navigate(`/leads/${lead.id}`)}>
+                        <div key={lead.id} className="card card-clickable lead-row" onClick={() => router.push(`/leads/${lead.id}`)}>
                             <div className="lead-row-top">
                                 <span className="lead-row-name">
                                     <span className={`badge ${statusClass[lead.clientStatus]}`}>{statusIcon[lead.clientStatus]} {lead.clientStatus}</span>
@@ -140,7 +141,7 @@ export default function DashboardPage() {
                         </div>
                     ))}
                 </div>
-                <button className="btn btn-secondary btn-full see-all-btn" onClick={() => navigate('/leads')}>
+                <button className="btn btn-secondary btn-full see-all-btn" onClick={() => router.push('/leads')}>
                     Lihat Semua Leads →
                 </button>
             </section>

@@ -1,23 +1,21 @@
+'use client';
+
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
 import { getSalesName, getTimeAgo, formatDate, PROGRESS_STEPS, CLIENT_STATUSES } from '../data/mockData';
 import Header from '../components/Header';
-import './LeadDetailPage.css';
 
-export default function LeadDetailPage() {
-    const { id } = useParams();
+export default function LeadDetailPage({ leadId }) {
     const { user, isAdmin } = useAuth();
     const { getLeadById, updateLead, addAppointment, getSalesUsers } = useLeads();
-    const navigate = useNavigate();
     const [showAppt, setShowAppt] = useState(false);
     const [showNote, setShowNote] = useState(false);
     const [note, setNote] = useState('');
     const [appt, setAppt] = useState({ date: '', time: '', location: '', notes: '' });
     const [showReassign, setShowReassign] = useState(false);
 
-    const lead = getLeadById(id);
+    const lead = getLeadById(leadId);
     if (!lead) return (
         <div className="page-container">
             <Header title="Detail Lead" showBack />

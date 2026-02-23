@@ -1,15 +1,16 @@
+'use client';
+
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
 import { getSalesName, getTimeAgo } from '../data/mockData';
 import Header from '../components/Header';
-import './LeadsPage.css';
 
 export default function LeadsPage() {
     const { user, isAdmin } = useAuth();
     const { getLeadsForUser, addLead, getSalesUsers } = useLeads();
-    const navigate = useNavigate();
+    const router = useRouter();
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [progressFilter, setProgressFilter] = useState('all');
@@ -81,7 +82,7 @@ export default function LeadsPage() {
                         <div className="empty-desc">Coba ubah filter pencarian</div>
                     </div>
                 ) : filteredLeads.map(lead => (
-                    <div key={lead.id} className="card card-clickable leads-card" onClick={() => navigate(`/leads/${lead.id}`)}>
+                    <div key={lead.id} className="card card-clickable leads-card" onClick={() => router.push(`/leads/${lead.id}`)}>
                         <div className="leads-card-header">
                             <div className="leads-card-info">
                                 <span className={`badge ${statusClass[lead.clientStatus]}`}>{statusIcon[lead.clientStatus]} {lead.clientStatus}</span>

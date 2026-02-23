@@ -1,17 +1,19 @@
-import { useNavigate } from 'react-router-dom';
+'use client';
+
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
 import Header from '../components/Header';
-import './ProfilePage.css';
 
 export default function ProfilePage() {
     const { user, logout, isAdmin } = useAuth();
     const { getStats, resetData } = useLeads();
-    const navigate = useNavigate();
+    const router = useRouter();
     const stats = getStats(user.id, user.role);
 
-    const handleLogout = () => { logout(); navigate('/login', { replace: true }); };
-    const handleReset = () => { if (confirm('Reset semua data leads ke default? Ini tidak bisa diurungkan.')) resetData(); };
+    const handleLogout = () => { logout(); router.replace('/login'); };
+    const handleReset = () => { if (window.confirm('Reset semua data leads ke default? Ini tidak bisa diurungkan.')) resetData(); };
+    const goToSettings = () => { router.push('/settings'); };
 
     return (
         <div className="page-container">
@@ -30,6 +32,11 @@ export default function ProfilePage() {
             <div className="profile-menu-list">
                 <button className="profile-menu-item"><span>📅</span><span>Sambungkan Google Calendar</span><span className="profile-menu-arrow">→</span></button>
                 <button className="profile-menu-item"><span>🔔</span><span>Pengaturan Notifikasi</span><span className="profile-menu-arrow">→</span></button>
+                {isAdmin ? (
+                    <button className="profile-menu-item" onClick={goToSettings}>
+                        <span>📱</span><span>WhatsApp Settings</span><span className="profile-menu-arrow">→</span>
+                    </button>
+                ) : null}
                 <button className="profile-menu-item" onClick={handleReset}><span>🔄</span><span>Reset Data Demo</span><span className="profile-menu-arrow">→</span></button>
                 <button className="profile-menu-item profile-logout" onClick={handleLogout}><span>🚪</span><span>Keluar</span><span className="profile-menu-arrow">→</span></button>
             </div>

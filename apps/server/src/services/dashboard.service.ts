@@ -80,6 +80,7 @@ export async function getNeedsFollowup(userId: string, role: string) {
     }
     conditions.push(ne(lead.progress, "closed"));
     conditions.push(ne(lead.progress, "rejected"));
+    conditions.push(ne(lead.progress, "no-action"));
 
     const leads = await db
         .select({

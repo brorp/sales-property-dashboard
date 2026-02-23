@@ -1,8 +1,9 @@
+'use client';
+
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
 import { USERS } from '../data/mockData';
 import Header from '../components/Header';
-import './TeamPage.css';
 
 export default function TeamPage() {
     const { isAdmin } = useAuth();

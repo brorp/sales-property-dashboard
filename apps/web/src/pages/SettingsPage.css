@@ -1,0 +1,70 @@
+.settings-card {
+    margin-bottom: 12px;
+}
+
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.settings-meta {
+    color: var(--text-secondary);
+    margin: 4px 0;
+    font-size: 13px;
+    word-break: break-word;
+}
+
+.settings-error {
+    margin-top: 8px;
+    color: var(--danger);
+    font-size: 13px;
+}
+
+.settings-help {
+    margin-top: 10px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.settings-qr-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.settings-qr-image {
+    width: 280px;
+    max-width: 100%;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: #fff;
+    padding: 10px;
+}
+
+.settings-pairing-wrap {
+    text-align: center;
+}
+
+.settings-pairing-code {
+    margin-top: 8px;
+    display: inline-block;
+    font-size: 28px;
+    letter-spacing: 3px;
+    font-weight: 700;
+    color: var(--text-primary);
+    padding: 10px 14px;
+    border: 1px dashed var(--border-color);
+    border-radius: 12px;
+    background: #fff;
+}
+
+.settings-actions {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}

@@ -6,6 +6,11 @@
 2. `apps/server` - Express + Drizzle + Better Auth backend.
 3. `packages/shared` - shared types/constants.
 
+## Deploy Folders
+
+1. `/Users/ryanpratama/Desktop/sales-property-dashboard/deploy/web` - panduan deploy frontend (Vercel).
+2. `/Users/ryanpratama/Desktop/sales-property-dashboard/deploy/server` - panduan deploy backend (runtime persisten).
+
 ## Quick Start
 
 ```bash
@@ -32,7 +37,8 @@ Untuk versi demo saat ini (data mock/localStorage), **tidak ada env variable waj
 
 Opsional untuk persiapan integrasi backend:
 
-1. `VITE_API_BASE_URL` contoh `https://your-backend-domain.com`
+1. `NEXT_PUBLIC_API_BASE_URL` contoh `https://your-backend-domain.com`
+2. `NEXT_PUBLIC_ADMIN_WHATSAPP_TOKEN` (jika backend set `ADMIN_WHATSAPP_TOKEN`)
 
 ### Langkah Deploy
 
@@ -41,7 +47,7 @@ Opsional untuk persiapan integrasi backend:
 3. Build settings:
    - Install Command: `pnpm install --frozen-lockfile`
    - Build Command: `pnpm build`
-   - Output Directory: `dist`
+   - Output Directory: (kosongkan/default Next.js)
 4. Klik Deploy.
 5. Setelah live, login demo:
    - admin: `admin@propertylounge.id` / `admin123`

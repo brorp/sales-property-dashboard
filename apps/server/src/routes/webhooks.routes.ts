@@ -6,6 +6,58 @@ import { processExpiredAttempts } from "../services/distribution.service";
 
 const router: ReturnType<typeof Router> = Router();
 
+function parseCloudApiPayload(payload: any) {
+    const events: Array<{
+        fromWa: string;
+        toWa?: string;
+        body: string;
+        providerMessageId?: string;
+        clientName?: string;
+    }> = [];
+
+    const entries = Array.isArray(payload?.entry) ? payload.entry : [];
+    for (const entry of entries) {
+        const changes = Array.isArray(entry?.changes) ? entry.changes : [];
+        for (const change of changes) {
+            if (change?.field !== "messages") {
+                continue;
+            }
+
+            const value = change?.value || {};
+            const toWa =
+                value?.metadata?.display_phone_number ||
+                value?.metadata?.phone_number_id;
+            const contacts = Array.isArray(value?.contacts) ? value.contacts : [];
+            const messages = Array.isArray(value?.messages) ? value.messages : [];
+
+            for (const message of messages) {
+                const fromWa = message?.from;
+                if (!fromWa) continue;
+
+                const textBody =
+                    message?.text?.body ||
+                    message?.button?.text ||
+                    message?.interactive?.button_reply?.title ||
+                    message?.interactive?.list_reply?.title ||
+                    "";
+
+                if (!textBody) continue;
+
+                const contact = contacts.find((c: any) => c?.wa_id === fromWa);
+                events.push({
+                    fromWa,
+                    toWa,
+                    body: textBody,
+                    providerMessageId: message?.id,
+                    clientName: contact?.profile?.name,
+                });
+            }
+        }
+    }
+
+    return events;
+}
+
 router.get("/whatsapp", (req, res: Response) => {
     const mode = req.query["hub.mode"];
     const token = req.query["hub.verify_token"];
@@ -44,6 +96,17 @@ router.post("/meta/leads", async (req, res: Response) => {
 
 router.post("/whatsapp/messages", async (req, res: Response) => {
     try {
+        const cloudEvents = parseCloudApiPayload(req.body);
+        if (cloudEvents.length > 0) {
+            const results = [];
+            for (const event of cloudEvents) {
+                const result = await ingestIncomingMessage(event);
+                results.push(result);
+            }
+            res.json({ received: true, count: results.length, results });
+            return;
+        }
+
         const { fromWa, toWa, body, providerMessageId, sourceAds, clientName, metaLeadId } =
             req.body ?? {};
         if (!fromWa || !body) {

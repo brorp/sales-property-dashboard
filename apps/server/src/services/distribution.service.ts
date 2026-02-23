@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, lte } from "drizzle-orm";
+import { and, asc, desc, eq, gt, lte, ne } from "drizzle-orm";
 import { db } from "../db";
 import {
     activity,
@@ -10,6 +10,7 @@ import {
     waMessage,
 } from "../db/schema";
 import { generateId } from "../utils/id";
+import { sendWhatsAppText } from "./whatsapp-provider.service";
 
 const ACK_TIMEOUT_MS = 5 * 60 * 1000;
 const PROPERTY_LOUNGE_WA = process.env.PROPERTY_LOUNGE_WA || "+620000000000";
@@ -21,6 +22,14 @@ interface QueueEntry {
     queueOrder: number;
     salesName: string;
     salesPhone: string | null;
+}
+
+function toWaMeLink(phone: string | null | undefined) {
+    if (!phone) {
+        return "-";
+    }
+    const digits = phone.replace(/[^\d]/g, "");
+    return digits ? `https://wa.me/${digits}` : "-";
 }
 
 async function getNextQueueEntry(
@@ -71,6 +80,18 @@ async function assignNextQueue(
     leadId: string,
     currentQueueOrder: number
 ) {
+    const [cycle] = await executor
+        .select({
+            status: distributionCycle.status,
+        })
+        .from(distributionCycle)
+        .where(eq(distributionCycle.id, cycleId))
+        .limit(1);
+
+    if (!cycle || cycle.status !== "active") {
+        return null;
+    }
+
     const next = await getNextQueueEntry(executor, currentQueueOrder);
     const now = new Date();
 
@@ -88,6 +109,8 @@ async function assignNextQueue(
             .update(lead)
             .set({
                 assignedTo: null,
+                progress: "no-action",
+                clientStatus: "lost",
                 updatedAt: now,
             })
             .where(eq(lead.id, leadId));
@@ -95,8 +118,8 @@ async function assignNextQueue(
         await logDistributionActivity(
             executor,
             leadId,
-            "pending",
-            "Distribusi berhenti: semua antrian sales sudah timeout."
+            "no-action",
+            "Distribusi berhenti: semua antrian sales sudah timeout. Lead dinyatakan hangus (no-action)."
         );
 
         return null;
@@ -134,11 +157,41 @@ async function assignNextQueue(
         })
         .where(eq(lead.id, leadId));
 
+    const [leadInfo] = await executor
+        .select({
+            name: lead.name,
+            phone: lead.phone,
+        })
+        .from(lead)
+        .where(eq(lead.id, leadId))
+        .limit(1);
+
+    const messageBody =
+        `Lead baru:\n` +
+        `Nama: ${leadInfo?.name || "-"}\n` +
+        `WA: ${leadInfo?.phone || "-"}\n` +
+        `Chat: ${toWaMeLink(leadInfo?.phone)}\n` +
+        `Balas "OK" <= 5 menit untuk claim.`;
+
+    const outboundResult = next.salesPhone
+        ? await sendWhatsAppText(next.salesPhone, messageBody)
+        : {
+              sent: false,
+              provider: (process.env.WA_PROVIDER || "dummy") as
+                  | "dummy"
+                  | "cloud_api"
+                  | "qr_local",
+              error: "Sales phone is empty",
+          };
+
     await executor.insert(waMessage).values({
         id: generateId(),
+        providerMessageId: outboundResult.providerMessageId || null,
         fromWa: PROPERTY_LOUNGE_WA,
         toWa: next.salesPhone || `sales:${next.salesId}`,
-        body: `Lead baru dialokasikan. Balas OK dalam 5 menit untuk claim lead ${leadId}.`,
+        body: outboundResult.sent
+            ? messageBody
+            : `${messageBody}\n\n[send_error] ${outboundResult.error || "unknown"}`,
         direction: "outbound_to_sales",
         leadId,
         salesId: next.salesId,
@@ -167,20 +220,16 @@ async function getLatestCycleByLead(leadId: string) {
 }
 
 export async function ensureActiveCycle(leadId: string) {
-    const [active] = await db
-        .select()
-        .from(distributionCycle)
-        .where(
-            and(
-                eq(distributionCycle.leadId, leadId),
-                eq(distributionCycle.status, "active")
-            )
-        )
-        .orderBy(desc(distributionCycle.startedAt))
-        .limit(1);
+    const latestCycle = await getLatestCycleByLead(leadId);
 
-    if (active) {
-        return active;
+    if (latestCycle) {
+        if (
+            latestCycle.status === "active" ||
+            latestCycle.status === "accepted" ||
+            latestCycle.status === "exhausted"
+        ) {
+            return latestCycle;
+        }
     }
 
     const now = new Date();
@@ -227,6 +276,40 @@ export async function handleSalesAck(
         .limit(1);
 
     if (!waitingAttempt) {
+        const [latestAttempt] = await db
+            .select({
+                status: distributionAttempt.status,
+                closeReason: distributionAttempt.closeReason,
+                ackDeadline: distributionAttempt.ackDeadline,
+            })
+            .from(distributionAttempt)
+            .where(
+                and(
+                    eq(distributionAttempt.leadId, leadId),
+                    eq(distributionAttempt.salesId, salesId)
+                )
+            )
+            .orderBy(desc(distributionAttempt.assignedAt))
+            .limit(1);
+
+        if (
+            latestAttempt?.status === "timeout" &&
+            latestAttempt.closeReason === "ack_timeout_5m"
+        ) {
+            return {
+                accepted: false,
+                reason: "late_timeout" as const,
+                ackDeadline: latestAttempt.ackDeadline,
+            };
+        }
+
+        if (latestAttempt?.status === "accepted") {
+            return {
+                accepted: false,
+                reason: "already_accepted" as const,
+            };
+        }
+
         return { accepted: false, reason: "no_waiting_attempt" as const };
     }
 
@@ -265,6 +348,21 @@ export async function handleSalesAck(
             })
             .where(eq(lead.id, leadId));
 
+        await tx
+            .update(distributionAttempt)
+            .set({
+                status: "closed",
+                closedAt: now,
+                closeReason: "accepted_by_other",
+            })
+            .where(
+                and(
+                    eq(distributionAttempt.leadId, leadId),
+                    eq(distributionAttempt.status, "waiting_ok"),
+                    ne(distributionAttempt.id, waitingAttempt.id)
+                )
+            );
+
         await logDistributionActivity(
             tx as unknown as DbExecutor,
             leadId,
@@ -290,6 +388,26 @@ async function timeoutAttemptAndRoll(attemptId: string) {
             .limit(1);
 
         if (!attempt) {
+            return;
+        }
+
+        const [cycle] = await tx
+            .select({
+                status: distributionCycle.status,
+            })
+            .from(distributionCycle)
+            .where(eq(distributionCycle.id, attempt.cycleId))
+            .limit(1);
+
+        if (!cycle || cycle.status !== "active") {
+            await tx
+                .update(distributionAttempt)
+                .set({
+                    status: "closed",
+                    closedAt: new Date(),
+                    closeReason: "cycle_closed",
+                })
+                .where(eq(distributionAttempt.id, attempt.id));
             return;
         }
 

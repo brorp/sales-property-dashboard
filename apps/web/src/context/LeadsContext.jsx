@@ -1,3 +1,5 @@
+'use client';
+
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { INITIAL_LEADS, USERS } from '../data/mockData';
 

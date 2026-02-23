@@ -1,12 +1,13 @@
-import { useNavigate } from 'react-router-dom';
-import './Header.css';
+'use client';
+
+import { useRouter } from 'next/navigation';
 
 export default function Header({ title, showBack = false, rightAction = null }) {
-    const navigate = useNavigate();
+    const router = useRouter();
     return (
         <header className="app-header">
             <div className="app-header-left">
-                {showBack && <button className="back-btn" onClick={() => navigate(-1)}>←</button>}
+                {showBack && <button className="back-btn" onClick={() => router.back()}>←</button>}
                 <h1 className="app-header-title">{title}</h1>
             </div>
             {rightAction && <div className="app-header-right">{rightAction}</div>}

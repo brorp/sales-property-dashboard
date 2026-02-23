@@ -3,12 +3,16 @@ node_modules/
 
 # Build
 dist/
+.next/
+.vercel/
 *.tsbuildinfo
 
 # Environment
 .env
 .env.local
 .env.*.local
+.wa-qr-auth/
+apps/server/.wa-qr-auth/
 
 # IDE
 .vscode/
