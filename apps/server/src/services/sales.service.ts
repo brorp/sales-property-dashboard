@@ -2,6 +2,8 @@ import { asc, eq } from "drizzle-orm";
 import { db } from "../db";
 import { salesQueue, user } from "../db/schema";
 import { generateId } from "../utils/id";
+import { normalizePhone } from "../utils/phone";
+import { auth } from "../auth";
 
 export async function getSalesUsers() {
     return db
@@ -61,4 +63,91 @@ export async function upsertSalesQueue(
         .returning();
 
     return updated;
+}
+
+export async function createSalesUser(data: {
+    name: string;
+    email: string;
+    password: string;
+    phone?: string | null;
+    queueOrder?: number | null;
+    queueLabel?: string | null;
+}) {
+    const normalizedEmail = data.email.trim().toLowerCase();
+    const now = new Date();
+
+    const [existing] = await db
+        .select({ id: user.id })
+        .from(user)
+        .where(eq(user.email, normalizedEmail))
+        .limit(1);
+
+    if (existing) {
+        throw new Error("EMAIL_ALREADY_EXISTS");
+    }
+
+    let createdUserId: string | null = null;
+    try {
+        const result = await auth.api.signUpEmail({
+            body: {
+                name: data.name.trim(),
+                email: normalizedEmail,
+                password: data.password,
+                role: "sales",
+            },
+        });
+        createdUserId = result.user.id;
+    } catch {
+        // Fallback payload if additional field is rejected by auth provider.
+        const result = await auth.api.signUpEmail({
+            body: {
+                name: data.name.trim(),
+                email: normalizedEmail,
+                password: data.password,
+            },
+        });
+        createdUserId = result.user.id;
+    }
+
+    if (!createdUserId) {
+        throw new Error("FAILED_TO_CREATE_USER");
+    }
+
+    await db
+        .update(user)
+        .set({
+            role: "sales",
+            phone: data.phone ? normalizePhone(data.phone) : null,
+            isActive: true,
+            updatedAt: now,
+        })
+        .where(eq(user.id, createdUserId));
+
+    let queue = null;
+    if (typeof data.queueOrder === "number" && data.queueOrder > 0) {
+        queue = await upsertSalesQueue(
+            createdUserId,
+            data.queueOrder,
+            data.queueLabel?.trim() || `Q${data.queueOrder}`
+        );
+    }
+
+    const [created] = await db
+        .select({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            isActive: user.isActive,
+        })
+        .from(user)
+        .where(eq(user.id, createdUserId))
+        .limit(1);
+
+    return {
+        ...created,
+        queueOrder: queue?.queueOrder || null,
+        queueLabel: queue?.label || null,
+    };
 }

@@ -4,7 +4,9 @@
     "version": "1.0.0",
     "type": "module",
     "scripts": {
-        "dev": "tsx watch --ignore ../../node_modules --ignore ./node_modules src/index.ts",
+        "dev": "pnpm run dev:prepare && pnpm run dev:raw",
+        "dev:raw": "tsx watch --ignore ../../node_modules --ignore ./node_modules src/index.ts",
+        "dev:prepare": "pnpm run db:push && (pnpm run db:seed || echo '[dev:prepare] seed failed, continuing with existing data')",
         "build": "tsc",
         "start": "node dist/index.js",
         "pm2:start": "pm2 start ecosystem.config.cjs",

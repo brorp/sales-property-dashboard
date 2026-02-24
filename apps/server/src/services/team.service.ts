@@ -34,7 +34,11 @@ export async function getTeamWithStats() {
             total += row.count;
             if (row.progress === "closed") closed += row.count;
             if (row.clientStatus === "hot") hot += row.count;
-            if (row.progress === "pending" || row.progress === "new")
+            if (
+                row.progress === "pending" ||
+                row.progress === "new" ||
+                row.progress === "prospecting"
+            )
                 pending += row.count;
         }
 

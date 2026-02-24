@@ -1,21 +1,63 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
-import { getSalesName, getTimeAgo, formatDate, PROGRESS_STEPS, CLIENT_STATUSES } from '../data/mockData';
+import {
+    getRejectedReasonLabel,
+    getTimeAgo,
+    formatDate,
+    PROGRESS_STEPS,
+    CLIENT_STATUSES,
+    LAYER2_STATUSES,
+    REJECTED_REASON_OPTIONS,
+} from '../constants/crm';
 import Header from '../components/Header';
 
 export default function LeadDetailPage({ leadId }) {
     const { user, isAdmin } = useAuth();
-    const { getLeadById, updateLead, addAppointment, getSalesUsers } = useLeads();
+    const { getLeadById, loadLeadById, updateLead, addAppointment, getSalesUsers } = useLeads();
     const [showAppt, setShowAppt] = useState(false);
     const [showNote, setShowNote] = useState(false);
     const [note, setNote] = useState('');
     const [appt, setAppt] = useState({ date: '', time: '', location: '', notes: '' });
     const [showReassign, setShowReassign] = useState(false);
+    const [showRejectedLayer2Modal, setShowRejectedLayer2Modal] = useState(false);
+    const [rejectedLayer2Form, setRejectedLayer2Form] = useState({
+        reason: 'harga',
+        note: '',
+    });
+    const [requestError, setRequestError] = useState('');
 
     const lead = getLeadById(leadId);
+    const salesUsers = getSalesUsers();
+    const getSalesNameById = (salesId) => salesUsers.find((item) => item.id === salesId)?.name || 'Unassigned';
+
+    useEffect(() => {
+        if (!leadId) return;
+        void loadLeadById(leadId);
+    }, [leadId, loadLeadById]);
+
+    const runLeadUpdate = async (payload) => {
+        try {
+            setRequestError('');
+            await updateLead(lead.id, payload);
+        } catch (err) {
+            setRequestError(err instanceof Error ? err.message : 'Failed updating lead');
+        }
+    };
+
+    const runAddAppointment = async (payload) => {
+        try {
+            setRequestError('');
+            await addAppointment(lead.id, payload);
+            setAppt({ date: '', time: '', location: '', notes: '' });
+            setShowAppt(false);
+        } catch (err) {
+            setRequestError(err instanceof Error ? err.message : 'Failed adding appointment');
+        }
+    };
+
     if (!lead) return (
         <div className="page-container">
             <Header title="Detail Lead" showBack />
@@ -25,11 +67,52 @@ export default function LeadDetailPage({ leadId }) {
 
     const progressIndex = PROGRESS_STEPS.findIndex(s => s.key === lead.progress);
     const isRejected = lead.progress === 'rejected';
-    const salesUsers = getSalesUsers();
     const waLink = `https://wa.me/${lead.phone.replace(/^0/, '62').replace(/[^0-9]/g, '')}`;
 
-    const handleAddNote = (e) => { e.preventDefault(); if (!note.trim()) return; updateLead(lead.id, { activityNote: note }); setNote(''); setShowNote(false); };
-    const handleAddAppt = (e) => { e.preventDefault(); if (!appt.date || !appt.time || !appt.location) return; addAppointment(lead.id, appt); setAppt({ date: '', time: '', location: '', notes: '' }); setShowAppt(false); };
+    useEffect(() => {
+        setRejectedLayer2Form({
+            reason: lead.rejectedReason || 'harga',
+            note: lead.rejectedNote || '',
+        });
+    }, [lead.rejectedReason, lead.rejectedNote, lead.id]);
+
+    const handleAddNote = async (e) => {
+        e.preventDefault();
+        if (!note.trim()) return;
+        await runLeadUpdate({ activityNote: note });
+        setNote('');
+        setShowNote(false);
+    };
+    const handleAddAppt = async (e) => {
+        e.preventDefault();
+        if (!appt.date || !appt.time || !appt.location) return;
+        await runAddAppointment(appt);
+    };
+    const handleLayer2Status = (key) => {
+        if (key === 'rejected') {
+            setShowRejectedLayer2Modal(true);
+            return;
+        }
+
+        void runLeadUpdate({
+            layer2Status: key,
+            rejectedReason: null,
+            rejectedNote: null,
+            activityNote: `Layer 2 status diubah ke ${key}`,
+        });
+    };
+    const handleSaveRejectedLayer2 = (e) => {
+        e.preventDefault();
+        if (!rejectedLayer2Form.reason) return;
+        void runLeadUpdate({
+            layer2Status: 'rejected',
+            progress: 'rejected',
+            rejectedReason: rejectedLayer2Form.reason,
+            rejectedNote: rejectedLayer2Form.note || null,
+            activityNote: `Layer 2 rejected: ${getRejectedReasonLabel(rejectedLayer2Form.reason)}${rejectedLayer2Form.note ? ` (${rejectedLayer2Form.note})` : ''}`,
+        });
+        setShowRejectedLayer2Modal(false);
+    };
 
     const actIcons = {
         new: { icon: '📥', bg: 'var(--primary-glow)' }, 'follow-up': { icon: '📞', bg: 'var(--warm-bg)' },
@@ -47,12 +130,14 @@ export default function LeadDetailPage({ leadId }) {
                 <div className="detail-info-row"><span>📱</span><span>{lead.phone}</span></div>
                 <div className="detail-info-row"><span>📅</span><span>Masuk: {formatDate(lead.createdAt)}</span></div>
                 <div className="detail-info-row"><span>📣</span><span>{lead.source}</span></div>
+                <div className="detail-info-row"><span>🧭</span><span>Layer 2: {(LAYER2_STATUSES.find(s => s.key === lead.layer2Status)?.label) || '-'}</span></div>
                 <div className="detail-info-row">
                     <span>👨‍💼</span>
-                    <span>Sales: {getSalesName(lead.assignedTo)}
+                    <span>Sales: {getSalesNameById(lead.assignedTo)}
                         {isAdmin && <button className="detail-reassign-btn" onClick={() => setShowReassign(true)}>✏️ Ubah</button>}
                     </span>
                 </div>
+                {requestError ? <div className="settings-error">{requestError}</div> : null}
                 <a href={waLink} target="_blank" rel="noopener noreferrer" className="btn btn-whatsapp btn-full" style={{ marginTop: 12 }}>💬 Chat WhatsApp</a>
             </div>
 
@@ -61,11 +146,33 @@ export default function LeadDetailPage({ leadId }) {
                 <div className="detail-status-grid">
                     {CLIENT_STATUSES.map(s => (
                         <button key={s.key} className={`detail-status-btn ${lead.clientStatus === s.key ? 'active' : ''}`} data-status={s.key}
-                            onClick={() => updateLead(lead.id, { clientStatus: s.key })}>
+                            onClick={() => void runLeadUpdate({ clientStatus: s.key })}>
                             <span>{s.icon}</span><span>{s.label}</span>
                         </button>
                     ))}
                 </div>
+            </div>
+
+            <div className="detail-section">
+                <h3 className="section-title">Status Layer 2</h3>
+                <div className="detail-status-grid">
+                    {LAYER2_STATUSES.map(s => (
+                        <button
+                            key={s.key}
+                            className={`detail-status-btn ${lead.layer2Status === s.key ? 'active' : ''}`}
+                            data-layer2={s.key}
+                            onClick={() => handleLayer2Status(s.key)}
+                        >
+                            <span>{s.icon}</span><span>{s.label}</span>
+                        </button>
+                    ))}
+                </div>
+                {lead.layer2Status === 'rejected' ? (
+                    <div className="detail-rejected-summary">
+                        <div>Alasan: <strong>{getRejectedReasonLabel(lead.rejectedReason)}</strong></div>
+                        {lead.rejectedNote ? <div>Catatan: {lead.rejectedNote}</div> : null}
+                    </div>
+                ) : null}
             </div>
 
             <div className="detail-section">
@@ -80,7 +187,7 @@ export default function LeadDetailPage({ leadId }) {
                                 <button className={`progress-step ${isCompleted ? 'completed' : ''} ${isCurrent ? 'active' : ''}`}
                                     onClick={() => {
                                         if (step.key === 'appointment') { setShowAppt(true); return; }
-                                        updateLead(lead.id, { progress: step.key });
+                                        void runLeadUpdate({ progress: step.key });
                                     }}>
                                     <span className="step-dot">{isCompleted ? '✓' : step.icon}</span>
                                     <span className="step-label">{step.label}</span>
@@ -90,7 +197,7 @@ export default function LeadDetailPage({ leadId }) {
                     })}
                 </div>
                 {!isRejected && lead.progress !== 'closed' && (
-                    <button className="btn btn-sm btn-danger" style={{ marginTop: 12 }} onClick={() => updateLead(lead.id, { progress: 'rejected' })}>❌ Tandai Rejected</button>
+                    <button className="btn btn-sm btn-danger" style={{ marginTop: 12 }} onClick={() => void runLeadUpdate({ progress: 'rejected' })}>❌ Tandai Rejected</button>
                 )}
                 {isRejected && <div className="detail-rejected-banner">❌ Lead ini ditandai sebagai Rejected</div>}
             </div>
@@ -175,12 +282,49 @@ export default function LeadDetailPage({ leadId }) {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {salesUsers.map(s => (
                                 <button key={s.id} className={`btn ${s.id === lead.assignedTo ? 'btn-primary' : 'btn-secondary'} btn-full`}
-                                    onClick={() => { updateLead(lead.id, { assignedTo: s.id }); setShowReassign(false); }}>
+                                    onClick={() => { void runLeadUpdate({ assignedTo: s.id }); setShowReassign(false); }}>
                                     {s.name} {s.id === lead.assignedTo && '✓'}
                                 </button>
                             ))}
                             <button className="btn btn-secondary btn-full" onClick={() => setShowReassign(false)} style={{ marginTop: 8 }}>Batal</button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {showRejectedLayer2Modal && (
+                <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowRejectedLayer2Modal(false); }}>
+                    <div className="bottom-sheet">
+                        <div className="sheet-handle" />
+                        <h2>❌ Set Rejected (Layer 2)</h2>
+                        <form onSubmit={handleSaveRejectedLayer2} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div className="input-group">
+                                <label>Alasan Rejected</label>
+                                <select
+                                    className="input-field"
+                                    value={rejectedLayer2Form.reason}
+                                    onChange={(e) => setRejectedLayer2Form({ ...rejectedLayer2Form, reason: e.target.value })}
+                                    required
+                                >
+                                    {REJECTED_REASON_OPTIONS.map(item => (
+                                        <option key={item.key} value={item.key}>{item.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="input-group">
+                                <label>Catatan</label>
+                                <textarea
+                                    className="input-field"
+                                    rows={3}
+                                    placeholder="Detail alasan rejected..."
+                                    value={rejectedLayer2Form.note}
+                                    onChange={(e) => setRejectedLayer2Form({ ...rejectedLayer2Form, note: e.target.value })}
+                                    style={{ resize: 'vertical' }}
+                                />
+                            </div>
+                            <button type="submit" className="btn btn-danger btn-full">Simpan Rejected</button>
+                            <button type="button" className="btn btn-secondary btn-full" onClick={() => setShowRejectedLayer2Modal(false)}>Batal</button>
+                        </form>
                     </div>
                 </div>
             )}

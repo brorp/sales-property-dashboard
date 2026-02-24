@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
-import { getSalesName, getTimeAgo } from '../data/mockData';
+import { getTimeAgo, LAYER2_STATUSES } from '../constants/crm';
 import Header from '../components/Header';
 
 export default function LeadsPage() {
@@ -14,33 +14,52 @@ export default function LeadsPage() {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [progressFilter, setProgressFilter] = useState('all');
+    const [layer2Filter, setLayer2Filter] = useState('all');
     const [salesFilter, setSalesFilter] = useState('all');
     const [showAddModal, setShowAddModal] = useState(false);
     const [newLead, setNewLead] = useState({ name: '', phone: '', source: 'Meta Ads', assignedTo: '' });
+    const [submitLoading, setSubmitLoading] = useState(false);
+    const [submitError, setSubmitError] = useState('');
 
     const allLeads = getLeadsForUser(user.id, user.role);
     const salesUsers = getSalesUsers();
+    const getSalesNameById = (salesId) => salesUsers.find((item) => item.id === salesId)?.name || 'Unassigned';
 
     const filteredLeads = useMemo(() => {
         return allLeads.filter(l => {
             if (search) { const q = search.toLowerCase(); if (!l.name.toLowerCase().includes(q) && !l.phone.includes(q)) return false; }
             if (statusFilter !== 'all' && l.clientStatus !== statusFilter) return false;
             if (progressFilter !== 'all' && l.progress !== progressFilter) return false;
+            if (layer2Filter !== 'all' && l.layer2Status !== layer2Filter) return false;
             if (salesFilter !== 'all' && l.assignedTo !== salesFilter) return false;
             return true;
         }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    }, [allLeads, search, statusFilter, progressFilter, salesFilter]);
+    }, [allLeads, search, statusFilter, progressFilter, layer2Filter, salesFilter]);
 
     const statusIcon = { hot: '🔥', warm: '🌡️', cold: '🧊', lost: '❌', deal: '✅' };
     const statusClass = { hot: 'badge-hot', warm: 'badge-warm', cold: 'badge-cold', lost: 'badge-danger', deal: 'badge-success' };
-    const progressLabel = { new: '📥 Baru', 'follow-up': '📞 Follow-up', pending: '⏳ Pending', appointment: '📅 Appointment', rejected: '❌ Rejected', closed: '✅ Closed' };
+    const progressLabel = { pending: '⏳ Pending', prospecting: '🔎 Prospecting', 'follow-up': '📞 Follow-up', appointment: '📅 Appointment', rejected: '❌ Rejected', closed: '✅ Closed', 'no-action': '🗑️ No Action', new: '📥 New' };
+    const layer2Label = { prospecting: 'Prospecting', sudah_survey: 'Sudah Survey', mau_survey: 'Mau Survey', closing: 'Closing', rejected: 'Rejected' };
 
-    const handleAddLead = (e) => {
+    const handleAddLead = async (e) => {
         e.preventDefault();
         if (!newLead.name || !newLead.phone) return;
-        addLead({ name: newLead.name, phone: newLead.phone, source: newLead.source || 'Manual Input', assignedTo: newLead.assignedTo || user.id });
-        setNewLead({ name: '', phone: '', source: 'Meta Ads', assignedTo: '' });
-        setShowAddModal(false);
+        setSubmitLoading(true);
+        setSubmitError('');
+        try {
+            await addLead({
+                name: newLead.name,
+                phone: newLead.phone,
+                source: newLead.source || 'Manual Input',
+                assignedTo: newLead.assignedTo || user.id,
+            });
+            setNewLead({ name: '', phone: '', source: 'Meta Ads', assignedTo: '' });
+            setShowAddModal(false);
+        } catch (err) {
+            setSubmitError(err instanceof Error ? err.message : 'Failed adding lead');
+        } finally {
+            setSubmitLoading(false);
+        }
     };
 
     return (
@@ -58,8 +77,15 @@ export default function LeadsPage() {
             </div>
 
             <div className="filter-pills" style={{ marginBottom: 12 }}>
-                {[{ key: 'all', label: 'All Progress' }, { key: 'new', label: '📥 New' }, { key: 'follow-up', label: '📞 Follow-up' }, { key: 'pending', label: '⏳ Pending' }, { key: 'appointment', label: '📅 Appt' }, { key: 'closed', label: '✅ Closed' }, { key: 'rejected', label: '❌ Rejected' }].map(f => (
+                {[{ key: 'all', label: 'All Progress' }, { key: 'pending', label: '⏳ Pending' }, { key: 'prospecting', label: '🔎 Prospecting' }, { key: 'follow-up', label: '📞 Follow-up' }, { key: 'appointment', label: '📅 Appt' }, { key: 'closed', label: '✅ Closed' }, { key: 'rejected', label: '❌ Rejected' }].map(f => (
                     <button key={f.key} className={`filter-pill ${progressFilter === f.key ? 'active' : ''}`} onClick={() => setProgressFilter(f.key)}>{f.label}</button>
+                ))}
+            </div>
+
+            <div className="filter-pills" style={{ marginBottom: 12 }}>
+                <button className={`filter-pill ${layer2Filter === 'all' ? 'active' : ''}`} onClick={() => setLayer2Filter('all')}>Layer2: Semua</button>
+                {LAYER2_STATUSES.map(s => (
+                    <button key={s.key} className={`filter-pill ${layer2Filter === s.key ? 'active' : ''}`} onClick={() => setLayer2Filter(s.key)}>{s.icon} {s.label}</button>
                 ))}
             </div>
 
@@ -93,8 +119,9 @@ export default function LeadsPage() {
                         <div className="leads-card-details">
                             <span>📱 {lead.phone}</span>
                             <span>{progressLabel[lead.progress]}</span>
+                            <span>Layer2: {layer2Label[lead.layer2Status] || '-'}</span>
                         </div>
-                        {isAdmin && <div className="leads-card-sales">👨‍💼 {getSalesName(lead.assignedTo)}</div>}
+                        {isAdmin && <div className="leads-card-sales">👨‍💼 {getSalesNameById(lead.assignedTo)}</div>}
                     </div>
                 ))}
             </div>
@@ -128,7 +155,10 @@ export default function LeadsPage() {
                                     </select>
                                 </div>
                             )}
-                            <button type="submit" className="btn btn-primary btn-full">Tambah Lead</button>
+                            {submitError ? <div className="login-error">{submitError}</div> : null}
+                            <button type="submit" className="btn btn-primary btn-full" disabled={submitLoading}>
+                                {submitLoading ? 'Menyimpan...' : 'Tambah Lead'}
+                            </button>
                             <button type="button" className="btn btn-secondary btn-full" onClick={() => setShowAddModal(false)}>Batal</button>
                         </form>
                     </div>

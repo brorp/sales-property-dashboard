@@ -153,6 +153,7 @@ async function assignNextQueue(
         .update(lead)
         .set({
             assignedTo: next.salesId,
+            progress: "pending",
             updatedAt: now,
         })
         .where(eq(lead.id, leadId));
@@ -201,7 +202,7 @@ async function assignNextQueue(
     await logDistributionActivity(
         executor,
         leadId,
-        "follow-up",
+        "pending",
         `Lead didistribusikan ke ${next.salesName} (urutan ${next.queueOrder}), tunggu ACK OK hingga ${ackDeadline.toISOString()}.`
     );
 
@@ -343,7 +344,8 @@ export async function handleSalesAck(
             .update(lead)
             .set({
                 assignedTo: salesId,
-                progress: "follow-up",
+                progress: "prospecting",
+                layer2Status: "prospecting",
                 updatedAt: now,
             })
             .where(eq(lead.id, leadId));
@@ -366,7 +368,7 @@ export async function handleSalesAck(
         await logDistributionActivity(
             tx as unknown as DbExecutor,
             leadId,
-            "follow-up",
+            "prospecting",
             `Lead di-claim sales ${salesId} dengan balasan OK.`
         );
     });
@@ -469,4 +471,64 @@ export async function getLeadDistributionState(leadId: string) {
         : [];
 
     return { cycle, attempts };
+}
+
+export async function stopAllActiveDistributions() {
+    const now = new Date();
+    const activeCycles = await db
+        .select({
+            id: distributionCycle.id,
+            leadId: distributionCycle.leadId,
+            currentQueueOrder: distributionCycle.currentQueueOrder,
+        })
+        .from(distributionCycle)
+        .where(eq(distributionCycle.status, "active"))
+        .orderBy(desc(distributionCycle.startedAt))
+        .limit(500);
+
+    for (const cycle of activeCycles) {
+        await db.transaction(async (tx) => {
+            await tx
+                .update(distributionAttempt)
+                .set({
+                    status: "closed",
+                    closedAt: now,
+                    closeReason: "manual_stop_admin",
+                })
+                .where(
+                    and(
+                        eq(distributionAttempt.cycleId, cycle.id),
+                        eq(distributionAttempt.status, "waiting_ok")
+                    )
+                );
+
+            await tx
+                .update(distributionCycle)
+                .set({
+                    status: "stopped",
+                    finishedAt: now,
+                })
+                .where(eq(distributionCycle.id, cycle.id));
+
+            await tx
+                .update(lead)
+                .set({
+                    assignedTo: null,
+                    progress: "pending",
+                    updatedAt: now,
+                })
+                .where(eq(lead.id, cycle.leadId));
+
+            await logDistributionActivity(
+                tx as unknown as DbExecutor,
+                cycle.leadId,
+                "pending",
+                "Distribusi dihentikan manual oleh admin (emergency stop)."
+            );
+        });
+    }
+
+    return {
+        stoppedCycles: activeCycles.length,
+    };
 }

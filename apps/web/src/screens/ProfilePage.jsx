@@ -7,12 +7,12 @@ import Header from '../components/Header';
 
 export default function ProfilePage() {
     const { user, logout, isAdmin } = useAuth();
-    const { getStats, resetData } = useLeads();
+    const { getStats, refreshAll } = useLeads();
     const router = useRouter();
     const stats = getStats(user.id, user.role);
 
     const handleLogout = () => { logout(); router.replace('/login'); };
-    const handleReset = () => { if (window.confirm('Reset semua data leads ke default? Ini tidak bisa diurungkan.')) resetData(); };
+    const handleRefresh = async () => { await refreshAll(); };
     const goToSettings = () => { router.push('/settings'); };
 
     return (
@@ -37,7 +37,7 @@ export default function ProfilePage() {
                         <span>📱</span><span>WhatsApp Settings</span><span className="profile-menu-arrow">→</span>
                     </button>
                 ) : null}
-                <button className="profile-menu-item" onClick={handleReset}><span>🔄</span><span>Reset Data Demo</span><span className="profile-menu-arrow">→</span></button>
+                <button className="profile-menu-item" onClick={handleRefresh}><span>🔄</span><span>Refresh Data API</span><span className="profile-menu-arrow">→</span></button>
                 <button className="profile-menu-item profile-logout" onClick={handleLogout}><span>🚪</span><span>Keluar</span><span className="profile-menu-arrow">→</span></button>
             </div>
             <p className="profile-version">Property Lounge Dashboard v1.0</p>

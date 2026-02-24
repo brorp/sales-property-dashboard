@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import LeadDetailPage from '../../../src/pages/LeadDetailPage';
+import LeadDetailPage from '../../../src/screens/LeadDetailPage';
 import { ProtectedRoute } from '../../../src/components/RouteGuards';
 
 export default function LeadDetailRoute() {

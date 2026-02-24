@@ -181,11 +181,13 @@ async function seedSampleLeads(firstSalesId: string) {
             name: "Ahmad Fauzi",
             phone: normalizePhone("081234567890"),
             source: "Meta Ads - Residensial Q1",
+            layer2Status: "prospecting",
         },
         {
             name: "Siti Aminah",
             phone: normalizePhone("081322223333"),
             source: "Meta Ads - Promo Akhir Tahun",
+            layer2Status: "sudah_survey",
         },
     ];
 
@@ -201,7 +203,8 @@ async function seedSampleLeads(firstSalesId: string) {
             receivedAt: now,
             assignedTo: firstSalesId,
             clientStatus: "warm",
-            progress: "new",
+            layer2Status: item.layer2Status,
+            progress: "prospecting",
             createdAt: now,
             updatedAt: now,
         });

@@ -72,14 +72,76 @@ function phoneToJid(phone: string) {
 }
 
 function jidToPhone(jid: string | null | undefined) {
-    if (!jid || !jid.endsWith("@s.whatsapp.net")) {
+    if (!jid) {
         return null;
     }
-    const raw = jid.split("@")[0];
-    if (!raw || raw.includes(":")) {
+
+    const [rawPart, domain] = jid.split("@");
+    if (!rawPart || !domain) {
         return null;
     }
-    return normalizePhone(raw);
+
+    // Ignore groups/broadcasts for lead capture.
+    if (domain === "g.us" || domain === "broadcast") {
+        return null;
+    }
+
+    // Only trust direct user JID for phone extraction.
+    if (domain !== "s.whatsapp.net") {
+        return null;
+    }
+
+    // Multi-device IDs may contain device suffix, e.g. 62812xxxx:13@s.whatsapp.net
+    const raw = rawPart.split(":")[0];
+    const digits = raw.replace(/[^\d]/g, "");
+    if (!digits || digits.length < 8) {
+        return null;
+    }
+
+    return normalizePhone(digits);
+}
+
+function plainToPhone(value: unknown) {
+    if (typeof value !== "string") {
+        return null;
+    }
+    const digits = value.replace(/[^\d]/g, "");
+    if (digits.length < 10 || digits.length > 15) {
+        return null;
+    }
+    return normalizePhone(digits);
+}
+
+function uniq(values: Array<string | null | undefined>) {
+    return Array.from(new Set(values.filter(Boolean))) as string[];
+}
+
+function resolveSenderPhone(message: any) {
+    const jidCandidates = uniq([
+        jidToPhone(message?.key?.participant),
+        jidToPhone(message?.key?.remoteJid),
+        jidToPhone(message?.key?.remoteJidAlt),
+        jidToPhone(message?.participant),
+        jidToPhone(message?.message?.extendedTextMessage?.contextInfo?.participant),
+        jidToPhone(message?.message?.ephemeralMessage?.message?.extendedTextMessage?.contextInfo?.participant),
+        jidToPhone(message?.message?.viewOnceMessage?.message?.extendedTextMessage?.contextInfo?.participant),
+    ]);
+
+    const plainCandidates = uniq([
+        plainToPhone(message?.key?.participantPn),
+        plainToPhone(message?.key?.remoteJidPn),
+        plainToPhone(message?.key?.remoteJidAltPn),
+        plainToPhone(message?.participantPn),
+        plainToPhone(message?.senderPn),
+    ]);
+
+    const allCandidates = uniq([...plainCandidates, ...jidCandidates]);
+    if (allCandidates.length === 0) {
+        return null;
+    }
+
+    const idPreferred = allCandidates.find((candidate) => candidate.startsWith("+62"));
+    return idPreferred || allCandidates[0];
 }
 
 function extractTextMessage(message: any): string | null {
@@ -113,16 +175,32 @@ function qrToImageUrl(qr: string) {
 
 async function handleIncomingMessage(message: any) {
     if (!message?.key || message.key.fromMe) {
+        if (process.env.WA_QR_DEBUG === "true") {
+            console.log("[wa:qr][debug] skip message: fromMe or missing key");
+        }
         return;
     }
 
-    const fromWa = jidToPhone(message.key.remoteJid);
+    const fromWa = resolveSenderPhone(message);
     if (!fromWa) {
+        if (process.env.WA_QR_DEBUG === "true") {
+            console.log(
+                `[wa:qr][debug] skip message: unsupported jid remote=${String(
+                    message?.key?.remoteJid || ""
+                )} participant=${String(message?.key?.participant || "")}`
+            );
+        }
         return;
+    }
+    if (process.env.WA_QR_DEBUG === "true") {
+        console.log(`[wa:qr][debug] sender resolved=${fromWa}`);
     }
 
     const body = extractTextMessage(message.message);
     if (!body) {
+        if (process.env.WA_QR_DEBUG === "true") {
+            console.log("[wa:qr][debug] skip message: text body not found");
+        }
         return;
     }
 
@@ -133,11 +211,31 @@ async function handleIncomingMessage(message: any) {
         clientName: message.pushName || undefined,
     });
 
+    if (process.env.WA_QR_DEBUG === "true") {
+        console.log(`[wa:qr][debug] inbound processed: type=${result.type} from=${fromWa}`);
+    }
+
     if (result.type === "client_message" && result.firstClientMessage) {
-        await sendWhatsAppQrText(
-            fromWa,
-            "Harap menunggu agent professional akan menhubungi anda"
-        );
+        const inboundRemoteJid =
+            typeof message?.key?.remoteJid === "string" ? message.key.remoteJid : null;
+        const replyResult = inboundRemoteJid
+            ? await sendWhatsAppQrTextByJid(
+                  inboundRemoteJid,
+                  "Harap menunggu agent professional akan menhubungi anda"
+              )
+            : await sendWhatsAppQrText(
+                  fromWa,
+                  "Harap menunggu agent professional akan menhubungi anda"
+              );
+        if (!replyResult.sent) {
+            console.error(
+                `[wa:qr] auto-reply failed to ${fromWa}: ${replyResult.error || "unknown error"}`
+            );
+        } else if (process.env.WA_QR_DEBUG === "true") {
+            console.log(
+                `[wa:qr][debug] auto-reply sent to jid=${inboundRemoteJid || phoneToJid(fromWa)}`
+            );
+        }
     }
 }
 
@@ -167,8 +265,27 @@ export async function sendWhatsAppQrText(to: string, body: string) {
         };
     }
 
+    return sendWhatsAppQrTextByJid(phoneToJid(to), body);
+}
+
+async function sendWhatsAppQrTextByJid(jid: string, body: string) {
+    if (currentProvider() !== "qr_local") {
+        return {
+            sent: false,
+            provider: "qr_local" as const,
+            error: "WA_PROVIDER is not qr_local",
+        };
+    }
+
+    if (!socketRef) {
+        return {
+            sent: false,
+            provider: "qr_local" as const,
+            error: "QR WhatsApp socket is not connected yet",
+        };
+    }
+
     try {
-        const jid = phoneToJid(to);
         const response = await socketRef.sendMessage(jid, { text: body });
         return {
             sent: true,
@@ -260,8 +377,6 @@ export async function startWhatsAppQrBridge() {
         let DisconnectReason: any;
         let useMultiFileAuthState: any;
         let fetchLatestBaileysVersion: any;
-        let qrcodeTerminal: any;
-
         try {
             const baileys = await import("@whiskeysockets/baileys");
             makeWASocket = baileys.default;
@@ -269,7 +384,6 @@ export async function startWhatsAppQrBridge() {
             DisconnectReason = baileys.DisconnectReason;
             useMultiFileAuthState = baileys.useMultiFileAuthState;
             fetchLatestBaileysVersion = baileys.fetchLatestBaileysVersion;
-            qrcodeTerminal = (await import("qrcode-terminal")).default;
         } catch (importError) {
             const message =
                 "[wa:qr] missing dependencies. Run: pnpm --filter @property-lounge/server add @whiskeysockets/baileys qrcode-terminal";
@@ -313,11 +427,12 @@ export async function startWhatsAppQrBridge() {
 
         const pairingPhoneRaw = process.env.WA_PAIRING_PHONE || "";
         const pairingPhone = toDigitsOnly(pairingPhoneRaw);
+        const pairingMode = String(process.env.WA_USE_PAIRING_CODE || "").toLowerCase() === "true";
         let qrSeen = false;
         let connected = false;
         let pairingRequested = false;
 
-        if (pairingPhone) {
+        if (pairingMode && pairingPhone) {
             setTimeout(async () => {
                 if (generation !== sessionGeneration) {
                     return;
@@ -350,8 +465,11 @@ export async function startWhatsAppQrBridge() {
                             : "Failed requesting pairing code";
                     console.error("[wa:qr] failed requesting pairing code:", error);
                     updateRuntimeState({
-                        status: "error",
-                        lastError: message,
+                        // Pairing code fallback should not block QR mode.
+                        status: "awaiting_qr",
+                        pairingCode: null,
+                        pairingPhone: null,
+                        lastError: `Pairing code failed: ${message}. Continue with QR scan.`,
                     });
                 }
             }, 5000);
@@ -364,8 +482,7 @@ export async function startWhatsAppQrBridge() {
 
             if (update?.qr) {
                 qrSeen = true;
-                console.log("[wa:qr] scan this QR from WhatsApp linked devices menu:");
-                qrcodeTerminal.generate(update.qr, { small: true });
+                console.log("[wa:qr] QR updated. Open Admin Settings page to scan it.");
                 updateRuntimeState({
                     status: "awaiting_qr",
                     qr: update.qr,

@@ -73,4 +73,40 @@ router.get(
     }
 );
 
+router.get(
+    "/layer2-status-chart",
+    requireAdmin as any,
+    async (req, res: Response) => {
+        try {
+            const { user } = req as unknown as AuthenticatedRequest;
+            const chart = await dashboardService.getLayer2StatusChart(
+                user.id,
+                user.role
+            );
+            res.json(chart);
+        } catch (err) {
+            console.error("GET /dashboard/layer2-status-chart error:", err);
+            res.status(500).json({ error: "Internal server error" });
+        }
+    }
+);
+
+router.get(
+    "/rejected-reason-chart",
+    requireAdmin as any,
+    async (req, res: Response) => {
+        try {
+            const { user } = req as unknown as AuthenticatedRequest;
+            const chart = await dashboardService.getRejectedReasonChart(
+                user.id,
+                user.role
+            );
+            res.json(chart);
+        } catch (err) {
+            console.error("GET /dashboard/rejected-reason-chart error:", err);
+            res.status(500).json({ error: "Internal server error" });
+        }
+    }
+);
+
 export default router;

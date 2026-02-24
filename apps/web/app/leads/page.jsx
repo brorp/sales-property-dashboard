@@ -1,6 +1,6 @@
 'use client';
 
-import LeadsPage from '../../src/pages/LeadsPage';
+import LeadsPage from '../../src/screens/LeadsPage';
 import { ProtectedRoute } from '../../src/components/RouteGuards';
 
 export default function LeadsRoute() {

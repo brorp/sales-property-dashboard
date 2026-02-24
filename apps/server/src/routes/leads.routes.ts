@@ -119,6 +119,40 @@ router.patch("/:id/progress", async (req, res: Response) => {
     }
 });
 
+router.patch("/:id/layer2", async (req, res: Response) => {
+    try {
+        const { user } = req as unknown as AuthenticatedRequest;
+        const { layer2Status, rejectedReason, rejectedNote, note } = req.body ?? {};
+        if (!layer2Status) {
+            res.status(400).json({ error: "layer2Status is required" });
+            return;
+        }
+
+        if (layer2Status === "rejected" && !rejectedReason) {
+            res.status(400).json({ error: "rejectedReason is required for rejected status" });
+            return;
+        }
+
+        const updated = await leadsService.updateLeadLayer2({
+            leadId: req.params.id,
+            layer2Status,
+            rejectedReason,
+            rejectedNote,
+            changedBy: user.id,
+            note,
+        });
+
+        if (!updated) {
+            res.status(404).json({ error: "Lead not found" });
+            return;
+        }
+        res.json(updated);
+    } catch (error) {
+        console.error("PATCH /leads/:id/layer2 error:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
 router.post("/:id/assign", requireAdmin as any, async (req, res: Response) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
@@ -150,7 +184,15 @@ router.post("/:id/assign", requireAdmin as any, async (req, res: Response) => {
 router.patch("/:id", async (req, res: Response) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
-        const { clientStatus, progress, assignedTo, activityNote } = req.body ?? {};
+        const {
+            clientStatus,
+            progress,
+            assignedTo,
+            activityNote,
+            layer2Status,
+            rejectedReason,
+            rejectedNote,
+        } = req.body ?? {};
 
         let updatedLead = await leadsService.findById(req.params.id);
         if (!updatedLead) {
@@ -176,6 +218,17 @@ router.patch("/:id", async (req, res: Response) => {
             });
         }
 
+        if (layer2Status) {
+            await leadsService.updateLeadLayer2({
+                leadId: req.params.id,
+                layer2Status,
+                rejectedReason,
+                rejectedNote,
+                changedBy: user.id,
+                note: activityNote,
+            });
+        }
+
         if (assignedTo && user.role === "admin") {
             await leadsService.assignLead({
                 leadId: req.params.id,
@@ -185,7 +238,7 @@ router.patch("/:id", async (req, res: Response) => {
             });
         }
 
-        if (activityNote && !clientStatus && !progress && !assignedTo) {
+        if (activityNote && !clientStatus && !progress && !layer2Status && !assignedTo) {
             await leadsService.addActivity(req.params.id, { note: activityNote });
         }
 

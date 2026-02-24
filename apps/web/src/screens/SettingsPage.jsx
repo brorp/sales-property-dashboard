@@ -37,6 +37,10 @@ export default function SettingsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
+    const [statusLoading, setStatusLoading] = useState(false);
+    const [activeAction, setActiveAction] = useState('');
+    const [actionFeedback, setActionFeedback] = useState('');
+    const [actionFeedbackType, setActionFeedbackType] = useState('success');
 
     const request = useCallback(
         async (path, method = 'GET') => {
@@ -57,36 +61,79 @@ export default function SettingsPage() {
         [apiBase, adminToken]
     );
 
-    const loadStatus = useCallback(async () => {
+    const loadStatus = useCallback(async (options = { silent: false }) => {
+        if (!options.silent) {
+            setStatusLoading(true);
+            setActiveAction('status');
+        }
         try {
             const data = await request('/status');
             setState(data);
             setError('');
+            if (!options.silent) {
+                setActionFeedback(`Status checked: ${statusLabel(data?.status)}`);
+                setActionFeedbackType('success');
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed loading status');
+            if (!options.silent) {
+                setActionFeedback('Status check failed');
+                setActionFeedbackType('error');
+            }
         } finally {
+            if (!options.silent) {
+                setStatusLoading(false);
+                setActiveAction('');
+            }
             setLoading(false);
         }
     }, [request]);
 
     useEffect(() => {
-        void loadStatus();
-        const timer = setInterval(() => void loadStatus(), 3000);
-        return () => clearInterval(timer);
+        void loadStatus({ silent: true });
     }, [loadStatus]);
 
-    const runAction = async (path) => {
+    useEffect(() => {
+        if (!state?.status) {
+            return;
+        }
+
+        const shouldPoll =
+            state.status === 'starting' ||
+            state.status === 'awaiting_qr' ||
+            state.status === 'awaiting_pairing_code';
+
+        if (!shouldPoll) {
+            return;
+        }
+
+        const timer = setInterval(() => {
+            void loadStatus({ silent: true });
+        }, 2500);
+        return () => clearInterval(timer);
+    }, [state?.status, loadStatus]);
+
+    const runAction = async (path, actionName) => {
         setActionLoading(true);
+        setActiveAction(actionName);
+        setActionFeedback('');
         try {
             const data = await request(path, 'POST');
             setState(data);
             setError('');
+            setActionFeedback(`${actionName} success: ${statusLabel(data?.status)}`);
+            setActionFeedbackType('success');
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Action failed');
+            setActionFeedback(`${actionName} failed`);
+            setActionFeedbackType('error');
         } finally {
             setActionLoading(false);
+            setActiveAction('');
         }
     };
+
+    const isBusy = loading || actionLoading || statusLoading;
 
     return (
         <div className="page-container">
@@ -129,19 +176,31 @@ export default function SettingsPage() {
                 ) : null}
 
                 {!loading && !state?.qrImageUrl && !state?.pairingCode ? (
-                    <p className="settings-help">Belum ada QR aktif. Klik Start / Restart untuk generate session baru.</p>
+                    <p className="settings-help">Belum ada QR aktif. Klik Restart Session lalu tunggu QR muncul di sini.</p>
                 ) : null}
             </div>
 
             <div className="card settings-card">
                 <h3>Session Actions</h3>
                 <div className="settings-actions">
-                    <button className="btn btn-primary" disabled={actionLoading} onClick={() => void runAction('/start')}>Start</button>
-                    <button className="btn btn-secondary" disabled={actionLoading} onClick={() => void runAction('/restart')}>Restart</button>
-                    <button className="btn btn-secondary" disabled={actionLoading} onClick={() => void runAction('/stop')}>Stop</button>
-                    <button className="btn btn-danger" disabled={actionLoading} onClick={() => void runAction('/reset')}>Reset Session</button>
+                    <button className="btn btn-primary" disabled={isBusy} onClick={() => void loadStatus()}>
+                        {statusLoading && activeAction === 'status' ? 'Checking...' : 'Status Check'}
+                    </button>
+                    <button className="btn btn-secondary" disabled={isBusy} onClick={() => void runAction('/restart', 'restart')}>
+                        {actionLoading && activeAction === 'restart' ? 'Restarting...' : 'Restart Session'}
+                    </button>
+                    <button className="btn btn-danger" disabled={isBusy} onClick={() => void runAction('/stop', 'stop')}>
+                        {actionLoading && activeAction === 'stop' ? 'Stopping...' : 'Stop'}
+                    </button>
                 </div>
-                <p className="settings-help">Reset Session akan menghapus auth lama dan membuat sesi login WhatsApp baru.</p>
+                <p className="settings-help">
+                    Restart Session akan reset auth lama lalu memulai sesi baru.
+                </p>
+                {actionFeedback ? (
+                    <p className={actionFeedbackType === 'error' ? 'settings-error' : 'settings-success'}>
+                        {actionFeedback}
+                    </p>
+                ) : null}
             </div>
         </div>
     );

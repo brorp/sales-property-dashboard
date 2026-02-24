@@ -94,6 +94,31 @@
     background: var(--success-bg);
 }
 
+.detail-status-btn.active[data-layer2="sudah_survey"] {
+    border-color: var(--cold);
+    background: var(--cold-bg);
+}
+
+.detail-status-btn.active[data-layer2="prospecting"] {
+    border-color: var(--primary);
+    background: var(--primary-glow);
+}
+
+.detail-status-btn.active[data-layer2="mau_survey"] {
+    border-color: var(--warm);
+    background: var(--warm-bg);
+}
+
+.detail-status-btn.active[data-layer2="closing"] {
+    border-color: var(--success);
+    background: var(--success-bg);
+}
+
+.detail-status-btn.active[data-layer2="rejected"] {
+    border-color: var(--danger);
+    background: var(--danger-bg);
+}
+
 .detail-rejected-banner {
     margin-top: 12px;
     padding: 10px 14px;
@@ -103,6 +128,18 @@
     font-size: 0.875rem;
     font-weight: 600;
     text-align: center;
+}
+
+.detail-rejected-summary {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    background: rgba(168, 85, 247, 0.12);
+    color: var(--text-secondary);
+    font-size: 0.813rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .detail-appt-card {

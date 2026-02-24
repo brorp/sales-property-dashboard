@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, or } from "drizzle-orm";
 import { db } from "../db";
 import { activity, lead } from "../db/schema";
 import { generateId } from "../utils/id";
@@ -33,7 +33,7 @@ export async function ingestMetaLead(payload: MetaLeadPayload) {
         .where(
             and(
                 eq(lead.phone, normalizedPhone),
-                eq(lead.progress, "new")
+                or(eq(lead.progress, "new"), eq(lead.progress, "pending"))
             )
         )
         .orderBy(asc(lead.createdAt))
@@ -69,7 +69,8 @@ export async function ingestMetaLead(payload: MetaLeadPayload) {
             receivedAt: now,
             assignedTo: null,
             clientStatus: "warm",
-            progress: "new",
+            layer2Status: "prospecting",
+            progress: "pending",
             createdAt: now,
             updatedAt: now,
         })

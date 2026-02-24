@@ -1,7 +1,23 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect } from 'react';
-import { USERS } from '../data/mockData';
+
+const LOGIN_USERS = [
+    {
+        id: 'seed-admin',
+        name: 'Super Admin',
+        email: 'admin@propertylounge.id',
+        password: 'admin123',
+        role: 'admin',
+    },
+    {
+        id: 'seed-sales-a',
+        name: 'Sales A',
+        email: 'sales-a@propertylounge.id',
+        password: 'sales123',
+        role: 'sales',
+    },
+];
 
 const AuthContext = createContext(null);
 
@@ -18,7 +34,7 @@ export function AuthProvider({ children }) {
     }, []);
 
     const login = (email, password) => {
-        const found = USERS.find(u => u.email === email && u.password === password);
+        const found = LOGIN_USERS.find(u => u.email === email && u.password === password);
         if (!found) return { success: false, error: 'Email atau password salah' };
         const userData = { id: found.id, name: found.name, email: found.email, role: found.role };
         setUser(userData);

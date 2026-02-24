@@ -1,6 +1,6 @@
 'use client';
 
-import DashboardPage from '../src/pages/DashboardPage';
+import DashboardPage from '../src/screens/DashboardPage';
 import { ProtectedRoute } from '../src/components/RouteGuards';
 
 export default function HomePage() {

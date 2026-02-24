@@ -248,10 +248,13 @@ Format payload Cloud API akan diparsing otomatis oleh endpoint `POST /webhooks/w
 2. `GET /api/leads/:id`
 3. `PATCH /api/leads/:id/status`
 4. `PATCH /api/leads/:id/progress`
-5. `POST /api/leads/:id/assign` (admin)
-6. `GET /api/sales`
-7. `PATCH /api/sales/:id/queue` (admin)
-8. `GET /api/dashboard/stats`
+5. `PATCH /api/leads/:id/layer2` (status layer 2 + rejected reason/note)
+6. `POST /api/leads/:id/assign` (admin)
+7. `GET /api/sales`
+8. `PATCH /api/sales/:id/queue` (admin)
+9. `GET /api/dashboard/stats`
+10. `GET /api/dashboard/layer2-status-chart` (admin)
+11. `GET /api/dashboard/rejected-reason-chart` (admin)
 
 ### WhatsApp Admin API (token based)
 

@@ -89,3 +89,60 @@
 .see-all-btn {
     margin-top: 12px;
 }
+
+.chart-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.chart-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.chart-row-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.813rem;
+    color: var(--text-secondary);
+}
+
+.chart-track {
+    width: 100%;
+    height: 9px;
+    border-radius: 999px;
+    background: var(--bg-input);
+    overflow: hidden;
+}
+
+.chart-fill {
+    height: 100%;
+    border-radius: 999px;
+}
+
+.chart-fill-sudah_survey {
+    background: var(--cold);
+}
+
+.chart-fill-prospecting {
+    background: var(--primary);
+}
+
+.chart-fill-mau_survey {
+    background: var(--warm);
+}
+
+.chart-fill-closing {
+    background: var(--success);
+}
+
+.chart-fill-rejected {
+    background: var(--danger);
+}
+
+.chart-fill-reason {
+    background: var(--purple);
+}

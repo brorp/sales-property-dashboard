@@ -1,6 +1,11 @@
 import { Router } from "express";
 import type { Response } from "express";
-import { getLeadDistributionState, processExpiredAttempts } from "../services/distribution.service";
+import { requireAdmin } from "../middleware/rbac";
+import {
+    getLeadDistributionState,
+    processExpiredAttempts,
+    stopAllActiveDistributions,
+} from "../services/distribution.service";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -20,6 +25,16 @@ router.post("/run-timeouts", async (_req, res: Response) => {
         res.json({ processed });
     } catch (error) {
         console.error("POST /distribution/run-timeouts error:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+router.post("/stop-all", requireAdmin as any, async (_req, res: Response) => {
+    try {
+        const result = await stopAllActiveDistributions();
+        res.json(result);
+    } catch (error) {
+        console.error("POST /distribution/stop-all error:", error);
         res.status(500).json({ error: "Internal server error" });
     }
 });

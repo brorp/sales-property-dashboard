@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { lead, activity, appointment, user } from "../db/schema";
-import { eq, and, desc, sql, ne, lt } from "drizzle-orm";
+import { eq, and, desc, sql, ne, isNotNull } from "drizzle-orm";
 
 export async function getStats(userId: string, role: string) {
     const condition =
@@ -23,6 +23,7 @@ export async function getStats(userId: string, role: string) {
         cold: 0,
         closed: 0,
         pending: 0,
+        prospecting: 0,
         followUp: 0,
         appointment: 0,
         new: 0,
@@ -35,6 +36,7 @@ export async function getStats(userId: string, role: string) {
         if (row.clientStatus === "cold") stats.cold += row.count;
         if (row.progress === "closed") stats.closed += row.count;
         if (row.progress === "pending") stats.pending += row.count;
+        if (row.progress === "prospecting") stats.prospecting += row.count;
         if (row.progress === "follow-up") stats.followUp += row.count;
         if (row.progress === "appointment") stats.appointment += row.count;
         if (row.progress === "new") stats.new += row.count;
@@ -177,7 +179,11 @@ export async function getSalesPerformance() {
             total += row.count;
             if (row.progress === "closed") closed += row.count;
             if (row.clientStatus === "hot") hot += row.count;
-            if (row.progress === "pending" || row.progress === "new")
+            if (
+                row.progress === "pending" ||
+                row.progress === "new" ||
+                row.progress === "prospecting"
+            )
                 pending += row.count;
         }
 
@@ -192,4 +198,85 @@ export async function getSalesPerformance() {
     }
 
     return result.sort((a, b) => b.closed - a.closed);
+}
+
+const LAYER2_LABELS: Record<string, string> = {
+    prospecting: "Prospecting",
+    sudah_survey: "Sudah Survey",
+    mau_survey: "Mau Survey",
+    closing: "Closing",
+    rejected: "Rejected",
+};
+
+const REJECTED_REASON_LABELS: Record<string, string> = {
+    harga: "Harga",
+    lokasi: "Lokasi",
+    kompetitor: "Pilih Kompetitor",
+    belum_siap: "Belum Siap Beli",
+    tidak_responsif: "Tidak Responsif",
+    tidak_cocok: "Produk Tidak Cocok",
+    lainnya: "Lainnya",
+};
+
+export async function getLayer2StatusChart(userId: string, role: string) {
+    const condition = role === "admin" ? undefined : eq(lead.assignedTo, userId);
+
+    const rows = await db
+        .select({
+            key: lead.layer2Status,
+            count: sql<number>`count(*)::int`,
+        })
+        .from(lead)
+        .where(condition)
+        .groupBy(lead.layer2Status);
+
+    const total = rows.reduce((acc, row) => acc + row.count, 0);
+    const keys = ["prospecting", "sudah_survey", "mau_survey", "closing", "rejected"];
+    const countByKey = new Map(rows.map((row) => [row.key, row.count]));
+
+    return {
+        total,
+        items: keys.map((key) => {
+            const count = countByKey.get(key) || 0;
+            return {
+                key,
+                label: LAYER2_LABELS[key] || key,
+                count,
+                percentage: total > 0 ? Math.round((count / total) * 10000) / 100 : 0,
+            };
+        }),
+    };
+}
+
+export async function getRejectedReasonChart(userId: string, role: string) {
+    const conditions = [eq(lead.layer2Status, "rejected"), isNotNull(lead.rejectedReason)];
+    if (role !== "admin") {
+        conditions.push(eq(lead.assignedTo, userId));
+    }
+
+    const rows = await db
+        .select({
+            key: lead.rejectedReason,
+            count: sql<number>`count(*)::int`,
+        })
+        .from(lead)
+        .where(and(...conditions))
+        .groupBy(lead.rejectedReason);
+
+    const total = rows.reduce((acc, row) => acc + row.count, 0);
+
+    return {
+        total,
+        items: rows
+            .map((row) => {
+                const key = row.key || "lainnya";
+                return {
+                    key,
+                    label: REJECTED_REASON_LABELS[key] || key,
+                    count: row.count,
+                    percentage: total > 0 ? Math.round((row.count / total) * 10000) / 100 : 0,
+                };
+            })
+            .sort((a, b) => b.count - a.count),
+    };
 }

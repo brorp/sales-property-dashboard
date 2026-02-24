@@ -41,7 +41,7 @@ router.post("/stop", async (_req, res: Response) => {
 });
 
 router.post("/restart", async (_req, res: Response) => {
-    await stopWhatsAppQrBridge();
+    await resetWhatsAppQrSession();
     await startWhatsAppQrBridge();
     res.json(getWhatsAppQrAdminState());
 });

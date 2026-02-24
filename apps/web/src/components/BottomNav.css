@@ -45,9 +45,18 @@
 }
 
 .bottom-nav-icon {
-    font-size: 1.25rem;
+    width: 20px;
+    height: 20px;
     line-height: 1;
     transition: transform var(--transition-fast);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bottom-nav-icon svg {
+    width: 100%;
+    height: 100%;
 }
 
 .bottom-nav-tab.active .bottom-nav-icon {

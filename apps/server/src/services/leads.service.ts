@@ -58,6 +58,9 @@ export async function findAll(
             source: lead.source,
             assignedTo: lead.assignedTo,
             clientStatus: lead.clientStatus,
+            layer2Status: lead.layer2Status,
+            rejectedReason: lead.rejectedReason,
+            rejectedNote: lead.rejectedNote,
             progress: lead.progress,
             metaLeadId: lead.metaLeadId,
             entryChannel: lead.entryChannel,
@@ -144,7 +147,8 @@ export async function create(data: {
             source: data.source || "Manual Input",
             assignedTo: data.assignedTo || null,
             clientStatus: "warm",
-            progress: "new",
+            layer2Status: "prospecting",
+            progress: "pending",
             receivedAt: now,
             createdAt: now,
             updatedAt: now,
@@ -251,6 +255,57 @@ export async function updateLeadProgress(data: {
         leadId: data.leadId,
         type: data.newProgress,
         note: `Progress: ${current.oldProgress} -> ${data.newProgress}${data.note ? ` (${data.note})` : ""}`,
+        timestamp: now,
+    });
+
+    return updated;
+}
+
+export async function updateLeadLayer2(data: {
+    leadId: string;
+    layer2Status: string;
+    rejectedReason?: string | null;
+    rejectedNote?: string | null;
+    changedBy?: string;
+    note?: string;
+}) {
+    const [current] = await db
+        .select({
+            id: lead.id,
+            oldLayer2Status: lead.layer2Status,
+        })
+        .from(lead)
+        .where(eq(lead.id, data.leadId))
+        .limit(1);
+
+    if (!current) {
+        return null;
+    }
+
+    const now = new Date();
+    const isRejected = data.layer2Status === "rejected";
+    const rejectedReason = isRejected ? data.rejectedReason || null : null;
+    const rejectedNote = isRejected ? data.rejectedNote || null : null;
+
+    const [updated] = await db
+        .update(lead)
+        .set({
+            layer2Status: data.layer2Status,
+            rejectedReason,
+            rejectedNote,
+            updatedAt: now,
+        })
+        .where(eq(lead.id, data.leadId))
+        .returning();
+
+    const reasonSummary = isRejected && rejectedReason ? ` (${rejectedReason})` : "";
+    await db.insert(activity).values({
+        id: generateId(),
+        leadId: data.leadId,
+        type: "note",
+        note:
+            `Layer 2 status: ${current.oldLayer2Status} -> ${data.layer2Status}${reasonSummary}` +
+            `${data.note ? ` (${data.note})` : ""}`,
         timestamp: now,
     });
 

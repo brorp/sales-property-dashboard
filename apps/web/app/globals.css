@@ -1,10 +1,10 @@
 @import '../src/index.css';
 @import '../src/components/Header.css';
 @import '../src/components/BottomNav.css';
-@import '../src/pages/LoginPage.css';
-@import '../src/pages/DashboardPage.css';
-@import '../src/pages/LeadsPage.css';
-@import '../src/pages/LeadDetailPage.css';
-@import '../src/pages/TeamPage.css';
-@import '../src/pages/ProfilePage.css';
-@import '../src/pages/SettingsPage.css';
+@import '../src/screens/LoginPage.css';
+@import '../src/screens/DashboardPage.css';
+@import '../src/screens/LeadsPage.css';
+@import '../src/screens/LeadDetailPage.css';
+@import '../src/screens/TeamPage.css';
+@import '../src/screens/ProfilePage.css';
+@import '../src/screens/SettingsPage.css';

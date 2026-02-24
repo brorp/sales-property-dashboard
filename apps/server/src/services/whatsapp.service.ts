@@ -32,6 +32,21 @@ async function isDuplicateMessage(providerMessageId?: string) {
     return Boolean(existing);
 }
 
+async function hasInboundClientMessageFromPhone(fromWa: string) {
+    const [existingClientMessage] = await db
+        .select({ id: waMessage.id })
+        .from(waMessage)
+        .where(
+            and(
+                eq(waMessage.fromWa, fromWa),
+                eq(waMessage.direction, "inbound_from_client")
+            )
+        )
+        .limit(1);
+
+    return Boolean(existingClientMessage);
+}
+
 async function sendSalesSystemReply(params: {
     salesId: string;
     salesPhone: string | null;
@@ -215,6 +230,15 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
         clientLead = updatedLead;
     }
 
+    const duplicateClientInbound = await hasInboundClientMessageFromPhone(fromWa);
+    if (duplicateClientInbound) {
+        return {
+            type: "duplicate_client_lead" as const,
+            ignored: true,
+            leadId: clientLead?.id || null,
+        };
+    }
+
     if (!clientLead) {
         const [createdLead] = await db
             .insert(lead)
@@ -228,24 +252,14 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
                 receivedAt: now,
                 assignedTo: null,
                 clientStatus: "warm",
-                progress: "new",
+                layer2Status: "prospecting",
+                progress: "pending",
                 createdAt: now,
                 updatedAt: now,
             })
             .returning();
         clientLead = createdLead;
     }
-
-    const [existingClientMessage] = await db
-        .select({ id: waMessage.id })
-        .from(waMessage)
-        .where(
-            and(
-                eq(waMessage.leadId, clientLead.id),
-                eq(waMessage.direction, "inbound_from_client")
-            )
-        )
-        .limit(1);
 
     const [message] = await db
         .insert(waMessage)
@@ -269,6 +283,6 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
         message,
         lead: clientLead,
         cycle,
-        firstClientMessage: !existingClientMessage,
+        firstClientMessage: true,
     };
 }
