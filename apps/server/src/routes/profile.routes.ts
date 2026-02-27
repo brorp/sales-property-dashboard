@@ -22,4 +22,33 @@ router.get("/me", async (req, res: Response) => {
     }
 });
 
+router.patch("/me", async (req, res: Response) => {
+    try {
+        const { user } = req as unknown as AuthenticatedRequest;
+        const { name, phone, image } = req.body ?? {};
+
+        const updated = await profileService.updateProfile(user.id, {
+            name: typeof name === "string" ? name : undefined,
+            phone:
+                typeof phone === "string" || phone === null
+                    ? phone
+                    : undefined,
+            image:
+                typeof image === "string" || image === null
+                    ? image
+                    : undefined,
+        });
+
+        if (!updated) {
+            res.status(404).json({ error: "Profile not found" });
+            return;
+        }
+
+        res.json(updated);
+    } catch (err) {
+        console.error("PATCH /profile/me error:", err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
 export default router;

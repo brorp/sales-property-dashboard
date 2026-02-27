@@ -55,6 +55,34 @@ router.post("/", requireAdmin as any, async (req, res: Response) => {
     }
 });
 
+router.patch("/queue/reorder", requireAdmin as any, async (req, res: Response) => {
+    try {
+        const { salesIds } = req.body ?? {};
+        if (!Array.isArray(salesIds) || salesIds.length === 0) {
+            res.status(400).json({ error: "salesIds array is required" });
+            return;
+        }
+
+        const rows = await salesService.reorderSalesQueue(salesIds);
+        res.json(rows);
+    } catch (error) {
+        if (
+            error instanceof Error &&
+            new Set([
+                "INVALID_QUEUE_PAYLOAD",
+                "QUEUE_EMPTY",
+                "QUEUE_SIZE_MISMATCH",
+                "UNKNOWN_SALES_IN_QUEUE",
+            ]).has(error.message)
+        ) {
+            res.status(400).json({ error: error.message });
+            return;
+        }
+        console.error("PATCH /sales/queue/reorder error:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
 router.patch("/:id/queue", requireAdmin as any, async (req, res: Response) => {
     try {
         const { queueOrder, label } = req.body ?? {};

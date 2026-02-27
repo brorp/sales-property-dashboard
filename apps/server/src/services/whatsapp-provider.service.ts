@@ -1,5 +1,5 @@
 import { normalizePhone } from "../utils/phone";
-import { sendWhatsAppQrText } from "./whatsapp-qr.service";
+import { sendWhatsAppQrMedia, sendWhatsAppQrText } from "./whatsapp-qr.service";
 
 type SendResult = {
     sent: boolean;
@@ -80,4 +80,31 @@ export async function sendWhatsAppText(to: string, body: string): Promise<SendRe
             error: error instanceof Error ? error.message : "Unknown error",
         };
     }
+}
+
+export async function sendWhatsAppMedia(params: {
+    to: string;
+    body?: string;
+    mediaBuffer: Buffer;
+    mimeType: string;
+    fileName?: string;
+}): Promise<SendResult> {
+    const provider = (process.env.WA_PROVIDER || "dummy").toLowerCase();
+
+    if (provider === "qr_local") {
+        return sendWhatsAppQrMedia(params);
+    }
+
+    if (provider !== "cloud_api") {
+        console.log(
+            `[wa:dummy][media] -> ${params.to}: mime=${params.mimeType} text=${params.body || ""}`
+        );
+        return { sent: true, provider: "dummy" };
+    }
+
+    return {
+        sent: false,
+        provider: "cloud_api",
+        error: "Cloud API media broadcast is not supported in this build",
+    };
 }

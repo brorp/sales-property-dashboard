@@ -1,9 +1,66 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "../db";
 import { salesQueue, user } from "../db/schema";
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
 import { auth } from "../auth";
+
+type DbExecutor = typeof db;
+
+function queueLabelFromOrder(order: number) {
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    if (order >= 1 && order <= alphabet.length) {
+        return alphabet[order - 1];
+    }
+    return `Q${order}`;
+}
+
+async function getActiveQueueRows(executor: DbExecutor) {
+    return executor
+        .select({
+            id: salesQueue.id,
+            salesId: salesQueue.salesId,
+            queueOrder: salesQueue.queueOrder,
+            salesName: user.name,
+        })
+        .from(salesQueue)
+        .innerJoin(user, eq(salesQueue.salesId, user.id))
+        .where(
+            and(
+                eq(salesQueue.isActive, true),
+                eq(user.role, "sales"),
+                eq(user.isActive, true)
+            )
+        )
+        .orderBy(asc(salesQueue.queueOrder), asc(user.name));
+}
+
+async function resequenceQueue(executor: DbExecutor, orderedRows: Array<{ id: string }>) {
+    const now = new Date();
+
+    // Two-phase update to avoid unique constraint conflicts on queueOrder.
+    for (let i = 0; i < orderedRows.length; i += 1) {
+        await executor
+            .update(salesQueue)
+            .set({
+                queueOrder: 1000 + i + 1,
+                updatedAt: now,
+            })
+            .where(eq(salesQueue.id, orderedRows[i].id));
+    }
+
+    for (let i = 0; i < orderedRows.length; i += 1) {
+        const queueOrder = i + 1;
+        await executor
+            .update(salesQueue)
+            .set({
+                queueOrder,
+                label: queueLabelFromOrder(queueOrder),
+                updatedAt: now,
+            })
+            .where(eq(salesQueue.id, orderedRows[i].id));
+    }
+}
 
 export async function getSalesUsers() {
     return db
@@ -63,6 +120,69 @@ export async function upsertSalesQueue(
         .returning();
 
     return updated;
+}
+
+export async function reorderSalesQueue(salesIds: string[]) {
+    const orderedIds = Array.from(
+        new Set((salesIds || []).filter((id) => typeof id === "string" && id.trim().length > 0))
+    );
+
+    if (orderedIds.length === 0) {
+        throw new Error("INVALID_QUEUE_PAYLOAD");
+    }
+
+    await db.transaction(async (tx) => {
+        const queueRows = await getActiveQueueRows(tx as unknown as DbExecutor);
+        if (queueRows.length === 0) {
+            throw new Error("QUEUE_EMPTY");
+        }
+
+        if (orderedIds.length !== queueRows.length) {
+            throw new Error("QUEUE_SIZE_MISMATCH");
+        }
+
+        const queueBySalesId = new Map(queueRows.map((row) => [row.salesId, row]));
+        const reorderedRows = orderedIds.map((salesId) => queueBySalesId.get(salesId) || null);
+
+        if (reorderedRows.some((row) => !row)) {
+            throw new Error("UNKNOWN_SALES_IN_QUEUE");
+        }
+
+        await resequenceQueue(
+            tx as unknown as DbExecutor,
+            reorderedRows as Array<{ id: string }>
+        );
+    });
+
+    return getSalesUsers();
+}
+
+export async function rotateQueueAfterAssignment(
+    acceptedSalesId: string,
+    executor: DbExecutor = db
+) {
+    const queueRows = await getActiveQueueRows(executor);
+    if (queueRows.length <= 1) {
+        return false;
+    }
+
+    const currentIndex = queueRows.findIndex((row) => row.salesId === acceptedSalesId);
+    if (currentIndex === -1 || currentIndex === queueRows.length - 1) {
+        return false;
+    }
+
+    const reorderedRows = [
+        ...queueRows.slice(0, currentIndex),
+        ...queueRows.slice(currentIndex + 1),
+        queueRows[currentIndex],
+    ];
+
+    await resequenceQueue(
+        executor,
+        reorderedRows.map((row) => ({ id: row.id }))
+    );
+
+    return true;
 }
 
 export async function createSalesUser(data: {

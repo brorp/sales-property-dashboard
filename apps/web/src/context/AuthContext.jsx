@@ -11,9 +11,23 @@ const LOGIN_USERS = [
         role: 'admin',
     },
     {
-        id: 'seed-sales-a',
-        name: 'Sales A',
-        email: 'sales-a@propertylounge.id',
+        id: 'seed-sales-ryan',
+        name: 'Ryan Pratama',
+        email: 'ryan.pratama@propertylounge.id',
+        password: 'sales123',
+        role: 'sales',
+    },
+    {
+        id: 'seed-sales-rachmat',
+        name: 'Rachmat',
+        email: 'rachmat@propertylounge.id',
+        password: 'sales123',
+        role: 'sales',
+    },
+    {
+        id: 'seed-sales-nicky',
+        name: 'Nicky Robert',
+        email: 'nicky.robert@propertylounge.id',
         password: 'sales123',
         role: 'sales',
     },
@@ -47,10 +61,21 @@ export function AuthProvider({ children }) {
         localStorage.removeItem('pl_user');
     };
 
+    const updateCurrentUser = (patch) => {
+        setUser((prev) => {
+            if (!prev) {
+                return prev;
+            }
+            const next = { ...prev, ...patch };
+            localStorage.setItem('pl_user', JSON.stringify(next));
+            return next;
+        });
+    };
+
     const isAdmin = user?.role === 'admin';
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, loading, isAdmin }}>
+        <AuthContext.Provider value={{ user, login, logout, loading, isAdmin, updateCurrentUser }}>
             {children}
         </AuthContext.Provider>
     );

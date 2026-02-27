@@ -1,25 +1,27 @@
-export const PROGRESS_STEPS = [
-    { key: 'pending', label: 'Pending', icon: '⏳' },
-    { key: 'prospecting', label: 'Prospecting', icon: '🔎' },
-    { key: 'follow-up', label: 'Follow-up', icon: '📞' },
-    { key: 'appointment', label: 'Appointment', icon: '📅' },
-    { key: 'closed', label: 'Closed', icon: '✅' },
+export const FLOW_STATUSES = [
+    { key: 'open', label: 'Open' },
+    { key: 'hold', label: 'Hold' },
+    { key: 'assigned', label: 'Assigned' },
 ];
 
-export const CLIENT_STATUSES = [
-    { key: 'hot', label: 'Hot Client', icon: '🔥', className: 'badge-hot' },
-    { key: 'warm', label: 'Warm Client', icon: '🌡️', className: 'badge-warm' },
-    { key: 'cold', label: 'Cold Client', icon: '🧊', className: 'badge-cold' },
-    { key: 'lost', label: 'Lost Client', icon: '❌', className: 'badge-danger' },
-    { key: 'deal', label: 'Deal', icon: '✅', className: 'badge-success' },
+export const SALES_STATUSES = [
+    { key: 'hot', label: 'Hot' },
+    { key: 'warm', label: 'Warm' },
+    { key: 'cold', label: 'Cold' },
+    { key: 'error', label: 'Error' },
+    { key: 'no_response', label: 'No Response' },
+    { key: 'skip', label: 'Skip' },
 ];
 
-export const LAYER2_STATUSES = [
-    { key: 'prospecting', label: 'Prospecting', icon: '🔎' },
-    { key: 'sudah_survey', label: 'Sudah Survey', icon: '🏡' },
-    { key: 'mau_survey', label: 'Mau Survey', icon: '🗓️' },
-    { key: 'closing', label: 'Closing', icon: '🤝' },
-    { key: 'rejected', label: 'Rejected', icon: '❌' },
+export const APPOINTMENT_TAGS = [
+    { key: 'mau_survey', label: 'Mau Survey' },
+    { key: 'sudah_survey', label: 'Sudah Survey' },
+];
+
+export const RESULT_STATUSES = [
+    { key: 'closing', label: 'Closing' },
+    { key: 'menunggu', label: 'Menunggu' },
+    { key: 'batal', label: 'Batal' },
 ];
 
 export const REJECTED_REASON_OPTIONS = [
@@ -31,6 +33,29 @@ export const REJECTED_REASON_OPTIONS = [
     { key: 'tidak_cocok', label: 'Produk Tidak Cocok' },
     { key: 'lainnya', label: 'Lainnya' },
 ];
+
+export function getSalesStatusLabel(key) {
+    if (key === 'unfilled') {
+        return 'Belum Diisi';
+    }
+    const found = SALES_STATUSES.find((item) => item.key === key);
+    return found ? found.label : key || '-';
+}
+
+export function getResultStatusLabel(key) {
+    const found = RESULT_STATUSES.find((item) => item.key === key);
+    return found ? found.label : key || '-';
+}
+
+export function getFlowStatusLabel(key) {
+    const found = FLOW_STATUSES.find((item) => item.key === key);
+    return found ? found.label : key || '-';
+}
+
+export function getAppointmentTagLabel(key) {
+    const found = APPOINTMENT_TAGS.find((item) => item.key === key);
+    return found ? found.label : key || '-';
+}
 
 export function getRejectedReasonLabel(key) {
     const found = REJECTED_REASON_OPTIONS.find((item) => item.key === key);
@@ -51,4 +76,13 @@ export function getTimeAgo(dateStr) {
 
 export function formatDate(dateStr) {
     return new Date(dateStr).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+export function toWaLink(phone) {
+    const raw = String(phone || '').replace(/[^\d]/g, '');
+    if (!raw) {
+        return '#';
+    }
+    const normalized = raw.startsWith('0') ? `62${raw.slice(1)}` : raw;
+    return `https://wa.me/${normalized}`;
 }

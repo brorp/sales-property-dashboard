@@ -79,6 +79,13 @@ export const lead = pgTable(
         assignedTo: text("assigned_to").references(() => user.id, {
             onDelete: "set null",
         }),
+        flowStatus: text("flow_status").notNull().default("open"),
+        salesStatus: text("sales_status"),
+        domicileCity: text("domicile_city"),
+        resultStatus: text("result_status"),
+        unitName: text("unit_name"),
+        unitDetail: text("unit_detail"),
+        paymentMethod: text("payment_method"),
         clientStatus: text("client_status").notNull().default("warm"),
         layer2Status: text("layer2_status").notNull().default("prospecting"),
         rejectedReason: text("rejected_reason"),
@@ -90,6 +97,7 @@ export const lead = pgTable(
     (table) => ({
         phoneIdx: index("lead_phone_idx").on(table.phone),
         assignedToIdx: index("lead_assigned_to_idx").on(table.assignedTo),
+        flowStatusIdx: index("lead_flow_status_idx").on(table.flowStatus),
         metaLeadUnique: uniqueIndex("lead_meta_lead_id_unique").on(table.metaLeadId),
     })
 );
@@ -136,6 +144,29 @@ export const salesQueue = pgTable(
         orderUnique: uniqueIndex("sales_queue_order_unique").on(table.queueOrder),
     })
 );
+
+export const appSetting = pgTable("app_setting", {
+    id: text("id").primaryKey(),
+    distributionAckTimeoutMinutes: integer("distribution_ack_timeout_minutes")
+        .notNull()
+        .default(5),
+    operationalStartMinute: integer("operational_start_minute")
+        .notNull()
+        .default(9 * 60),
+    operationalEndMinute: integer("operational_end_minute")
+        .notNull()
+        .default(21 * 60),
+    operationalTimezone: text("operational_timezone")
+        .notNull()
+        .default("Asia/Jakarta"),
+    outsideOfficeReply: text("outside_office_reply")
+        .notNull()
+        .default(
+            "Terima kasih sudah menghubungi kami. Jam operasional kami 09.00 - 21.00 WIB. Tim kami akan merespons saat jam operasional."
+        ),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
 
 export const distributionCycle = pgTable(
     "distribution_cycle",

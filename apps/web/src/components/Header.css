@@ -2,14 +2,15 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 16px 0;
-    margin-bottom: 8px;
+    padding: 14px 0 16px;
+    margin-bottom: 14px;
     position: sticky;
     top: 0;
     z-index: 40;
-    background: rgba(15, 23, 42, 0.9);
+    background: rgba(10, 8, 21, 0.88);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     margin-left: -16px;
     margin-right: -16px;
     padding-left: 16px;
@@ -31,18 +32,18 @@
     border-radius: var(--radius-sm);
     font-size: 1.25rem;
     color: var(--text-primary);
-    background: var(--bg-card);
+    background: rgba(38, 32, 59, 0.92);
     border: 1px solid var(--border);
     cursor: pointer;
     transition: background var(--transition-fast);
 }
 
 .back-btn:active {
-    background: var(--bg-input);
+    background: rgba(51, 42, 79, 0.95);
 }
 
 .app-header-title {
-    font-size: 1.125rem;
+    font-size: 1.22rem;
     font-weight: 700;
     letter-spacing: -0.02em;
 }
@@ -51,4 +52,17 @@
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+@media (min-width: 1024px) {
+    .app-header {
+        margin-left: -34px;
+        margin-right: -34px;
+        padding: 18px 34px;
+        margin-bottom: 24px;
+    }
+
+    .app-header-title {
+        font-size: 1.9rem;
+    }
 }

@@ -17,6 +17,7 @@
         "pm2:save": "pm2 save",
         "db:push": "drizzle-kit push",
         "db:seed": "tsx src/db/seed.ts",
+        "db:reset": "node --import tsx src/db/seed.ts --reset",
         "db:studio": "drizzle-kit studio",
         "db:generate": "drizzle-kit generate"
     },
@@ -29,7 +30,8 @@
         "drizzle-orm": "^0.39.0",
         "express": "^4.21.0",
         "postgres": "^3.4.0",
-        "qrcode-terminal": "^0.12.0"
+        "qrcode-terminal": "^0.12.0",
+        "whatsapp-web.js": "^1.34.1"
     },
     "devDependencies": {
         "@types/cors": "^2.8.17",

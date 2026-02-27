@@ -70,8 +70,14 @@ export default function LoginPage() {
                         <button onClick={() => { setEmail('admin@propertylounge.id'); setPassword('admin123'); }}>
                             <span className="demo-role">Admin</span><span>admin@propertylounge.id</span>
                         </button>
-                        <button onClick={() => { setEmail('sales-a@propertylounge.id'); setPassword('sales123'); }}>
-                            <span className="demo-role">Sales</span><span>sales-a@propertylounge.id</span>
+                        <button onClick={() => { setEmail('ryan.pratama@propertylounge.id'); setPassword('sales123'); }}>
+                            <span className="demo-role">Sales</span><span>ryan.pratama@propertylounge.id</span>
+                        </button>
+                        <button onClick={() => { setEmail('rachmat@propertylounge.id'); setPassword('sales123'); }}>
+                            <span className="demo-role">Sales</span><span>rachmat@propertylounge.id</span>
+                        </button>
+                        <button onClick={() => { setEmail('nicky.robert@propertylounge.id'); setPassword('sales123'); }}>
+                            <span className="demo-role">Sales</span><span>nicky.robert@propertylounge.id</span>
                         </button>
                     </div>
                 </div>

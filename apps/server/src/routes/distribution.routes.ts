@@ -4,6 +4,7 @@ import { requireAdmin } from "../middleware/rbac";
 import {
     getLeadDistributionState,
     processExpiredAttempts,
+    startDistributionForHeldLead,
     stopAllActiveDistributions,
 } from "../services/distribution.service";
 
@@ -35,6 +36,28 @@ router.post("/stop-all", requireAdmin as any, async (_req, res: Response) => {
         res.json(result);
     } catch (error) {
         console.error("POST /distribution/stop-all error:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+router.post("/leads/:leadId/start", requireAdmin as any, async (req, res: Response) => {
+    try {
+        const result = await startDistributionForHeldLead(req.params.leadId);
+        res.json(result);
+    } catch (error) {
+        if (error instanceof Error) {
+            const knownCodes = new Set([
+                "LEAD_NOT_FOUND",
+                "LEAD_ALREADY_ASSIGNED",
+                "LEAD_NOT_STARTABLE",
+            ]);
+            if (knownCodes.has(error.message)) {
+                res.status(400).json({ error: error.message });
+                return;
+            }
+        }
+
+        console.error("POST /distribution/leads/:leadId/start error:", error);
         res.status(500).json({ error: "Internal server error" });
     }
 });

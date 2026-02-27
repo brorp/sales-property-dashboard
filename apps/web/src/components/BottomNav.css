@@ -4,10 +4,10 @@
     left: 0;
     right: 0;
     z-index: 90;
-    background: rgba(15, 23, 42, 0.92);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border-top: 1px solid var(--border);
+    background: rgba(18, 14, 32, 0.94);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
     padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
@@ -15,7 +15,7 @@
     display: flex;
     align-items: stretch;
     justify-content: space-around;
-    max-width: 480px;
+    max-width: 560px;
     margin: 0 auto;
     height: var(--bottom-nav-height);
 }
@@ -29,7 +29,7 @@
     flex: 1;
     position: relative;
     color: var(--text-muted);
-    transition: color var(--transition-fast);
+    transition: color var(--transition-fast), background var(--transition-fast);
     -webkit-tap-highlight-color: transparent;
     background: none;
     border: none;
@@ -37,11 +37,11 @@
 }
 
 .bottom-nav-tab:active {
-    opacity: 0.7;
+    opacity: 0.75;
 }
 
 .bottom-nav-tab.active {
-    color: var(--primary);
+    color: #d7c3ff;
 }
 
 .bottom-nav-icon {
@@ -60,24 +60,24 @@
 }
 
 .bottom-nav-tab.active .bottom-nav-icon {
-    transform: scale(1.15);
+    transform: scale(1.12);
 }
 
 .bottom-nav-label {
-    font-size: 0.625rem;
+    font-size: 0.64rem;
     font-weight: 600;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
 }
 
 .bottom-nav-indicator {
     position: absolute;
     top: 0;
-    width: 24px;
+    width: 28px;
     height: 3px;
     border-radius: 0 0 3px 3px;
     background: var(--primary);
-    box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+    box-shadow: 0 0 10px rgba(124, 58, 237, 0.55);
 }
 
 @media (min-width: 1024px) {
@@ -86,29 +86,64 @@
         bottom: 0;
         left: 0;
         right: auto;
-        width: 72px;
+        width: 272px;
         border-top: none;
-        border-right: 1px solid var(--border);
+        border-right: 1px solid rgba(255, 255, 255, 0.08);
+        background: linear-gradient(180deg, rgba(18, 14, 32, 0.98), rgba(14, 11, 26, 0.98));
         padding-bottom: 0;
+    }
+
+    .bottom-nav::before {
+        content: 'Property Lounge';
+        display: block;
+        font-size: 1.75rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--text-primary);
+        padding: 28px 26px 14px;
+    }
+
+.bottom-nav::after {
+        content: 'CRM Dashboard';
+        position: absolute;
+        top: 64px;
+        left: 26px;
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        letter-spacing: 0.02em;
     }
 
     .bottom-nav-inner {
         flex-direction: column;
         height: 100%;
         justify-content: flex-start;
-        padding-top: 24px;
+        padding: 104px 16px 18px;
         gap: 8px;
+        max-width: none;
     }
 
     .bottom-nav-tab {
         flex: 0;
-        padding: 12px 0;
-        border-radius: var(--radius-md);
-        margin: 0 8px;
+        padding: 12px 12px;
+        border-radius: 12px;
+        margin: 0;
+        align-items: flex-start;
+        justify-content: center;
+        flex-direction: row;
+        gap: 10px;
     }
 
     .bottom-nav-tab.active {
-        background: var(--primary-glow);
+        background: linear-gradient(135deg, #8f58ff, #6d28d9);
+        color: #fff;
+        box-shadow: 0 8px 20px rgba(124, 58, 237, 0.35);
+    }
+
+    .bottom-nav-label {
+        font-size: 0.95rem;
+        letter-spacing: 0.01em;
+        text-transform: none;
+        font-weight: 600;
     }
 
     .bottom-nav-indicator {

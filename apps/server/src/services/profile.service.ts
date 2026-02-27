@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { user, lead } from "../db/schema";
-import { eq, sql } from "drizzle-orm";
+import { user } from "../db/schema";
+import { eq } from "drizzle-orm";
 
 export async function getProfile(userId: string) {
     const [userData] = await db
@@ -18,32 +18,64 @@ export async function getProfile(userId: string) {
 
     if (!userData) return null;
 
-    const rows = await db
-        .select({
-            progress: lead.progress,
-            clientStatus: lead.clientStatus,
-            count: sql<number>`count(*)::int`,
-        })
-        .from(lead)
-        .where(
-            userData.role === "admin"
-                ? undefined
-                : eq(lead.assignedTo, userId)
-        )
-        .groupBy(lead.progress, lead.clientStatus);
+    return userData;
+}
 
-    let total = 0;
-    let closed = 0;
-    let hot = 0;
+function sanitizeOptionalText(value: unknown) {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (value === null) {
+        return null;
+    }
+    if (typeof value !== "string") {
+        return undefined;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+}
 
-    for (const row of rows) {
-        total += row.count;
-        if (row.progress === "closed") closed += row.count;
-        if (row.clientStatus === "hot") hot += row.count;
+export async function updateProfile(
+    userId: string,
+    payload: {
+        name?: string;
+        phone?: string | null;
+        image?: string | null;
+    }
+) {
+    const updates: Record<string, unknown> = {
+        updatedAt: new Date(),
+    };
+
+    const nextName = sanitizeOptionalText(payload.name);
+    if (typeof nextName === "string") {
+        updates.name = nextName;
     }
 
-    return {
-        ...userData,
-        stats: { total, closed, hot },
-    };
+    const nextPhone = sanitizeOptionalText(payload.phone);
+    if (nextPhone !== undefined) {
+        updates.phone = nextPhone;
+    }
+
+    const nextImage = sanitizeOptionalText(payload.image);
+    if (nextImage !== undefined) {
+        updates.image = nextImage;
+    }
+
+    const [updated] = await db
+        .update(user)
+        .set(updates)
+        .where(eq(user.id, userId))
+        .returning({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            image: user.image,
+            phone: user.phone,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+        });
+
+    return updated || null;
 }

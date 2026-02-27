@@ -1,8 +1,22 @@
 import "dotenv/config";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { auth } from "../auth";
 import { db } from "./index";
-import { activity, lead, salesQueue, user } from "./schema";
+import {
+    account,
+    activity,
+    appSetting,
+    appointment,
+    distributionAttempt,
+    distributionCycle,
+    lead,
+    leadProgressHistory,
+    leadStatusHistory,
+    salesQueue,
+    session,
+    user,
+    waMessage,
+} from "./schema";
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
 
@@ -23,48 +37,57 @@ const seedUsers: SeedUser[] = [
         phone: "+6281111111111",
     },
     {
-        name: "Sales A",
-        email: "sales-a@propertylounge.id",
+        name: "Ryan Pratama",
+        email: "ryan.pratama@propertylounge.id",
         password: "sales123",
         role: "sales",
-        phone: "+6281110000001",
+        phone: "081299001025",
     },
     {
-        name: "Sales B",
-        email: "sales-b@propertylounge.id",
+        name: "Rachmat",
+        email: "rachmat@propertylounge.id",
         password: "sales123",
         role: "sales",
-        phone: "+6281110000002",
+        phone: "081513392028",
     },
     {
-        name: "Sales C",
-        email: "sales-c@propertylounge.id",
+        name: "Nicky Robert",
+        email: "nicky.robert@propertylounge.id",
         password: "sales123",
         role: "sales",
-        phone: "+6281110000003",
-    },
-    {
-        name: "Sales D",
-        email: "sales-d@propertylounge.id",
-        password: "sales123",
-        role: "sales",
-        phone: "+6281110000004",
-    },
-    {
-        name: "Sales E",
-        email: "sales-e@propertylounge.id",
-        password: "sales123",
-        role: "sales",
-        phone: "+6281110000005",
-    },
-    {
-        name: "Sales F",
-        email: "sales-f@propertylounge.id",
-        password: "sales123",
-        role: "sales",
-        phone: "+6281110000006",
+        phone: "085191378506",
     },
 ];
+
+const shouldReset =
+    process.argv.includes("--reset") ||
+    String(process.env.SEED_RESET || "false").toLowerCase() === "true";
+
+async function resetLeadsAndSalesData() {
+    await db.transaction(async (tx) => {
+        await tx.delete(distributionAttempt);
+        await tx.delete(distributionCycle);
+        await tx.delete(leadProgressHistory);
+        await tx.delete(leadStatusHistory);
+        await tx.delete(activity);
+        await tx.delete(appointment);
+        await tx.delete(waMessage);
+        await tx.delete(lead);
+        await tx.delete(salesQueue);
+
+        const salesUsers = await tx
+            .select({ id: user.id })
+            .from(user)
+            .where(eq(user.role, "sales"));
+        const salesIds = salesUsers.map((item) => item.id);
+
+        if (salesIds.length > 0) {
+            await tx.delete(session).where(inArray(session.userId, salesIds));
+            await tx.delete(account).where(inArray(account.userId, salesIds));
+            await tx.delete(user).where(inArray(user.id, salesIds));
+        }
+    });
+}
 
 async function upsertAuthUser(seedUser: SeedUser) {
     const [existing] = await db
@@ -87,7 +110,6 @@ async function upsertAuthUser(seedUser: SeedUser) {
             });
             createdUserId = result.user.id;
         } catch (firstError) {
-            // Fallback for cases where additional field payload is rejected.
             try {
                 const result = await auth.api.signUpEmail({
                     body: {
@@ -148,7 +170,7 @@ async function upsertAuthUser(seedUser: SeedUser) {
 }
 
 async function seedQueue(salesIds: string[]) {
-    const queueLabels = ["A", "B", "C", "D", "E", "F"];
+    const queueLabels = ["A", "B", "C"];
     await db.delete(salesQueue);
 
     for (let i = 0; i < salesIds.length; i += 1) {
@@ -165,10 +187,11 @@ async function seedQueue(salesIds: string[]) {
     }
 }
 
-async function seedSampleLeads(firstSalesId: string) {
+async function seedSystemSettings() {
     const [existing] = await db
-        .select({ id: lead.id })
-        .from(lead)
+        .select({ id: appSetting.id })
+        .from(appSetting)
+        .where(eq(appSetting.id, "global"))
         .limit(1);
 
     if (existing) {
@@ -176,51 +199,27 @@ async function seedSampleLeads(firstSalesId: string) {
     }
 
     const now = new Date();
-    const sampleLeads = [
-        {
-            name: "Ahmad Fauzi",
-            phone: normalizePhone("081234567890"),
-            source: "Meta Ads - Residensial Q1",
-            layer2Status: "prospecting",
-        },
-        {
-            name: "Siti Aminah",
-            phone: normalizePhone("081322223333"),
-            source: "Meta Ads - Promo Akhir Tahun",
-            layer2Status: "sudah_survey",
-        },
-    ];
-
-    for (const item of sampleLeads) {
-        const leadId = generateId();
-        await db.insert(lead).values({
-            id: leadId,
-            name: item.name,
-            phone: item.phone,
-            source: item.source,
-            metaLeadId: null,
-            entryChannel: "meta_ads",
-            receivedAt: now,
-            assignedTo: firstSalesId,
-            clientStatus: "warm",
-            layer2Status: item.layer2Status,
-            progress: "prospecting",
-            createdAt: now,
-            updatedAt: now,
-        });
-
-        await db.insert(activity).values({
-            id: generateId(),
-            leadId,
-            type: "new",
-            note: "Seed lead created",
-            timestamp: now,
-        });
-    }
+    await db.insert(appSetting).values({
+        id: "global",
+        distributionAckTimeoutMinutes: 5,
+        operationalStartMinute: 9 * 60,
+        operationalEndMinute: 21 * 60,
+        operationalTimezone: "Asia/Jakarta",
+        outsideOfficeReply:
+            "Terima kasih sudah menghubungi kami. Jam operasional kami 09.00 - 21.00 WIB. Tim kami akan merespons saat jam operasional.",
+        createdAt: now,
+        updatedAt: now,
+    });
 }
 
 async function seed() {
     console.log("🌱 Seeding database...");
+
+    if (shouldReset) {
+        console.log("🧹 Reset mode ON: clearing leads and sales...");
+        await resetLeadsAndSalesData();
+        console.log("  ✅ reset complete");
+    }
 
     const createdIdsByEmail = new Map<string, string>();
 
@@ -236,12 +235,10 @@ async function seed() {
         .filter((id): id is string => Boolean(id));
 
     await seedQueue(salesIds);
-    console.log("  ✅ seeded fixed queue A-F");
+    console.log("  ✅ seeded fixed queue A-C");
 
-    if (salesIds.length > 0) {
-        await seedSampleLeads(salesIds[0]);
-        console.log("  ✅ seeded sample leads");
-    }
+    await seedSystemSettings();
+    console.log("  ✅ seeded system settings");
 
     console.log("✨ Seed complete");
     process.exit(0);

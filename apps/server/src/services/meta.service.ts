@@ -3,6 +3,7 @@ import { db } from "../db";
 import { activity, lead } from "../db/schema";
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
+import { getOperationalWindowState } from "./system-settings.service";
 
 export interface MetaLeadPayload {
     metaLeadId?: string;
@@ -14,6 +15,8 @@ export interface MetaLeadPayload {
 export async function ingestMetaLead(payload: MetaLeadPayload) {
     const normalizedPhone = normalizePhone(payload.phone);
     const now = new Date();
+    const operationalWindow = await getOperationalWindowState(now);
+    const flowStatus = operationalWindow.isOpen ? "open" : "hold";
 
     if (payload.metaLeadId) {
         const [existingByMetaId] = await db
@@ -33,7 +36,7 @@ export async function ingestMetaLead(payload: MetaLeadPayload) {
         .where(
             and(
                 eq(lead.phone, normalizedPhone),
-                or(eq(lead.progress, "new"), eq(lead.progress, "pending"))
+                or(eq(lead.flowStatus, "open"), eq(lead.flowStatus, "hold"))
             )
         )
         .orderBy(asc(lead.createdAt))
@@ -68,9 +71,13 @@ export async function ingestMetaLead(payload: MetaLeadPayload) {
             entryChannel: "meta_ads",
             receivedAt: now,
             assignedTo: null,
-            clientStatus: "warm",
-            layer2Status: "prospecting",
-            progress: "pending",
+            flowStatus,
+            salesStatus: null,
+            domicileCity: null,
+            resultStatus: null,
+            unitName: null,
+            unitDetail: null,
+            paymentMethod: null,
             createdAt: now,
             updatedAt: now,
         })

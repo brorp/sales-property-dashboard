@@ -1,282 +1,343 @@
+import { asc, eq, inArray } from "drizzle-orm";
 import { db } from "../db";
-import { lead, activity, appointment, user } from "../db/schema";
-import { eq, and, desc, sql, ne, isNotNull } from "drizzle-orm";
+import { appointment, lead, user } from "../db/schema";
+import { resolveAppointmentTag, toAppointmentDateTime } from "../utils/appointment";
 
-export async function getStats(userId: string, role: string) {
-    const condition =
-        role === "admin" ? undefined : eq(lead.assignedTo, userId);
+type LeadRow = {
+    id: string;
+    name: string;
+    phone: string;
+    source: string;
+    assignedTo: string | null;
+    assignedUserName: string | null;
+    flowStatus: string;
+    salesStatus: string | null;
+    domicileCity: string | null;
+    resultStatus: string | null;
+    rejectedReason: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+};
 
-    const rows = await db
-        .select({
-            clientStatus: lead.clientStatus,
-            progress: lead.progress,
-            count: sql<number>`count(*)::int`,
-        })
-        .from(lead)
-        .where(condition)
-        .groupBy(lead.clientStatus, lead.progress);
+type AppointmentRow = {
+    id: string;
+    leadId: string;
+    date: string;
+    time: string;
+    location: string;
+    notes: string | null;
+    salesId: string | null;
+    salesName: string | null;
+    createdAt: Date;
+    leadName: string;
+    leadPhone: string;
+    assignedTo: string | null;
+};
 
-    const stats = {
-        total: 0,
-        hot: 0,
-        warm: 0,
-        cold: 0,
-        closed: 0,
-        pending: 0,
-        prospecting: 0,
-        followUp: 0,
-        appointment: 0,
-        new: 0,
-    };
+const SALES_STATUS_META = [
+    { key: "hot", label: "Hot" },
+    { key: "warm", label: "Warm" },
+    { key: "cold", label: "Cold" },
+    { key: "error", label: "Error" },
+    { key: "no_response", label: "No Response" },
+    { key: "skip", label: "Skip" },
+] as const;
 
-    for (const row of rows) {
-        stats.total += row.count;
-        if (row.clientStatus === "hot") stats.hot += row.count;
-        if (row.clientStatus === "warm") stats.warm += row.count;
-        if (row.clientStatus === "cold") stats.cold += row.count;
-        if (row.progress === "closed") stats.closed += row.count;
-        if (row.progress === "pending") stats.pending += row.count;
-        if (row.progress === "prospecting") stats.prospecting += row.count;
-        if (row.progress === "follow-up") stats.followUp += row.count;
-        if (row.progress === "appointment") stats.appointment += row.count;
-        if (row.progress === "new") stats.new += row.count;
+const RESULT_STATUS_META = [
+    { key: "closing", label: "Closing" },
+    { key: "menunggu", label: "Menunggu" },
+    { key: "batal", label: "Batal" },
+] as const;
+
+function normalizeFlowStatus(
+    flowStatus: string | null | undefined,
+    assignedTo: string | null | undefined
+) {
+    if (flowStatus === "hold") {
+        return "hold";
     }
-
-    return stats;
+    if (flowStatus === "assigned") {
+        return "assigned";
+    }
+    if (assignedTo) {
+        return "assigned";
+    }
+    return "open";
 }
 
-export async function getTodayAppointments(
-    userId: string,
-    role: string
-) {
-    const today = new Date().toISOString().split("T")[0];
-    const conditions = [eq(appointment.date, today)];
+function toPercent(count: number, total: number) {
+    if (total <= 0) {
+        return 0;
+    }
+    return Math.round((count / total) * 10000) / 100;
+}
 
-    if (role !== "admin") {
-        conditions.push(eq(lead.assignedTo, userId));
+function getLatestAppointmentByLead(appointments: AppointmentRow[]) {
+    const latestMap = new Map<string, AppointmentRow>();
+
+    for (const item of appointments) {
+        const prev = latestMap.get(item.leadId);
+        if (!prev) {
+            latestMap.set(item.leadId, item);
+            continue;
+        }
+
+        const prevAt = toAppointmentDateTime(prev.date, prev.time).getTime();
+        const nextAt = toAppointmentDateTime(item.date, item.time).getTime();
+        if (nextAt > prevAt) {
+            latestMap.set(item.leadId, item);
+        }
     }
 
-    return db
+    return latestMap;
+}
+
+async function loadScopedLeadsAndAppointments(userId: string, role: string) {
+    const leadCondition = role === "admin" ? undefined : eq(lead.assignedTo, userId);
+
+    const scopedLeads = await db
         .select({
-            leadId: lead.id,
-            leadName: lead.name,
-            leadPhone: lead.phone,
-            appointmentId: appointment.id,
+            id: lead.id,
+            name: lead.name,
+            phone: lead.phone,
+            source: lead.source,
+            assignedTo: lead.assignedTo,
+            assignedUserName: user.name,
+            flowStatus: lead.flowStatus,
+            salesStatus: lead.salesStatus,
+            domicileCity: lead.domicileCity,
+            resultStatus: lead.resultStatus,
+            rejectedReason: lead.rejectedReason,
+            createdAt: lead.createdAt,
+            updatedAt: lead.updatedAt,
+        })
+        .from(lead)
+        .leftJoin(user, eq(lead.assignedTo, user.id))
+        .where(leadCondition);
+
+    if (scopedLeads.length === 0) {
+        return {
+            leads: [] as LeadRow[],
+            appointments: [] as AppointmentRow[],
+        };
+    }
+
+    const leadIds = scopedLeads.map((item) => item.id);
+
+    const scopedAppointments = await db
+        .select({
+            id: appointment.id,
+            leadId: appointment.leadId,
             date: appointment.date,
             time: appointment.time,
             location: appointment.location,
             notes: appointment.notes,
+            salesId: appointment.salesId,
+            salesName: user.name,
+            createdAt: appointment.createdAt,
+            leadName: lead.name,
+            leadPhone: lead.phone,
+            assignedTo: lead.assignedTo,
         })
         .from(appointment)
         .innerJoin(lead, eq(appointment.leadId, lead.id))
-        .where(and(...conditions))
-        .orderBy(appointment.time);
-}
-
-export async function getNeedsFollowup(userId: string, role: string) {
-    const oneDayAgo = new Date(Date.now() - 86400000);
-
-    const conditions: ReturnType<typeof eq>[] = [];
-    if (role !== "admin") {
-        conditions.push(eq(lead.assignedTo, userId));
-    }
-    conditions.push(ne(lead.progress, "closed"));
-    conditions.push(ne(lead.progress, "rejected"));
-    conditions.push(ne(lead.progress, "no-action"));
-
-    const leads = await db
-        .select({
-            id: lead.id,
-            name: lead.name,
-            phone: lead.phone,
-            clientStatus: lead.clientStatus,
-            progress: lead.progress,
-            assignedTo: lead.assignedTo,
-            createdAt: lead.createdAt,
-            assignedUserName: user.name,
-        })
-        .from(lead)
-        .leftJoin(user, eq(lead.assignedTo, user.id))
-        .where(and(...conditions))
-        .orderBy(desc(lead.createdAt));
-
-    // Filter leads that are new OR have last activity older than 24h
-    const result = [];
-    for (const l of leads) {
-        if (l.progress === "new") {
-            result.push(l);
-            continue;
-        }
-
-        const [lastActivity] = await db
-            .select({ timestamp: activity.timestamp })
-            .from(activity)
-            .where(eq(activity.leadId, l.id))
-            .orderBy(desc(activity.timestamp))
-            .limit(1);
-
-        if (!lastActivity || lastActivity.timestamp < oneDayAgo) {
-            result.push(l);
-        }
-
-        if (result.length >= 5) break;
-    }
-
-    return result;
-}
-
-export async function getRecentLeads(userId: string, role: string) {
-    const condition =
-        role === "admin" ? undefined : eq(lead.assignedTo, userId);
-
-    return db
-        .select({
-            id: lead.id,
-            name: lead.name,
-            phone: lead.phone,
-            clientStatus: lead.clientStatus,
-            progress: lead.progress,
-            assignedTo: lead.assignedTo,
-            createdAt: lead.createdAt,
-            assignedUserName: user.name,
-        })
-        .from(lead)
-        .leftJoin(user, eq(lead.assignedTo, user.id))
-        .where(condition)
-        .orderBy(desc(lead.createdAt))
-        .limit(5);
-}
-
-export async function getSalesPerformance() {
-    const salesUsers = await db
-        .select({
-            id: user.id,
-            name: user.name,
-            email: user.email,
-        })
-        .from(user)
-        .where(eq(user.role, "sales"));
-
-    const result = [];
-
-    for (const s of salesUsers) {
-        const rows = await db
-            .select({
-                progress: lead.progress,
-                clientStatus: lead.clientStatus,
-                count: sql<number>`count(*)::int`,
-            })
-            .from(lead)
-            .where(eq(lead.assignedTo, s.id))
-            .groupBy(lead.progress, lead.clientStatus);
-
-        let total = 0;
-        let closed = 0;
-        let hot = 0;
-        let pending = 0;
-
-        for (const row of rows) {
-            total += row.count;
-            if (row.progress === "closed") closed += row.count;
-            if (row.clientStatus === "hot") hot += row.count;
-            if (
-                row.progress === "pending" ||
-                row.progress === "new" ||
-                row.progress === "prospecting"
-            )
-                pending += row.count;
-        }
-
-        result.push({
-            ...s,
-            total,
-            closed,
-            hot,
-            pending,
-            closeRate: total > 0 ? Math.round((closed / total) * 100) : 0,
-        });
-    }
-
-    return result.sort((a, b) => b.closed - a.closed);
-}
-
-const LAYER2_LABELS: Record<string, string> = {
-    prospecting: "Prospecting",
-    sudah_survey: "Sudah Survey",
-    mau_survey: "Mau Survey",
-    closing: "Closing",
-    rejected: "Rejected",
-};
-
-const REJECTED_REASON_LABELS: Record<string, string> = {
-    harga: "Harga",
-    lokasi: "Lokasi",
-    kompetitor: "Pilih Kompetitor",
-    belum_siap: "Belum Siap Beli",
-    tidak_responsif: "Tidak Responsif",
-    tidak_cocok: "Produk Tidak Cocok",
-    lainnya: "Lainnya",
-};
-
-export async function getLayer2StatusChart(userId: string, role: string) {
-    const condition = role === "admin" ? undefined : eq(lead.assignedTo, userId);
-
-    const rows = await db
-        .select({
-            key: lead.layer2Status,
-            count: sql<number>`count(*)::int`,
-        })
-        .from(lead)
-        .where(condition)
-        .groupBy(lead.layer2Status);
-
-    const total = rows.reduce((acc, row) => acc + row.count, 0);
-    const keys = ["prospecting", "sudah_survey", "mau_survey", "closing", "rejected"];
-    const countByKey = new Map(rows.map((row) => [row.key, row.count]));
+        .leftJoin(user, eq(appointment.salesId, user.id))
+        .where(inArray(appointment.leadId, leadIds))
+        .orderBy(asc(appointment.date), asc(appointment.time));
 
     return {
-        total,
-        items: keys.map((key) => {
-            const count = countByKey.get(key) || 0;
-            return {
-                key,
-                label: LAYER2_LABELS[key] || key,
-                count,
-                percentage: total > 0 ? Math.round((count / total) * 10000) / 100 : 0,
-            };
-        }),
+        leads: scopedLeads,
+        appointments: scopedAppointments,
     };
 }
 
-export async function getRejectedReasonChart(userId: string, role: string) {
-    const conditions = [eq(lead.layer2Status, "rejected"), isNotNull(lead.rejectedReason)];
-    if (role !== "admin") {
-        conditions.push(eq(lead.assignedTo, userId));
+export async function getHomeAnalytics(userId: string, role: string) {
+    const { leads: scopedLeads, appointments: scopedAppointments } =
+        await loadScopedLeadsAndAppointments(userId, role);
+
+    const latestAppointmentByLead = getLatestAppointmentByLead(scopedAppointments);
+
+    const decoratedLeads = scopedLeads.map((item) => {
+        const latestAppointment = latestAppointmentByLead.get(item.id) || null;
+        return {
+            ...item,
+            flowStatus: normalizeFlowStatus(item.flowStatus, item.assignedTo),
+            appointmentTag: resolveAppointmentTag(latestAppointment),
+            latestAppointment,
+        };
+    });
+
+    const totalLeads = decoratedLeads.length;
+    const surveyedLeads = decoratedLeads.filter(
+        (item) => item.appointmentTag === "sudah_survey"
+    ).length;
+
+    const flowOverview = {
+        open: decoratedLeads.filter((item) => item.flowStatus === "open").length,
+        assigned: decoratedLeads.filter((item) => item.flowStatus === "assigned").length,
+    };
+
+    const surveyRatio = {
+        totalLeads,
+        surveyedLeads,
+        ratioPercent: toPercent(surveyedLeads, totalLeads),
+    };
+
+    const statusCounts = new Map<string, number>();
+    for (const item of decoratedLeads) {
+        const key = item.salesStatus || "unfilled";
+        statusCounts.set(key, (statusCounts.get(key) || 0) + 1);
     }
 
-    const rows = await db
-        .select({
-            key: lead.rejectedReason,
-            count: sql<number>`count(*)::int`,
-        })
-        .from(lead)
-        .where(and(...conditions))
-        .groupBy(lead.rejectedReason);
+    const statusPieItems = [
+        ...SALES_STATUS_META.map((status) => ({
+            key: status.key,
+            label: status.label,
+            count: statusCounts.get(status.key) || 0,
+        })),
+        {
+            key: "unfilled",
+            label: "Belum Diisi",
+            count: statusCounts.get("unfilled") || 0,
+        },
+    ].map((item) => ({
+        ...item,
+        percentage: toPercent(item.count, totalLeads),
+    }));
 
-    const total = rows.reduce((acc, row) => acc + row.count, 0);
+    const domicileMap = new Map<string, number>();
+    for (const item of decoratedLeads) {
+        const city = item.domicileCity;
+        if (!city) {
+            continue;
+        }
+        domicileMap.set(city, (domicileMap.get(city) || 0) + 1);
+    }
+
+    const domicileBars = Array.from(domicileMap.entries())
+        .map(([city, count]) => ({
+            city,
+            count,
+            percentage: toPercent(count, totalLeads),
+        }))
+        .sort((a, b) => b.count - a.count);
+
+    const ongoingAppointments = scopedAppointments
+        .map((item) => ({
+            ...item,
+            appointmentTag: resolveAppointmentTag(item),
+            appointmentAt: toAppointmentDateTime(item.date, item.time),
+        }))
+        .filter((item) => item.appointmentTag === "mau_survey")
+        .sort((a, b) => a.appointmentAt.getTime() - b.appointmentAt.getTime())
+        .map(({ appointmentAt, ...item }) => item)
+        .slice(0, 20);
+
+    const resultCounts = new Map<string, number>();
+    for (const item of decoratedLeads) {
+        const key = item.resultStatus || "none";
+        resultCounts.set(key, (resultCounts.get(key) || 0) + 1);
+    }
+
+    const resultRecapItems = RESULT_STATUS_META.map((status) => {
+        const count = resultCounts.get(status.key) || 0;
+        return {
+            key: status.key,
+            label: status.label,
+            count,
+            percentage: toPercent(count, totalLeads),
+        };
+    });
+
+    const cancelledLeads = decoratedLeads.filter(
+        (item) => item.resultStatus === "batal" && item.rejectedReason
+    );
+    const cancelReasonMap = new Map<string, number>();
+    for (const item of cancelledLeads) {
+        const reason = item.rejectedReason || "lainnya";
+        cancelReasonMap.set(reason, (cancelReasonMap.get(reason) || 0) + 1);
+    }
+
+    const cancelReasonItems = Array.from(cancelReasonMap.entries())
+        .map(([key, count]) => ({
+            key,
+            count,
+            percentage: toPercent(count, cancelledLeads.length),
+        }))
+        .sort((a, b) => b.count - a.count);
+
+    let perAgentSurveyRatio: Array<{
+        salesId: string;
+        salesName: string;
+        totalLeads: number;
+        surveyedLeads: number;
+        ratioPercent: number;
+    }> = [];
+
+    if (role === "admin") {
+        const salesUsers = await db
+            .select({
+                id: user.id,
+                name: user.name,
+            })
+            .from(user)
+            .where(eq(user.role, "sales"))
+            .orderBy(asc(user.name));
+
+        perAgentSurveyRatio = salesUsers.map((sales) => {
+            const ownLeads = decoratedLeads.filter((item) => item.assignedTo === sales.id);
+            const ownSurveyed = ownLeads.filter(
+                (item) => item.appointmentTag === "sudah_survey"
+            ).length;
+            return {
+                salesId: sales.id,
+                salesName: sales.name,
+                totalLeads: ownLeads.length,
+                surveyedLeads: ownSurveyed,
+                ratioPercent: toPercent(ownSurveyed, ownLeads.length),
+            };
+        });
+    }
+
+    const holdLeads =
+        role === "admin"
+            ? decoratedLeads
+                  .filter((item) => item.flowStatus === "hold")
+                  .sort(
+                      (a, b) =>
+                          new Date(b.createdAt).getTime() -
+                          new Date(a.createdAt).getTime()
+                  )
+                  .slice(0, 50)
+                  .map((item) => ({
+                      id: item.id,
+                      name: item.name,
+                      phone: item.phone,
+                      source: item.source,
+                      createdAt: item.createdAt,
+                      receivedAt: item.createdAt,
+                  }))
+            : [];
 
     return {
-        total,
-        items: rows
-            .map((row) => {
-                const key = row.key || "lainnya";
-                return {
-                    key,
-                    label: REJECTED_REASON_LABELS[key] || key,
-                    count: row.count,
-                    percentage: total > 0 ? Math.round((row.count / total) * 10000) / 100 : 0,
-                };
-            })
-            .sort((a, b) => b.count - a.count),
+        scope: role === "admin" ? "overall" : "agent",
+        flowOverview,
+        surveyRatio,
+        perAgentSurveyRatio,
+        statusPie: {
+            total: totalLeads,
+            items: statusPieItems,
+        },
+        domicileBars,
+        ongoingAppointments,
+        resultRecap: {
+            total: totalLeads,
+            items: resultRecapItems,
+            cancelReasons: {
+                total: cancelledLeads.length,
+                items: cancelReasonItems,
+            },
+        },
+        holdLeads,
     };
 }

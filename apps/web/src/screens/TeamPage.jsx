@@ -17,6 +17,7 @@ const initialForm = {
 export default function TeamPage() {
     const { isAdmin } = useAuth();
     const { teamStats, refreshTeamStats, createSalesUser } = useLeads();
+    const [refreshing, setRefreshing] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [form, setForm] = useState(initialForm);
     const [submitLoading, setSubmitLoading] = useState(false);
@@ -29,6 +30,15 @@ export default function TeamPage() {
     }, [isAdmin, refreshTeamStats]);
 
     if (!isAdmin) return null;
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await refreshTeamStats();
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     const handleCreateSales = async (e) => {
         e.preventDefault();
@@ -62,9 +72,14 @@ export default function TeamPage() {
             <Header
                 title="Kelola Tim Sales"
                 rightAction={
-                    <button className="btn btn-sm btn-primary" onClick={() => setShowAddModal(true)}>
-                        + Sales
-                    </button>
+                    <>
+                        <button className="btn btn-sm btn-secondary" onClick={() => void handleRefresh()} disabled={refreshing}>
+                            {refreshing ? 'Loading...' : 'Refresh'}
+                        </button>
+                        <button className="btn btn-sm btn-primary" onClick={() => setShowAddModal(true)}>
+                            + Sales
+                        </button>
+                    </>
                 }
             />
             {submitSuccess ? <div className="settings-success">{submitSuccess}</div> : null}

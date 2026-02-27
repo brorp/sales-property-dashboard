@@ -3,6 +3,7 @@ import type { Response } from "express";
 import { ingestMetaLead } from "../services/meta.service";
 import { ingestIncomingMessage } from "../services/whatsapp.service";
 import { processExpiredAttempts } from "../services/distribution.service";
+import { sendWhatsAppText } from "../services/whatsapp-provider.service";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -101,6 +102,13 @@ router.post("/whatsapp/messages", async (req, res: Response) => {
             const results = [];
             for (const event of cloudEvents) {
                 const result = await ingestIncomingMessage(event);
+                if (
+                    result.type === "client_message" &&
+                    result.firstClientMessage &&
+                    result.autoReplyText
+                ) {
+                    await sendWhatsAppText(event.fromWa, result.autoReplyText);
+                }
                 results.push(result);
             }
             res.json({ received: true, count: results.length, results });
@@ -123,6 +131,14 @@ router.post("/whatsapp/messages", async (req, res: Response) => {
             clientName,
             metaLeadId,
         });
+
+        if (
+            result.type === "client_message" &&
+            result.firstClientMessage &&
+            result.autoReplyText
+        ) {
+            await sendWhatsAppText(fromWa, result.autoReplyText);
+        }
 
         res.json(result);
     } catch (error) {
@@ -147,6 +163,14 @@ router.post("/whatsapp/dummy/client-message", async (req, res: Response) => {
             sourceAds,
             metaLeadId,
         });
+
+        if (
+            result.type === "client_message" &&
+            result.firstClientMessage &&
+            result.autoReplyText
+        ) {
+            await sendWhatsAppText(clientWa, result.autoReplyText);
+        }
 
         res.json(result);
     } catch (error) {

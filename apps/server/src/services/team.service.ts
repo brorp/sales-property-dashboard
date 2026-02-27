@@ -1,6 +1,6 @@
 import { db } from "../db";
 import { user, lead } from "../db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 export async function getTeamWithStats() {
     const salesUsers = await db
@@ -15,32 +15,21 @@ export async function getTeamWithStats() {
     const result = [];
 
     for (const s of salesUsers) {
-        const rows = await db
+        const leads = await db
             .select({
-                progress: lead.progress,
-                clientStatus: lead.clientStatus,
-                count: sql<number>`count(*)::int`,
+                flowStatus: lead.flowStatus,
+                salesStatus: lead.salesStatus,
+                resultStatus: lead.resultStatus,
             })
             .from(lead)
-            .where(eq(lead.assignedTo, s.id))
-            .groupBy(lead.progress, lead.clientStatus);
+            .where(eq(lead.assignedTo, s.id));
 
-        let total = 0;
-        let closed = 0;
-        let hot = 0;
-        let pending = 0;
-
-        for (const row of rows) {
-            total += row.count;
-            if (row.progress === "closed") closed += row.count;
-            if (row.clientStatus === "hot") hot += row.count;
-            if (
-                row.progress === "pending" ||
-                row.progress === "new" ||
-                row.progress === "prospecting"
-            )
-                pending += row.count;
-        }
+        const total = leads.length;
+        const closed = leads.filter((item) => item.resultStatus === "closing").length;
+        const hot = leads.filter((item) => item.salesStatus === "hot").length;
+        const pending = leads.filter(
+            (item) => item.flowStatus === "open" || item.resultStatus === "menunggu" || !item.resultStatus
+        ).length;
 
         result.push({
             ...s,

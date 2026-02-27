@@ -4,6 +4,7 @@ import { distributionAttempt, lead, user, waMessage } from "../db/schema";
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
 import { ensureActiveCycle, handleSalesAck } from "./distribution.service";
+import { getOperationalWindowState } from "./system-settings.service";
 import { sendWhatsAppText } from "./whatsapp-provider.service";
 
 const PROPERTY_LOUNGE_WA = process.env.PROPERTY_LOUNGE_WA || "+620000000000";
@@ -148,7 +149,7 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
                     salesId: salesSender.id,
                     salesPhone: salesSender.phone,
                     leadId: targetLeadId,
-                    body: "Balasan OK terlambat (lebih dari 5 menit), lead sudah dialihkan ke antrian sales berikutnya.",
+                    body: "Balasan OK terlambat (melewati batas waktu claim), lead sudah dialihkan ke antrian sales berikutnya.",
                 });
             } else if (isAckMessage && latestAttempt?.status === "accepted") {
                 await sendSalesSystemReply({
@@ -188,14 +189,16 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
                 salesId: salesSender.id,
                 salesPhone: salesSender.phone,
                 leadId: targetLeadId,
-                body: "OK diterima. Lead berhasil di-assign ke dashboard Anda.",
+                body:
+                    ackResult.claimLeadMessage ||
+                    "OK diterima. Lead berhasil di-assign ke dashboard Anda.",
             });
         } else if (ackResult.reason === "late_timeout") {
             await sendSalesSystemReply({
                 salesId: salesSender.id,
                 salesPhone: salesSender.phone,
                 leadId: targetLeadId,
-                body: "Balasan OK terlambat (lebih dari 5 menit), lead sudah dialihkan ke antrian sales berikutnya.",
+                body: "Balasan OK terlambat (melewati batas waktu claim), lead sudah dialihkan ke antrian sales berikutnya.",
             });
         }
 
@@ -239,6 +242,9 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
         };
     }
 
+    const operationalWindow = await getOperationalWindowState();
+    const shouldHoldByOperationalHours = !operationalWindow.isOpen;
+
     if (!clientLead) {
         const [createdLead] = await db
             .insert(lead)
@@ -251,14 +257,34 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
                 entryChannel: "whatsapp_inbound",
                 receivedAt: now,
                 assignedTo: null,
-                clientStatus: "warm",
-                layer2Status: "prospecting",
-                progress: "pending",
+                flowStatus: shouldHoldByOperationalHours ? "hold" : "open",
+                salesStatus: null,
+                domicileCity: null,
+                resultStatus: null,
+                unitName: null,
+                unitDetail: null,
+                paymentMethod: null,
                 createdAt: now,
                 updatedAt: now,
             })
             .returning();
         clientLead = createdLead;
+    } else {
+        if (
+            shouldHoldByOperationalHours &&
+            !clientLead.assignedTo &&
+            clientLead.flowStatus !== "hold"
+        ) {
+            const [updatedLead] = await db
+                .update(lead)
+                .set({
+                    flowStatus: "hold",
+                    updatedAt: now,
+                })
+                .where(eq(lead.id, clientLead.id))
+                .returning();
+            clientLead = updatedLead || clientLead;
+        }
     }
 
     const [message] = await db
@@ -276,6 +302,20 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
         })
         .returning();
 
+    if (clientLead.flowStatus === "hold") {
+        return {
+            type: "client_message" as const,
+            message,
+            lead: clientLead,
+            cycle: null,
+            firstClientMessage: true,
+            heldByOperationalHours: true,
+            autoReplyText:
+                operationalWindow.outsideOfficeReply ||
+                `Terima kasih sudah menghubungi kami. Jam operasional kami ${operationalWindow.operationalRangeLabel}. Tim kami akan merespons saat jam operasional.`,
+        };
+    }
+
     const cycle = await ensureActiveCycle(clientLead.id);
 
     return {
@@ -284,5 +324,7 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
         lead: clientLead,
         cycle,
         firstClientMessage: true,
+        heldByOperationalHours: false,
+        autoReplyText: "Harap menunggu agent professional akan menghubungi anda",
     };
 }

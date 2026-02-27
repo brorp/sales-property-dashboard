@@ -13,9 +13,14 @@ function normalizeLead(input) {
 
     return {
         ...input,
-        layer2Status: input.layer2Status || 'prospecting',
+        flowStatus: input.flowStatus || 'open',
+        salesStatus: input.salesStatus || null,
+        domicileCity: input.domicileCity || null,
+        resultStatus: input.resultStatus || null,
         rejectedReason: input.rejectedReason || null,
         rejectedNote: input.rejectedNote || null,
+        appointmentTag: input.appointmentTag || 'none',
+        latestAppointment: input.latestAppointment || null,
         activities: Array.isArray(input.activities) ? input.activities : [],
         appointments: Array.isArray(input.appointments) ? input.appointments : [],
     };
@@ -41,6 +46,8 @@ export function LeadsProvider({ children }) {
     const [leadDetails, setLeadDetails] = useState({});
     const [salesUsers, setSalesUsers] = useState([]);
     const [teamStats, setTeamStats] = useState([]);
+    const [appointments, setAppointments] = useState([]);
+    const [dashboardAnalytics, setDashboardAnalytics] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -99,12 +106,37 @@ export function LeadsProvider({ children }) {
         return normalized;
     }, [user]);
 
+    const refreshAppointments = useCallback(async () => {
+        if (!user) {
+            setAppointments([]);
+            return [];
+        }
+
+        const rows = await apiRequest('/api/appointments', { user });
+        const normalized = Array.isArray(rows) ? rows : [];
+        setAppointments(normalized);
+        return normalized;
+    }, [user]);
+
+    const refreshDashboardAnalytics = useCallback(async () => {
+        if (!user) {
+            setDashboardAnalytics(null);
+            return null;
+        }
+
+        const data = await apiRequest('/api/dashboard/home-analytics', { user });
+        setDashboardAnalytics(data || null);
+        return data || null;
+    }, [user]);
+
     const refreshAll = useCallback(async () => {
         if (!user) {
             setLeads([]);
             setLeadDetails({});
             setSalesUsers([]);
             setTeamStats([]);
+            setAppointments([]);
+            setDashboardAnalytics(null);
             return;
         }
         setLoading(true);
@@ -113,6 +145,8 @@ export function LeadsProvider({ children }) {
                 refreshLeads(),
                 refreshSalesUsers(),
                 refreshTeamStats(),
+                refreshAppointments(),
+                refreshDashboardAnalytics(),
             ]);
             setError('');
         } catch (err) {
@@ -120,7 +154,7 @@ export function LeadsProvider({ children }) {
         } finally {
             setLoading(false);
         }
-    }, [refreshLeads, refreshSalesUsers, refreshTeamStats, user]);
+    }, [refreshLeads, refreshSalesUsers, refreshTeamStats, refreshAppointments, refreshDashboardAnalytics, user]);
 
     useEffect(() => {
         if (authLoading) {
@@ -137,11 +171,8 @@ export function LeadsProvider({ children }) {
         return syncLeadToState(detail);
     }, [syncLeadToState, user]);
 
-    const getLeadsForUser = useCallback((userId, role) => {
-        if (role === 'admin') {
-            return leads;
-        }
-        // For sales role, backend already returns only own leads.
+    const getLeadsForUser = useCallback((_userId, _role) => {
+        // Backend already returns scope based on role.
         return leads;
     }, [leads]);
 
@@ -159,9 +190,14 @@ export function LeadsProvider({ children }) {
             body: updates,
         });
         const normalized = syncLeadToState(updated);
-        await refreshTeamStats();
+        await Promise.all([
+            refreshLeads(),
+            refreshTeamStats(),
+            refreshDashboardAnalytics(),
+            refreshAppointments(),
+        ]);
         return normalized;
-    }, [refreshTeamStats, syncLeadToState, user]);
+    }, [refreshAppointments, refreshDashboardAnalytics, refreshLeads, refreshTeamStats, syncLeadToState, user]);
 
     const addLead = useCallback(async (leadData) => {
         if (!user) {
@@ -173,23 +209,32 @@ export function LeadsProvider({ children }) {
             body: leadData,
         });
         const normalized = syncLeadToState(created);
-        await refreshTeamStats();
+        await Promise.all([
+            refreshLeads(),
+            refreshTeamStats(),
+            refreshDashboardAnalytics(),
+        ]);
         return normalized;
-    }, [refreshTeamStats, syncLeadToState, user]);
+    }, [refreshDashboardAnalytics, refreshLeads, refreshTeamStats, syncLeadToState, user]);
 
-    const addAppointment = useCallback(async (leadId, appointment) => {
+    const addAppointment = useCallback(async (leadId, payload) => {
         if (!user) {
             throw new Error('Unauthorized');
         }
         await apiRequest(`/api/leads/${leadId}/appointments`, {
             method: 'POST',
             user,
-            body: appointment,
+            body: payload,
         });
         const detail = await loadLeadById(leadId);
-        await refreshTeamStats();
+        await Promise.all([
+            refreshLeads(),
+            refreshTeamStats(),
+            refreshDashboardAnalytics(),
+            refreshAppointments(),
+        ]);
         return detail;
-    }, [loadLeadById, refreshTeamStats, user]);
+    }, [loadLeadById, refreshAppointments, refreshDashboardAnalytics, refreshLeads, refreshTeamStats, user]);
 
     const createSalesUser = useCallback(async (payload) => {
         if (!user) {
@@ -206,66 +251,15 @@ export function LeadsProvider({ children }) {
 
     const getSalesUsers = useCallback(() => salesUsers, [salesUsers]);
 
-    const getStats = useCallback((userId, role) => {
-        const data = role === 'admin' ? leads : leads;
+    const getStats = useCallback(() => {
         return {
-            total: data.length,
-            hot: data.filter((item) => item.clientStatus === 'hot').length,
-            warm: data.filter((item) => item.clientStatus === 'warm').length,
-            cold: data.filter((item) => item.clientStatus === 'cold').length,
-            closed: data.filter((item) => item.progress === 'closed').length,
-            pending: data.filter((item) => item.progress === 'pending').length,
-            prospecting: data.filter((item) => item.progress === 'prospecting').length,
-            followUp: data.filter((item) => item.progress === 'follow-up').length,
-            appointment: data.filter((item) => item.progress === 'appointment').length,
-            new: data.filter((item) => item.progress === 'new').length,
-            noAction: data.filter((item) => item.progress === 'no-action').length,
-            layer2SudahSurvey: data.filter((item) => item.layer2Status === 'sudah_survey').length,
-            layer2MauSurvey: data.filter((item) => item.layer2Status === 'mau_survey').length,
-            layer2Prospecting: data.filter((item) => item.layer2Status === 'prospecting').length,
-            layer2Closing: data.filter((item) => item.layer2Status === 'closing').length,
-            layer2Rejected: data.filter((item) => item.layer2Status === 'rejected').length,
-        };
-    }, [leads]);
-
-    const getLayer2Charts = useCallback((userId, role) => {
-        const data = role === 'admin' ? leads : leads;
-        const total = data.length;
-
-        const statusItems = [
-            { key: 'prospecting', label: 'Prospecting' },
-            { key: 'sudah_survey', label: 'Sudah Survey' },
-            { key: 'mau_survey', label: 'Mau Survey' },
-            { key: 'closing', label: 'Closing' },
-            { key: 'rejected', label: 'Rejected' },
-        ].map((item) => {
-            const count = data.filter((lead) => lead.layer2Status === item.key).length;
-            return {
-                ...item,
-                count,
-                percentage: total > 0 ? Math.round((count / total) * 10000) / 100 : 0,
-            };
-        });
-
-        const rejectedLeads = data.filter((lead) => lead.layer2Status === 'rejected' && lead.rejectedReason);
-        const rejectedTotal = rejectedLeads.length;
-        const reasonMap = new Map();
-        for (const lead of rejectedLeads) {
-            const key = lead.rejectedReason || 'lainnya';
-            reasonMap.set(key, (reasonMap.get(key) || 0) + 1);
-        }
-
-        const reasonItems = Array.from(reasonMap.entries())
-            .map(([key, count]) => ({
-                key,
-                count,
-                percentage: rejectedTotal > 0 ? Math.round((count / rejectedTotal) * 10000) / 100 : 0,
-            }))
-            .sort((a, b) => b.count - a.count);
-
-        return {
-            layer2StatusChart: { total, items: statusItems },
-            rejectedReasonChart: { total: rejectedTotal, items: reasonItems },
+            total: leads.length,
+            hot: leads.filter((item) => item.salesStatus === 'hot').length,
+            closed: leads.filter((item) => item.resultStatus === 'closing').length,
+            assigned: leads.filter((item) => item.flowStatus === 'assigned').length,
+            open: leads.filter((item) => item.flowStatus === 'open').length,
+            menunggu: leads.filter((item) => item.resultStatus === 'menunggu').length,
+            batal: leads.filter((item) => item.resultStatus === 'batal').length,
         };
     }, [leads]);
 
@@ -277,6 +271,8 @@ export function LeadsProvider({ children }) {
         leads,
         loading,
         error,
+        appointments,
+        dashboardAnalytics,
         getLeadsForUser,
         getLeadById,
         loadLeadById,
@@ -285,20 +281,22 @@ export function LeadsProvider({ children }) {
         addAppointment,
         getSalesUsers,
         getStats,
-        getLayer2Charts,
         resetData,
         refreshAll,
         refreshLeads,
         refreshSalesUsers,
+        refreshAppointments,
+        refreshDashboardAnalytics,
         teamStats,
         refreshTeamStats,
         createSalesUser,
     }), [
         addAppointment,
         addLead,
+        appointments,
         createSalesUser,
+        dashboardAnalytics,
         error,
-        getLayer2Charts,
         getLeadById,
         getLeadsForUser,
         getSalesUsers,
@@ -307,6 +305,8 @@ export function LeadsProvider({ children }) {
         loadLeadById,
         loading,
         refreshAll,
+        refreshAppointments,
+        refreshDashboardAnalytics,
         refreshLeads,
         refreshSalesUsers,
         refreshTeamStats,

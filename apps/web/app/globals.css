@@ -7,4 +7,6 @@
 @import '../src/screens/LeadDetailPage.css';
 @import '../src/screens/TeamPage.css';
 @import '../src/screens/ProfilePage.css';
+@import '../src/screens/EditProfilePage.css';
 @import '../src/screens/SettingsPage.css';
+@import '../src/screens/BroadcastPage.css';

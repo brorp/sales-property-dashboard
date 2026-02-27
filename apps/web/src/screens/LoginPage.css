@@ -14,7 +14,7 @@
     width: 300px;
     height: 300px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(37, 99, 235, 0.15), transparent 70%);
+    background: radial-gradient(circle, rgba(124, 58, 237, 0.24), transparent 70%);
     top: -80px;
     right: -80px;
     pointer-events: none;
@@ -25,7 +25,7 @@
     width: 250px;
     height: 250px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(168, 85, 247, 0.1), transparent 70%);
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.16), transparent 70%);
     bottom: -60px;
     left: -60px;
     pointer-events: none;
@@ -34,7 +34,7 @@
 .login-card {
     width: 100%;
     max-width: 400px;
-    background: var(--bg-card);
+    background: linear-gradient(165deg, rgba(27, 22, 46, 0.96), rgba(18, 15, 33, 0.96));
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
     padding: 32px 24px;
@@ -57,7 +57,8 @@
     font-size: 1.5rem;
     font-weight: 700;
     letter-spacing: -0.02em;
-    background: linear-gradient(135deg, var(--primary-light), var(--purple));
+    text-transform: none;
+    background: linear-gradient(135deg, #cfb8ff, #8b5cf6 60%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -123,7 +124,7 @@
     gap: 8px;
     padding: 10px 12px;
     border-radius: var(--radius-sm);
-    background: var(--bg-input);
+    background: rgba(37, 31, 58, 0.9);
     border: 1px solid var(--border);
     color: var(--text-secondary);
     font-size: 0.813rem;
@@ -133,13 +134,13 @@
 }
 
 .demo-list button:hover {
-    background: var(--bg-card-hover);
+    background: rgba(51, 42, 79, 0.95);
     color: var(--text-primary);
 }
 
 .demo-role {
-    background: var(--primary-glow);
-    color: var(--primary);
+    background: rgba(124, 58, 237, 0.22);
+    color: var(--primary-light);
     padding: 2px 8px;
     border-radius: var(--radius-full);
     font-size: 0.688rem;

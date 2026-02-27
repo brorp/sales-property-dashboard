@@ -25,7 +25,11 @@ app.use(
 app.all("/api/auth/*splat", toNodeHandler(auth));
 
 // Parse JSON body for API routes
-app.use(express.json());
+app.use(
+    express.json({
+        limit: process.env.JSON_BODY_LIMIT || "20mb",
+    })
+);
 
 // Public webhook routes (Meta Ads + WhatsApp)
 app.use("/webhooks", webhooksRoutes);

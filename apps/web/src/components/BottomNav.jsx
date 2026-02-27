@@ -32,6 +32,31 @@ function Icon({ name }) {
             </svg>
         );
     }
+    if (name === 'appointment') {
+        return (
+            <svg {...common}>
+                <rect x="4" y="5" width="16" height="15" rx="2" />
+                <path d="M8 3v4M16 3v4M4 10h16" />
+                <path d="M9 14h2M13 14h2" />
+            </svg>
+        );
+    }
+    if (name === 'logs') {
+        return (
+            <svg {...common}>
+                <rect x="4" y="4" width="16" height="16" rx="2" />
+                <path d="M8 8h8M8 12h8M8 16h6" />
+            </svg>
+        );
+    }
+    if (name === 'settings') {
+        return (
+            <svg {...common}>
+                <circle cx="12" cy="12" r="3.2" />
+                <path d="M12 2.8v2.4M12 18.8v2.4M4.4 4.4l1.7 1.7M17.9 17.9l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.4 19.6l1.7-1.7M17.9 6.1l1.7-1.7" />
+            </svg>
+        );
+    }
     return (
         <svg {...common}>
             <circle cx="12" cy="8" r="4" />
@@ -43,14 +68,17 @@ function Icon({ name }) {
 const ADMIN_TABS = [
     { key: '/', icon: 'home', label: 'Home' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
+    { key: '/appointments', icon: 'appointment', label: 'Appt' },
+    { key: '/activity-logs', icon: 'logs', label: 'Logs' },
     { key: '/team', icon: 'team', label: 'Team' },
-    { key: '/profile', icon: 'profile', label: 'Profil' },
+    { key: '/settings', icon: 'settings', label: 'Settings' },
 ];
 
 const SALES_TABS = [
     { key: '/', icon: 'home', label: 'Home' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
-    { key: '/profile', icon: 'profile', label: 'Profil' },
+    { key: '/appointments', icon: 'appointment', label: 'Appt' },
+    { key: '/settings', icon: 'settings', label: 'Settings' },
 ];
 
 export default function BottomNav() {
