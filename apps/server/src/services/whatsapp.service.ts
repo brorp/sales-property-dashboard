@@ -1,5 +1,5 @@
 import { and, desc, eq } from "drizzle-orm";
-import { db } from "../db";
+import { db } from "../db/index";
 import { distributionAttempt, lead, user, waMessage } from "../db/schema";
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";

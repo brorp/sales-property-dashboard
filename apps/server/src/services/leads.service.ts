@@ -1,5 +1,5 @@
 import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
-import { db } from "../db";
+import { db } from "../db/index";
 import {
     activity,
     appointment,

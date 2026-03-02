@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gt, lte, ne } from "drizzle-orm";
-import { db } from "../db";
+import { db } from "../db/index";
 import {
     activity,
     distributionAttempt,

@@ -1,9 +1,9 @@
 import { and, asc, eq } from "drizzle-orm";
-import { db } from "../db";
+import { db } from "../db/index";
 import { salesQueue, user } from "../db/schema";
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
-import { auth } from "../auth";
+import { auth } from "../auth/index";
 
 type DbExecutor = typeof db;
 

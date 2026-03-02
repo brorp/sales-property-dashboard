@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
-import { auth } from "../auth";
+import { auth } from "../auth/index";
 import { fromNodeHeaders } from "better-auth/node";
-import { db } from "../db";
+import { db } from "../db/index";
 import { user } from "../db/schema";
 import { and, eq } from "drizzle-orm";
 

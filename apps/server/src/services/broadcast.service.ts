@@ -1,5 +1,5 @@
 import { and, gte, inArray, lte } from "drizzle-orm";
-import { db } from "../db";
+import { db } from "../db/index";
 import { appointment, lead, waMessage } from "../db/schema";
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";

@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { db } from "../db";
+import { db } from "../db/index";
 import { appSetting } from "../db/schema";
 
 const SETTINGS_ID = "global";

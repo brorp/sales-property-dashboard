@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { eq, inArray } from "drizzle-orm";
-import { auth } from "../auth";
+import { auth } from "../auth/index";
 import { db } from "./index";
 import {
     account,

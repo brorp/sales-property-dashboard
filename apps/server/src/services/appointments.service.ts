@@ -1,5 +1,5 @@
 import { desc, eq, or } from "drizzle-orm";
-import { db } from "../db";
+import { db } from "../db/index";
 import { appointment, lead, user } from "../db/schema";
 import { resolveAppointmentTag } from "../utils/appointment";
 
