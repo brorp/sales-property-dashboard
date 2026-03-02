@@ -4,7 +4,7 @@ module.exports = {
             name: "property-lounge-server",
             cwd: __dirname,
             script: "dist/index.js",
-            node_args: "--experimental-specifier-resolution=node",
+            node_args: "--import tsx",
             instances: 1,
             exec_mode: "fork",
             autorestart: true,
