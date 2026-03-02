@@ -34,6 +34,8 @@ Default `.env` untuk development sudah include:
 8. `WA_CLOUD_PHONE_NUMBER_ID=` (wajib kalau `WA_PROVIDER=cloud_api`)
 9. `WA_CLOUD_API_VERSION=v21.0`
 10. `ADMIN_WHATSAPP_TOKEN=` (opsional, isi untuk mengunci endpoint admin WhatsApp)
+11. `CORS_ORIGINS=` (opsional, bisa isi banyak origin dipisah koma)
+12. `CORS_ALLOW_VERCEL_PREVIEW=false` (set `true` jika ingin allow seluruh subdomain `*.vercel.app`)
 
 ## 2) Akses Database
 

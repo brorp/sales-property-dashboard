@@ -3,6 +3,11 @@ import express from "express";
 import cors from "cors";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./auth/index";
+import {
+    corsOriginDelegate,
+    getConfiguredCorsOrigins,
+    getCorsAllowVercelPreview,
+} from "./cors-config";
 import apiRoutes from "./routes/index";
 import webhooksRoutes from "./routes/webhooks.routes";
 import whatsappAdminRoutes from "./routes/whatsapp-admin.routes";
@@ -16,7 +21,7 @@ const WA_PROVIDER = (process.env.WA_PROVIDER || "dummy").toLowerCase();
 // CORS
 app.use(
     cors({
-        origin: process.env.CORS_ORIGIN || "http://localhost:5173",
+        origin: corsOriginDelegate,
         credentials: true,
     })
 );
@@ -54,6 +59,11 @@ app.listen(PORT, () => {
     console.log(`🔔 Webhooks:  http://localhost:${PORT}/webhooks`);
     console.log(`⚙️  WA Admin:  http://localhost:${PORT}/api/whatsapp-admin/status`);
     console.log(`💬 WA Mode:   ${WA_PROVIDER}`);
+    console.log(
+        `🌐 CORS:      ${getConfiguredCorsOrigins().join(", ")}${
+            getCorsAllowVercelPreview() ? " (+ *.vercel.app)" : ""
+        }`
+    );
     if (WA_PROVIDER === "qr_local") {
         console.log(
             `📱 WA QR Auth: ${process.env.WA_QR_AUTH_PATH || ".wa-qr-auth"}`

@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "../db/index";
 import * as schema from "../db/schema";
+import { getConfiguredCorsOrigins } from "../cors-config";
 
 export const auth = betterAuth({
     database: drizzleAdapter(db, {
@@ -22,7 +23,7 @@ export const auth = betterAuth({
             },
         },
     },
-    trustedOrigins: [process.env.CORS_ORIGIN || "http://localhost:5173"],
+    trustedOrigins: getConfiguredCorsOrigins(),
     // Future: Add OAuth providers here
     // socialProviders: {
     //   google: {
