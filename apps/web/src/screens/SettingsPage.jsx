@@ -1,11 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
-import { apiRequest } from '../lib/api';
-
-const DEFAULT_API_BASE = 'http://localhost:3001';
+import { apiRequest, getApiBaseUrl } from '../lib/api';
 
 function statusLabel(status) {
     switch (status) {
@@ -30,10 +28,7 @@ function statusLabel(status) {
 
 export default function SettingsPage() {
     const { user } = useAuth();
-    const apiBase = useMemo(
-        () => (process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE).replace(/\/$/, ''),
-        []
-    );
+    const apiBase = getApiBaseUrl();
     const adminToken = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP_TOKEN || '';
 
     const [state, setState] = useState(null);

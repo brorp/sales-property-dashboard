@@ -37,8 +37,10 @@ Untuk versi demo saat ini (data mock/localStorage), **tidak ada env variable waj
 
 Opsional untuk persiapan integrasi backend:
 
-1. `NEXT_PUBLIC_API_BASE_URL` contoh `https://your-backend-domain.com`
-2. `NEXT_PUBLIC_ADMIN_WHATSAPP_TOKEN` (jika backend set `ADMIN_WHATSAPP_TOKEN`)
+1. `NEXT_PUBLIC_API_BASE_URL` contoh `https://api.yourdomain.com` (recommended)
+2. atau gunakan kombinasi:
+   `NEXT_PUBLIC_API_PROTOCOL`, `NEXT_PUBLIC_API_HOST`, `NEXT_PUBLIC_API_PORT`
+3. `NEXT_PUBLIC_ADMIN_WHATSAPP_TOKEN` (jika backend set `ADMIN_WHATSAPP_TOKEN`)
 
 ### Langkah Deploy
 

@@ -8,7 +8,8 @@
         "build": "pnpm -r run build",
         "db:push": "pnpm --filter @property-lounge/server db:push",
         "db:seed": "pnpm --filter @property-lounge/server db:seed",
-        "db:studio": "pnpm --filter @property-lounge/server db:studio"
+        "db:studio": "pnpm --filter @property-lounge/server db:studio",
+        "ssh-dev": "ssh -i 'propertylounge.pem' ubuntu@ec2-13-250-28-124.ap-southeast-1.compute.amazonaws.com"
     },
     "engines": {
         "node": ">=18"

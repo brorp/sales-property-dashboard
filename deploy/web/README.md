@@ -20,5 +20,16 @@ Gunakan referensi dari file:
 
 Minimal:
 
-1. `NEXT_PUBLIC_API_BASE_URL=https://your-backend-domain.com`
+1. `NEXT_PUBLIC_API_BASE_URL=https://api.yourdomain.com` (recommended)
 2. `NEXT_PUBLIC_ADMIN_WHATSAPP_TOKEN=` (isi kalau backend pakai `ADMIN_WHATSAPP_TOKEN`)
+
+Alternatif kalau mau isi IP/host terpisah:
+
+1. `NEXT_PUBLIC_API_PROTOCOL=https`
+2. `NEXT_PUBLIC_API_HOST=123.123.123.123` atau `api.yourdomain.com`
+3. `NEXT_PUBLIC_API_PORT=3001` (kosongkan jika pakai 80/443 default)
+
+Catatan:
+
+1. Jika `NEXT_PUBLIC_API_BASE_URL` diisi, variabel `PROTOCOL/HOST/PORT` akan diabaikan.
+2. Untuk production sebaiknya tetap pakai domain + HTTPS, bukan IP langsung.
