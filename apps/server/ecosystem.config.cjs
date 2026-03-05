@@ -11,7 +11,14 @@ module.exports = {
             max_restarts: 10,
             env: {
                 NODE_ENV: "production",
-            },
+                WA_PROVIDER: "qr_local",
+                WA_QR_AUTH_PATH: ".wa-qr-auth",
+                WA_WEBJS_CLIENT_ID: "property-lounge",
+                WA_WEBJS_HEADLESS: "true",
+                WA_WEBJS_EXECUTABLE_PATH: "/usr/bin/google-chrome-stable", // adjust if chromium path differs
+                WA_WEBJS_PUPPETEER_ARGS:
+                    "--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--no-zygote,--single-process,--disable-gpu",
+            }
         },
     ],
 };
