@@ -4,6 +4,7 @@ import { ingestMetaLead } from "../services/meta.service";
 import { ingestIncomingMessage } from "../services/whatsapp.service";
 import { processExpiredAttempts } from "../services/distribution.service";
 import { sendWhatsAppText } from "../services/whatsapp-provider.service";
+import { logger } from "../utils/logger";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -90,7 +91,7 @@ router.post("/meta/leads", async (req, res: Response) => {
 
         res.status(result.created ? 201 : 200).json(result);
     } catch (error) {
-        console.error("POST /webhooks/meta/leads error:", error);
+        logger.error("POST /webhooks/meta/leads error", { error, route: "POST /webhooks/meta/leads" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -142,7 +143,7 @@ router.post("/whatsapp/messages", async (req, res: Response) => {
 
         res.json(result);
     } catch (error) {
-        console.error("POST /webhooks/whatsapp/messages error:", error);
+        logger.error("POST /webhooks/whatsapp/messages error", { error, route: "POST /webhooks/whatsapp/messages" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -174,7 +175,7 @@ router.post("/whatsapp/dummy/client-message", async (req, res: Response) => {
 
         res.json(result);
     } catch (error) {
-        console.error("POST /webhooks/whatsapp/dummy/client-message error:", error);
+        logger.error("POST /webhooks/whatsapp/dummy/client-message error", { error, route: "POST /webhooks/whatsapp/dummy/client-message" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -195,7 +196,7 @@ router.post("/whatsapp/dummy/sales-ack", async (req, res: Response) => {
 
         res.json(result);
     } catch (error) {
-        console.error("POST /webhooks/whatsapp/dummy/sales-ack error:", error);
+        logger.error("POST /webhooks/whatsapp/dummy/sales-ack error", { error, route: "POST /webhooks/whatsapp/dummy/sales-ack" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -205,7 +206,7 @@ router.post("/whatsapp/dummy/run-timeouts", async (_req, res: Response) => {
         const processed = await processExpiredAttempts();
         res.json({ processed });
     } catch (error) {
-        console.error("POST /webhooks/whatsapp/dummy/run-timeouts error:", error);
+        logger.error("POST /webhooks/whatsapp/dummy/run-timeouts error", { error, route: "POST /webhooks/whatsapp/dummy/run-timeouts" });
         res.status(500).json({ error: "Internal server error" });
     }
 });

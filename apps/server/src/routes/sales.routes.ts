@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Response } from "express";
 import { requireAdmin } from "../middleware/rbac";
 import * as salesService from "../services/sales.service";
+import { logger } from "../utils/logger";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -10,7 +11,7 @@ router.get("/", async (_req, res: Response) => {
         const rows = await salesService.getSalesUsers();
         res.json(rows);
     } catch (error) {
-        console.error("GET /sales error:", error);
+        logger.error("GET /sales error", { error, route: "GET /sales" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -40,8 +41,8 @@ router.post("/", requireAdmin as any, async (req, res: Response) => {
                 typeof queueOrder === "number"
                     ? queueOrder
                     : queueOrder
-                    ? Number(queueOrder)
-                    : null,
+                        ? Number(queueOrder)
+                        : null,
             queueLabel,
         });
         res.status(201).json(created);
@@ -50,7 +51,7 @@ router.post("/", requireAdmin as any, async (req, res: Response) => {
             res.status(409).json({ error: "Email already exists" });
             return;
         }
-        console.error("POST /sales error:", error);
+        logger.error("POST /sales error", { error, route: "POST /sales" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -78,7 +79,7 @@ router.patch("/queue/reorder", requireAdmin as any, async (req, res: Response) =
             res.status(400).json({ error: error.message });
             return;
         }
-        console.error("PATCH /sales/queue/reorder error:", error);
+        logger.error("PATCH /sales/queue/reorder error", { error, route: "PATCH /sales/queue/reorder" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -98,7 +99,7 @@ router.patch("/:id/queue", requireAdmin as any, async (req, res: Response) => {
         );
         res.json(updated);
     } catch (error) {
-        console.error("PATCH /sales/:id/queue error:", error);
+        logger.error("PATCH /sales/:id/queue error", { error, route: "PATCH /sales/:id/queue" });
         res.status(500).json({ error: "Internal server error" });
     }
 });

@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Response } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import * as profileService from "../services/profile.service";
+import { logger } from "../utils/logger";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -17,7 +18,7 @@ router.get("/me", async (req, res: Response) => {
 
         res.json(profile);
     } catch (err) {
-        console.error("GET /profile/me error:", err);
+        logger.error("GET /profile/me error", { error: err, route: "GET /profile/me" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -46,7 +47,7 @@ router.patch("/me", async (req, res: Response) => {
 
         res.json(updated);
     } catch (err) {
-        console.error("PATCH /profile/me error:", err);
+        logger.error("PATCH /profile/me error", { error: err, route: "PATCH /profile/me" });
         res.status(500).json({ error: "Internal server error" });
     }
 });

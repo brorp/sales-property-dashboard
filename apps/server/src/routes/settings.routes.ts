@@ -5,6 +5,7 @@ import {
     getSystemSettings,
     updateSystemSettings,
 } from "../services/system-settings.service";
+import { logger } from "../utils/logger";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -13,7 +14,7 @@ router.get("/system", requireAdmin as any, async (_req, res: Response) => {
         const settings = await getSystemSettings();
         res.json(settings);
     } catch (error) {
-        console.error("GET /settings/system error:", error);
+        logger.error("GET /settings/system error", { error, route: "GET /settings/system" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -64,7 +65,7 @@ router.patch("/system", requireAdmin as any, async (req, res: Response) => {
             }
         }
 
-        console.error("PATCH /settings/system error:", error);
+        logger.error("PATCH /settings/system error", { error, route: "PATCH /settings/system" });
         res.status(500).json({ error: "Internal server error" });
     }
 });

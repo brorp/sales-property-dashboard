@@ -1,4 +1,5 @@
 import { processExpiredAttempts } from "../services/distribution.service";
+import { logger } from "../utils/logger";
 
 const POLL_INTERVAL_MS = Number(process.env.DISTRIBUTION_POLL_MS || 15_000);
 
@@ -13,14 +14,14 @@ export function startDistributionWorker() {
         try {
             const processed = await processExpiredAttempts();
             if (processed > 0) {
-                console.log(`[distribution-worker] processed ${processed} timeout attempt(s)`);
+                logger.info(`[distribution-worker] processed ${processed} timeout attempt(s)`);
             }
         } catch (error) {
-            console.error("[distribution-worker] failed:", error);
+            logger.error("[distribution-worker] failed", { error });
         }
     }, POLL_INTERVAL_MS);
 
-    console.log(`[distribution-worker] started (poll=${POLL_INTERVAL_MS}ms)`);
+    logger.info(`[distribution-worker] started (poll=${POLL_INTERVAL_MS}ms)`);
 }
 
 export function stopDistributionWorker() {

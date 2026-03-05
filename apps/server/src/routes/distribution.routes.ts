@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { Response } from "express";
 import { requireAdmin } from "../middleware/rbac";
+import { logger } from "../utils/logger";
 import {
     getLeadDistributionState,
     processExpiredAttempts,
@@ -15,7 +16,7 @@ router.get("/leads/:leadId", async (req, res: Response) => {
         const state = await getLeadDistributionState(req.params.leadId);
         res.json(state);
     } catch (error) {
-        console.error("GET /distribution/leads/:leadId error:", error);
+        logger.error("GET /distribution/leads/:leadId error", { error, route: "GET /distribution/leads/:leadId" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -25,7 +26,7 @@ router.post("/run-timeouts", async (_req, res: Response) => {
         const processed = await processExpiredAttempts();
         res.json({ processed });
     } catch (error) {
-        console.error("POST /distribution/run-timeouts error:", error);
+        logger.error("POST /distribution/run-timeouts error", { error, route: "POST /distribution/run-timeouts" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -35,7 +36,7 @@ router.post("/stop-all", requireAdmin as any, async (_req, res: Response) => {
         const result = await stopAllActiveDistributions();
         res.json(result);
     } catch (error) {
-        console.error("POST /distribution/stop-all error:", error);
+        logger.error("POST /distribution/stop-all error", { error, route: "POST /distribution/stop-all" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -57,7 +58,7 @@ router.post("/leads/:leadId/start", requireAdmin as any, async (req, res: Respon
             }
         }
 
-        console.error("POST /distribution/leads/:leadId/start error:", error);
+        logger.error("POST /distribution/leads/:leadId/start error", { error, route: "POST /distribution/leads/:leadId/start" });
         res.status(500).json({ error: "Internal server error" });
     }
 });

@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { ingestIncomingMessage } from "./whatsapp.service";
 import { normalizePhone } from "../utils/phone";
+import { logger } from "../utils/logger";
 
 type WebJsClient = {
     initialize: () => Promise<void>;
@@ -18,33 +19,34 @@ type WebJsMessageMediaCtor = new (
 
 type QrSendResult =
     | {
-          sent: true;
-          provider: "qr_local";
-          providerMessageId?: string;
-      }
+        sent: true;
+        provider: "qr_local";
+        providerMessageId?: string;
+    }
     | {
-          sent: false;
-          provider: "qr_local";
-          error: string;
-      };
+        sent: false;
+        provider: "qr_local";
+        error: string;
+    };
 
 export type WhatsAppQrAdminState = {
     provider: string;
     enabled: boolean;
     status:
-        | "disabled"
-        | "idle"
-        | "starting"
-        | "awaiting_qr"
-        | "awaiting_pairing_code"
-        | "connected"
-        | "disconnected"
-        | "error";
+    | "disabled"
+    | "idle"
+    | "starting"
+    | "awaiting_qr"
+    | "awaiting_pairing_code"
+    | "connected"
+    | "disconnected"
+    | "error";
     authPath: string;
     qr: string | null;
     qrImageUrl: string | null;
     pairingCode: string | null;
     pairingPhone: string | null;
+    lastClientState: string | null;
     lastError: string | null;
     lastDisconnectCode: number | null;
     updatedAt: string;
@@ -63,6 +65,7 @@ const runtimeState: Omit<WhatsAppQrAdminState, "provider" | "enabled" | "authPat
     qrImageUrl: null,
     pairingCode: null,
     pairingPhone: null,
+    lastClientState: null,
     lastError: null,
     lastDisconnectCode: null,
     updatedAt: new Date().toISOString(),
@@ -156,6 +159,19 @@ function updateRuntimeState(
     Object.assign(runtimeState, patch, { updatedAt: new Date().toISOString() });
 }
 
+function markConnectedState(clientState?: string) {
+    updateRuntimeState({
+        status: "connected",
+        qr: null,
+        qrImageUrl: null,
+        pairingCode: null,
+        pairingPhone: null,
+        lastClientState: clientState || runtimeState.lastClientState || null,
+        lastError: null,
+        lastDisconnectCode: null,
+    });
+}
+
 function readErrorMessage(error: unknown) {
     if (error instanceof Error) {
         return error.message;
@@ -195,11 +211,12 @@ function scheduleBridgeRestart(delayMs = 2500) {
 
 function handleTransientRuntimeError(source: string, error: unknown) {
     const message = readErrorMessage(error);
-    console.warn(`[wa:qr] transient runtime error (${source}): ${message}`);
+    logger.warn(`[wa:qr] transient runtime error (${source}): ${message}`);
     clientRef = null;
     updateRuntimeState({
         status: "disconnected",
         lastError: message,
+        lastClientState: null,
         qr: null,
         qrImageUrl: null,
     });
@@ -220,7 +237,7 @@ function installRuntimeGuard() {
             return;
         }
 
-        console.error("[wa:qr] uncaught exception:", error);
+        logger.error("[wa:qr] uncaught exception", { error });
         process.exit(1);
     });
 }
@@ -560,11 +577,9 @@ async function handleIncomingMessage(message: any) {
                 "Harap menunggu agent professional akan menghubungi anda"
             );
             if (!fallbackReply.sent) {
-                console.error(
-                    `[wa:qr] fallback auto-reply failed to jid=${inboundReplyJid}: ${
-                        fallbackReply.error || "unknown error"
-                    }`
-                );
+                logger.error(`[wa:qr] fallback auto-reply failed to jid=${inboundReplyJid}`, {
+                    error: fallbackReply.error || "unknown error"
+                });
             }
         }
         return;
@@ -596,13 +611,11 @@ async function handleIncomingMessage(message: any) {
             : await sendWhatsAppQrText(fromWa, autoReplyText);
 
         if (!replyResult.sent) {
-            console.error(
-                `[wa:qr] auto-reply failed to ${fromWa}: ${replyResult.error || "unknown error"}`
-            );
+            logger.error(`[wa:qr] auto-reply failed to ${fromWa}`, {
+                error: replyResult.error || "unknown error"
+            });
         } else if (process.env.WA_QR_DEBUG === "true") {
-            console.log(
-                `[wa:qr][debug] auto-reply sent to jid=${inboundReplyJid || phoneToChatId(fromWa)}`
-            );
+            logger.debug(`[wa:qr][debug] auto-reply sent to jid=${inboundReplyJid || phoneToChatId(fromWa)}`);
         }
     }
 }
@@ -656,17 +669,17 @@ export async function sendWhatsAppQrMedia(params: {
     const caption = params.body?.trim() || undefined;
     const payload = params.mimeType.startsWith("video/")
         ? {
-              video: params.mediaBuffer,
-              mimetype: params.mimeType,
-              caption,
-              fileName: params.fileName,
-          }
+            video: params.mediaBuffer,
+            mimetype: params.mimeType,
+            caption,
+            fileName: params.fileName,
+        }
         : {
-              image: params.mediaBuffer,
-              mimetype: params.mimeType,
-              caption,
-              fileName: params.fileName,
-          };
+            image: params.mediaBuffer,
+            mimetype: params.mimeType,
+            caption,
+            fileName: params.fileName,
+        };
 
     return sendWhatsAppQrPayloadByJid(phoneToChatId(params.to), payload);
 }
@@ -725,7 +738,13 @@ export async function stopWhatsAppQrBridge() {
     sessionGeneration += 1;
 
     if (!clientRef) {
-        updateRuntimeState({ status: "idle", qr: null, qrImageUrl: null, pairingCode: null });
+        updateRuntimeState({
+            status: "idle",
+            qr: null,
+            qrImageUrl: null,
+            pairingCode: null,
+            lastClientState: null,
+        });
         return;
     }
 
@@ -744,6 +763,7 @@ export async function stopWhatsAppQrBridge() {
         qrImageUrl: null,
         pairingCode: null,
         pairingPhone: null,
+        lastClientState: null,
     });
 }
 
@@ -756,6 +776,7 @@ export async function resetWhatsAppQrSession() {
         qrImageUrl: null,
         pairingCode: null,
         pairingPhone: null,
+        lastClientState: null,
         lastError: null,
         lastDisconnectCode: null,
     });
@@ -771,6 +792,7 @@ export async function startWhatsAppQrBridge() {
             qrImageUrl: null,
             pairingCode: null,
             pairingPhone: null,
+            lastClientState: null,
         });
         return;
     }
@@ -789,6 +811,7 @@ export async function startWhatsAppQrBridge() {
         qrImageUrl: null,
         pairingCode: null,
         pairingPhone: null,
+        lastClientState: null,
         lastError: null,
     });
 
@@ -856,8 +879,39 @@ export async function startWhatsAppQrBridge() {
                 qrImageUrl: qrToImageUrl(qr),
                 pairingCode: null,
                 pairingPhone: null,
+                lastClientState: null,
             });
             console.log("[wa:qr] QR updated. Open Admin Settings page to scan it.");
+        });
+
+        client.on("authenticated", () => {
+            if (generation !== sessionGeneration) {
+                return;
+            }
+
+            // After successful scan, QR should disappear even if "ready" is still warming up.
+            updateRuntimeState({
+                status: "starting",
+                qr: null,
+                qrImageUrl: null,
+                pairingCode: null,
+                pairingPhone: null,
+                lastClientState: "AUTHENTICATED",
+                lastError: null,
+            });
+            console.log("[wa:qr] authenticated, waiting for ready...");
+        });
+
+        client.on("change_state", (state: string) => {
+            if (generation !== sessionGeneration) {
+                return;
+            }
+
+            const normalized = String(state || "").toUpperCase();
+            updateRuntimeState({ lastClientState: normalized || null });
+            if (normalized === "CONNECTED" || normalized === "OPENING") {
+                markConnectedState(normalized);
+            }
         });
 
         client.on("ready", () => {
@@ -865,15 +919,7 @@ export async function startWhatsAppQrBridge() {
                 return;
             }
 
-            updateRuntimeState({
-                status: "connected",
-                qr: null,
-                qrImageUrl: null,
-                pairingCode: null,
-                pairingPhone: null,
-                lastError: null,
-                lastDisconnectCode: null,
-            });
+            markConnectedState("READY");
             console.log("[wa:qr] connected");
         });
 
@@ -884,6 +930,7 @@ export async function startWhatsAppQrBridge() {
 
             updateRuntimeState({
                 status: "error",
+                lastClientState: null,
                 lastError: message || "Authentication failure",
             });
             console.error("[wa:qr] auth failure:", message);
@@ -898,6 +945,7 @@ export async function startWhatsAppQrBridge() {
             updateRuntimeState({
                 status: "disconnected",
                 lastDisconnectCode: null,
+                lastClientState: null,
                 lastError: reason || null,
                 qr: null,
                 qrImageUrl: null,
@@ -951,6 +999,7 @@ export async function startWhatsAppQrBridge() {
         console.error("[wa:qr] failed to start bridge:", error);
         updateRuntimeState({
             status: "error",
+            lastClientState: null,
             lastError: uiMessage,
         });
     } finally {

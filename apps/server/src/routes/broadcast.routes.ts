@@ -3,6 +3,7 @@ import type { Response } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireAdmin } from "../middleware/rbac";
 import * as broadcastService from "../services/broadcast.service";
+import { logger } from "../utils/logger";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -43,7 +44,7 @@ router.get("/status", requireAdmin as any, async (_req, res: Response) => {
     try {
         res.json(broadcastService.getBroadcastStatus());
     } catch (error) {
-        console.error("GET /broadcast/status error:", error);
+        logger.error("GET /broadcast/status error", { error, route: "GET /broadcast/status" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -76,7 +77,7 @@ router.post("/start", requireAdmin as any, async (req, res: Response) => {
 
         res.status(201).json(result);
     } catch (error) {
-        console.error("POST /broadcast/start error:", error);
+        logger.error("POST /broadcast/start error", { error, route: "POST /broadcast/start" });
         const mapped = mapBroadcastError(error);
         res.status(mapped.status).json(mapped.body);
     }
@@ -87,7 +88,7 @@ router.post("/stop", requireAdmin as any, async (_req, res: Response) => {
         const result = broadcastService.stopBroadcast();
         res.json(result);
     } catch (error) {
-        console.error("POST /broadcast/stop error:", error);
+        logger.error("POST /broadcast/stop error", { error, route: "POST /broadcast/stop" });
         res.status(500).json({ error: "Internal server error" });
     }
 });

@@ -5,6 +5,7 @@ import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
 import { resolveAppointmentTag, toAppointmentDateTime } from "../utils/appointment";
 import { sendWhatsAppMedia, sendWhatsAppText } from "./whatsapp-provider.service";
+import { logger } from "../utils/logger";
 
 type AppointmentTagFilter = "all" | "mau_survey" | "sudah_survey" | "none";
 
@@ -230,10 +231,10 @@ async function getTargets(filters: {
         filters.appointmentTag === "all"
             ? leads
             : leads.filter((item) => {
-                  const latestAppointment = latestAppointmentByLead.get(item.id) || null;
-                  const tag = resolveAppointmentTag(latestAppointment);
-                  return tag === filters.appointmentTag;
-              });
+                const latestAppointment = latestAppointmentByLead.get(item.id) || null;
+                const tag = resolveAppointmentTag(latestAppointment);
+                return tag === filters.appointmentTag;
+            });
 
     const dedupeByPhone = new Map<string, BroadcastTarget>();
     for (const item of filteredByAppointment) {
@@ -312,7 +313,7 @@ async function persistBroadcastAttemptLog(params: {
             createdAt: new Date(),
         });
     } catch (error) {
-        console.error("[broadcast-worker] failed persisting wa_message log:", error);
+        logger.error("[broadcast-worker] failed persisting wa_message log", { error });
     }
 }
 

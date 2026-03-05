@@ -3,6 +3,7 @@ import type { Response } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireAdmin } from "../middleware/rbac";
 import * as leadsService from "../services/leads.service";
+import { logger } from "../utils/logger";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -109,7 +110,7 @@ router.get("/", async (req, res: Response) => {
 
         res.json(leads);
     } catch (error) {
-        console.error("GET /leads error:", error);
+        logger.error("GET /leads error", { error, route: "GET /leads" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -128,7 +129,7 @@ router.get("/:id", async (req, res: Response) => {
         }
         res.json(lead);
     } catch (error) {
-        console.error("GET /leads/:id error:", error);
+        logger.error("GET /leads/:id error", { error, route: "GET /leads/:id" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -153,7 +154,7 @@ router.post("/", async (req, res: Response) => {
         });
         res.status(201).json(created);
     } catch (error) {
-        console.error("POST /leads error:", error);
+        logger.error("POST /leads error", { error, route: "POST /leads" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -200,7 +201,7 @@ router.patch("/:id", async (req, res: Response) => {
         const fullLead = await leadsService.findById(req.params.id);
         res.json(fullLead || updated);
     } catch (error) {
-        console.error("PATCH /leads/:id error:", error);
+        logger.error("PATCH /leads/:id error", { error, route: "PATCH /leads/:id" });
         const mapped = errorResponseFromCode(error);
         res.status(mapped.status).json(mapped.body);
     }
@@ -230,7 +231,7 @@ router.post("/:id/assign", requireAdmin as any, async (req, res: Response) => {
         const fullLead = await leadsService.findById(req.params.id);
         res.json(fullLead || updated);
     } catch (error) {
-        console.error("POST /leads/:id/assign error:", error);
+        logger.error("POST /leads/:id/assign error", { error, route: "POST /leads/:id/assign" });
         const mapped = errorResponseFromCode(error);
         res.status(mapped.status).json(mapped.body);
     }
@@ -258,7 +259,7 @@ router.post("/:id/activities", async (req, res: Response) => {
         const newActivity = await leadsService.addActivity(req.params.id, { note });
         res.status(201).json(newActivity);
     } catch (error) {
-        console.error("POST /leads/:id/activities error:", error);
+        logger.error("POST /leads/:id/activities error", { error, route: "POST /leads/:id/activities" });
         res.status(500).json({ error: "Internal server error" });
     }
 });
@@ -291,7 +292,7 @@ router.post("/:id/appointments", async (req, res: Response) => {
         });
         res.status(201).json(created);
     } catch (error) {
-        console.error("POST /leads/:id/appointments error:", error);
+        logger.error("POST /leads/:id/appointments error", { error, route: "POST /leads/:id/appointments" });
         res.status(500).json({ error: "Internal server error" });
     }
 });

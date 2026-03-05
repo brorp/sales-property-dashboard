@@ -1,5 +1,6 @@
 import "dotenv/config";
 import { eq, inArray } from "drizzle-orm";
+import { logger } from "../utils/logger";
 import { auth } from "../auth/index";
 import { db } from "./index";
 import {
@@ -129,11 +130,10 @@ async function upsertAuthUser(seedUser: SeedUser) {
                 if (createdByParallelProcess) {
                     createdUserId = createdByParallelProcess.id;
                 } else {
-                    console.error(
-                        `❌ Failed creating user ${seedUser.email}`,
+                    logger.error(`❌ Failed creating user ${seedUser.email}`, {
                         firstError,
                         secondError
-                    );
+                    });
                     throw secondError;
                 }
             }
@@ -213,12 +213,12 @@ async function seedSystemSettings() {
 }
 
 async function seed() {
-    console.log("🌱 Seeding database...");
+    logger.info("🌱 Seeding database...");
 
     if (shouldReset) {
-        console.log("🧹 Reset mode ON: clearing leads and sales...");
+        logger.info("🧹 Reset mode ON: clearing leads and sales...");
         await resetLeadsAndSalesData();
-        console.log("  ✅ reset complete");
+        logger.info("  ✅ reset complete");
     }
 
     const createdIdsByEmail = new Map<string, string>();
@@ -226,7 +226,7 @@ async function seed() {
     for (const seedUser of seedUsers) {
         const userId = await upsertAuthUser(seedUser);
         createdIdsByEmail.set(seedUser.email, userId);
-        console.log(`  ✅ upsert user ${seedUser.email}`);
+        logger.info(`  ✅ upsert user ${seedUser.email}`);
     }
 
     const salesIds = seedUsers
@@ -235,16 +235,16 @@ async function seed() {
         .filter((id): id is string => Boolean(id));
 
     await seedQueue(salesIds);
-    console.log("  ✅ seeded fixed queue A-C");
+    logger.info("  ✅ seeded fixed queue A-C");
 
     await seedSystemSettings();
-    console.log("  ✅ seeded system settings");
+    logger.info("  ✅ seeded system settings");
 
-    console.log("✨ Seed complete");
+    logger.info("✨ Seed complete");
     process.exit(0);
 }
 
 seed().catch((error) => {
-    console.error("❌ Seed failed:", error);
+    logger.error("❌ Seed failed", { error });
     process.exit(1);
 });
