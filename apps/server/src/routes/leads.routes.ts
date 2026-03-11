@@ -1,87 +1,44 @@
 import { Router } from "express";
-import type { Response } from "express";
+import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
-import { requireAdmin } from "../middleware/rbac";
+import { requireAdmin, requireMinRole } from "../middleware/rbac";
 import * as leadsService from "../services/leads.service";
-import { logger } from "../utils/logger";
 
 const router: ReturnType<typeof Router> = Router();
 
-function errorResponseFromCode(error: unknown) {
-    const code = error instanceof Error ? error.message : "UNKNOWN";
-
-    if (code === "FORBIDDEN_ASSIGN") {
-        return {
-            status: 403,
-            body: { error: "Only admin can reassign lead owner" },
-        };
-    }
-
-    if (code === "FORBIDDEN_LEAD_EDIT") {
-        return {
-            status: 403,
-            body: { error: "Only assigned sales can update this lead" },
-        };
-    }
-
-    if (code === "ADMIN_ASSIGNED_LEAD_READ_ONLY") {
-        return {
-            status: 403,
-            body: { error: "Assigned leads are read-only for admin" },
-        };
-    }
-
-    const badRequestCodes = new Set([
-        "INVALID_SALES_STATUS",
-        "INVALID_RESULT_STATUS",
-        "SALES_STATUS_REQUIRES_ASSIGNED",
-        "RESULT_STATUS_REQUIRES_SUDAH_SURVEY",
-        "CLOSING_FIELDS_REQUIRE_CLOSING_STATUS",
-        "CLOSING_FIELDS_REQUIRED",
-        "REJECT_REASON_REQUIRES_BATAL_STATUS",
-        "REJECT_REASON_REQUIRED",
-    ]);
-
-    if (badRequestCodes.has(code)) {
-        return {
-            status: 400,
-            body: { error: code },
-        };
-    }
-
-    return {
-        status: 500,
-        body: { error: "Internal server error" },
-    };
-}
-
 function canViewLeadByUser(
     lead: { assignedTo?: string | null } | null,
-    reqUser: { id: string; role: string }
+    reqUser: { id: string; role: string },
+    scope?: { managedSalesIds?: string[] }
 ) {
-    if (!lead) {
+    if (!lead) return false;
+    if (reqUser.role === "root_admin" || reqUser.role === "client_admin") return true;
+    if (reqUser.role === "supervisor") {
+        if (lead.assignedTo === reqUser.id) return true;
+        if (scope?.managedSalesIds?.includes(lead.assignedTo || "")) return true;
         return false;
-    }
-    if (reqUser.role === "admin") {
-        return true;
     }
     return lead.assignedTo === reqUser.id;
 }
 
 function canEditLeadByUser(
     lead: { assignedTo?: string | null } | null,
-    reqUser: { id: string; role: string }
+    reqUser: { id: string; role: string },
+    scope?: { managedSalesIds?: string[] }
 ) {
-    if (!lead) {
-        return false;
+    if (!lead) return false;
+    if (reqUser.role === "root_admin" || reqUser.role === "client_admin") {
+        return !lead.assignedTo;
     }
-    if (reqUser.role === "admin") {
+    if (reqUser.role === "supervisor") {
+        if (lead.assignedTo === reqUser.id) return true;
+        if (scope?.managedSalesIds?.includes(lead.assignedTo || "")) return true;
         return !lead.assignedTo;
     }
     return lead.assignedTo === reqUser.id;
 }
 
-router.get("/", async (req, res: Response) => {
+router.get("/", async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
         const {
@@ -105,41 +62,40 @@ router.get("/", async (req, res: Response) => {
                 domicileCity: domicileCity as string,
             },
             user.id,
-            user.role
+            user.role,
+            (req as unknown as AuthenticatedRequest).scope
         );
 
         res.json(leads);
     } catch (error) {
-        logger.error("GET /leads error", { error, route: "GET /leads" });
-        res.status(500).json({ error: "Internal server error" });
+        next(error);
     }
 });
 
-router.get("/:id", async (req, res: Response) => {
+router.get("/:id", async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
         const lead = await leadsService.findById(req.params.id);
         if (!lead) {
-            res.status(404).json({ error: "Lead not found" });
+            res.status(404).json({ error: "NOT_FOUND", message: "Lead tidak ditemukan" });
             return;
         }
-        if (!canViewLeadByUser(lead, user)) {
-            res.status(403).json({ error: "Forbidden" });
+        if (!canViewLeadByUser(lead, user, (req as unknown as AuthenticatedRequest).scope)) {
+            res.status(403).json({ error: "FORBIDDEN", message: "Anda tidak memiliki akses ke lead ini" });
             return;
         }
         res.json(lead);
     } catch (error) {
-        logger.error("GET /leads/:id error", { error, route: "GET /leads/:id" });
-        res.status(500).json({ error: "Internal server error" });
+        next(error);
     }
 });
 
-router.post("/", async (req, res: Response) => {
+router.post("/", async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
         const { name, phone, source, assignedTo } = req.body ?? {};
         if (!name || !phone) {
-            res.status(400).json({ error: "name and phone are required" });
+            res.status(400).json({ error: "VALIDATION_ERROR", message: "name dan phone wajib diisi" });
             return;
         }
 
@@ -148,18 +104,18 @@ router.post("/", async (req, res: Response) => {
             phone,
             source: source || "Manual Input",
             assignedTo:
-                user.role === "admin"
+                (user.role === "client_admin" || user.role === "root_admin")
                     ? assignedTo || null
                     : user.id,
+            clientId: user.clientId || null,
         });
         res.status(201).json(created);
     } catch (error) {
-        logger.error("POST /leads error", { error, route: "POST /leads" });
-        res.status(500).json({ error: "Internal server error" });
+        next(error);
     }
 });
 
-router.patch("/:id", async (req, res: Response) => {
+router.patch("/:id", async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
         const {
@@ -194,25 +150,23 @@ router.patch("/:id", async (req, res: Response) => {
         });
 
         if (!updated) {
-            res.status(404).json({ error: "Lead not found" });
+            res.status(404).json({ error: "NOT_FOUND", message: "Lead tidak ditemukan" });
             return;
         }
 
         const fullLead = await leadsService.findById(req.params.id);
         res.json(fullLead || updated);
     } catch (error) {
-        logger.error("PATCH /leads/:id error", { error, route: "PATCH /leads/:id" });
-        const mapped = errorResponseFromCode(error);
-        res.status(mapped.status).json(mapped.body);
+        next(error);
     }
 });
 
-router.post("/:id/assign", requireAdmin as any, async (req, res: Response) => {
+router.post("/:id/assign", requireMinRole("supervisor") as any, async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
         const { salesId, note } = req.body ?? {};
         if (!salesId) {
-            res.status(400).json({ error: "salesId is required" });
+            res.status(400).json({ error: "VALIDATION_ERROR", message: "salesId wajib diisi" });
             return;
         }
 
@@ -224,62 +178,59 @@ router.post("/:id/assign", requireAdmin as any, async (req, res: Response) => {
         });
 
         if (!updated) {
-            res.status(404).json({ error: "Lead not found" });
+            res.status(404).json({ error: "NOT_FOUND", message: "Lead tidak ditemukan" });
             return;
         }
 
         const fullLead = await leadsService.findById(req.params.id);
         res.json(fullLead || updated);
     } catch (error) {
-        logger.error("POST /leads/:id/assign error", { error, route: "POST /leads/:id/assign" });
-        const mapped = errorResponseFromCode(error);
-        res.status(mapped.status).json(mapped.body);
+        next(error);
     }
 });
 
-router.post("/:id/activities", async (req, res: Response) => {
+router.post("/:id/activities", async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
         const { note } = req.body ?? {};
         if (!note) {
-            res.status(400).json({ error: "note is required" });
+            res.status(400).json({ error: "VALIDATION_ERROR", message: "note wajib diisi" });
             return;
         }
 
         const lead = await leadsService.findById(req.params.id);
         if (!lead) {
-            res.status(404).json({ error: "Lead not found" });
+            res.status(404).json({ error: "NOT_FOUND", message: "Lead tidak ditemukan" });
             return;
         }
         if (!canEditLeadByUser(lead, user)) {
-            res.status(403).json({ error: "Only assigned sales can update this lead" });
+            res.status(403).json({ error: "FORBIDDEN_LEAD_EDIT", message: "Hanya sales yang di-assign yang bisa mengubah lead ini" });
             return;
         }
 
         const newActivity = await leadsService.addActivity(req.params.id, { note });
         res.status(201).json(newActivity);
     } catch (error) {
-        logger.error("POST /leads/:id/activities error", { error, route: "POST /leads/:id/activities" });
-        res.status(500).json({ error: "Internal server error" });
+        next(error);
     }
 });
 
-router.post("/:id/appointments", async (req, res: Response) => {
+router.post("/:id/appointments", async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
         const { date, time, location, notes } = req.body ?? {};
         if (!date || !time || !location) {
-            res.status(400).json({ error: "date, time, location are required" });
+            res.status(400).json({ error: "VALIDATION_ERROR", message: "date, time, location wajib diisi" });
             return;
         }
 
         const lead = await leadsService.findById(req.params.id);
         if (!lead) {
-            res.status(404).json({ error: "Lead not found" });
+            res.status(404).json({ error: "NOT_FOUND", message: "Lead tidak ditemukan" });
             return;
         }
         if (!canEditLeadByUser(lead, user)) {
-            res.status(403).json({ error: "Only assigned sales can update this lead" });
+            res.status(403).json({ error: "FORBIDDEN_LEAD_EDIT", message: "Hanya sales yang di-assign yang bisa mengubah lead ini" });
             return;
         }
 
@@ -292,8 +243,7 @@ router.post("/:id/appointments", async (req, res: Response) => {
         });
         res.status(201).json(created);
     } catch (error) {
-        logger.error("POST /leads/:id/appointments error", { error, route: "POST /leads/:id/appointments" });
-        res.status(500).json({ error: "Internal server error" });
+        next(error);
     }
 });
 

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
+import { injectScope } from "../middleware/rbac";
 import leadsRoutes from "./leads.routes";
 import dashboardRoutes from "./dashboard.routes";
 import teamRoutes from "./team.routes";
@@ -10,11 +11,13 @@ import appointmentsRoutes from "./appointments.routes";
 import activityLogsRoutes from "./activity-logs.routes";
 import broadcastRoutes from "./broadcast.routes";
 import settingsRoutes from "./settings.routes";
+import clientsRoutes from "./clients.routes";
 
 const router: ReturnType<typeof Router> = Router();
 
-// All API routes require authentication
+// All API routes require authentication + scope injection
 router.use(requireAuth as any);
+router.use(injectScope as any);
 
 router.use("/leads", leadsRoutes);
 router.use("/dashboard", dashboardRoutes);
@@ -26,5 +29,6 @@ router.use("/appointments", appointmentsRoutes);
 router.use("/activity-logs", activityLogsRoutes);
 router.use("/broadcast", broadcastRoutes);
 router.use("/settings", settingsRoutes);
+router.use("/clients", clientsRoutes);
 
 export default router;

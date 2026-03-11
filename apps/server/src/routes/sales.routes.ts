@@ -1,22 +1,24 @@
 import { Router } from "express";
-import type { Response } from "express";
+import type { Response, NextFunction } from "express";
+import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireAdmin } from "../middleware/rbac";
 import * as salesService from "../services/sales.service";
-import { logger } from "../utils/logger";
 
 const router: ReturnType<typeof Router> = Router();
 
-router.get("/", async (_req, res: Response) => {
+router.get("/", async (req, res: Response, next: NextFunction) => {
     try {
-        const rows = await salesService.getSalesUsers();
+        const { user } = req as unknown as AuthenticatedRequest;
+        // Scope sales list: root_admin sees all, others see their client
+        const clientId = user.role === "root_admin" ? null : user.clientId;
+        const rows = await salesService.getSalesUsers(clientId);
         res.json(rows);
     } catch (error) {
-        logger.error("GET /sales error", { error, route: "GET /sales" });
-        res.status(500).json({ error: "Internal server error" });
+        next(error);
     }
 });
 
-router.post("/", requireAdmin as any, async (req, res: Response) => {
+router.post("/", requireAdmin as any, async (req, res: Response, next: NextFunction) => {
     try {
         const {
             name,
@@ -28,7 +30,7 @@ router.post("/", requireAdmin as any, async (req, res: Response) => {
         } = req.body ?? {};
 
         if (!name || !email || !password) {
-            res.status(400).json({ error: "name, email, password are required" });
+            res.status(400).json({ error: "VALIDATION_ERROR", message: "name, email, password wajib diisi" });
             return;
         }
 
@@ -47,48 +49,30 @@ router.post("/", requireAdmin as any, async (req, res: Response) => {
         });
         res.status(201).json(created);
     } catch (error) {
-        if (error instanceof Error && error.message === "EMAIL_ALREADY_EXISTS") {
-            res.status(409).json({ error: "Email already exists" });
-            return;
-        }
-        logger.error("POST /sales error", { error, route: "POST /sales" });
-        res.status(500).json({ error: "Internal server error" });
+        next(error);
     }
 });
 
-router.patch("/queue/reorder", requireAdmin as any, async (req, res: Response) => {
+router.patch("/queue/reorder", requireAdmin as any, async (req, res: Response, next: NextFunction) => {
     try {
         const { salesIds } = req.body ?? {};
         if (!Array.isArray(salesIds) || salesIds.length === 0) {
-            res.status(400).json({ error: "salesIds array is required" });
+            res.status(400).json({ error: "VALIDATION_ERROR", message: "salesIds array wajib diisi" });
             return;
         }
 
         const rows = await salesService.reorderSalesQueue(salesIds);
         res.json(rows);
     } catch (error) {
-        if (
-            error instanceof Error &&
-            new Set([
-                "INVALID_QUEUE_PAYLOAD",
-                "QUEUE_EMPTY",
-                "QUEUE_SIZE_MISMATCH",
-                "UNKNOWN_SALES_IN_QUEUE",
-            ]).has(error.message)
-        ) {
-            res.status(400).json({ error: error.message });
-            return;
-        }
-        logger.error("PATCH /sales/queue/reorder error", { error, route: "PATCH /sales/queue/reorder" });
-        res.status(500).json({ error: "Internal server error" });
+        next(error);
     }
 });
 
-router.patch("/:id/queue", requireAdmin as any, async (req, res: Response) => {
+router.patch("/:id/queue", requireAdmin as any, async (req, res: Response, next: NextFunction) => {
     try {
         const { queueOrder, label } = req.body ?? {};
         if (typeof queueOrder !== "number" || !label) {
-            res.status(400).json({ error: "queueOrder(number) and label are required" });
+            res.status(400).json({ error: "VALIDATION_ERROR", message: "queueOrder (number) dan label wajib diisi" });
             return;
         }
 
@@ -99,8 +83,7 @@ router.patch("/:id/queue", requireAdmin as any, async (req, res: Response) => {
         );
         res.json(updated);
     } catch (error) {
-        logger.error("PATCH /sales/:id/queue error", { error, route: "PATCH /sales/:id/queue" });
-        res.status(500).json({ error: "Internal server error" });
+        next(error);
     }
 });
 

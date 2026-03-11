@@ -5,10 +5,18 @@ import Header from '../components/Header';
 import './ProfilePage.css';
 
 export default function ProfilePage() {
-    const { user, logout, isAdmin } = useAuth();
+    const { user, logout } = useAuth();
     const { getStats, resetData } = useLeads();
     const navigate = useNavigate();
     const stats = getStats(user.id, user.role);
+
+    const roleBadges = {
+        root_admin: { cls: 'badge-purple', label: '🌐 Root Admin' },
+        client_admin: { cls: 'badge-purple', label: '👑 Admin' },
+        supervisor: { cls: 'badge-blue', label: '📊 Supervisor' },
+        sales: { cls: 'badge-success', label: '💼 Sales' },
+    };
+    const badge = roleBadges[user.role] || roleBadges.sales;
 
     const handleLogout = () => { logout(); navigate('/login', { replace: true }); };
     const handleReset = () => { if (confirm('Reset semua data leads ke default? Ini tidak bisa diurungkan.')) resetData(); };
@@ -20,7 +28,7 @@ export default function ProfilePage() {
                 <div className="profile-avatar">{user.name.charAt(0)}</div>
                 <h2 className="profile-name">{user.name}</h2>
                 <p className="profile-email">{user.email}</p>
-                <span className={`badge ${isAdmin ? 'badge-purple' : 'badge-success'}`}>{isAdmin ? '👑 Admin' : '💼 Sales'}</span>
+                <span className={`badge ${badge.cls}`}>{badge.label}</span>
             </div>
             <div className="profile-stats-row">
                 <div className="profile-stat-item"><span className="profile-stat-num">{stats.total}</span><span className="profile-stat-label">Leads</span></div>

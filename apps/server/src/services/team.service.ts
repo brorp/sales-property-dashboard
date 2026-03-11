@@ -1,8 +1,27 @@
 import { db } from "../db/index";
 import { user, lead } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
+import type { QueryScope } from "../middleware/rbac";
 
-export async function getTeamWithStats() {
+export async function getTeamWithStats(scope?: QueryScope) {
+    // Determine which sales users to show based on scope
+    let salesConditions: any[] = [eq(user.role, "sales")];
+
+    if (scope) {
+        if (scope.role === "root_admin") {
+            // root_admin: all sales users globally
+        } else if (scope.role === "client_admin" && scope.clientId) {
+            // client_admin: sales users in same client
+            salesConditions.push(eq(user.clientId, scope.clientId));
+        } else if (scope.role === "supervisor" && scope.managedSalesIds.length > 0) {
+            // supervisor: only their managed sales
+            salesConditions = [inArray(user.id, scope.managedSalesIds)];
+        } else {
+            // sales: no team view (return empty)
+            return [];
+        }
+    }
+
     const salesUsers = await db
         .select({
             id: user.id,
@@ -10,7 +29,7 @@ export async function getTeamWithStats() {
             email: user.email,
         })
         .from(user)
-        .where(eq(user.role, "sales"));
+        .where(and(...salesConditions));
 
     const result = [];
 

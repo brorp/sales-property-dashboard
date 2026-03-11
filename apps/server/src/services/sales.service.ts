@@ -62,7 +62,12 @@ async function resequenceQueue(executor: DbExecutor, orderedRows: Array<{ id: st
     }
 }
 
-export async function getSalesUsers() {
+export async function getSalesUsers(clientId?: string | null) {
+    const conditions: any[] = [eq(user.role, "sales")];
+    if (clientId) {
+        conditions.push(eq(user.clientId, clientId));
+    }
+
     return db
         .select({
             id: user.id,
@@ -76,7 +81,7 @@ export async function getSalesUsers() {
         })
         .from(user)
         .leftJoin(salesQueue, eq(salesQueue.salesId, user.id))
-        .where(eq(user.role, "sales"))
+        .where(and(...conditions))
         .orderBy(asc(salesQueue.queueOrder), asc(user.name));
 }
 

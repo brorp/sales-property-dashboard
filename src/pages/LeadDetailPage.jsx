@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
-import { getSalesName, getTimeAgo, formatDate, PROGRESS_STEPS, CLIENT_STATUSES } from '../data/mockData';
+import { getTimeAgo, formatDate, PROGRESS_STEPS, CLIENT_STATUSES } from '../data/mockData';
 import Header from '../components/Header';
 import './LeadDetailPage.css';
 
 export default function LeadDetailPage() {
     const { id } = useParams();
-    const { user, isAdmin } = useAuth();
-    const { getLeadById, updateLead, addAppointment, getSalesUsers } = useLeads();
+    const { user, isManager } = useAuth();
+    const { getLeadById, updateLead, addAppointment, getSalesUsers, getSalesName } = useLeads();
     const navigate = useNavigate();
     const [showAppt, setShowAppt] = useState(false);
     const [showNote, setShowNote] = useState(false);
@@ -52,7 +52,7 @@ export default function LeadDetailPage() {
                 <div className="detail-info-row">
                     <span>👨‍💼</span>
                     <span>Sales: {getSalesName(lead.assignedTo)}
-                        {isAdmin && <button className="detail-reassign-btn" onClick={() => setShowReassign(true)}>✏️ Ubah</button>}
+                        {isManager && <button className="detail-reassign-btn" onClick={() => setShowReassign(true)}>✏️ Ubah</button>}
                     </span>
                 </div>
                 <a href={waLink} target="_blank" rel="noopener noreferrer" className="btn btn-whatsapp btn-full" style={{ marginTop: 12 }}>💬 Chat WhatsApp</a>

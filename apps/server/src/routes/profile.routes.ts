@@ -1,29 +1,27 @@
 import { Router } from "express";
-import type { Response } from "express";
+import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import * as profileService from "../services/profile.service";
-import { logger } from "../utils/logger";
 
 const router: ReturnType<typeof Router> = Router();
 
-router.get("/me", async (req, res: Response) => {
+router.get("/me", async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
         const profile = await profileService.getProfile(user.id);
 
         if (!profile) {
-            res.status(404).json({ error: "Profile not found" });
+            res.status(404).json({ error: "NOT_FOUND", message: "Profile tidak ditemukan" });
             return;
         }
 
         res.json(profile);
-    } catch (err) {
-        logger.error("GET /profile/me error", { error: err, route: "GET /profile/me" });
-        res.status(500).json({ error: "Internal server error" });
+    } catch (error) {
+        next(error);
     }
 });
 
-router.patch("/me", async (req, res: Response) => {
+router.patch("/me", async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
         const { name, phone, image } = req.body ?? {};
@@ -41,14 +39,13 @@ router.patch("/me", async (req, res: Response) => {
         });
 
         if (!updated) {
-            res.status(404).json({ error: "Profile not found" });
+            res.status(404).json({ error: "NOT_FOUND", message: "Profile tidak ditemukan" });
             return;
         }
 
         res.json(updated);
-    } catch (err) {
-        logger.error("PATCH /profile/me error", { error: err, route: "PATCH /profile/me" });
-        res.status(500).json({ error: "Internal server error" });
+    } catch (error) {
+        next(error);
     }
 });
 

@@ -1,7 +1,8 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, or } from "drizzle-orm";
 import { db } from "../db/index";
 import { appointment, lead, user } from "../db/schema";
 import { resolveAppointmentTag, toAppointmentDateTime } from "../utils/appointment";
+import type { QueryScope } from "../middleware/rbac";
 
 type LeadRow = {
     id: string;
@@ -53,22 +54,14 @@ function normalizeFlowStatus(
     flowStatus: string | null | undefined,
     assignedTo: string | null | undefined
 ) {
-    if (flowStatus === "hold") {
-        return "hold";
-    }
-    if (flowStatus === "assigned") {
-        return "assigned";
-    }
-    if (assignedTo) {
-        return "assigned";
-    }
+    if (flowStatus === "hold") return "hold";
+    if (flowStatus === "assigned") return "assigned";
+    if (assignedTo) return "assigned";
     return "open";
 }
 
 function toPercent(count: number, total: number) {
-    if (total <= 0) {
-        return 0;
-    }
+    if (total <= 0) return 0;
     return Math.round((count / total) * 10000) / 100;
 }
 
@@ -92,8 +85,21 @@ function getLatestAppointmentByLead(appointments: AppointmentRow[]) {
     return latestMap;
 }
 
-async function loadScopedLeadsAndAppointments(userId: string, role: string) {
-    const leadCondition = role === "admin" ? undefined : eq(lead.assignedTo, userId);
+async function loadScopedLeadsAndAppointments(userId: string, role: string, scope?: QueryScope) {
+    // Build lead condition based on role
+    let leadCondition: any = undefined;
+    if (role === "root_admin") {
+        // no filter
+    } else if (role === "client_admin" && scope?.clientId) {
+        leadCondition = eq(lead.clientId, scope.clientId);
+    } else if (role === "supervisor" && scope?.managedSalesIds && scope.managedSalesIds.length > 0) {
+        leadCondition = or(
+            inArray(lead.assignedTo, scope.managedSalesIds),
+            eq(lead.assignedTo, userId)
+        );
+    } else {
+        leadCondition = eq(lead.assignedTo, userId);
+    }
 
     const scopedLeads = await db
         .select({
@@ -151,9 +157,9 @@ async function loadScopedLeadsAndAppointments(userId: string, role: string) {
     };
 }
 
-export async function getHomeAnalytics(userId: string, role: string) {
+export async function getHomeAnalytics(userId: string, role: string, scope?: QueryScope) {
     const { leads: scopedLeads, appointments: scopedAppointments } =
-        await loadScopedLeadsAndAppointments(userId, role);
+        await loadScopedLeadsAndAppointments(userId, role, scope);
 
     const latestAppointmentByLead = getLatestAppointmentByLead(scopedAppointments);
 
@@ -274,14 +280,24 @@ export async function getHomeAnalytics(userId: string, role: string) {
         ratioPercent: number;
     }> = [];
 
-    if (role === "admin") {
+    const isManagerRole = role === "root_admin" || role === "client_admin" || role === "supervisor";
+
+    if (isManagerRole) {
+        // Build scoped sales user list
+        let salesCondition: any = eq(user.role, "sales");
+        if (role === "client_admin" && scope?.clientId) {
+            salesCondition = and(eq(user.role, "sales"), eq(user.clientId, scope.clientId));
+        } else if (role === "supervisor" && scope?.managedSalesIds && scope.managedSalesIds.length > 0) {
+            salesCondition = inArray(user.id, scope.managedSalesIds);
+        }
+
         const salesUsers = await db
             .select({
                 id: user.id,
                 name: user.name,
             })
             .from(user)
-            .where(eq(user.role, "sales"))
+            .where(salesCondition)
             .orderBy(asc(user.name));
 
         perAgentSurveyRatio = salesUsers.map((sales) => {
@@ -300,27 +316,27 @@ export async function getHomeAnalytics(userId: string, role: string) {
     }
 
     const holdLeads =
-        role === "admin"
+        isManagerRole
             ? decoratedLeads
-                  .filter((item) => item.flowStatus === "hold")
-                  .sort(
-                      (a, b) =>
-                          new Date(b.createdAt).getTime() -
-                          new Date(a.createdAt).getTime()
-                  )
-                  .slice(0, 50)
-                  .map((item) => ({
-                      id: item.id,
-                      name: item.name,
-                      phone: item.phone,
-                      source: item.source,
-                      createdAt: item.createdAt,
-                      receivedAt: item.createdAt,
-                  }))
+                .filter((item) => item.flowStatus === "hold")
+                .sort(
+                    (a, b) =>
+                        new Date(b.createdAt).getTime() -
+                        new Date(a.createdAt).getTime()
+                )
+                .slice(0, 50)
+                .map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    phone: item.phone,
+                    source: item.source,
+                    createdAt: item.createdAt,
+                    receivedAt: item.createdAt,
+                }))
             : [];
 
     return {
-        scope: role === "admin" ? "overall" : "agent",
+        scope: isManagerRole ? "overall" : "agent",
         flowOverview,
         surveyRatio,
         perAgentSurveyRatio,

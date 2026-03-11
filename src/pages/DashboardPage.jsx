@@ -1,12 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
-import { getSalesName, getTimeAgo } from '../data/mockData';
+import { getTimeAgo } from '../data/mockData';
 import './DashboardPage.css';
 
 export default function DashboardPage() {
-    const { user, isAdmin } = useAuth();
-    const { getStats, getLeadsForUser, getSalesUsers } = useLeads();
+    const { user, isManager } = useAuth();
+    const { getStats, getLeadsForUser, getSalesUsers, getSalesName } = useLeads();
     const navigate = useNavigate();
 
     const stats = getStats(user.id, user.role);
@@ -31,7 +31,7 @@ export default function DashboardPage() {
         return (now - new Date(lastActivity.timestamp)) / 86400000 > 1;
     }).slice(0, 5);
 
-    const salesPerf = isAdmin ? salesUsers.map(s => {
+    const salesPerf = isManager ? salesUsers.map(s => {
         const sLeads = myLeads.filter(l => l.assignedTo === s.id);
         return { ...s, total: sLeads.length, closed: sLeads.filter(l => l.progress === 'closed').length };
     }).sort((a, b) => b.closed - a.closed) : [];
@@ -49,7 +49,7 @@ export default function DashboardPage() {
 
             <div className="stats-grid">
                 <div className="stat-card stat-total">
-                    <span className="stat-label">{isAdmin ? 'Total Leads' : 'My Leads'}</span>
+                    <span className="stat-label">{isManager ? 'Total Leads' : 'My Leads'}</span>
                     <span className="stat-value">{stats.total}</span>
                 </div>
                 <div className="stat-card stat-hot">
@@ -81,7 +81,7 @@ export default function DashboardPage() {
                 </section>
             )}
 
-            {isAdmin && salesPerf.length > 0 && (
+            {isManager && salesPerf.length > 0 && (
                 <section className="dash-section">
                     <h2 className="section-title">📊 Performa Sales</h2>
                     <div className="card">
@@ -113,7 +113,7 @@ export default function DashboardPage() {
                                 </div>
                                 <div className="lead-row-meta">
                                     <span>{progressLabel[lead.progress]}</span>
-                                    {isAdmin && <span>→ {getSalesName(lead.assignedTo).split(' ')[0]}</span>}
+                                    {isManager && <span>→ {getSalesName(lead.assignedTo).split(' ')[0]}</span>}
                                 </div>
                             </div>
                         ))}
@@ -135,7 +135,7 @@ export default function DashboardPage() {
                             </div>
                             <div className="lead-row-meta">
                                 <span>📱 {lead.phone}</span>
-                                {isAdmin && <span>→ {getSalesName(lead.assignedTo).split(' ')[0]}</span>}
+                                {isManager && <span>→ {getSalesName(lead.assignedTo).split(' ')[0]}</span>}
                             </div>
                         </div>
                     ))}

@@ -2,7 +2,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './BottomNav.css';
 
-const ADMIN_TABS = [
+const ROOT_ADMIN_TABS = [
+    { key: '/', icon: '🏠', label: 'Home' },
+    { key: '/clients', icon: '🏢', label: 'Clients' },
+    { key: '/leads', icon: '📋', label: 'Leads' },
+    { key: '/profile', icon: '👤', label: 'Profil' },
+];
+
+const MANAGER_TABS = [
     { key: '/', icon: '🏠', label: 'Home' },
     { key: '/leads', icon: '📋', label: 'Leads' },
     { key: '/team', icon: '👥', label: 'Team' },
@@ -16,13 +23,16 @@ const SALES_TABS = [
 ];
 
 export default function BottomNav() {
-    const { user, isAdmin } = useAuth();
+    const { user, isRootAdmin, isManager } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
 
     if (!user || location.pathname === '/login') return null;
 
-    const tabs = isAdmin ? ADMIN_TABS : SALES_TABS;
+    let tabs = SALES_TABS;
+    if (isRootAdmin) tabs = ROOT_ADMIN_TABS;
+    else if (isManager) tabs = MANAGER_TABS;
+
     const isActive = (key) => key === '/' ? location.pathname === '/' : location.pathname.startsWith(key);
 
     return (

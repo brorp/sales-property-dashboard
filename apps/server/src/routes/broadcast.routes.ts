@@ -1,55 +1,20 @@
 import { Router } from "express";
-import type { Response } from "express";
+import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireAdmin } from "../middleware/rbac";
 import * as broadcastService from "../services/broadcast.service";
-import { logger } from "../utils/logger";
 
 const router: ReturnType<typeof Router> = Router();
 
-function mapBroadcastError(error: unknown) {
-    const code = error instanceof Error ? error.message : "UNKNOWN";
-
-    const badRequestCodes = new Set([
-        "BROADCAST_STATUS_EMPTY",
-        "BROADCAST_INTERVAL_INVALID",
-        "INVALID_MEDIA_DATA_URL",
-        "MEDIA_TYPE_NOT_SUPPORTED",
-        "MEDIA_EMPTY",
-        "BROADCAST_CONTENT_EMPTY",
-        "BROADCAST_NO_TARGET",
-    ]);
-
-    if (badRequestCodes.has(code)) {
-        return {
-            status: 400,
-            body: { error: code },
-        };
-    }
-
-    if (code === "BROADCAST_ALREADY_RUNNING") {
-        return {
-            status: 409,
-            body: { error: code },
-        };
-    }
-
-    return {
-        status: 500,
-        body: { error: "Internal server error" },
-    };
-}
-
-router.get("/status", requireAdmin as any, async (_req, res: Response) => {
+router.get("/status", requireAdmin as any, async (_req, res: Response, next: NextFunction) => {
     try {
         res.json(broadcastService.getBroadcastStatus());
     } catch (error) {
-        logger.error("GET /broadcast/status error", { error, route: "GET /broadcast/status" });
-        res.status(500).json({ error: "Internal server error" });
+        next(error);
     }
 });
 
-router.post("/start", requireAdmin as any, async (req, res: Response) => {
+router.post("/start", requireAdmin as any, async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
         const {
@@ -77,19 +42,16 @@ router.post("/start", requireAdmin as any, async (req, res: Response) => {
 
         res.status(201).json(result);
     } catch (error) {
-        logger.error("POST /broadcast/start error", { error, route: "POST /broadcast/start" });
-        const mapped = mapBroadcastError(error);
-        res.status(mapped.status).json(mapped.body);
+        next(error);
     }
 });
 
-router.post("/stop", requireAdmin as any, async (_req, res: Response) => {
+router.post("/stop", requireAdmin as any, async (_req, res: Response, next: NextFunction) => {
     try {
         const result = broadcastService.stopBroadcast();
         res.json(result);
     } catch (error) {
-        logger.error("POST /broadcast/stop error", { error, route: "POST /broadcast/stop" });
-        res.status(500).json({ error: "Internal server error" });
+        next(error);
     }
 });
 

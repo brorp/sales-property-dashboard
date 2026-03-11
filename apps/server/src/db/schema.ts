@@ -9,6 +9,17 @@ import {
     index,
 } from "drizzle-orm/pg-core";
 
+// ─── Multi-Tenant / Client Table ─────────────────────────────────────────────
+
+export const client = pgTable("client", {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // ─── Better Auth Core Tables ─────────────────────────────────────────────────
 
 export const user = pgTable("user", {
@@ -18,6 +29,7 @@ export const user = pgTable("user", {
     emailVerified: boolean("email_verified").notNull().default(false),
     image: text("image"),
     role: text("role").notNull().default("sales"),
+    clientId: text("client_id").references(() => client.id, { onDelete: "set null" }),
     phone: text("phone"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -64,6 +76,30 @@ export const verification = pgTable("verification", {
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// ─── Supervisor → Sales Mapping ──────────────────────────────────────────────
+
+export const supervisorSales = pgTable(
+    "supervisor_sales",
+    {
+        id: text("id").primaryKey(),
+        supervisorId: text("supervisor_id")
+            .notNull()
+            .references(() => user.id, { onDelete: "cascade" }),
+        salesId: text("sales_id")
+            .notNull()
+            .references(() => user.id, { onDelete: "cascade" }),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        supervisorSalesUnique: uniqueIndex("supervisor_sales_unique").on(
+            table.supervisorId,
+            table.salesId
+        ),
+        supervisorIdx: index("supervisor_sales_supervisor_idx").on(table.supervisorId),
+        salesIdx: index("supervisor_sales_sales_idx").on(table.salesId),
+    })
+);
+
 // ─── Application Tables ──────────────────────────────────────────────────────
 
 export const lead = pgTable(
@@ -76,6 +112,7 @@ export const lead = pgTable(
         metaLeadId: text("meta_lead_id"),
         entryChannel: text("entry_channel").notNull().default("meta_ads"),
         receivedAt: timestamp("received_at").notNull().defaultNow(),
+        clientId: text("client_id").references(() => client.id, { onDelete: "set null" }),
         assignedTo: text("assigned_to").references(() => user.id, {
             onDelete: "set null",
         }),
@@ -98,6 +135,7 @@ export const lead = pgTable(
         phoneIdx: index("lead_phone_idx").on(table.phone),
         assignedToIdx: index("lead_assigned_to_idx").on(table.assignedTo),
         flowStatusIdx: index("lead_flow_status_idx").on(table.flowStatus),
+        clientIdx: index("lead_client_id_idx").on(table.clientId),
         metaLeadUnique: uniqueIndex("lead_meta_lead_id_unique").on(table.metaLeadId),
     })
 );
@@ -133,6 +171,7 @@ export const salesQueue = pgTable(
         salesId: text("sales_id")
             .notNull()
             .references(() => user.id, { onDelete: "cascade" }),
+        clientId: text("client_id").references(() => client.id, { onDelete: "set null" }),
         queueOrder: integer("queue_order").notNull(),
         label: text("label").notNull(),
         isActive: boolean("is_active").notNull().default(true),
@@ -142,11 +181,13 @@ export const salesQueue = pgTable(
     (table) => ({
         salesUnique: uniqueIndex("sales_queue_sales_id_unique").on(table.salesId),
         orderUnique: uniqueIndex("sales_queue_order_unique").on(table.queueOrder),
+        clientIdx: index("sales_queue_client_id_idx").on(table.clientId),
     })
 );
 
 export const appSetting = pgTable("app_setting", {
     id: text("id").primaryKey(),
+    clientId: text("client_id").references(() => client.id, { onDelete: "set null" }),
     distributionAckTimeoutMinutes: integer("distribution_ack_timeout_minutes")
         .notNull()
         .default(5),

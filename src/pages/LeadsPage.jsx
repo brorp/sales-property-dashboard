@@ -2,13 +2,13 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
-import { getSalesName, getTimeAgo } from '../data/mockData';
+import { getTimeAgo } from '../data/mockData';
 import Header from '../components/Header';
 import './LeadsPage.css';
 
 export default function LeadsPage() {
-    const { user, isAdmin } = useAuth();
-    const { getLeadsForUser, addLead, getSalesUsers } = useLeads();
+    const { user, isManager } = useAuth();
+    const { getLeadsForUser, addLead, getSalesUsers, getSalesName } = useLeads();
     const navigate = useNavigate();
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -62,7 +62,7 @@ export default function LeadsPage() {
                 ))}
             </div>
 
-            {isAdmin && (
+            {isManager && (
                 <div className="filter-pills" style={{ marginBottom: 16 }}>
                     <button className={`filter-pill ${salesFilter === 'all' ? 'active' : ''}`} onClick={() => setSalesFilter('all')}>Semua Sales</button>
                     {salesUsers.map(s => (
@@ -93,7 +93,7 @@ export default function LeadsPage() {
                             <span>📱 {lead.phone}</span>
                             <span>{progressLabel[lead.progress]}</span>
                         </div>
-                        {isAdmin && <div className="leads-card-sales">👨‍💼 {getSalesName(lead.assignedTo)}</div>}
+                        {isManager && <div className="leads-card-sales">👨‍💼 {getSalesName(lead.assignedTo)}</div>}
                     </div>
                 ))}
             </div>
@@ -118,7 +118,7 @@ export default function LeadsPage() {
                                 <label>Sumber</label>
                                 <input type="text" className="input-field" placeholder="Meta Ads - Kampanye..." value={newLead.source} onChange={(e) => setNewLead({ ...newLead, source: e.target.value })} />
                             </div>
-                            {isAdmin && (
+                            {isManager && (
                                 <div className="input-group">
                                     <label>Assign ke Sales</label>
                                     <select className="input-field" value={newLead.assignedTo} onChange={(e) => setNewLead({ ...newLead, assignedTo: e.target.value })}>

@@ -8,6 +8,7 @@ import {
     activity,
     appSetting,
     appointment,
+    client,
     distributionAttempt,
     distributionCycle,
     lead,
@@ -15,26 +16,46 @@ import {
     leadStatusHistory,
     salesQueue,
     session,
+    supervisorSales,
     user,
     waMessage,
 } from "./schema";
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
 
+// ─── Roles ───────────────────────────────────────────────────────────────────
+type UserRole = "root_admin" | "client_admin" | "supervisor" | "sales";
+
 interface SeedUser {
     name: string;
     email: string;
     password: string;
-    role: "admin" | "sales";
+    role: UserRole;
     phone: string;
 }
 
+// ─── Default Client & Users ──────────────────────────────────────────────────
+
+const DEFAULT_CLIENT_ID = "default-client";
+const DEFAULT_CLIENT = {
+    id: DEFAULT_CLIENT_ID,
+    name: "Property Lounge",
+    slug: "property-lounge",
+};
+
 const seedUsers: SeedUser[] = [
+    {
+        name: "Root Admin",
+        email: "root@propertylounge.id",
+        password: "admin123",
+        role: "root_admin",
+        phone: "+6280000000000",
+    },
     {
         name: "Super Admin",
         email: "admin@propertylounge.id",
         password: "admin123",
-        role: "admin",
+        role: "client_admin",
         phone: "+6281111111111",
     },
     {
@@ -75,6 +96,7 @@ async function resetLeadsAndSalesData() {
         await tx.delete(waMessage);
         await tx.delete(lead);
         await tx.delete(salesQueue);
+        await tx.delete(supervisorSales);
 
         const salesUsers = await tx
             .select({ id: user.id })
@@ -90,12 +112,38 @@ async function resetLeadsAndSalesData() {
     });
 }
 
+async function ensureDefaultClient() {
+    const [existing] = await db
+        .select({ id: client.id })
+        .from(client)
+        .where(eq(client.id, DEFAULT_CLIENT_ID))
+        .limit(1);
+
+    if (!existing) {
+        const now = new Date();
+        await db.insert(client).values({
+            id: DEFAULT_CLIENT.id,
+            name: DEFAULT_CLIENT.name,
+            slug: DEFAULT_CLIENT.slug,
+            isActive: true,
+            createdAt: now,
+            updatedAt: now,
+        });
+        logger.info(`  ✅ created default client "${DEFAULT_CLIENT.name}"`);
+    } else {
+        logger.info(`  ✅ default client already exists`);
+    }
+}
+
 async function upsertAuthUser(seedUser: SeedUser) {
     const [existing] = await db
         .select({ id: user.id })
         .from(user)
         .where(eq(user.email, seedUser.email))
         .limit(1);
+
+    // Determine clientId: root_admin has no client, everyone else belongs to default
+    const clientId = seedUser.role === "root_admin" ? null : DEFAULT_CLIENT_ID;
 
     if (!existing) {
         let createdUserId: string | null = null;
@@ -147,6 +195,7 @@ async function upsertAuthUser(seedUser: SeedUser) {
             .update(user)
             .set({
                 role: seedUser.role,
+                clientId,
                 phone: normalizePhone(seedUser.phone),
                 isActive: true,
                 updatedAt: new Date(),
@@ -160,6 +209,7 @@ async function upsertAuthUser(seedUser: SeedUser) {
         .set({
             name: seedUser.name,
             role: seedUser.role,
+            clientId,
             phone: normalizePhone(seedUser.phone),
             isActive: true,
             updatedAt: new Date(),
@@ -178,6 +228,7 @@ async function seedQueue(salesIds: string[]) {
         await db.insert(salesQueue).values({
             id: generateId(),
             salesId,
+            clientId: DEFAULT_CLIENT_ID,
             queueOrder: i + 1,
             label: queueLabels[i] || `Q${i + 1}`,
             isActive: true,
@@ -201,6 +252,7 @@ async function seedSystemSettings() {
     const now = new Date();
     await db.insert(appSetting).values({
         id: "global",
+        clientId: DEFAULT_CLIENT_ID,
         distributionAckTimeoutMinutes: 5,
         operationalStartMinute: 9 * 60,
         operationalEndMinute: 21 * 60,
@@ -212,6 +264,49 @@ async function seedSystemSettings() {
     });
 }
 
+/**
+ * Migrate existing users from old role system to new:
+ *   "admin" → "client_admin"
+ *   "sales" stays "sales"
+ * Also backfill client_id for users that don't have one.
+ */
+async function migrateExistingRoles() {
+    // Migrate admin → client_admin
+    const oldAdmins = await db
+        .select({ id: user.id })
+        .from(user)
+        .where(eq(user.role, "admin"));
+
+    if (oldAdmins.length > 0) {
+        await db
+            .update(user)
+            .set({ role: "client_admin", clientId: DEFAULT_CLIENT_ID, updatedAt: new Date() })
+            .where(eq(user.role, "admin"));
+        logger.info(`  ✅ migrated ${oldAdmins.length} admin(s) → client_admin`);
+    }
+
+    // Backfill client_id for users that don't have one (except root_admin)
+    const { sql } = await import("drizzle-orm");
+    await db
+        .update(user)
+        .set({ clientId: DEFAULT_CLIENT_ID, updatedAt: new Date() })
+        .where(
+            sql`${user.clientId} IS NULL AND ${user.role} != 'root_admin'`
+        );
+
+    // Backfill client_id for leads that don't have one
+    await db
+        .update(lead)
+        .set({ clientId: DEFAULT_CLIENT_ID })
+        .where(sql`${lead.clientId} IS NULL`);
+
+    // Backfill client_id for salesQueue that don't have one
+    await db
+        .update(salesQueue)
+        .set({ clientId: DEFAULT_CLIENT_ID })
+        .where(sql`${salesQueue.clientId} IS NULL`);
+}
+
 async function seed() {
     logger.info("🌱 Seeding database...");
 
@@ -221,12 +316,18 @@ async function seed() {
         logger.info("  ✅ reset complete");
     }
 
+    // Ensure default client exists
+    await ensureDefaultClient();
+
+    // Migrate existing roles (admin → client_admin, backfill client_id)
+    await migrateExistingRoles();
+
     const createdIdsByEmail = new Map<string, string>();
 
     for (const seedUser of seedUsers) {
         const userId = await upsertAuthUser(seedUser);
         createdIdsByEmail.set(seedUser.email, userId);
-        logger.info(`  ✅ upsert user ${seedUser.email}`);
+        logger.info(`  ✅ upsert user ${seedUser.email} (${seedUser.role})`);
     }
 
     const salesIds = seedUsers

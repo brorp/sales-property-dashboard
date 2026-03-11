@@ -1,15 +1,14 @@
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
-import { USERS } from '../data/mockData';
 import Header from '../components/Header';
 import './TeamPage.css';
 
 export default function TeamPage() {
-    const { isAdmin } = useAuth();
-    const { leads } = useLeads();
+    const { isManager } = useAuth();
+    const { leads, getSalesUsers } = useLeads();
 
-    if (!isAdmin) return null;
-    const salesUsers = USERS.filter(u => u.role === 'sales');
+    if (!isManager) return null;
+    const salesUsers = getSalesUsers();
 
     return (
         <div className="page-container">

@@ -1,11 +1,15 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { INITIAL_LEADS, USERS } from '../data/mockData';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { INITIAL_LEADS } from '../data/mockData';
+
+const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
 const LeadsContext = createContext(null);
 
 export function LeadsProvider({ children }) {
     const [leads, setLeads] = useState([]);
     const [loaded, setLoaded] = useState(false);
+    const [salesUsers, setSalesUsers] = useState([]);
+    const salesFetched = useRef(false);
 
     useEffect(() => {
         const saved = localStorage.getItem('pl_leads');
@@ -20,6 +24,29 @@ export function LeadsProvider({ children }) {
     useEffect(() => {
         if (loaded) localStorage.setItem('pl_leads', JSON.stringify(leads));
     }, [leads, loaded]);
+
+    // Fetch real sales users from server API
+    useEffect(() => {
+        if (salesFetched.current) return;
+        salesFetched.current = true;
+
+        const token = localStorage.getItem('bearer_token');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+        fetch(`${API_BASE}/sales`, { headers, credentials: 'include' })
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.json();
+            })
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    setSalesUsers(data);
+                }
+            })
+            .catch(err => {
+                console.warn('[LeadsContext] Failed to fetch sales users from API, using fallback:', err.message);
+            });
+    }, []);
 
     const getLeadsForUser = useCallback((userId, role) => {
         if (role === 'admin') return leads;
@@ -74,7 +101,30 @@ export function LeadsProvider({ children }) {
         }));
     }, []);
 
-    const getSalesUsers = useCallback(() => USERS.filter(u => u.role === 'sales'), []);
+    const getSalesUsers = useCallback(() => salesUsers, [salesUsers]);
+
+    const getSalesName = useCallback((salesId) => {
+        if (!salesId) return 'Unassigned';
+        const found = salesUsers.find(u => u.id === salesId);
+        return found ? found.name : 'Unassigned';
+    }, [salesUsers]);
+
+    const refreshSalesUsers = useCallback(() => {
+        const token = localStorage.getItem('bearer_token');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+        return fetch(`${API_BASE}/sales`, { headers, credentials: 'include' })
+            .then(res => {
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return res.json();
+            })
+            .then(data => {
+                if (Array.isArray(data) && data.length > 0) {
+                    setSalesUsers(data);
+                }
+                return data;
+            });
+    }, []);
 
     const getStats = useCallback((userId, role) => {
         const data = role === 'admin' ? leads : leads.filter(l => l.assignedTo === userId);
@@ -97,7 +147,7 @@ export function LeadsProvider({ children }) {
     }, []);
 
     return (
-        <LeadsContext.Provider value={{ leads, getLeadsForUser, getLeadById, updateLead, addLead, addAppointment, getSalesUsers, getStats, resetData }}>
+        <LeadsContext.Provider value={{ leads, getLeadsForUser, getLeadById, updateLead, addLead, addAppointment, getSalesUsers, getSalesName, refreshSalesUsers, getStats, resetData }}>
             {children}
         </LeadsContext.Provider>
     );

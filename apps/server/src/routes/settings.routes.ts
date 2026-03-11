@@ -1,25 +1,23 @@
 import { Router } from "express";
-import type { Response } from "express";
+import type { Response, NextFunction } from "express";
 import { requireAdmin } from "../middleware/rbac";
 import {
     getSystemSettings,
     updateSystemSettings,
 } from "../services/system-settings.service";
-import { logger } from "../utils/logger";
 
 const router: ReturnType<typeof Router> = Router();
 
-router.get("/system", requireAdmin as any, async (_req, res: Response) => {
+router.get("/system", requireAdmin as any, async (_req, res: Response, next: NextFunction) => {
     try {
         const settings = await getSystemSettings();
         res.json(settings);
     } catch (error) {
-        logger.error("GET /settings/system error", { error, route: "GET /settings/system" });
-        res.status(500).json({ error: "Internal server error" });
+        next(error);
     }
 });
 
-router.patch("/system", requireAdmin as any, async (req, res: Response) => {
+router.patch("/system", requireAdmin as any, async (req, res: Response, next: NextFunction) => {
     try {
         const {
             distributionAckTimeoutMinutes,
@@ -50,23 +48,7 @@ router.patch("/system", requireAdmin as any, async (req, res: Response) => {
 
         res.json(updated);
     } catch (error) {
-        if (error instanceof Error) {
-            const knownBadRequestCodes = new Set([
-                "INVALID_DISTRIBUTION_ACK_TIMEOUT",
-                "INVALID_OPERATIONAL_TIMEZONE",
-                "INVALID_OPERATIONAL_TIME",
-                "INVALID_OPERATIONAL_TIME_RANGE",
-                "OUTSIDE_OFFICE_REPLY_REQUIRED",
-            ]);
-
-            if (knownBadRequestCodes.has(error.message)) {
-                res.status(400).json({ error: error.message });
-                return;
-            }
-        }
-
-        logger.error("PATCH /settings/system error", { error, route: "PATCH /settings/system" });
-        res.status(500).json({ error: "Internal server error" });
+        next(error);
     }
 });
 

@@ -21,6 +21,12 @@ export const auth = betterAuth({
                 defaultValue: "sales",
                 input: true,
             },
+            clientId: {
+                type: "string",
+                defaultValue: null,
+                input: true,
+                required: false,
+            },
         },
     },
     trustedOrigins: getConfiguredCorsOrigins(),

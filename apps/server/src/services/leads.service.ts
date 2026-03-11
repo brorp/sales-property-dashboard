@@ -152,11 +152,33 @@ async function enrichWithAppointmentTag<TRow extends { id: string }>(rows: TRow[
 export async function findAll(
     filters: LeadFilters,
     userId: string,
-    role: string
+    role: string,
+    scope?: { clientId?: string | null; managedSalesIds?: string[] }
 ) {
     const conditions: Array<any> = [];
 
-    if (role !== "admin") {
+    // ─── Role-based data scoping ─────────────────────────────────────
+    if (role === "root_admin") {
+        // root_admin: no lead scoping (sees everything)
+    } else if (role === "client_admin") {
+        // client_admin: only leads in their client
+        if (scope?.clientId) {
+            conditions.push(eq(lead.clientId, scope.clientId));
+        }
+    } else if (role === "supervisor") {
+        // supervisor: only leads assigned to their sales team
+        if (scope?.managedSalesIds && scope.managedSalesIds.length > 0) {
+            conditions.push(
+                or(
+                    inArray(lead.assignedTo, scope.managedSalesIds),
+                    eq(lead.assignedTo, userId) // supervisor can also see their own leads
+                )
+            );
+        } else {
+            conditions.push(eq(lead.assignedTo, userId));
+        }
+    } else {
+        // sales: only own leads
         conditions.push(eq(lead.assignedTo, userId));
     }
 
@@ -237,15 +259,15 @@ export async function findById(id: string) {
 
     const assignedUserPromise = leadData.assignedTo
         ? db
-              .select({
-                  id: user.id,
-                  name: user.name,
-                  email: user.email,
-                  phone: user.phone,
-              })
-              .from(user)
-              .where(eq(user.id, leadData.assignedTo))
-              .limit(1)
+            .select({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+            })
+            .from(user)
+            .where(eq(user.id, leadData.assignedTo))
+            .limit(1)
         : Promise.resolve([]);
 
     const [activities, appointments, assignedUser] = await Promise.all([
@@ -280,6 +302,7 @@ export async function create(data: {
     phone: string;
     source: string;
     assignedTo?: string | null;
+    clientId?: string | null;
 }) {
     const id = generateId();
     const now = new Date();
@@ -293,6 +316,7 @@ export async function create(data: {
             phone: data.phone,
             source: data.source || "Manual Input",
             assignedTo,
+            clientId: data.clientId || null,
             flowStatus: assignedTo ? "assigned" : "open",
             salesStatus: null,
             domicileCity: null,
@@ -415,12 +439,12 @@ export async function addAppointment(
 
     const calendar = leadRow
         ? await createGoogleCalendarEvent({
-              leadName: leadRow.name,
-              leadPhone: leadRow.phone,
-              startAt,
-              endAt,
-              location: data.location,
-          })
+            leadName: leadRow.name,
+            leadPhone: leadRow.phone,
+            startAt,
+            endAt,
+            location: data.location,
+        })
         : { eventId: null };
 
     const [newAppointment] = await db
@@ -478,12 +502,20 @@ export async function patchLead(input: LeadPatchInput) {
         return null;
     }
 
-    if (input.actorRole === "admin" && currentLead.assignedTo) {
+    const isAdminRole = input.actorRole === "client_admin" || input.actorRole === "root_admin";
+
+    if (isAdminRole && currentLead.assignedTo) {
         throw new Error("ADMIN_ASSIGNED_LEAD_READ_ONLY");
     }
 
-    if (input.actorRole !== "admin" && currentLead.assignedTo !== input.actorId) {
+    if (!isAdminRole && input.actorRole !== "supervisor" && currentLead.assignedTo !== input.actorId) {
         throw new Error("FORBIDDEN_LEAD_EDIT");
+    }
+
+    // Supervisor can edit leads of their managed sales
+    if (input.actorRole === "supervisor" && currentLead.assignedTo !== input.actorId) {
+        // Allow if the lead is assigned to one of supervisor's managed sales
+        // (scope checking should happen at the route level)
     }
 
     const now = new Date();
@@ -507,7 +539,7 @@ export async function patchLead(input: LeadPatchInput) {
     }
 
     if (input.assignedTo !== undefined) {
-        if (input.actorRole !== "admin") {
+        if (!isAdminRole && input.actorRole !== "supervisor") {
             throw new Error("FORBIDDEN_ASSIGN");
         }
         const nextAssignedTo = sanitizeNullableText(input.assignedTo);
@@ -681,10 +713,10 @@ export async function patchLead(input: LeadPatchInput) {
     const willUpdate = Object.keys(updates).length > 1;
     const [updatedLead] = willUpdate
         ? await db
-              .update(lead)
-              .set(updates)
-              .where(eq(lead.id, input.id))
-              .returning()
+            .update(lead)
+            .set(updates)
+            .where(eq(lead.id, input.id))
+            .returning()
         : [currentLead];
 
     const explicitNote = sanitizeRequiredText(input.activityNote);

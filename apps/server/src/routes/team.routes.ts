@@ -1,18 +1,19 @@
 import { Router } from "express";
-import type { Response } from "express";
-import { requireAdmin } from "../middleware/rbac";
+import type { Response, NextFunction } from "express";
+import type { AuthenticatedRequest } from "../middleware/auth";
+import { requireMinRole } from "../middleware/rbac";
 import * as teamService from "../services/team.service";
-import { logger } from "../utils/logger";
 
 const router: ReturnType<typeof Router> = Router();
 
-router.get("/", requireAdmin as any, async (_req, res: Response) => {
+// supervisor, client_admin, root_admin can see team
+router.get("/", requireMinRole("supervisor") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const team = await teamService.getTeamWithStats();
+        const { scope } = req as unknown as AuthenticatedRequest;
+        const team = await teamService.getTeamWithStats(scope);
         res.json(team);
-    } catch (err) {
-        logger.error("GET /team error", { error: err, route: "GET /team" });
-        res.status(500).json({ error: "Internal server error" });
+    } catch (error) {
+        next(error);
     }
 });
 
