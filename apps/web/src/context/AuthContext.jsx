@@ -2,13 +2,29 @@
 
 import { createContext, useContext, useState, useEffect } from 'react';
 
+const MANAGER_ROLES = new Set(['admin', 'root_admin', 'client_admin', 'supervisor']);
+
 const LOGIN_USERS = [
     {
-        id: 'seed-admin',
+        id: 'seed-root-admin',
+        name: 'Root Admin',
+        email: 'root@propertylounge.id',
+        password: 'admin123',
+        role: 'root_admin',
+    },
+    {
+        id: 'seed-client-admin',
         name: 'Super Admin',
         email: 'admin@propertylounge.id',
         password: 'admin123',
-        role: 'admin',
+        role: 'client_admin',
+    },
+    {
+        id: 'seed-supervisor',
+        name: 'Supervisor',
+        email: 'supervisor@propertylounge.id',
+        password: 'admin123',
+        role: 'supervisor',
     },
     {
         id: 'seed-sales-ryan',
@@ -32,6 +48,24 @@ const LOGIN_USERS = [
         role: 'sales',
     },
 ];
+
+function isManagerRole(role) {
+    return MANAGER_ROLES.has(role || '');
+}
+
+function getRoleLabel(role) {
+    switch (role) {
+        case 'root_admin':
+            return 'Root Admin';
+        case 'client_admin':
+        case 'admin':
+            return 'Client Admin';
+        case 'supervisor':
+            return 'Supervisor';
+        default:
+            return 'Sales';
+    }
+}
 
 const AuthContext = createContext(null);
 
@@ -72,10 +106,10 @@ export function AuthProvider({ children }) {
         });
     };
 
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = isManagerRole(user?.role);
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, loading, isAdmin, updateCurrentUser }}>
+        <AuthContext.Provider value={{ user, login, logout, loading, isAdmin, updateCurrentUser, getRoleLabel }}>
             {children}
         </AuthContext.Provider>
     );

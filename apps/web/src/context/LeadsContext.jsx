@@ -5,6 +5,7 @@ import { apiRequest } from '../lib/api';
 import { useAuth } from './AuthContext';
 
 const LeadsContext = createContext(null);
+const TEAM_ACCESS_ROLES = new Set(['admin', 'root_admin', 'client_admin', 'supervisor']);
 
 function normalizeLead(input) {
     if (!input) {
@@ -96,7 +97,7 @@ export function LeadsProvider({ children }) {
     }, [user]);
 
     const refreshTeamStats = useCallback(async () => {
-        if (!user || user.role !== 'admin') {
+        if (!user || !TEAM_ACCESS_ROLES.has(user.role)) {
             setTeamStats([]);
             return [];
         }

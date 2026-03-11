@@ -41,7 +41,7 @@ export default function LoginPage() {
                 <div className="login-logo">
                     <div className="login-logo-icon">🏢</div>
                     <h1>Property Lounge</h1>
-                    <p>Sales Dashboard</p>
+                    <p>Multi-role Dashboard</p>
                 </div>
                 <form onSubmit={handleSubmit} className="login-form">
                     <div className="input-group">
@@ -67,8 +67,14 @@ export default function LoginPage() {
                 <div className="demo-accounts">
                     <p className="demo-title">Demo Accounts:</p>
                     <div className="demo-list">
+                        <button onClick={() => { setEmail('root@propertylounge.id'); setPassword('admin123'); }}>
+                            <span className="demo-role">Root</span><span>root@propertylounge.id</span>
+                        </button>
                         <button onClick={() => { setEmail('admin@propertylounge.id'); setPassword('admin123'); }}>
-                            <span className="demo-role">Admin</span><span>admin@propertylounge.id</span>
+                            <span className="demo-role">Client Admin</span><span>admin@propertylounge.id</span>
+                        </button>
+                        <button onClick={() => { setEmail('supervisor@propertylounge.id'); setPassword('admin123'); }}>
+                            <span className="demo-role">Supervisor</span><span>supervisor@propertylounge.id</span>
                         </button>
                         <button onClick={() => { setEmail('ryan.pratama@propertylounge.id'); setPassword('sales123'); }}>
                             <span className="demo-role">Sales</span><span>ryan.pratama@propertylounge.id</span>

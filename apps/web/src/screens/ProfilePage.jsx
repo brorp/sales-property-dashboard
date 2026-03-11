@@ -6,7 +6,7 @@ import { useLeads } from '../context/LeadsContext';
 import Header from '../components/Header';
 
 export default function ProfilePage() {
-    const { user, logout, isAdmin } = useAuth();
+    const { user, logout, isAdmin, getRoleLabel } = useAuth();
     const { refreshAll } = useLeads();
     const router = useRouter();
 
@@ -24,7 +24,9 @@ export default function ProfilePage() {
                 <div className="profile-avatar">{user.name.charAt(0)}</div>
                 <h2 className="profile-name">{user.name}</h2>
                 <p className="profile-email">{user.email}</p>
-                <span className={`badge ${isAdmin ? 'badge-purple' : 'badge-success'}`}>{isAdmin ? '👑 Admin' : '💼 Sales'}</span>
+                <span className={`badge ${isAdmin ? 'badge-purple' : 'badge-success'}`}>
+                    {isAdmin ? `👑 ${getRoleLabel(user.role)}` : '💼 Sales'}
+                </span>
             </div>
             <div className="profile-menu-list">
                 <button className="profile-menu-item" onClick={goToEditProfile}>

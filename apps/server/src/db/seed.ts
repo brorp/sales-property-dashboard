@@ -59,6 +59,13 @@ const seedUsers: SeedUser[] = [
         phone: "+6281111111111",
     },
     {
+        name: "Supervisor",
+        email: "supervisor@propertylounge.id",
+        password: "admin123",
+        role: "supervisor",
+        phone: "+6281222222222",
+    },
+    {
         name: "Ryan Pratama",
         email: "ryan.pratama@propertylounge.id",
         password: "sales123",
@@ -238,6 +245,23 @@ async function seedQueue(salesIds: string[]) {
     }
 }
 
+async function seedSupervisorLinks(supervisorId: string | undefined, salesIds: string[]) {
+    if (!supervisorId) {
+        return;
+    }
+
+    await db.delete(supervisorSales);
+
+    for (const salesId of salesIds) {
+        await db.insert(supervisorSales).values({
+            id: generateId(),
+            supervisorId,
+            salesId,
+            createdAt: new Date(),
+        });
+    }
+}
+
 async function seedSystemSettings() {
     const [existing] = await db
         .select({ id: appSetting.id })
@@ -334,9 +358,13 @@ async function seed() {
         .filter((u) => u.role === "sales")
         .map((u) => createdIdsByEmail.get(u.email))
         .filter((id): id is string => Boolean(id));
+    const supervisorId = createdIdsByEmail.get("supervisor@propertylounge.id");
 
     await seedQueue(salesIds);
     logger.info("  ✅ seeded fixed queue A-C");
+
+    await seedSupervisorLinks(supervisorId, salesIds);
+    logger.info("  ✅ seeded supervisor to sales mappings");
 
     await seedSystemSettings();
     logger.info("  ✅ seeded system settings");
