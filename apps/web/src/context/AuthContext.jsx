@@ -7,6 +7,8 @@ import {
     AUTH_STORAGE_KEY,
     clearStoredAuthUser,
     getApiBaseUrl,
+    getStoredAuthSessionToken,
+    persistAuthSessionToken,
 } from '../lib/api';
 
 const MANAGER_ROLES = new Set(['admin', 'root_admin', 'client_admin', 'supervisor']);
@@ -260,8 +262,16 @@ async function readErrorMessage(response) {
 }
 
 async function fetchCurrentProfile() {
+    const headers = {};
+    const sessionToken = getStoredAuthSessionToken();
+
+    if (sessionToken) {
+        headers.Authorization = `Bearer ${sessionToken}`;
+    }
+
     const response = await fetch(`${getApiBaseUrl()}/api/profile/me`, {
         credentials: 'include',
+        headers,
     });
 
     if (response.status === 401) {
@@ -411,8 +421,11 @@ export function AuthProvider({ children }) {
             });
 
             if (response.ok) {
+                const loginResult = await response.json().catch(() => null);
+                persistAuthSessionToken(loginResult?.token || null);
                 const currentUser = await fetchCurrentProfile();
                 if (!currentUser) {
+                    persistAuthSessionToken(null);
                     return {
                         success: false,
                         error: 'Session login tidak terbentuk.',
@@ -426,6 +439,7 @@ export function AuthProvider({ children }) {
                     }).catch(() => {});
 
                     clearStoredAuthUser();
+                    persistAuthSessionToken(null);
                     setUser(null);
 
                     if (tenant.isClientSite && tenant.tenant?.name) {
@@ -446,6 +460,7 @@ export function AuthProvider({ children }) {
                 return { success: true };
             }
 
+            persistAuthSessionToken(null);
             return {
                 success: false,
                 error: await readErrorMessage(response),
@@ -484,6 +499,7 @@ export function AuthProvider({ children }) {
         }
 
         const restoredUser = normalizeStoredUser(fallbackUser, fallbackUser);
+        persistAuthSessionToken(null);
         setUser(restoredUser);
         persistUser(restoredUser);
         return { success: true };
@@ -492,6 +508,7 @@ export function AuthProvider({ children }) {
     const logout = () => {
         setUser(null);
         clearStoredAuthUser();
+        persistAuthSessionToken(null);
 
         void fetch(`${getApiBaseUrl()}/api/auth/sign-out`, {
             method: 'POST',

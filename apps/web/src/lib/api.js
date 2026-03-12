@@ -2,6 +2,7 @@
 
 const DEFAULT_API_BASE = 'http://localhost:3001';
 export const AUTH_STORAGE_KEY = 'pl_user';
+export const AUTH_SESSION_TOKEN_KEY = 'pl_session_token';
 export const AUTH_INVALID_EVENT = 'property-lounge:auth-invalid';
 
 function joinHostAndPort(host, port) {
@@ -91,6 +92,37 @@ export function clearStoredAuthUser() {
 
     try {
         window.localStorage.removeItem(AUTH_STORAGE_KEY);
+        window.localStorage.removeItem(AUTH_SESSION_TOKEN_KEY);
+    } catch {
+        // Ignore storage errors in private browsing / restricted contexts.
+    }
+}
+
+export function getStoredAuthSessionToken() {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    try {
+        const token = window.localStorage.getItem(AUTH_SESSION_TOKEN_KEY);
+        return token && token.trim() ? token.trim() : null;
+    } catch {
+        return null;
+    }
+}
+
+export function persistAuthSessionToken(token) {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    try {
+        if (!token || !String(token).trim()) {
+            window.localStorage.removeItem(AUTH_SESSION_TOKEN_KEY);
+            return;
+        }
+
+        window.localStorage.setItem(AUTH_SESSION_TOKEN_KEY, String(token).trim());
     } catch {
         // Ignore storage errors in private browsing / restricted contexts.
     }
@@ -144,9 +176,14 @@ export async function apiRequest(path, options = {}) {
         'Content-Type': 'application/json',
         ...extraHeaders,
     };
+    const sessionToken = getStoredAuthSessionToken();
 
     if (user?.email) {
         headers['x-dev-user-email'] = user.email;
+    }
+
+    if (sessionToken && !headers.Authorization) {
+        headers.Authorization = `Bearer ${sessionToken}`;
     }
 
     const res = await fetch(`${getApiBaseUrl()}${path}`, {

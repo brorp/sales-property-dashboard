@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { auth } from "../auth/index";
 import { fromNodeHeaders } from "better-auth/node";
 import { db } from "../db/index";
-import { user } from "../db/schema";
+import { session, user } from "../db/schema";
 import { and, eq } from "drizzle-orm";
 import type { QueryScope } from "./rbac";
 
@@ -71,6 +71,62 @@ async function resolveDevHeaderAuth(req: Request) {
     };
 }
 
+async function resolveBearerTokenAuth(req: Request) {
+    const authorization = req.header("authorization") || req.header("Authorization");
+    if (!authorization) {
+        return null;
+    }
+
+    const [scheme, rawToken] = authorization.split(" ");
+    if (scheme?.toLowerCase() !== "bearer" || !rawToken?.trim()) {
+        return null;
+    }
+
+    const token = rawToken.trim();
+    const now = new Date();
+
+    const [sessionRow] = await db
+        .select({
+            id: session.id,
+            userId: session.userId,
+            token: session.token,
+            expiresAt: session.expiresAt,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                clientId: user.clientId,
+                supervisorId: user.supervisorId,
+                createdByUserId: user.createdByUserId,
+                image: user.image,
+            },
+        })
+        .from(session)
+        .innerJoin(user, eq(session.userId, user.id))
+        .where(
+            and(
+                eq(session.token, token),
+                eq(user.isActive, true)
+            )
+        )
+        .limit(1);
+
+    if (!sessionRow || sessionRow.expiresAt <= now) {
+        return null;
+    }
+
+    return {
+        user: sessionRow.user,
+        session: {
+            id: sessionRow.id,
+            userId: sessionRow.userId,
+            token: sessionRow.token,
+            expiresAt: sessionRow.expiresAt,
+        },
+    };
+}
+
 export async function requireAuth(
     req: Request,
     res: Response,
@@ -88,6 +144,15 @@ export async function requireAuth(
         }
 
         if (!result) {
+            const bearerAuth = await resolveBearerTokenAuth(req);
+
+            if (bearerAuth) {
+                (req as AuthenticatedRequest).user = bearerAuth.user;
+                (req as AuthenticatedRequest).session = bearerAuth.session;
+                next();
+                return;
+            }
+
             const devAuth = await resolveDevHeaderAuth(req);
 
             if (devAuth) {
