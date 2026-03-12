@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { Response, NextFunction } from "express";
-import { requireAdmin } from "../middleware/rbac";
+import type { AuthenticatedRequest } from "../middleware/auth";
+import { requireMinRole } from "../middleware/rbac";
 import {
     getSystemSettings,
     updateSystemSettings,
@@ -8,24 +9,41 @@ import {
 
 const router: ReturnType<typeof Router> = Router();
 
-router.get("/system", requireAdmin as any, async (_req, res: Response, next: NextFunction) => {
+router.get("/system", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const settings = await getSystemSettings();
+        const { user } = req as unknown as AuthenticatedRequest;
+        const clientId =
+            user.role === "root_admin"
+                ? typeof req.query.clientId === "string"
+                    ? req.query.clientId
+                    : null
+                : user.clientId || null;
+
+        const settings = await getSystemSettings(clientId);
         res.json(settings);
     } catch (error) {
         next(error);
     }
 });
 
-router.patch("/system", requireAdmin as any, async (req, res: Response, next: NextFunction) => {
+router.patch("/system", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
+        const { user } = req as unknown as AuthenticatedRequest;
         const {
             distributionAckTimeoutMinutes,
             operationalStart,
             operationalEnd,
             operationalTimezone,
             outsideOfficeReply,
+            clientId,
         } = req.body ?? {};
+
+        const targetClientId =
+            user.role === "root_admin"
+                ? typeof clientId === "string" && clientId.trim()
+                    ? clientId
+                    : null
+                : user.clientId || null;
 
         const updated = await updateSystemSettings({
             distributionAckTimeoutMinutes:
@@ -44,7 +62,7 @@ router.patch("/system", requireAdmin as any, async (req, res: Response, next: Ne
                 typeof outsideOfficeReply === "string"
                     ? outsideOfficeReply
                     : undefined,
-        });
+        }, targetClientId);
 
         res.json(updated);
     } catch (error) {

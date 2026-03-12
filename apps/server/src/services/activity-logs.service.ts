@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db/index";
 import {
     activity,
@@ -28,10 +28,44 @@ function sortDescByTime(a: UnifiedActivityLog, b: UnifiedActivityLog) {
     return b.timestamp.getTime() - a.timestamp.getTime();
 }
 
-export async function getUnifiedActivityLogs(limitInput?: number) {
+export async function getUnifiedActivityLogs(
+    userId: string,
+    role: string,
+    scope?: { clientId?: string | null; managedSalesIds?: string[] },
+    limitInput?: number
+) {
     const limit = Number.isFinite(limitInput)
         ? Math.max(20, Math.min(Number(limitInput), 1000))
         : 300;
+
+    let accessibleLeadIds: string[] | null = null;
+    if (role === "root_admin") {
+        accessibleLeadIds = null;
+    } else if (role === "client_admin" && scope?.clientId) {
+        const rows = await db
+            .select({ id: lead.id })
+            .from(lead)
+            .where(eq(lead.clientId, scope.clientId));
+        accessibleLeadIds = rows.map((row) => row.id);
+    } else if (role === "client_admin") {
+        accessibleLeadIds = [];
+    } else if (role === "supervisor") {
+        if (scope?.managedSalesIds?.length) {
+            const rows = await db
+                .select({ id: lead.id })
+                .from(lead)
+                .where(inArray(lead.assignedTo, scope.managedSalesIds));
+            accessibleLeadIds = rows.map((row) => row.id);
+        } else {
+            accessibleLeadIds = [];
+        }
+    } else {
+        const rows = await db
+            .select({ id: lead.id })
+            .from(lead)
+            .where(eq(lead.assignedTo, userId));
+        accessibleLeadIds = rows.map((row) => row.id);
+    }
 
     const [activityRows, waRows, attemptRows, cycleRows, appointmentRows, statusRows, progressRows] =
         await Promise.all([
@@ -231,5 +265,9 @@ export async function getUnifiedActivityLogs(limitInput?: number) {
         })),
     ];
 
-    return normalized.sort(sortDescByTime).slice(0, limit);
+    const scoped = accessibleLeadIds
+        ? normalized.filter((row) => row.leadId && accessibleLeadIds.includes(row.leadId))
+        : normalized;
+
+    return scoped.sort(sortDescByTime).slice(0, limit);
 }

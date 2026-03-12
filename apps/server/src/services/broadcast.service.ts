@@ -1,4 +1,4 @@
-import { and, gte, inArray, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "../db/index";
 import { appointment, lead, waMessage } from "../db/schema";
 import { generateId } from "../utils/id";
@@ -52,6 +52,7 @@ type BroadcastJobState = {
     currentIndex: number;
     lastError: string | null;
     maxRetries: number;
+    clientId: string | null;
 };
 
 type BroadcastJobRuntime = {
@@ -68,13 +69,18 @@ const BROADCAST_MAX_RETRY_ATTEMPTS = Number(
     process.env.BROADCAST_MAX_RETRY_ATTEMPTS || "5"
 );
 
-let currentJob: BroadcastJobRuntime | null = null;
-let timer: NodeJS.Timeout | null = null;
+const currentJobs = new Map<string, BroadcastJobRuntime>();
+const timers = new Map<string, NodeJS.Timeout>();
 
-function stopTimer() {
+function getScopeKey(clientId?: string | null) {
+    return clientId || "__global__";
+}
+
+function stopTimer(scopeKey: string) {
+    const timer = timers.get(scopeKey);
     if (timer) {
         clearTimeout(timer);
-        timer = null;
+        timers.delete(scopeKey);
     }
 }
 
@@ -180,8 +186,11 @@ async function getTargets(filters: {
     appointmentTag: AppointmentTagFilter;
     dateFrom: Date | null;
     dateTo: Date | null;
-}) {
+}, clientId?: string | null) {
     const conditions: any[] = [inArray(lead.salesStatus, filters.salesStatuses)];
+    if (clientId) {
+        conditions.push(eq(lead.clientId, clientId));
+    }
     if (filters.dateFrom) {
         conditions.push(gte(lead.receivedAt, filters.dateFrom));
     }
@@ -275,6 +284,7 @@ async function sendBroadcastMessage(params: {
 }
 
 function finalizeBroadcastStatus(
+    scopeKey: string,
     state: BroadcastJobState,
     status: BroadcastJobState["status"],
     errorMessage?: string
@@ -284,14 +294,15 @@ function finalizeBroadcastStatus(
     if (errorMessage) {
         state.lastError = errorMessage;
     }
-    stopTimer();
+    stopTimer(scopeKey);
 }
 
-function scheduleNextBroadcast(delayMs: number) {
-    stopTimer();
-    timer = setTimeout(() => {
-        void processNextBroadcast();
+function scheduleNextBroadcast(scopeKey: string, delayMs: number) {
+    stopTimer(scopeKey);
+    const timer = setTimeout(() => {
+        void processNextBroadcast(scopeKey);
     }, Math.max(0, delayMs));
+    timers.set(scopeKey, timer);
 }
 
 async function persistBroadcastAttemptLog(params: {
@@ -317,12 +328,11 @@ async function persistBroadcastAttemptLog(params: {
     }
 }
 
-async function processNextBroadcast() {
-    if (!currentJob) {
+async function processNextBroadcast(scopeKey: string) {
+    const runtime = currentJobs.get(scopeKey) || null;
+    if (!runtime) {
         return;
     }
-
-    const runtime = currentJob;
     const state = runtime.state;
 
     if (state.status !== "running") {
@@ -330,13 +340,13 @@ async function processNextBroadcast() {
     }
 
     if (state.processedTargets >= state.totalTargets || runtime.queue.length === 0) {
-        finalizeBroadcastStatus(state, "completed");
+        finalizeBroadcastStatus(scopeKey, state, "completed");
         return;
     }
 
     const queueItem = runtime.queue.shift();
     if (!queueItem) {
-        finalizeBroadcastStatus(state, "completed");
+        finalizeBroadcastStatus(scopeKey, state, "completed");
         return;
     }
 
@@ -392,22 +402,26 @@ async function processNextBroadcast() {
     state.currentIndex = state.processedTargets;
 
     if (state.processedTargets >= state.totalTargets || runtime.queue.length === 0) {
-        finalizeBroadcastStatus(state, "completed");
+        finalizeBroadcastStatus(scopeKey, state, "completed");
         return;
     }
 
     const nextDelayMs = Math.max(1, state.intervalMinutes * 60 * 1000);
-    scheduleNextBroadcast(nextDelayMs);
+    scheduleNextBroadcast(scopeKey, nextDelayMs);
 }
 
-export function getBroadcastStatus() {
-    return buildStateForResponse(currentJob?.state || null);
+export function getBroadcastStatus(clientId?: string | null) {
+    return buildStateForResponse(currentJobs.get(getScopeKey(clientId))?.state || null);
 }
 
 export async function startBroadcast(
     input: StartBroadcastInput,
-    startedBy: string
+    startedBy: string,
+    clientId?: string | null
 ) {
+    const scopeKey = getScopeKey(clientId);
+    const currentJob = currentJobs.get(scopeKey) || null;
+
     if (currentJob && currentJob.state.status === "running") {
         throw new Error("BROADCAST_ALREADY_RUNNING");
     }
@@ -440,7 +454,7 @@ export async function startBroadcast(
         appointmentTag,
         dateFrom,
         dateTo,
-    });
+    }, clientId);
 
     if (targets.length === 0) {
         throw new Error("BROADCAST_NO_TARGET");
@@ -469,9 +483,10 @@ export async function startBroadcast(
         currentIndex: 0,
         lastError: null,
         maxRetries,
+        clientId: clientId || null,
     };
 
-    currentJob = {
+    currentJobs.set(scopeKey, {
         state,
         queue: targets.map((item) => ({
             ...item,
@@ -480,20 +495,23 @@ export async function startBroadcast(
         mediaBuffer,
         mediaMimeType,
         mediaFileName,
-    };
+    });
 
-    scheduleNextBroadcast(0);
+    scheduleNextBroadcast(scopeKey, 0);
 
     return buildStateForResponse(state);
 }
 
-export function stopBroadcast() {
+export function stopBroadcast(clientId?: string | null) {
+    const scopeKey = getScopeKey(clientId);
+    const currentJob = currentJobs.get(scopeKey) || null;
+
     if (!currentJob || currentJob.state.status !== "running") {
         return buildStateForResponse(currentJob?.state || null);
     }
 
     currentJob.state.status = "stopped";
     currentJob.state.finishedAt = new Date();
-    stopTimer();
+    stopTimer(scopeKey);
     return buildStateForResponse(currentJob.state);
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
+import { useTenant } from '../context/TenantContext';
 import { apiRequest, getApiBaseUrl } from '../lib/api';
 
 function statusLabel(status) {
@@ -28,8 +29,10 @@ function statusLabel(status) {
 
 export default function SettingsPage() {
     const { user } = useAuth();
+    const tenant = useTenant();
     const apiBase = getApiBaseUrl();
     const adminToken = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP_TOKEN || '';
+    const activeClientId = tenant.whatsapp?.activeClientId || null;
 
     const [state, setState] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -46,7 +49,6 @@ export default function SettingsPage() {
     const [systemSettingsSaving, setSystemSettingsSaving] = useState(false);
     const [systemSettingsError, setSystemSettingsError] = useState('');
     const [systemSettingsFeedback, setSystemSettingsFeedback] = useState('');
-    const [refreshingPage, setRefreshingPage] = useState(false);
     const [systemSettingsForm, setSystemSettingsForm] = useState({
         distributionAckTimeoutMinutes: 5,
         operationalStart: '09:00',
@@ -113,7 +115,11 @@ export default function SettingsPage() {
         setSystemSettingsLoading(true);
         setSystemSettingsError('');
         try {
-            const data = await apiRequest('/api/settings/system', { user });
+            const targetPath =
+                user.role === 'root_admin' && activeClientId
+                    ? `/api/settings/system?clientId=${encodeURIComponent(activeClientId)}`
+                    : '/api/settings/system';
+            const data = await apiRequest(targetPath, { user });
             setSystemSettingsForm({
                 distributionAckTimeoutMinutes: Number(data?.distributionAckTimeoutMinutes || 5),
                 operationalStart: data?.operationalStart || '09:00',
@@ -126,7 +132,7 @@ export default function SettingsPage() {
         } finally {
             setSystemSettingsLoading(false);
         }
-    }, [user]);
+    }, [activeClientId, user]);
 
     useEffect(() => {
         void loadSystemSettings();
@@ -185,6 +191,7 @@ export default function SettingsPage() {
             const result = await apiRequest('/api/distribution/stop-all', {
                 method: 'POST',
                 user,
+                body: user?.role === 'root_admin' && activeClientId ? { clientId: activeClientId } : undefined,
             });
             setDistributionFeedbackType('success');
             setDistributionFeedback(`Stop berhasil. ${result?.stoppedCycles || 0} cycle dihentikan.`);
@@ -210,6 +217,7 @@ export default function SettingsPage() {
                 method: 'PATCH',
                 user,
                 body: {
+                    ...(user?.role === 'root_admin' && activeClientId ? { clientId: activeClientId } : {}),
                     distributionAckTimeoutMinutes: Number(systemSettingsForm.distributionAckTimeoutMinutes),
                     operationalStart: systemSettingsForm.operationalStart,
                     operationalEnd: systemSettingsForm.operationalEnd,
@@ -226,28 +234,11 @@ export default function SettingsPage() {
         }
     };
 
-    const refreshPageData = async () => {
-        setRefreshingPage(true);
-        try {
-            await Promise.all([loadStatus(), loadSystemSettings()]);
-        } finally {
-            setRefreshingPage(false);
-        }
-    };
-
     const isBusy = loading || actionLoading || statusLoading;
 
     return (
         <div className="page-container">
-            <Header
-                title="WhatsApp Settings"
-                showBack
-                rightAction={(
-                    <button className="btn btn-sm btn-secondary" onClick={() => void refreshPageData()} disabled={refreshingPage || isBusy || systemSettingsLoading || systemSettingsSaving}>
-                        {refreshingPage ? 'Loading...' : 'Refresh'}
-                    </button>
-                )}
-            />
+            <Header title="WhatsApp Settings" showBack />
 
             <div className="card settings-card">
                 <div className="settings-header">
@@ -258,6 +249,12 @@ export default function SettingsPage() {
                 </div>
 
                 <p className="settings-meta"><strong>Provider:</strong> {state?.provider || '-'}</p>
+                <p className="settings-meta"><strong>WA Tenant:</strong> {state?.activeClientSlug || tenant.whatsapp?.activeClientSlug || '-'}</p>
+                {tenant.whatsapp?.mode === 'shared_single_client' ? (
+                    <p className="settings-help">
+                        Local QR saat ini masih shared singleton dan diikat ke tenant <strong>{tenant.whatsapp?.activeClientSlug || '-'}</strong>.
+                    </p>
+                ) : null}
                 <p className="settings-meta"><strong>Auth Path:</strong> {state?.authPath || '-'}</p>
                 <p className="settings-meta"><strong>Updated:</strong> {state?.updatedAt || '-'}</p>
                 {state?.lastDisconnectCode ? (

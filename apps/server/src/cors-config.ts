@@ -18,6 +18,19 @@ function parseCsvOrigins(raw: string | undefined): string[] {
         .map(normalizeOrigin);
 }
 
+function parseCsvDomains(raw: string | undefined): string[] {
+    if (!raw) {
+        return [];
+    }
+
+    return raw
+        .split(",")
+        .map((item) => item.trim().toLowerCase())
+        .filter(Boolean)
+        .map((item) => item.replace(/^\*\./, ""))
+        .map((item) => item.replace(/\.+$/, ""));
+}
+
 function isVercelPreviewOrigin(origin: string): boolean {
     try {
         const url = new URL(origin);
@@ -27,8 +40,24 @@ function isVercelPreviewOrigin(origin: string): boolean {
     }
 }
 
+function matchesWildcardRootDomain(origin: string, rootDomains: string[]): boolean {
+    try {
+        const url = new URL(origin);
+        const hostname = url.hostname.toLowerCase();
+
+        return rootDomains.some((domain) => {
+            return hostname === domain || hostname.endsWith(`.${domain}`);
+        });
+    } catch {
+        return false;
+    }
+}
+
 const allowVercelPreview =
     String(process.env.CORS_ALLOW_VERCEL_PREVIEW || "false").toLowerCase() === "true";
+const wildcardRootDomains = parseCsvDomains(
+    process.env.CORS_ROOT_DOMAINS || process.env.APP_ROOT_DOMAINS
+);
 
 const configuredOrigins = Array.from(
     new Set([
@@ -46,6 +75,10 @@ export function getCorsAllowVercelPreview(): boolean {
     return allowVercelPreview;
 }
 
+export function getCorsWildcardRootDomains(): string[] {
+    return wildcardRootDomains;
+}
+
 export function isAllowedOrigin(origin: string | undefined): boolean {
     // Some server-to-server calls don't send Origin header.
     if (!origin) {
@@ -59,6 +92,13 @@ export function isAllowedOrigin(origin: string | undefined): boolean {
     }
 
     if (allowVercelPreview && isVercelPreviewOrigin(normalized)) {
+        return true;
+    }
+
+    if (
+        wildcardRootDomains.length > 0 &&
+        matchesWildcardRootDomain(normalized, wildcardRootDomains)
+    ) {
         return true;
     }
 

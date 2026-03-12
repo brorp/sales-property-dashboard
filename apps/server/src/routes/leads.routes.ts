@@ -1,20 +1,23 @@
 import { Router } from "express";
 import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
-import { requireAdmin, requireMinRole } from "../middleware/rbac";
+import { requireMinRole } from "../middleware/rbac";
+import { db } from "../db/index";
+import { user as userTable } from "../db/schema";
+import { eq } from "drizzle-orm";
 import * as leadsService from "../services/leads.service";
 
 const router: ReturnType<typeof Router> = Router();
 
 function canViewLeadByUser(
-    lead: { assignedTo?: string | null } | null,
-    reqUser: { id: string; role: string },
+    lead: { clientId?: string | null; assignedTo?: string | null } | null,
+    reqUser: { id: string; role: string; clientId?: string | null },
     scope?: { managedSalesIds?: string[] }
 ) {
     if (!lead) return false;
-    if (reqUser.role === "root_admin" || reqUser.role === "client_admin") return true;
+    if (reqUser.role === "root_admin") return true;
+    if (reqUser.role === "client_admin") return lead.clientId === (reqUser.clientId || null);
     if (reqUser.role === "supervisor") {
-        if (lead.assignedTo === reqUser.id) return true;
         if (scope?.managedSalesIds?.includes(lead.assignedTo || "")) return true;
         return false;
     }
@@ -22,18 +25,20 @@ function canViewLeadByUser(
 }
 
 function canEditLeadByUser(
-    lead: { assignedTo?: string | null } | null,
-    reqUser: { id: string; role: string },
+    lead: { clientId?: string | null; assignedTo?: string | null } | null,
+    reqUser: { id: string; role: string; clientId?: string | null },
     scope?: { managedSalesIds?: string[] }
 ) {
     if (!lead) return false;
-    if (reqUser.role === "root_admin" || reqUser.role === "client_admin") {
+    if (reqUser.role === "root_admin") {
         return !lead.assignedTo;
     }
+    if (reqUser.role === "client_admin") {
+        return lead.clientId === (reqUser.clientId || null) && !lead.assignedTo;
+    }
     if (reqUser.role === "supervisor") {
-        if (lead.assignedTo === reqUser.id) return true;
         if (scope?.managedSalesIds?.includes(lead.assignedTo || "")) return true;
-        return !lead.assignedTo;
+        return false;
     }
     return lead.assignedTo === reqUser.id;
 }
@@ -92,11 +97,35 @@ router.get("/:id", async (req, res: Response, next: NextFunction) => {
 
 router.post("/", async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
+        const { user, scope } = req as unknown as AuthenticatedRequest;
         const { name, phone, source, assignedTo } = req.body ?? {};
         if (!name || !phone) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "name dan phone wajib diisi" });
             return;
+        }
+
+        if ((user.role === "client_admin" || user.role === "root_admin") && assignedTo) {
+            const [salesRow] = await db
+                .select({
+                    id: userTable.id,
+                    role: userTable.role,
+                    clientId: userTable.clientId,
+                    isActive: userTable.isActive,
+                })
+                .from(userTable)
+                .where(eq(userTable.id, assignedTo))
+                .limit(1);
+
+            if (!salesRow || salesRow.role !== "sales" || !salesRow.isActive) {
+                res.status(400).json({ error: "INVALID_ASSIGNED_SALES", message: "salesId tidak valid" });
+                return;
+            }
+
+            if (user.role === "client_admin" && salesRow.clientId !== user.clientId) {
+                res.status(403).json({ error: "FORBIDDEN_ASSIGN", message: "Sales harus berada di client yang sama" });
+                return;
+            }
+
         }
 
         const created = await leadsService.create({
@@ -106,7 +135,9 @@ router.post("/", async (req, res: Response, next: NextFunction) => {
             assignedTo:
                 (user.role === "client_admin" || user.role === "root_admin")
                     ? assignedTo || null
-                    : user.id,
+                    : user.role === "sales"
+                        ? user.id
+                        : null,
             clientId: user.clientId || null,
         });
         res.status(201).json(created);
@@ -117,11 +148,12 @@ router.post("/", async (req, res: Response, next: NextFunction) => {
 
 router.patch("/:id", async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
+        const { user, scope } = req as unknown as AuthenticatedRequest;
         const {
             name,
             domicileCity,
             salesStatus,
+            interestUnitId,
             resultStatus,
             unitName,
             unitDetail,
@@ -132,13 +164,27 @@ router.patch("/:id", async (req, res: Response, next: NextFunction) => {
             activityNote,
         } = req.body ?? {};
 
+        const currentLead = await leadsService.findById(req.params.id);
+        if (!currentLead) {
+            res.status(404).json({ error: "NOT_FOUND", message: "Lead tidak ditemukan" });
+            return;
+        }
+
+        if (!canEditLeadByUser(currentLead, user, scope)) {
+            res.status(403).json({ error: "FORBIDDEN_LEAD_EDIT", message: "Anda tidak memiliki akses edit ke lead ini" });
+            return;
+        }
+
         const updated = await leadsService.patchLead({
             id: req.params.id,
             actorId: user.id,
             actorRole: user.role,
+            actorClientId: user.clientId || null,
+            managedSalesIds: scope?.managedSalesIds || [],
             name,
             domicileCity,
             salesStatus,
+            interestUnitId,
             resultStatus,
             unitName,
             unitDetail,
@@ -163,10 +209,52 @@ router.patch("/:id", async (req, res: Response, next: NextFunction) => {
 
 router.post("/:id/assign", requireMinRole("supervisor") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
+        const { user, scope } = req as unknown as AuthenticatedRequest;
         const { salesId, note } = req.body ?? {};
         if (!salesId) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "salesId wajib diisi" });
+            return;
+        }
+
+        const lead = await leadsService.findById(req.params.id);
+        if (!lead) {
+            res.status(404).json({ error: "NOT_FOUND", message: "Lead tidak ditemukan" });
+            return;
+        }
+
+        const [salesRow] = await db
+            .select({
+                id: userTable.id,
+                role: userTable.role,
+                clientId: userTable.clientId,
+                isActive: userTable.isActive,
+            })
+            .from(userTable)
+            .where(eq(userTable.id, salesId))
+            .limit(1);
+
+        if (!salesRow || salesRow.role !== "sales" || !salesRow.isActive) {
+            res.status(400).json({ error: "INVALID_ASSIGNED_SALES", message: "salesId tidak valid" });
+            return;
+        }
+
+        if (salesRow.clientId !== lead.clientId) {
+            res.status(400).json({ error: "INVALID_ASSIGNED_SALES", message: "salesId harus berada di client yang sama" });
+            return;
+        }
+
+        if (user.role === "client_admin" && lead.clientId !== user.clientId) {
+            res.status(403).json({ error: "FORBIDDEN_ASSIGN", message: "Lead berada di luar client Anda" });
+            return;
+        }
+
+        if (user.role === "supervisor" && lead.clientId !== user.clientId) {
+            res.status(403).json({ error: "FORBIDDEN_ASSIGN", message: "Lead berada di luar client supervisor ini" });
+            return;
+        }
+
+        if (user.role === "supervisor" && !scope?.managedSalesIds?.includes(salesId)) {
+            res.status(403).json({ error: "FORBIDDEN_ASSIGN", message: "Sales harus berada di bawah supervisor ini" });
             return;
         }
 
@@ -203,7 +291,7 @@ router.post("/:id/activities", async (req, res: Response, next: NextFunction) =>
             res.status(404).json({ error: "NOT_FOUND", message: "Lead tidak ditemukan" });
             return;
         }
-        if (!canEditLeadByUser(lead, user)) {
+        if (!canEditLeadByUser(lead, user, (req as unknown as AuthenticatedRequest).scope)) {
             res.status(403).json({ error: "FORBIDDEN_LEAD_EDIT", message: "Hanya sales yang di-assign yang bisa mengubah lead ini" });
             return;
         }
@@ -229,7 +317,7 @@ router.post("/:id/appointments", async (req, res: Response, next: NextFunction) 
             res.status(404).json({ error: "NOT_FOUND", message: "Lead tidak ditemukan" });
             return;
         }
-        if (!canEditLeadByUser(lead, user)) {
+        if (!canEditLeadByUser(lead, user, (req as unknown as AuthenticatedRequest).scope)) {
             res.status(403).json({ error: "FORBIDDEN_LEAD_EDIT", message: "Hanya sales yang di-assign yang bisa mengubah lead ini" });
             return;
         }

@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db/index";
 import { appSetting } from "../db/schema";
 
-const SETTINGS_ID = "global";
+const GLOBAL_SETTINGS_ID = "global";
 const ALLOWED_ACK_TIMEOUT_MINUTES = new Set([5, 10, 15]);
 
 const DEFAULT_SETTINGS = {
@@ -96,10 +96,20 @@ function mapSettingsRow(row: {
 }
 
 async function ensureSettingsRow() {
+    return ensureSettingsRowForClient(null);
+}
+
+function resolveSettingsId(clientId?: string | null) {
+    return clientId ? `client:${clientId}` : GLOBAL_SETTINGS_ID;
+}
+
+async function ensureSettingsRowForClient(clientId?: string | null) {
+    const settingsId = resolveSettingsId(clientId);
+
     const [existing] = await db
         .select()
         .from(appSetting)
-        .where(eq(appSetting.id, SETTINGS_ID))
+        .where(eq(appSetting.id, settingsId))
         .limit(1);
 
     if (existing) {
@@ -110,7 +120,8 @@ async function ensureSettingsRow() {
     const [created] = await db
         .insert(appSetting)
         .values({
-            id: SETTINGS_ID,
+            id: settingsId,
+            clientId: clientId || null,
             distributionAckTimeoutMinutes:
                 DEFAULT_SETTINGS.distributionAckTimeoutMinutes,
             operationalStartMinute: DEFAULT_SETTINGS.operationalStartMinute,
@@ -125,8 +136,8 @@ async function ensureSettingsRow() {
     return created;
 }
 
-export async function getSystemSettings() {
-    const settings = await ensureSettingsRow();
+export async function getSystemSettings(clientId?: string | null) {
+    const settings = await ensureSettingsRowForClient(clientId || null);
     return mapSettingsRow(settings);
 }
 
@@ -136,8 +147,9 @@ export async function updateSystemSettings(input: {
     operationalEnd?: string;
     operationalTimezone?: string;
     outsideOfficeReply?: string;
-}) {
-    const current = await ensureSettingsRow();
+}, clientId?: string | null) {
+    const settingsId = resolveSettingsId(clientId || null);
+    const current = await ensureSettingsRowForClient(clientId || null);
     const updates: Record<string, unknown> = {
         updatedAt: new Date(),
     };
@@ -204,19 +216,22 @@ export async function updateSystemSettings(input: {
     const [updated] = await db
         .update(appSetting)
         .set(updates)
-        .where(eq(appSetting.id, SETTINGS_ID))
+        .where(eq(appSetting.id, settingsId))
         .returning();
 
     return mapSettingsRow(updated || current);
 }
 
-export async function getDistributionAckTimeoutMs() {
-    const settings = await ensureSettingsRow();
+export async function getDistributionAckTimeoutMs(clientId?: string | null) {
+    const settings = await ensureSettingsRowForClient(clientId || null);
     return settings.distributionAckTimeoutMinutes * 60 * 1000;
 }
 
-export async function getOperationalWindowState(at = new Date()) {
-    const settings = await ensureSettingsRow();
+export async function getOperationalWindowState(
+    at = new Date(),
+    clientId?: string | null
+) {
+    const settings = await ensureSettingsRowForClient(clientId || null);
     const nowMinute = getMinutesInTimezone(at, settings.operationalTimezone);
     const isOpen = isWithinOperationalHours({
         nowMinute,

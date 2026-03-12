@@ -7,8 +7,8 @@ const router: ReturnType<typeof Router> = Router();
 
 router.get("/", async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
-        const rows = await appointmentsService.listAppointments(user.id, user.role);
+        const { user, scope } = req as unknown as AuthenticatedRequest;
+        const rows = await appointmentsService.listAppointments(user.id, user.role, scope);
         res.json(rows);
     } catch (error) {
         next(error);

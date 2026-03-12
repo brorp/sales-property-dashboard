@@ -7,8 +7,10 @@ import {
     corsOriginDelegate,
     getConfiguredCorsOrigins,
     getCorsAllowVercelPreview,
+    getCorsWildcardRootDomains,
 } from "./cors-config";
 import apiRoutes from "./routes/index";
+import publicRoutes from "./routes/public.routes";
 import webhooksRoutes from "./routes/webhooks.routes";
 import whatsappAdminRoutes from "./routes/whatsapp-admin.routes";
 import { startDistributionWorker } from "./worker/distribution.worker";
@@ -45,6 +47,7 @@ app.use(
 // Public webhook routes (Meta Ads + WhatsApp)
 app.use("/webhooks", webhooksRoutes);
 app.use("/api/whatsapp-admin", whatsappAdminRoutes);
+app.use("/api/public", publicRoutes);
 
 // API routes
 app.use("/api", apiRoutes);
@@ -70,7 +73,7 @@ app.listen(PORT, () => {
     logger.info(`💬 WA Mode:   ${WA_PROVIDER}`);
     logger.info(
         `🌐 CORS:      ${getConfiguredCorsOrigins().join(", ")}${getCorsAllowVercelPreview() ? " (+ *.vercel.app)" : ""
-        }`
+        }${getCorsWildcardRootDomains().length > 0 ? ` (+ *.${getCorsWildcardRootDomains().join(", *.")})` : ""}`
     );
     if (WA_PROVIDER === "qr_local") {
         logger.info(

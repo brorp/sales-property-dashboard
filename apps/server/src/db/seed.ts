@@ -23,68 +23,229 @@ import {
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
 
-// ─── Roles ───────────────────────────────────────────────────────────────────
 type UserRole = "root_admin" | "client_admin" | "supervisor" | "sales";
 
-interface SeedUser {
+type SeedUser = {
+    key: string;
     name: string;
     email: string;
     password: string;
     role: UserRole;
     phone: string;
-}
-
-// ─── Default Client & Users ──────────────────────────────────────────────────
-
-const DEFAULT_CLIENT_ID = "default-client";
-const DEFAULT_CLIENT = {
-    id: DEFAULT_CLIENT_ID,
-    name: "Property Lounge",
-    slug: "property-lounge",
+    clientId?: string | null;
+    createdByKey?: string;
+    supervisorKey?: string;
 };
 
-const seedUsers: SeedUser[] = [
+type SeedClient = {
+    id: string;
+    name: string;
+    slug: string;
+    users: SeedUser[];
+};
+
+const ROOT_USER: SeedUser = {
+    key: "root",
+    name: "Root Admin",
+    email: "root@propertylounge.id",
+    password: "admin123",
+    role: "root_admin",
+    phone: "+6280000000000",
+    clientId: null,
+};
+
+const TENANTS: SeedClient[] = [
     {
-        name: "Root Admin",
-        email: "root@propertylounge.id",
-        password: "admin123",
-        role: "root_admin",
-        phone: "+6280000000000",
+        id: "widari",
+        name: "Widari",
+        slug: "widari",
+        users: [
+            {
+                key: "widari-admin",
+                name: "Widari Admin",
+                email: "admin@widari.propertylounge.id",
+                password: "admin123",
+                role: "client_admin",
+                phone: "+6281111111101",
+                createdByKey: "root",
+            },
+            {
+                key: "widari-sup-a",
+                name: "Supervisor Widari A",
+                email: "supervisor.a@widari.propertylounge.id",
+                password: "admin123",
+                role: "supervisor",
+                phone: "+6281211111101",
+                createdByKey: "widari-admin",
+            },
+            {
+                key: "widari-sup-b",
+                name: "Supervisor Widari B",
+                email: "supervisor.b@widari.propertylounge.id",
+                password: "admin123",
+                role: "supervisor",
+                phone: "+6281211111102",
+                createdByKey: "widari-admin",
+            },
+            {
+                key: "widari-sales-anto",
+                name: "Anto Widari",
+                email: "anto@widari.propertylounge.id",
+                password: "sales123",
+                role: "sales",
+                phone: "081111111101",
+                createdByKey: "widari-sup-a",
+                supervisorKey: "widari-sup-a",
+            },
+            {
+                key: "widari-sales-andi",
+                name: "Andi Widari",
+                email: "andi@widari.propertylounge.id",
+                password: "sales123",
+                role: "sales",
+                phone: "081111111102",
+                createdByKey: "widari-sup-a",
+                supervisorKey: "widari-sup-a",
+            },
+            {
+                key: "widari-sales-rudi",
+                name: "Rudi Widari",
+                email: "rudi@widari.propertylounge.id",
+                password: "sales123",
+                role: "sales",
+                phone: "081111111103",
+                createdByKey: "widari-sup-a",
+                supervisorKey: "widari-sup-a",
+            },
+            {
+                key: "widari-sales-beni",
+                name: "Beni Widari",
+                email: "beni@widari.propertylounge.id",
+                password: "sales123",
+                role: "sales",
+                phone: "081111111104",
+                createdByKey: "widari-sup-b",
+                supervisorKey: "widari-sup-b",
+            },
+            {
+                key: "widari-sales-dika",
+                name: "Dika Widari",
+                email: "dika@widari.propertylounge.id",
+                password: "sales123",
+                role: "sales",
+                phone: "081111111105",
+                createdByKey: "widari-sup-b",
+                supervisorKey: "widari-sup-b",
+            },
+        ],
     },
     {
-        name: "Super Admin",
-        email: "admin@propertylounge.id",
-        password: "admin123",
-        role: "client_admin",
-        phone: "+6281111111111",
+        id: "aryana",
+        name: "Aryana",
+        slug: "aryana",
+        users: [
+            {
+                key: "aryana-admin",
+                name: "Aryana Admin",
+                email: "admin@aryana.propertylounge.id",
+                password: "admin123",
+                role: "client_admin",
+                phone: "+6281111111201",
+                createdByKey: "root",
+            },
+            {
+                key: "aryana-sup-c",
+                name: "Supervisor Aryana C",
+                email: "supervisor.c@aryana.propertylounge.id",
+                password: "admin123",
+                role: "supervisor",
+                phone: "+6281211111201",
+                createdByKey: "aryana-admin",
+            },
+            {
+                key: "aryana-sup-d",
+                name: "Supervisor Aryana D",
+                email: "supervisor.d@aryana.propertylounge.id",
+                password: "admin123",
+                role: "supervisor",
+                phone: "+6281211111202",
+                createdByKey: "aryana-admin",
+            },
+            {
+                key: "aryana-sales-1",
+                name: "Sales Aryana 1",
+                email: "sales1@aryana.propertylounge.id",
+                password: "sales123",
+                role: "sales",
+                phone: "081111111201",
+                createdByKey: "aryana-sup-c",
+                supervisorKey: "aryana-sup-c",
+            },
+            {
+                key: "aryana-sales-2",
+                name: "Sales Aryana 2",
+                email: "sales2@aryana.propertylounge.id",
+                password: "sales123",
+                role: "sales",
+                phone: "081111111202",
+                createdByKey: "aryana-sup-c",
+                supervisorKey: "aryana-sup-c",
+            },
+        ],
     },
     {
-        name: "Supervisor",
-        email: "supervisor@propertylounge.id",
-        password: "admin123",
-        role: "supervisor",
-        phone: "+6281222222222",
-    },
-    {
-        name: "Ryan Pratama",
-        email: "ryan.pratama@propertylounge.id",
-        password: "sales123",
-        role: "sales",
-        phone: "081299001025",
-    },
-    {
-        name: "Rachmat",
-        email: "rachmat@propertylounge.id",
-        password: "sales123",
-        role: "sales",
-        phone: "081513392028",
-    },
-    {
-        name: "Nicky Robert",
-        email: "nicky.robert@propertylounge.id",
-        password: "sales123",
-        role: "sales",
-        phone: "085191378506",
+        id: "agung-sedayu",
+        name: "Agung Sedayu",
+        slug: "agung-sedayu",
+        users: [
+            {
+                key: "agung-admin",
+                name: "Agung Sedayu Admin",
+                email: "admin@agungsedayu.propertylounge.id",
+                password: "admin123",
+                role: "client_admin",
+                phone: "+6281111111301",
+                createdByKey: "root",
+            },
+            {
+                key: "agung-sup-e",
+                name: "Supervisor Agung E",
+                email: "supervisor.e@agungsedayu.propertylounge.id",
+                password: "admin123",
+                role: "supervisor",
+                phone: "+6281211111301",
+                createdByKey: "agung-admin",
+            },
+            {
+                key: "agung-sup-f",
+                name: "Supervisor Agung F",
+                email: "supervisor.f@agungsedayu.propertylounge.id",
+                password: "admin123",
+                role: "supervisor",
+                phone: "+6281211111302",
+                createdByKey: "agung-admin",
+            },
+            {
+                key: "agung-sales-1",
+                name: "Sales Agung 1",
+                email: "sales1@agungsedayu.propertylounge.id",
+                password: "sales123",
+                role: "sales",
+                phone: "081111111301",
+                createdByKey: "agung-sup-e",
+                supervisorKey: "agung-sup-e",
+            },
+            {
+                key: "agung-sales-2",
+                name: "Sales Agung 2",
+                email: "sales2@agungsedayu.propertylounge.id",
+                password: "sales123",
+                role: "sales",
+                phone: "081111111302",
+                createdByKey: "agung-sup-f",
+                supervisorKey: "agung-sup-f",
+            },
+        ],
     },
 ];
 
@@ -92,7 +253,7 @@ const shouldReset =
     process.argv.includes("--reset") ||
     String(process.env.SEED_RESET || "false").toLowerCase() === "true";
 
-async function resetLeadsAndSalesData() {
+async function resetOperationalData() {
     await db.transaction(async (tx) => {
         await tx.delete(distributionAttempt);
         await tx.delete(distributionCycle);
@@ -104,53 +265,42 @@ async function resetLeadsAndSalesData() {
         await tx.delete(lead);
         await tx.delete(salesQueue);
         await tx.delete(supervisorSales);
-
-        const salesUsers = await tx
-            .select({ id: user.id })
-            .from(user)
-            .where(eq(user.role, "sales"));
-        const salesIds = salesUsers.map((item) => item.id);
-
-        if (salesIds.length > 0) {
-            await tx.delete(session).where(inArray(session.userId, salesIds));
-            await tx.delete(account).where(inArray(account.userId, salesIds));
-            await tx.delete(user).where(inArray(user.id, salesIds));
-        }
     });
 }
 
-async function ensureDefaultClient() {
-    const [existing] = await db
-        .select({ id: client.id })
-        .from(client)
-        .where(eq(client.id, DEFAULT_CLIENT_ID))
-        .limit(1);
+async function ensureClients() {
+    for (const tenant of TENANTS) {
+        const [existing] = await db
+            .select({ id: client.id })
+            .from(client)
+            .where(eq(client.id, tenant.id))
+            .limit(1);
 
-    if (!existing) {
-        const now = new Date();
-        await db.insert(client).values({
-            id: DEFAULT_CLIENT.id,
-            name: DEFAULT_CLIENT.name,
-            slug: DEFAULT_CLIENT.slug,
-            isActive: true,
-            createdAt: now,
-            updatedAt: now,
-        });
-        logger.info(`  ✅ created default client "${DEFAULT_CLIENT.name}"`);
-    } else {
-        logger.info(`  ✅ default client already exists`);
+        if (!existing) {
+            const now = new Date();
+            await db.insert(client).values({
+                id: tenant.id,
+                name: tenant.name,
+                slug: tenant.slug,
+                isActive: true,
+                createdAt: now,
+                updatedAt: now,
+            });
+            logger.info(`  ✅ created client ${tenant.name}`);
+        }
     }
 }
 
-async function upsertAuthUser(seedUser: SeedUser) {
+async function upsertAuthUser(seedUser: SeedUser, resolved: {
+    clientId: string | null;
+    supervisorId: string | null;
+    createdByUserId: string | null;
+}) {
     const [existing] = await db
         .select({ id: user.id })
         .from(user)
         .where(eq(user.email, seedUser.email))
         .limit(1);
-
-    // Determine clientId: root_admin has no client, everyone else belongs to default
-    const clientId = seedUser.role === "root_admin" ? null : DEFAULT_CLIENT_ID;
 
     if (!existing) {
         let createdUserId: string | null = null;
@@ -176,38 +326,31 @@ async function upsertAuthUser(seedUser: SeedUser) {
                 });
                 createdUserId = result.user.id;
             } catch (secondError) {
-                const [createdByParallelProcess] = await db
-                    .select({ id: user.id })
-                    .from(user)
-                    .where(eq(user.email, seedUser.email))
-                    .limit(1);
-
-                if (createdByParallelProcess) {
-                    createdUserId = createdByParallelProcess.id;
-                } else {
-                    logger.error(`❌ Failed creating user ${seedUser.email}`, {
-                        firstError,
-                        secondError
-                    });
-                    throw secondError;
-                }
+                logger.error(`❌ Failed creating user ${seedUser.email}`, {
+                    firstError,
+                    secondError,
+                });
+                throw secondError;
             }
         }
 
         if (!createdUserId) {
-            throw new Error(`Failed to get user id after signup for ${seedUser.email}`);
+            throw new Error(`Failed to get user id for ${seedUser.email}`);
         }
 
         await db
             .update(user)
             .set({
                 role: seedUser.role,
-                clientId,
+                clientId: resolved.clientId,
+                supervisorId: resolved.supervisorId,
+                createdByUserId: resolved.createdByUserId,
                 phone: normalizePhone(seedUser.phone),
                 isActive: true,
                 updatedAt: new Date(),
             })
             .where(eq(user.id, createdUserId));
+
         return createdUserId;
     }
 
@@ -216,7 +359,9 @@ async function upsertAuthUser(seedUser: SeedUser) {
         .set({
             name: seedUser.name,
             role: seedUser.role,
-            clientId,
+            clientId: resolved.clientId,
+            supervisorId: resolved.supervisorId,
+            createdByUserId: resolved.createdByUserId,
             phone: normalizePhone(seedUser.phone),
             isActive: true,
             updatedAt: new Date(),
@@ -226,145 +371,165 @@ async function upsertAuthUser(seedUser: SeedUser) {
     return existing.id;
 }
 
-async function seedQueue(salesIds: string[]) {
-    const queueLabels = ["A", "B", "C"];
+async function seedQueues(emailToId: Map<string, string>) {
     await db.delete(salesQueue);
 
-    for (let i = 0; i < salesIds.length; i += 1) {
-        const salesId = salesIds[i];
-        await db.insert(salesQueue).values({
-            id: generateId(),
-            salesId,
-            clientId: DEFAULT_CLIENT_ID,
-            queueOrder: i + 1,
-            label: queueLabels[i] || `Q${i + 1}`,
-            isActive: true,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        });
+    for (const tenant of TENANTS) {
+        const salesUsers = tenant.users
+            .filter((item) => item.role === "sales")
+            .map((item) => emailToId.get(item.email))
+            .filter((id): id is string => Boolean(id));
+
+        for (let i = 0; i < salesUsers.length; i += 1) {
+            await db.insert(salesQueue).values({
+                id: generateId(),
+                salesId: salesUsers[i],
+                clientId: tenant.id,
+                queueOrder: i + 1,
+                label: String.fromCharCode(65 + i),
+                isActive: true,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            });
+        }
     }
 }
 
-async function seedSupervisorLinks(supervisorId: string | undefined, salesIds: string[]) {
-    if (!supervisorId) {
-        return;
-    }
-
+async function syncLegacySupervisorLinks(emailToId: Map<string, string>) {
     await db.delete(supervisorSales);
 
-    for (const salesId of salesIds) {
-        await db.insert(supervisorSales).values({
-            id: generateId(),
-            supervisorId,
-            salesId,
-            createdAt: new Date(),
-        });
+    for (const tenant of TENANTS) {
+        for (const seedUser of tenant.users.filter((item) => item.role === "sales" && item.supervisorKey)) {
+            const supervisor = tenant.users.find((item) => item.key === seedUser.supervisorKey);
+            if (!supervisor) {
+                continue;
+            }
+
+            const supervisorId = emailToId.get(supervisor.email);
+            const salesId = emailToId.get(seedUser.email);
+            if (!supervisorId || !salesId) {
+                continue;
+            }
+
+            await db.insert(supervisorSales).values({
+                id: generateId(),
+                supervisorId,
+                salesId,
+                createdAt: new Date(),
+            });
+        }
     }
 }
 
-async function seedSystemSettings() {
+async function upsertSettingsRow(id: string, clientId: string | null) {
     const [existing] = await db
         .select({ id: appSetting.id })
         .from(appSetting)
-        .where(eq(appSetting.id, "global"))
+        .where(eq(appSetting.id, id))
         .limit(1);
 
-    if (existing) {
-        return;
-    }
-
-    const now = new Date();
-    await db.insert(appSetting).values({
-        id: "global",
-        clientId: DEFAULT_CLIENT_ID,
+    const payload = {
+        id,
+        clientId,
         distributionAckTimeoutMinutes: 5,
         operationalStartMinute: 9 * 60,
         operationalEndMinute: 21 * 60,
         operationalTimezone: "Asia/Jakarta",
         outsideOfficeReply:
             "Terima kasih sudah menghubungi kami. Jam operasional kami 09.00 - 21.00 WIB. Tim kami akan merespons saat jam operasional.",
-        createdAt: now,
-        updatedAt: now,
+        updatedAt: new Date(),
+    };
+
+    if (existing) {
+        await db.update(appSetting).set(payload).where(eq(appSetting.id, id));
+        return;
+    }
+
+    await db.insert(appSetting).values({
+        ...payload,
+        createdAt: new Date(),
     });
 }
 
-/**
- * Migrate existing users from old role system to new:
- *   "admin" → "client_admin"
- *   "sales" stays "sales"
- * Also backfill client_id for users that don't have one.
- */
-async function migrateExistingRoles() {
-    // Migrate admin → client_admin
-    const oldAdmins = await db
-        .select({ id: user.id })
-        .from(user)
-        .where(eq(user.role, "admin"));
+async function seedSystemSettings() {
+    await upsertSettingsRow("global", null);
 
-    if (oldAdmins.length > 0) {
-        await db
-            .update(user)
-            .set({ role: "client_admin", clientId: DEFAULT_CLIENT_ID, updatedAt: new Date() })
-            .where(eq(user.role, "admin"));
-        logger.info(`  ✅ migrated ${oldAdmins.length} admin(s) → client_admin`);
+    for (const tenant of TENANTS) {
+        await upsertSettingsRow(`client:${tenant.id}`, tenant.id);
     }
-
-    // Backfill client_id for users that don't have one (except root_admin)
-    const { sql } = await import("drizzle-orm");
-    await db
-        .update(user)
-        .set({ clientId: DEFAULT_CLIENT_ID, updatedAt: new Date() })
-        .where(
-            sql`${user.clientId} IS NULL AND ${user.role} != 'root_admin'`
-        );
-
-    // Backfill client_id for leads that don't have one
-    await db
-        .update(lead)
-        .set({ clientId: DEFAULT_CLIENT_ID })
-        .where(sql`${lead.clientId} IS NULL`);
-
-    // Backfill client_id for salesQueue that don't have one
-    await db
-        .update(salesQueue)
-        .set({ clientId: DEFAULT_CLIENT_ID })
-        .where(sql`${salesQueue.clientId} IS NULL`);
 }
 
 async function seed() {
-    logger.info("🌱 Seeding database...");
+    logger.info("🌱 Seeding hierarchical multi-tenant database...");
 
     if (shouldReset) {
-        logger.info("🧹 Reset mode ON: clearing leads and sales...");
-        await resetLeadsAndSalesData();
-        logger.info("  ✅ reset complete");
+        logger.info("🧹 Reset mode ON: clearing operational data...");
+        await resetOperationalData();
+        logger.info("  ✅ operational data cleared");
     }
 
-    // Ensure default client exists
-    await ensureDefaultClient();
+    await ensureClients();
 
-    // Migrate existing roles (admin → client_admin, backfill client_id)
-    await migrateExistingRoles();
-
-    const createdIdsByEmail = new Map<string, string>();
-
-    for (const seedUser of seedUsers) {
-        const userId = await upsertAuthUser(seedUser);
-        createdIdsByEmail.set(seedUser.email, userId);
-        logger.info(`  ✅ upsert user ${seedUser.email} (${seedUser.role})`);
+    const emailToId = new Map<string, string>();
+    const keyToEmail = new Map<string, string>();
+    keyToEmail.set(ROOT_USER.key, ROOT_USER.email);
+    for (const tenant of TENANTS) {
+        for (const seedUser of tenant.users) {
+            keyToEmail.set(seedUser.key, seedUser.email);
+        }
     }
 
-    const salesIds = seedUsers
-        .filter((u) => u.role === "sales")
-        .map((u) => createdIdsByEmail.get(u.email))
-        .filter((id): id is string => Boolean(id));
-    const supervisorId = createdIdsByEmail.get("supervisor@propertylounge.id");
+    const rootId = await upsertAuthUser(ROOT_USER, {
+        clientId: null,
+        supervisorId: null,
+        createdByUserId: null,
+    });
+    emailToId.set(ROOT_USER.email, rootId);
+    logger.info(`  ✅ upsert user ${ROOT_USER.email} (${ROOT_USER.role})`);
 
-    await seedQueue(salesIds);
-    logger.info("  ✅ seeded fixed queue A-C");
+    for (const tenant of TENANTS) {
+        for (const seedUser of tenant.users.filter((item) => item.role === "client_admin")) {
+            const userId = await upsertAuthUser(seedUser, {
+                clientId: tenant.id,
+                supervisorId: null,
+                createdByUserId: rootId,
+            });
+            emailToId.set(seedUser.email, userId);
+            logger.info(`  ✅ upsert user ${seedUser.email} (${seedUser.role})`);
+        }
 
-    await seedSupervisorLinks(supervisorId, salesIds);
-    logger.info("  ✅ seeded supervisor to sales mappings");
+        for (const seedUser of tenant.users.filter((item) => item.role === "supervisor")) {
+            const creatorEmail = keyToEmail.get(seedUser.createdByKey || "");
+            const createdByUserId = creatorEmail ? emailToId.get(creatorEmail) || null : null;
+            const userId = await upsertAuthUser(seedUser, {
+                clientId: tenant.id,
+                supervisorId: null,
+                createdByUserId,
+            });
+            emailToId.set(seedUser.email, userId);
+            logger.info(`  ✅ upsert user ${seedUser.email} (${seedUser.role})`);
+        }
+
+        for (const seedUser of tenant.users.filter((item) => item.role === "sales")) {
+            const creatorEmail = keyToEmail.get(seedUser.createdByKey || "");
+            const supervisorEmail = keyToEmail.get(seedUser.supervisorKey || "");
+            const createdByUserId = creatorEmail ? emailToId.get(creatorEmail) || null : null;
+            const supervisorId = supervisorEmail ? emailToId.get(supervisorEmail) || null : null;
+            const userId = await upsertAuthUser(seedUser, {
+                clientId: tenant.id,
+                supervisorId,
+                createdByUserId,
+            });
+            emailToId.set(seedUser.email, userId);
+            logger.info(`  ✅ upsert user ${seedUser.email} (${seedUser.role})`);
+        }
+    }
+
+    await seedQueues(emailToId);
+    logger.info("  ✅ seeded queue per client");
+
+    await syncLegacySupervisorLinks(emailToId);
+    logger.info("  ✅ synced legacy supervisor mapping");
 
     await seedSystemSettings();
     logger.info("  ✅ seeded system settings");

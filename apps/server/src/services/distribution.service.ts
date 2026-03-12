@@ -55,6 +55,7 @@ function buildClaimSuccessLeadMessage(params: {
 
 async function getNextQueueEntry(
     executor: DbExecutor,
+    clientId: string,
     currentQueueOrder: number
 ): Promise<QueueEntry | null> {
     const [entry] = await executor
@@ -68,6 +69,7 @@ async function getNextQueueEntry(
         .innerJoin(user, eq(salesQueue.salesId, user.id))
         .where(
             and(
+                eq(salesQueue.clientId, clientId),
                 eq(salesQueue.isActive, true),
                 eq(user.role, "sales"),
                 eq(user.isActive, true),
@@ -99,6 +101,7 @@ async function assignNextQueue(
     executor: DbExecutor,
     cycleId: string,
     leadId: string,
+    clientId: string,
     currentQueueOrder: number
 ) {
     const [cycle] = await executor
@@ -113,7 +116,7 @@ async function assignNextQueue(
         return null;
     }
 
-    const next = await getNextQueueEntry(executor, currentQueueOrder);
+    const next = await getNextQueueEntry(executor, clientId, currentQueueOrder);
     const now = new Date();
 
     if (!next) {
@@ -145,7 +148,7 @@ async function assignNextQueue(
         return null;
     }
 
-    const ackTimeoutMs = await getDistributionAckTimeoutMs();
+    const ackTimeoutMs = await getDistributionAckTimeoutMs(clientId);
     const ackTimeoutMinutes = Math.max(1, Math.round(ackTimeoutMs / 60_000));
     const ackDeadline = new Date(now.getTime() + ackTimeoutMs);
 
@@ -229,6 +232,18 @@ async function getLatestCycleByLead(leadId: string) {
 }
 
 export async function ensureActiveCycle(leadId: string) {
+    const [leadRow] = await db
+        .select({
+            clientId: lead.clientId,
+        })
+        .from(lead)
+        .where(eq(lead.id, leadId))
+        .limit(1);
+
+    if (!leadRow?.clientId) {
+        throw new Error("LEAD_CLIENT_NOT_FOUND");
+    }
+
     const latestCycle = await getLatestCycleByLead(leadId);
 
     if (latestCycle) {
@@ -253,7 +268,7 @@ export async function ensureActiveCycle(leadId: string) {
         })
         .returning();
 
-    await assignNextQueue(db, cycle.id, leadId, 0);
+    await assignNextQueue(db, cycle.id, leadId, leadRow.clientId, 0);
     const [freshCycle] = await db
         .select()
         .from(distributionCycle)
@@ -325,6 +340,18 @@ export async function handleSalesAck(
     const now = new Date();
 
     await db.transaction(async (tx) => {
+        const [leadRow] = await tx
+            .select({
+                clientId: lead.clientId,
+            })
+            .from(lead)
+            .where(eq(lead.id, leadId))
+            .limit(1);
+
+        if (!leadRow?.clientId) {
+            throw new Error("LEAD_CLIENT_NOT_FOUND");
+        }
+
         await tx
             .update(distributionAttempt)
             .set({
@@ -359,6 +386,7 @@ export async function handleSalesAck(
 
         const queueRotated = await rotateQueueAfterAssignment(
             salesId,
+            leadRow.clientId,
             tx as unknown as DbExecutor
         );
 
@@ -451,6 +479,18 @@ async function timeoutAttemptAndRoll(attemptId: string) {
         }
 
         const now = new Date();
+        const [leadRow] = await tx
+            .select({
+                clientId: lead.clientId,
+            })
+            .from(lead)
+            .where(eq(lead.id, attempt.leadId))
+            .limit(1);
+
+        if (!leadRow?.clientId) {
+            throw new Error("LEAD_CLIENT_NOT_FOUND");
+        }
+
         await tx
             .update(distributionAttempt)
             .set({
@@ -471,6 +511,7 @@ async function timeoutAttemptAndRoll(attemptId: string) {
             tx as unknown as DbExecutor,
             attempt.cycleId,
             attempt.leadId,
+            leadRow.clientId,
             attempt.queueOrder
         );
     });
@@ -510,7 +551,7 @@ export async function getLeadDistributionState(leadId: string) {
     return { cycle, attempts };
 }
 
-export async function stopAllActiveDistributions() {
+export async function stopAllActiveDistributions(clientId?: string | null) {
     const now = new Date();
     const activeCycles = await db
         .select({
@@ -519,7 +560,13 @@ export async function stopAllActiveDistributions() {
             currentQueueOrder: distributionCycle.currentQueueOrder,
         })
         .from(distributionCycle)
-        .where(eq(distributionCycle.status, "active"))
+        .innerJoin(lead, eq(distributionCycle.leadId, lead.id))
+        .where(
+            and(
+                eq(distributionCycle.status, "active"),
+                clientId ? eq(lead.clientId, clientId) : undefined
+            )
+        )
         .orderBy(desc(distributionCycle.startedAt))
         .limit(500);
 
@@ -570,13 +617,17 @@ export async function stopAllActiveDistributions() {
     };
 }
 
-export async function startDistributionForHeldLead(leadId: string) {
+export async function startDistributionForHeldLead(
+    leadId: string,
+    clientId?: string | null
+) {
     const now = new Date();
     const [leadRow] = await db
         .select({
             id: lead.id,
             flowStatus: lead.flowStatus,
             assignedTo: lead.assignedTo,
+            clientId: lead.clientId,
         })
         .from(lead)
         .where(eq(lead.id, leadId))
@@ -584,6 +635,10 @@ export async function startDistributionForHeldLead(leadId: string) {
 
     if (!leadRow) {
         throw new Error("LEAD_NOT_FOUND");
+    }
+
+    if (clientId && leadRow.clientId !== clientId) {
+        throw new Error("FORBIDDEN_LEAD_SCOPE");
     }
 
     if (leadRow.assignedTo) {

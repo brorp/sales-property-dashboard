@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
+import { useTenant } from '../context/TenantContext';
 
 function Icon({ name }) {
     const common = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
@@ -57,6 +58,15 @@ function Icon({ name }) {
             </svg>
         );
     }
+    if (name === 'logout') {
+        return (
+            <svg {...common}>
+                <path d="M14 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3" />
+                <path d="M10 17l5-5-5-5" />
+                <path d="M15 12H4" />
+            </svg>
+        );
+    }
     return (
         <svg {...common}>
             <circle cx="12" cy="8" r="4" />
@@ -81,8 +91,21 @@ const SALES_TABS = [
     { key: '/settings', icon: 'settings', label: 'Settings' },
 ];
 
+function formatClientNameFromSlug(slug) {
+    if (!slug) {
+        return '';
+    }
+
+    return String(slug)
+        .split(/[-_]/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+}
+
 export default function BottomNav() {
-    const { user, isAdmin } = useAuth();
+    const { user, isAdmin, logout } = useAuth();
+    const tenant = useTenant();
     const pathname = usePathname();
     const router = useRouter();
 
@@ -90,9 +113,28 @@ export default function BottomNav() {
 
     const tabs = isAdmin ? ADMIN_TABS : SALES_TABS;
     const isActive = (key) => key === '/' ? pathname === '/' : pathname.startsWith(key);
+    const clientName = tenant.tenant?.name || formatClientNameFromSlug(user?.clientSlug);
+    const isTenantWorkspace = user?.role !== 'root_admin' && Boolean(clientName);
+    const brandTitle =
+        isTenantWorkspace
+            ? `${clientName} CMS Dashboard`
+            : 'Property Lounge';
+    const brandSubtitle =
+        isTenantWorkspace
+            ? ''
+            : 'CRM Dashboard';
+    const handleLogout = () => {
+        logout();
+        router.replace('/login');
+    };
 
     return (
         <nav className="bottom-nav">
+            <div className="bottom-nav-brand">
+                <div className="bottom-nav-brand-title">{brandTitle}</div>
+                {brandSubtitle ? <div className="bottom-nav-brand-subtitle">{brandSubtitle}</div> : null}
+            </div>
+
             <div className="bottom-nav-inner">
                 {tabs.map(tab => (
                     <button
@@ -105,6 +147,13 @@ export default function BottomNav() {
                         {isActive(tab.key) && <span className="bottom-nav-indicator" />}
                     </button>
                 ))}
+            </div>
+
+            <div className="bottom-nav-footer">
+                <button type="button" className="bottom-nav-logout" onClick={handleLogout}>
+                    <span className="bottom-nav-icon"><Icon name="logout" /></span>
+                    <span className="bottom-nav-label">Logout</span>
+                </button>
             </div>
         </nav>
     );

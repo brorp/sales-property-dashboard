@@ -41,7 +41,7 @@ export default function LoginPage() {
                         <label>Email</label>
                         <div className="input-icon-wrapper">
                             <span className="input-icon">📧</span>
-                            <input type="email" className="input-field" placeholder="nama@propertylounge.id" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                            <input type="email" className="input-field" placeholder="Masukkan email" value={email} onChange={(e) => setEmail(e.target.value)} required />
                         </div>
                     </div>
                     <div className="input-group">
@@ -54,7 +54,7 @@ export default function LoginPage() {
                     </div>
                     {error && <div className="login-error">{error}</div>}
                     <button type="submit" className="btn btn-primary btn-full login-submit" disabled={loading}>
-                        {loading ? '⏳ Memproses...' : '🔐 Masuk'}
+                        {loading ? '⏳ Memproses...' : 'Submit'}
                     </button>
                 </form>
                 <div className="demo-accounts">

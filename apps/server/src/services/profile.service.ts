@@ -9,6 +9,8 @@ export async function getProfile(userId: string) {
             name: user.name,
             email: user.email,
             role: user.role,
+            clientId: user.clientId,
+            supervisorId: user.supervisorId,
             image: user.image,
             createdAt: user.createdAt,
         })
@@ -71,6 +73,8 @@ export async function updateProfile(
             name: user.name,
             email: user.email,
             role: user.role,
+            clientId: user.clientId,
+            supervisorId: user.supervisorId,
             image: user.image,
             phone: user.phone,
             createdAt: user.createdAt,

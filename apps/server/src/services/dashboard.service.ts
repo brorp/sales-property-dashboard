@@ -1,6 +1,6 @@
-import { and, asc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "../db/index";
-import { appointment, lead, user } from "../db/schema";
+import { appointment, client, lead, user } from "../db/schema";
 import { resolveAppointmentTag, toAppointmentDateTime } from "../utils/appointment";
 import type { QueryScope } from "../middleware/rbac";
 
@@ -35,6 +35,11 @@ type AppointmentRow = {
     assignedTo: string | null;
 };
 
+type DashboardDateRange = {
+    dateFrom?: string;
+    dateTo?: string;
+};
+
 const SALES_STATUS_META = [
     { key: "hot", label: "Hot" },
     { key: "warm", label: "Warm" },
@@ -65,6 +70,41 @@ function toPercent(count: number, total: number) {
     return Math.round((count / total) * 10000) / 100;
 }
 
+function toDateStart(dateValue?: string) {
+    if (!dateValue) {
+        return null;
+    }
+
+    const dt = new Date(`${dateValue}T00:00:00`);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function toDateEnd(dateValue?: string) {
+    if (!dateValue) {
+        return null;
+    }
+
+    const dt = new Date(`${dateValue}T23:59:59.999`);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function normalizeDateRange(filters?: DashboardDateRange) {
+    const start = toDateStart(filters?.dateFrom);
+    const end = toDateEnd(filters?.dateTo);
+
+    if (start && end && start.getTime() > end.getTime()) {
+        return {
+            dateFrom: end,
+            dateTo: start,
+        };
+    }
+
+    return {
+        dateFrom: start,
+        dateTo: end,
+    };
+}
+
 function getLatestAppointmentByLead(appointments: AppointmentRow[]) {
     const latestMap = new Map<string, AppointmentRow>();
 
@@ -85,21 +125,33 @@ function getLatestAppointmentByLead(appointments: AppointmentRow[]) {
     return latestMap;
 }
 
-async function loadScopedLeadsAndAppointments(userId: string, role: string, scope?: QueryScope) {
-    // Build lead condition based on role
-    let leadCondition: any = undefined;
+async function loadScopedLeadsAndAppointments(
+    userId: string,
+    role: string,
+    scope?: QueryScope,
+    filters?: DashboardDateRange
+) {
+    const conditions: any[] = [];
+
     if (role === "root_admin") {
         // no filter
     } else if (role === "client_admin" && scope?.clientId) {
-        leadCondition = eq(lead.clientId, scope.clientId);
+        conditions.push(eq(lead.clientId, scope.clientId));
     } else if (role === "supervisor" && scope?.managedSalesIds && scope.managedSalesIds.length > 0) {
-        leadCondition = or(
-            inArray(lead.assignedTo, scope.managedSalesIds),
-            eq(lead.assignedTo, userId)
-        );
+        conditions.push(inArray(lead.assignedTo, scope.managedSalesIds));
     } else {
-        leadCondition = eq(lead.assignedTo, userId);
+        conditions.push(eq(lead.assignedTo, userId));
     }
+
+    const normalizedDateRange = normalizeDateRange(filters);
+    if (normalizedDateRange.dateFrom) {
+        conditions.push(gte(lead.receivedAt, normalizedDateRange.dateFrom));
+    }
+    if (normalizedDateRange.dateTo) {
+        conditions.push(lte(lead.receivedAt, normalizedDateRange.dateTo));
+    }
+
+    const leadCondition = conditions.length > 0 ? and(...conditions) : undefined;
 
     const scopedLeads = await db
         .select({
@@ -157,9 +209,169 @@ async function loadScopedLeadsAndAppointments(userId: string, role: string, scop
     };
 }
 
-export async function getHomeAnalytics(userId: string, role: string, scope?: QueryScope) {
+async function buildHierarchySummary(userId: string, role: string, scope?: QueryScope) {
+    if (role === "root_admin") {
+        const [clients, users] = await Promise.all([
+            db
+                .select({
+                    id: client.id,
+                    name: client.name,
+                    slug: client.slug,
+                    isActive: client.isActive,
+                })
+                .from(client)
+                .orderBy(asc(client.name)),
+            db
+                .select({
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    clientId: user.clientId,
+                    supervisorId: user.supervisorId,
+                })
+                .from(user)
+                .where(eq(user.isActive, true)),
+        ]);
+
+        return {
+            roleLabel: "Root Admin",
+            counts: {
+                clients: clients.length,
+                clientAdmins: users.filter((item) => item.role === "client_admin").length,
+                supervisors: users.filter((item) => item.role === "supervisor").length,
+                sales: users.filter((item) => item.role === "sales").length,
+            },
+            clients: clients.map((tenant) => {
+                const tenantUsers = users.filter((item) => item.clientId === tenant.id);
+                return {
+                    ...tenant,
+                    clientAdmins: tenantUsers.filter((item) => item.role === "client_admin").length,
+                    supervisors: tenantUsers.filter((item) => item.role === "supervisor").length,
+                    sales: tenantUsers.filter((item) => item.role === "sales").length,
+                };
+            }),
+        };
+    }
+
+    if (role === "client_admin" && scope?.clientId) {
+        const [tenantRows, tenantUsers] = await Promise.all([
+            db
+                .select({
+                    id: client.id,
+                    name: client.name,
+                    slug: client.slug,
+                })
+                .from(client)
+                .where(eq(client.id, scope.clientId))
+                .limit(1),
+            db
+                .select({
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    supervisorId: user.supervisorId,
+                })
+                .from(user)
+                .where(and(eq(user.clientId, scope.clientId), eq(user.isActive, true))),
+        ]);
+
+        const supervisors = tenantUsers.filter((item) => item.role === "supervisor");
+        const salesUsers = tenantUsers.filter((item) => item.role === "sales");
+
+        return {
+            roleLabel: "Client Admin",
+            client: tenantRows[0] || null,
+            counts: {
+                supervisors: supervisors.length,
+                sales: salesUsers.length,
+            },
+            supervisors: supervisors.map((supervisor) => ({
+                id: supervisor.id,
+                name: supervisor.name,
+                email: supervisor.email,
+                salesCount: salesUsers.filter((sales) => sales.supervisorId === supervisor.id).length,
+            })),
+        };
+    }
+
+    if (role === "supervisor") {
+        const [supervisorRows, salesUsers] = await Promise.all([
+            db
+                .select({
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    clientId: user.clientId,
+                    clientName: client.name,
+                })
+                .from(user)
+                .leftJoin(client, eq(user.clientId, client.id))
+                .where(eq(user.id, userId))
+                .limit(1),
+            db
+                .select({
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                })
+                .from(user)
+                .where(and(eq(user.role, "sales"), eq(user.supervisorId, userId), eq(user.isActive, true)))
+                .orderBy(asc(user.name)),
+        ]);
+
+        return {
+            roleLabel: "Supervisor",
+            client: supervisorRows[0]?.clientId
+                ? {
+                    id: supervisorRows[0].clientId,
+                    name: supervisorRows[0].clientName,
+                }
+                : null,
+            supervisor: supervisorRows[0] || null,
+            counts: {
+                sales: salesUsers.length,
+            },
+            sales: salesUsers,
+        };
+    }
+
+    const salesRows = await db
+        .select({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            clientId: user.clientId,
+            clientName: client.name,
+        })
+        .from(user)
+        .leftJoin(client, eq(user.clientId, client.id))
+        .where(eq(user.id, userId))
+        .limit(1);
+
+    return {
+        roleLabel: "Sales",
+        client: salesRows[0]?.clientId
+            ? {
+                id: salesRows[0].clientId,
+                name: salesRows[0].clientName,
+            }
+            : null,
+        counts: {
+            sales: 1,
+        },
+    };
+}
+
+export async function getHomeAnalytics(
+    userId: string,
+    role: string,
+    scope?: QueryScope,
+    filters?: DashboardDateRange
+) {
     const { leads: scopedLeads, appointments: scopedAppointments } =
-        await loadScopedLeadsAndAppointments(userId, role, scope);
+        await loadScopedLeadsAndAppointments(userId, role, scope, filters);
 
     const latestAppointmentByLead = getLatestAppointmentByLead(scopedAppointments);
 
@@ -337,6 +549,7 @@ export async function getHomeAnalytics(userId: string, role: string, scope?: Que
 
     return {
         scope: isManagerRole ? "overall" : "agent",
+        hierarchySummary: await buildHierarchySummary(userId, role, scope),
         flowOverview,
         surveyRatio,
         perAgentSurveyRatio,

@@ -48,9 +48,34 @@
     margin-bottom: 32px;
 }
 
-.login-logo-icon {
-    font-size: 2.5rem;
-    margin-bottom: 8px;
+.login-site-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+    padding: 6px 12px;
+    border-radius: var(--radius-full);
+    background: rgba(37, 32, 58, 0.92);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.login-logo-mark {
+    display: flex;
+    justify-content: center;
+    margin: 8px 0 12px;
+}
+
+.login-logo-image {
+    display: block;
+    width: min(100%, 300px);
+    height: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 8px 24px rgba(8, 6, 18, 0.22));
 }
 
 .login-logo h1 {
@@ -110,6 +135,12 @@
     letter-spacing: 0.05em;
     font-weight: 600;
     margin-bottom: 8px;
+}
+
+.login-site-note {
+    font-size: 0.813rem;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
 }
 
 .demo-list {

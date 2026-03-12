@@ -1,0 +1,99 @@
+.team-detail-hero {
+    padding: 18px;
+    margin-bottom: 16px;
+}
+
+.team-detail-hero-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.team-detail-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    font-size: 1.15rem;
+}
+
+.team-detail-title {
+    font-size: 1.25rem;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    color: var(--text-primary);
+}
+
+.team-detail-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.team-detail-meta-item {
+    padding: 12px;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.team-detail-meta-label {
+    display: block;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+
+.team-detail-meta-item strong {
+    color: var(--text-primary);
+}
+
+.team-detail-stats {
+    margin-top: 14px;
+}
+
+.team-detail-section {
+    margin-bottom: 16px;
+}
+
+.team-detail-section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.team-detail-sales-list {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+.team-lead-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.team-lead-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+@media (min-width: 768px) {
+    .team-detail-meta-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 767px) {
+    .team-detail-meta-grid {
+        grid-template-columns: 1fr;
+    }
+}

@@ -13,6 +13,8 @@ export interface AuthenticatedRequest extends Request {
         email: string;
         role: string;
         clientId?: string | null;
+        supervisorId?: string | null;
+        createdByUserId?: string | null;
         image?: string | null;
     };
     session: {
@@ -24,52 +26,75 @@ export interface AuthenticatedRequest extends Request {
     scope?: QueryScope;
 }
 
+async function resolveDevHeaderAuth(req: Request) {
+    const allowDevHeaders =
+        String(process.env.ALLOW_DEV_AUTH_HEADERS || "true").toLowerCase() !==
+        "false";
+    const devEmail = req.header("x-dev-user-email");
+
+    if (!allowDevHeaders || !devEmail) {
+        return null;
+    }
+
+    const [devUser] = await db
+        .select({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            clientId: user.clientId,
+            supervisorId: user.supervisorId,
+            createdByUserId: user.createdByUserId,
+            image: user.image,
+        })
+        .from(user)
+        .where(
+            and(
+                eq(user.email, devEmail),
+                eq(user.isActive, true)
+            )
+        )
+        .limit(1);
+
+    if (!devUser) {
+        return null;
+    }
+
+    return {
+        user: devUser,
+        session: {
+            id: `dev-session-${devUser.id}`,
+            userId: devUser.id,
+            token: "dev-auth-header",
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+    };
+}
+
 export async function requireAuth(
     req: Request,
     res: Response,
     next: NextFunction
 ) {
     try {
-        const result = await auth.api.getSession({
-            headers: fromNodeHeaders(req.headers),
-        });
+        let result: Awaited<ReturnType<typeof auth.api.getSession>> | null = null;
+
+        try {
+            result = await auth.api.getSession({
+                headers: fromNodeHeaders(req.headers),
+            });
+        } catch {
+            result = null;
+        }
 
         if (!result) {
-            const allowDevHeaders =
-                String(process.env.ALLOW_DEV_AUTH_HEADERS || "true").toLowerCase() !==
-                "false";
-            const devEmail = req.header("x-dev-user-email");
+            const devAuth = await resolveDevHeaderAuth(req);
 
-            if (allowDevHeaders && devEmail) {
-                const [devUser] = await db
-                    .select({
-                        id: user.id,
-                        name: user.name,
-                        email: user.email,
-                        role: user.role,
-                        clientId: user.clientId,
-                        image: user.image,
-                    })
-                    .from(user)
-                    .where(
-                        and(
-                            eq(user.email, devEmail),
-                            eq(user.isActive, true)
-                        )
-                    )
-                    .limit(1);
-
-                if (devUser) {
-                    (req as AuthenticatedRequest).user = devUser;
-                    (req as AuthenticatedRequest).session = {
-                        id: `dev-session-${devUser.id}`,
-                        userId: devUser.id,
-                        token: "dev-auth-header",
-                        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-                    };
-                    next();
-                    return;
-                }
+            if (devAuth) {
+                (req as AuthenticatedRequest).user = devAuth.user;
+                (req as AuthenticatedRequest).session = devAuth.session;
+                next();
+                return;
             }
 
             res.status(401).json({ error: "Unauthorized" });
@@ -85,6 +110,8 @@ export async function requireAuth(
                 email: user.email,
                 role: user.role,
                 clientId: user.clientId,
+                supervisorId: user.supervisorId,
+                createdByUserId: user.createdByUserId,
                 image: user.image,
             })
             .from(user)

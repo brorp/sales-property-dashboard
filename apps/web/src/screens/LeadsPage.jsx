@@ -17,6 +17,18 @@ import {
 } from '../constants/crm';
 import Header from '../components/Header';
 
+function toInitialExportSelection(value) {
+    return value && value !== 'all' ? [value] : [];
+}
+
+function matchesMultiValueFilter(selectedValues, actualValue, fallbackValue = '') {
+    if (!Array.isArray(selectedValues) || selectedValues.length === 0) {
+        return true;
+    }
+
+    return selectedValues.includes(actualValue ?? fallbackValue);
+}
+
 function matchesLeadFilters(lead, filters) {
     if (filters.flowStatus !== 'all' && lead.flowStatus !== filters.flowStatus) {
         return false;
@@ -35,6 +47,30 @@ function matchesLeadFilters(lead, filters) {
     }
 
     if (filters.salesId !== 'all' && lead.assignedTo !== filters.salesId) {
+        return false;
+    }
+
+    return true;
+}
+
+function matchesLeadExportFilters(lead, filters) {
+    if (!matchesMultiValueFilter(filters.flowStatuses, lead.flowStatus)) {
+        return false;
+    }
+
+    if (!matchesMultiValueFilter(filters.salesStatuses, lead.salesStatus, 'unfilled')) {
+        return false;
+    }
+
+    if (!matchesMultiValueFilter(filters.resultStatuses, lead.resultStatus, 'unfilled')) {
+        return false;
+    }
+
+    if (!matchesMultiValueFilter(filters.appointmentTags, lead.appointmentTag || 'none')) {
+        return false;
+    }
+
+    if (!matchesMultiValueFilter(filters.salesIds, lead.assignedTo, 'unassigned')) {
         return false;
     }
 
@@ -89,11 +125,11 @@ export default function LeadsPage() {
     const [exportFilters, setExportFilters] = useState({
         dateFrom: '',
         dateTo: '',
-        flowStatus: 'all',
-        salesStatus: 'all',
-        appointmentTag: 'all',
-        resultStatus: 'all',
-        salesId: 'all',
+        flowStatuses: [],
+        salesStatuses: [],
+        appointmentTags: [],
+        resultStatuses: [],
+        salesIds: [],
     });
 
     const allLeads = getLeadsForUser(user.id, user.role);
@@ -119,7 +155,7 @@ export default function LeadsPage() {
 
     const exportLeads = useMemo(() => {
         return allLeads.filter((lead) => {
-            if (!matchesLeadFilters(lead, exportFilters)) {
+            if (!matchesLeadExportFilters(lead, exportFilters)) {
                 return false;
             }
 
@@ -162,13 +198,33 @@ export default function LeadsPage() {
         setExportFilters({
             dateFrom: '',
             dateTo: '',
-            flowStatus: flowFilter,
-            salesStatus: salesStatusFilter,
-            appointmentTag: appointmentFilter,
-            resultStatus: resultFilter,
-            salesId: salesFilter,
+            flowStatuses: toInitialExportSelection(flowFilter),
+            salesStatuses: toInitialExportSelection(salesStatusFilter),
+            appointmentTags: toInitialExportSelection(appointmentFilter),
+            resultStatuses: toInitialExportSelection(resultFilter),
+            salesIds: toInitialExportSelection(salesFilter),
         });
         setShowExportModal(true);
+    };
+
+    const toggleExportSelection = (field, value) => {
+        setExportFilters((prev) => {
+            const currentValues = Array.isArray(prev[field]) ? prev[field] : [];
+            const hasValue = currentValues.includes(value);
+            return {
+                ...prev,
+                [field]: hasValue
+                    ? currentValues.filter((item) => item !== value)
+                    : [...currentValues, value],
+            };
+        });
+    };
+
+    const setExportSelectionGroup = (field, values) => {
+        setExportFilters((prev) => ({
+            ...prev,
+            [field]: values,
+        }));
     };
 
     const handleExportLeads = async (event) => {
@@ -402,74 +458,155 @@ export default function LeadsPage() {
 
                             <div className="input-group">
                                 <label>Status Distribusi</label>
-                                <select
-                                    className="input-field"
-                                    value={exportFilters.flowStatus}
-                                    onChange={(e) => setExportFilters((prev) => ({ ...prev, flowStatus: e.target.value }))}
-                                >
-                                    <option value="all">Semua</option>
+                                <div className="export-filter-actions">
+                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('flowStatuses', [])}>
+                                        Semua
+                                    </button>
+                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('flowStatuses', FLOW_STATUSES.map((item) => item.key))}>
+                                        Pilih Semua
+                                    </button>
+                                </div>
+                                <div className="export-checklist">
                                     {FLOW_STATUSES.map((item) => (
-                                        <option key={item.key} value={item.key}>{item.label}</option>
+                                        <label key={item.key} className="export-checklist-item">
+                                            <input
+                                                type="checkbox"
+                                                checked={exportFilters.flowStatuses.includes(item.key)}
+                                                onChange={() => toggleExportSelection('flowStatuses', item.key)}
+                                            />
+                                            <span>{item.label}</span>
+                                        </label>
                                     ))}
-                                </select>
+                                </div>
                             </div>
 
                             <div className="input-group">
                                 <label>Sales Status</label>
-                                <select
-                                    className="input-field"
-                                    value={exportFilters.salesStatus}
-                                    onChange={(e) => setExportFilters((prev) => ({ ...prev, salesStatus: e.target.value }))}
-                                >
-                                    <option value="all">Semua</option>
+                                <div className="export-filter-actions">
+                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('salesStatuses', [])}>
+                                        Semua
+                                    </button>
+                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('salesStatuses', ['unfilled', ...SALES_STATUSES.map((item) => item.key)])}>
+                                        Pilih Semua
+                                    </button>
+                                </div>
+                                <div className="export-checklist">
+                                    <label className="export-checklist-item">
+                                        <input
+                                            type="checkbox"
+                                            checked={exportFilters.salesStatuses.includes('unfilled')}
+                                            onChange={() => toggleExportSelection('salesStatuses', 'unfilled')}
+                                        />
+                                        <span>Belum Diisi</span>
+                                    </label>
                                     {SALES_STATUSES.map((item) => (
-                                        <option key={item.key} value={item.key}>{item.label}</option>
+                                        <label key={item.key} className="export-checklist-item">
+                                            <input
+                                                type="checkbox"
+                                                checked={exportFilters.salesStatuses.includes(item.key)}
+                                                onChange={() => toggleExportSelection('salesStatuses', item.key)}
+                                            />
+                                            <span>{item.label}</span>
+                                        </label>
                                     ))}
-                                </select>
+                                </div>
                             </div>
 
                             <div className="input-group">
                                 <label>Status Appointment</label>
-                                <select
-                                    className="input-field"
-                                    value={exportFilters.appointmentTag}
-                                    onChange={(e) => setExportFilters((prev) => ({ ...prev, appointmentTag: e.target.value }))}
-                                >
-                                    <option value="all">Semua</option>
-                                    <option value="none">Belum Ada</option>
+                                <div className="export-filter-actions">
+                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('appointmentTags', [])}>
+                                        Semua
+                                    </button>
+                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('appointmentTags', ['none', ...APPOINTMENT_TAGS.map((item) => item.key)])}>
+                                        Pilih Semua
+                                    </button>
+                                </div>
+                                <div className="export-checklist">
+                                    <label className="export-checklist-item">
+                                        <input
+                                            type="checkbox"
+                                            checked={exportFilters.appointmentTags.includes('none')}
+                                            onChange={() => toggleExportSelection('appointmentTags', 'none')}
+                                        />
+                                        <span>Belum Ada</span>
+                                    </label>
                                     {APPOINTMENT_TAGS.map((item) => (
-                                        <option key={item.key} value={item.key}>{item.label}</option>
+                                        <label key={item.key} className="export-checklist-item">
+                                            <input
+                                                type="checkbox"
+                                                checked={exportFilters.appointmentTags.includes(item.key)}
+                                                onChange={() => toggleExportSelection('appointmentTags', item.key)}
+                                            />
+                                            <span>{item.label}</span>
+                                        </label>
                                     ))}
-                                </select>
+                                </div>
                             </div>
 
                             <div className="input-group">
                                 <label>Result Status</label>
-                                <select
-                                    className="input-field"
-                                    value={exportFilters.resultStatus}
-                                    onChange={(e) => setExportFilters((prev) => ({ ...prev, resultStatus: e.target.value }))}
-                                >
-                                    <option value="all">Semua</option>
+                                <div className="export-filter-actions">
+                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('resultStatuses', [])}>
+                                        Semua
+                                    </button>
+                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('resultStatuses', ['unfilled', ...RESULT_STATUSES.map((item) => item.key)])}>
+                                        Pilih Semua
+                                    </button>
+                                </div>
+                                <div className="export-checklist">
+                                    <label className="export-checklist-item">
+                                        <input
+                                            type="checkbox"
+                                            checked={exportFilters.resultStatuses.includes('unfilled')}
+                                            onChange={() => toggleExportSelection('resultStatuses', 'unfilled')}
+                                        />
+                                        <span>Belum Diisi</span>
+                                    </label>
                                     {RESULT_STATUSES.map((item) => (
-                                        <option key={item.key} value={item.key}>{item.label}</option>
+                                        <label key={item.key} className="export-checklist-item">
+                                            <input
+                                                type="checkbox"
+                                                checked={exportFilters.resultStatuses.includes(item.key)}
+                                                onChange={() => toggleExportSelection('resultStatuses', item.key)}
+                                            />
+                                            <span>{item.label}</span>
+                                        </label>
                                     ))}
-                                </select>
+                                </div>
                             </div>
 
                             {isAdmin ? (
                                 <div className="input-group">
                                     <label>Sales</label>
-                                    <select
-                                        className="input-field"
-                                        value={exportFilters.salesId}
-                                        onChange={(e) => setExportFilters((prev) => ({ ...prev, salesId: e.target.value }))}
-                                    >
-                                        <option value="all">Semua Sales</option>
+                                    <div className="export-filter-actions">
+                                        <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('salesIds', [])}>
+                                            Semua
+                                        </button>
+                                        <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('salesIds', ['unassigned', ...salesUsers.map((sales) => sales.id)])}>
+                                            Pilih Semua
+                                        </button>
+                                    </div>
+                                    <div className="export-checklist">
+                                        <label className="export-checklist-item">
+                                            <input
+                                                type="checkbox"
+                                                checked={exportFilters.salesIds.includes('unassigned')}
+                                                onChange={() => toggleExportSelection('salesIds', 'unassigned')}
+                                            />
+                                            <span>Belum Assigned</span>
+                                        </label>
                                         {salesUsers.map((sales) => (
-                                            <option key={sales.id} value={sales.id}>{sales.name}</option>
+                                            <label key={sales.id} className="export-checklist-item">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={exportFilters.salesIds.includes(sales.id)}
+                                                    onChange={() => toggleExportSelection('salesIds', sales.id)}
+                                                />
+                                                <span>{sales.name}</span>
+                                            </label>
                                         ))}
-                                    </select>
+                                    </div>
                                 </div>
                             ) : null}
 

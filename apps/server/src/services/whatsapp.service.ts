@@ -17,6 +17,7 @@ export interface IncomingWhatsAppPayload {
     sourceAds?: string;
     clientName?: string;
     metaLeadId?: string;
+    clientId?: string | null;
 }
 
 async function isDuplicateMessage(providerMessageId?: string) {
@@ -33,18 +34,40 @@ async function isDuplicateMessage(providerMessageId?: string) {
     return Boolean(existing);
 }
 
-async function hasInboundClientMessageFromPhone(fromWa: string) {
-    const [existingClientMessage] = await db
+async function hasInboundClientMessage(params: {
+    fromWa: string;
+    leadId?: string | null;
+    clientId?: string | null;
+}) {
+    if (params.leadId) {
+        const [existingByLead] = await db
+            .select({ id: waMessage.id })
+            .from(waMessage)
+            .where(
+                and(
+                    eq(waMessage.leadId, params.leadId),
+                    eq(waMessage.direction, "inbound_from_client")
+                )
+            )
+            .limit(1);
+
+        return Boolean(existingByLead);
+    }
+
+    const messageQuery = db
         .select({ id: waMessage.id })
         .from(waMessage)
+        .innerJoin(lead, eq(waMessage.leadId, lead.id))
         .where(
             and(
-                eq(waMessage.fromWa, fromWa),
-                eq(waMessage.direction, "inbound_from_client")
+                eq(waMessage.fromWa, params.fromWa),
+                eq(waMessage.direction, "inbound_from_client"),
+                params.clientId ? eq(lead.clientId, params.clientId) : undefined
             )
         )
         .limit(1);
 
+    const [existingClientMessage] = await messageQuery;
     return Boolean(existingClientMessage);
 }
 
@@ -213,7 +236,12 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
     let [clientLead] = await db
         .select()
         .from(lead)
-        .where(eq(lead.phone, fromWa))
+        .where(
+            and(
+                eq(lead.phone, fromWa),
+                payload.clientId ? eq(lead.clientId, payload.clientId) : undefined
+            )
+        )
         .orderBy(desc(lead.createdAt))
         .limit(1);
 
@@ -233,7 +261,11 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
         clientLead = updatedLead;
     }
 
-    const duplicateClientInbound = await hasInboundClientMessageFromPhone(fromWa);
+    const duplicateClientInbound = await hasInboundClientMessage({
+        fromWa,
+        leadId: clientLead?.id || null,
+        clientId: payload.clientId || clientLead?.clientId || null,
+    });
     if (duplicateClientInbound) {
         return {
             type: "duplicate_client_lead" as const,
@@ -242,7 +274,10 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
         };
     }
 
-    const operationalWindow = await getOperationalWindowState();
+    const operationalWindow = await getOperationalWindowState(
+        now,
+        payload.clientId || clientLead?.clientId || null
+    );
     const shouldHoldByOperationalHours = !operationalWindow.isOpen;
 
     if (!clientLead) {
@@ -254,6 +289,7 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
                 phone: fromWa,
                 source: payload.sourceAds || "WhatsApp Inbound",
                 metaLeadId: payload.metaLeadId || null,
+                clientId: payload.clientId || null,
                 entryChannel: "whatsapp_inbound",
                 receivedAt: now,
                 assignedTo: null,

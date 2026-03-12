@@ -78,15 +78,7 @@ export default function EditProfilePage() {
 
     return (
         <div className="page-container">
-            <Header
-                title="Ubah Profil"
-                showBack
-                rightAction={(
-                    <button className="btn btn-sm btn-secondary" onClick={() => void loadProfile()} disabled={loading || saving}>
-                        {loading ? 'Loading...' : 'Refresh'}
-                    </button>
-                )}
-            />
+            <Header title="Ubah Profil" showBack />
 
             <form className="card edit-profile-card" onSubmit={handleSubmit}>
                 <div className="input-group">

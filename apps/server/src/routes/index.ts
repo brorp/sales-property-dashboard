@@ -12,6 +12,7 @@ import activityLogsRoutes from "./activity-logs.routes";
 import broadcastRoutes from "./broadcast.routes";
 import settingsRoutes from "./settings.routes";
 import clientsRoutes from "./clients.routes";
+import unitsRoutes from "./units.routes";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -30,5 +31,6 @@ router.use("/activity-logs", activityLogsRoutes);
 router.use("/broadcast", broadcastRoutes);
 router.use("/settings", settingsRoutes);
 router.use("/clients", clientsRoutes);
+router.use("/units", unitsRoutes);
 
 export default router;

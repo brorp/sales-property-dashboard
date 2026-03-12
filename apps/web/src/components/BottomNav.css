@@ -20,6 +20,15 @@
     height: var(--bottom-nav-height);
 }
 
+.bottom-nav-brand,
+.bottom-nav-footer {
+    display: none;
+}
+
+.bottom-nav-logout {
+    display: none;
+}
+
 .bottom-nav-tab {
     display: flex;
     flex-direction: column;
@@ -87,27 +96,31 @@
         left: 0;
         right: auto;
         width: 272px;
+        display: flex;
+        flex-direction: column;
         border-top: none;
         border-right: 1px solid rgba(255, 255, 255, 0.08);
         background: linear-gradient(180deg, rgba(18, 14, 32, 0.98), rgba(14, 11, 26, 0.98));
         padding-bottom: 0;
     }
 
-    .bottom-nav::before {
-        content: 'Property Lounge';
+    .bottom-nav-brand {
         display: block;
+        padding: 28px 26px 18px;
+    }
+
+    .bottom-nav-brand-title {
+        max-width: 210px;
         font-size: 1.75rem;
         font-weight: 700;
         letter-spacing: -0.02em;
+        line-height: 1.12;
+        white-space: normal;
         color: var(--text-primary);
-        padding: 28px 26px 14px;
     }
 
-.bottom-nav::after {
-        content: 'CRM Dashboard';
-        position: absolute;
-        top: 64px;
-        left: 26px;
+    .bottom-nav-brand-subtitle {
+        margin-top: 6px;
         font-size: 0.82rem;
         color: var(--text-muted);
         letter-spacing: 0.02em;
@@ -115,11 +128,45 @@
 
     .bottom-nav-inner {
         flex-direction: column;
-        height: 100%;
+        flex: 1;
+        width: 100%;
         justify-content: flex-start;
-        padding: 104px 16px 18px;
+        padding: 0 16px 18px;
         gap: 8px;
         max-width: none;
+        margin: 0;
+        height: auto;
+    }
+
+    .bottom-nav-footer {
+        display: block;
+        padding: 0 16px 18px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .bottom-nav-logout {
+        display: flex;
+        width: 100%;
+        padding: 12px 12px;
+        border-radius: 12px;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 10px;
+        color: #ffd1da;
+        background: rgba(251, 113, 133, 0.08);
+        border: 1px solid rgba(251, 113, 133, 0.18);
+    }
+
+    .bottom-nav-logout:hover {
+        background: rgba(251, 113, 133, 0.16);
+        border-color: rgba(251, 113, 133, 0.28);
+    }
+
+    .bottom-nav-logout .bottom-nav-label {
+        font-size: 0.95rem;
+        letter-spacing: 0.01em;
+        text-transform: none;
+        font-weight: 600;
     }
 
     .bottom-nav-tab {

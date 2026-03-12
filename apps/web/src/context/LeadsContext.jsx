@@ -6,6 +6,34 @@ import { useAuth } from './AuthContext';
 
 const LeadsContext = createContext(null);
 const TEAM_ACCESS_ROLES = new Set(['admin', 'root_admin', 'client_admin', 'supervisor']);
+const EMPTY_TEAM_STATS = {
+    roleLabel: '',
+    summary: {
+        supervisors: 0,
+        sales: 0,
+        totalLeads: 0,
+        closed: 0,
+        hot: 0,
+        pending: 0,
+        closeRate: 0,
+    },
+    groups: [],
+};
+
+function normalizeTeamStatsPayload(input) {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) {
+        return EMPTY_TEAM_STATS;
+    }
+
+    return {
+        roleLabel: input.roleLabel || '',
+        summary: {
+            ...EMPTY_TEAM_STATS.summary,
+            ...(input.summary && typeof input.summary === 'object' ? input.summary : {}),
+        },
+        groups: Array.isArray(input.groups) ? input.groups : [],
+    };
+}
 
 function normalizeLead(input) {
     if (!input) {
@@ -17,6 +45,9 @@ function normalizeLead(input) {
         flowStatus: input.flowStatus || 'open',
         salesStatus: input.salesStatus || null,
         domicileCity: input.domicileCity || null,
+        interestUnitId: input.interestUnitId || null,
+        interestProjectType: input.interestProjectType || null,
+        interestUnitName: input.interestUnitName || null,
         resultStatus: input.resultStatus || null,
         rejectedReason: input.rejectedReason || null,
         rejectedNote: input.rejectedNote || null,
@@ -46,7 +77,7 @@ export function LeadsProvider({ children }) {
     const [leads, setLeads] = useState([]);
     const [leadDetails, setLeadDetails] = useState({});
     const [salesUsers, setSalesUsers] = useState([]);
-    const [teamStats, setTeamStats] = useState([]);
+    const [teamStats, setTeamStats] = useState(EMPTY_TEAM_STATS);
     const [appointments, setAppointments] = useState([]);
     const [dashboardAnalytics, setDashboardAnalytics] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -98,11 +129,11 @@ export function LeadsProvider({ children }) {
 
     const refreshTeamStats = useCallback(async () => {
         if (!user || !TEAM_ACCESS_ROLES.has(user.role)) {
-            setTeamStats([]);
-            return [];
+            setTeamStats(EMPTY_TEAM_STATS);
+            return EMPTY_TEAM_STATS;
         }
         const rows = await apiRequest('/api/team', { user });
-        const normalized = Array.isArray(rows) ? rows : [];
+        const normalized = normalizeTeamStatsPayload(rows);
         setTeamStats(normalized);
         return normalized;
     }, [user]);
@@ -135,7 +166,7 @@ export function LeadsProvider({ children }) {
             setLeads([]);
             setLeadDetails({});
             setSalesUsers([]);
-            setTeamStats([]);
+            setTeamStats(EMPTY_TEAM_STATS);
             setAppointments([]);
             setDashboardAnalytics(null);
             return;

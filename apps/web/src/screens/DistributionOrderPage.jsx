@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
@@ -8,20 +8,19 @@ import { apiRequest } from '../lib/api';
 export default function DistributionOrderPage() {
     const { user } = useAuth();
     const [queueRows, setQueueRows] = useState([]);
+    const [availableSales, setAvailableSales] = useState([]);
     const [queueLoading, setQueueLoading] = useState(true);
     const [queueSaving, setQueueSaving] = useState(false);
+    const [queueMutating, setQueueMutating] = useState(false);
     const [queueError, setQueueError] = useState('');
     const [queueFeedback, setQueueFeedback] = useState('');
     const [queueInitialSignature, setQueueInitialSignature] = useState('');
+    const [selectedSalesId, setSelectedSalesId] = useState('');
+    const [selectedInsertOrder, setSelectedInsertOrder] = useState('end');
 
     const normalizeQueueRows = useCallback((rows) => {
         return (Array.isArray(rows) ? rows : [])
-            .filter(
-                (item) =>
-                    item?.id &&
-                    item?.role === 'sales' &&
-                    Number(item?.queueOrder) > 0
-            )
+            .filter((item) => item?.id && Number(item?.queueOrder) > 0)
             .sort((a, b) => {
                 const aOrder = Number(a?.queueOrder || 9999);
                 const bOrder = Number(b?.queueOrder || 9999);
@@ -30,9 +29,32 @@ export default function DistributionOrderPage() {
             });
     }, []);
 
+    const normalizeAvailableSales = useCallback((rows) => {
+        return (Array.isArray(rows) ? rows : [])
+            .filter((item) => item?.id)
+            .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')));
+    }, []);
+
     const buildQueueSignature = useCallback((rows) => {
         return rows.map((item) => item.id).join('|');
     }, []);
+
+    const applyQueueState = useCallback((payload) => {
+        const normalizedQueue = normalizeQueueRows(payload?.queueRows);
+        const normalizedAvailable = normalizeAvailableSales(payload?.availableSales);
+        setQueueRows(normalizedQueue);
+        setAvailableSales(normalizedAvailable);
+        setQueueInitialSignature(buildQueueSignature(normalizedQueue));
+        setSelectedSalesId((prev) => {
+            if (!prev) {
+                return normalizedAvailable[0]?.id || '';
+            }
+            return normalizedAvailable.some((item) => item.id === prev)
+                ? prev
+                : normalizedAvailable[0]?.id || '';
+        });
+        setSelectedInsertOrder('end');
+    }, [buildQueueSignature, normalizeAvailableSales, normalizeQueueRows]);
 
     const loadQueueRows = useCallback(async () => {
         if (!user) {
@@ -41,16 +63,14 @@ export default function DistributionOrderPage() {
         setQueueLoading(true);
         setQueueError('');
         try {
-            const rows = await apiRequest('/api/sales', { user });
-            const normalized = normalizeQueueRows(rows);
-            setQueueRows(normalized);
-            setQueueInitialSignature(buildQueueSignature(normalized));
+            const data = await apiRequest('/api/sales/queue', { user });
+            applyQueueState(data);
         } catch (err) {
             setQueueError(err instanceof Error ? err.message : 'Failed loading sales queue');
         } finally {
             setQueueLoading(false);
         }
-    }, [buildQueueSignature, normalizeQueueRows, user]);
+    }, [applyQueueState, user]);
 
     useEffect(() => {
         void loadQueueRows();
@@ -77,20 +97,17 @@ export default function DistributionOrderPage() {
             return;
         }
 
-        const salesIds = queueRows.map((item) => item.id);
         setQueueSaving(true);
         setQueueError('');
         setQueueFeedback('');
         try {
-            const rows = await apiRequest('/api/sales/queue/reorder', {
+            const data = await apiRequest('/api/sales/queue/reorder', {
                 method: 'PATCH',
                 user,
-                body: { salesIds },
+                body: { salesIds: queueRows.map((item) => item.id) },
             });
-            const normalized = normalizeQueueRows(rows);
-            setQueueRows(normalized);
-            setQueueInitialSignature(buildQueueSignature(normalized));
-            setQueueFeedback('Urutan distribusi sales berhasil disimpan.');
+            applyQueueState(data);
+            setQueueFeedback('Urutan distribusi berhasil disimpan.');
         } catch (err) {
             setQueueError(err instanceof Error ? err.message : 'Failed saving queue order');
         } finally {
@@ -98,29 +115,121 @@ export default function DistributionOrderPage() {
         }
     };
 
+    const addSalesToQueue = async () => {
+        if (!user || !selectedSalesId) {
+            return;
+        }
+
+        setQueueMutating(true);
+        setQueueError('');
+        setQueueFeedback('');
+        try {
+            const data = await apiRequest('/api/sales/queue', {
+                method: 'POST',
+                user,
+                body: {
+                    salesId: selectedSalesId,
+                    queueOrder: selectedInsertOrder === 'end' ? null : Number(selectedInsertOrder),
+                },
+            });
+            applyQueueState(data);
+            setQueueFeedback('Sales berhasil ditambahkan ke distribution order.');
+        } catch (err) {
+            setQueueError(err instanceof Error ? err.message : 'Failed adding sales to queue');
+        } finally {
+            setQueueMutating(false);
+        }
+    };
+
+    const removeSalesFromQueue = async (salesId) => {
+        if (!user || !salesId) {
+            return;
+        }
+
+        const confirmed = window.confirm('Hapus sales ini dari distribution order?');
+        if (!confirmed) {
+            return;
+        }
+
+        setQueueMutating(true);
+        setQueueError('');
+        setQueueFeedback('');
+        try {
+            const data = await apiRequest(`/api/sales/queue/${salesId}`, {
+                method: 'DELETE',
+                user,
+            });
+            applyQueueState(data);
+            setQueueFeedback('Sales berhasil dihapus dari distribution order.');
+        } catch (err) {
+            setQueueError(err instanceof Error ? err.message : 'Failed removing sales from queue');
+        } finally {
+            setQueueMutating(false);
+        }
+    };
+
     const queueDirty = buildQueueSignature(queueRows) !== queueInitialSignature;
+    const insertOrderOptions = useMemo(() => {
+        return Array.from({ length: queueRows.length + 1 }, (_, index) => index + 1);
+    }, [queueRows.length]);
 
     return (
         <div className="page-container">
-            <Header
-                title="Distribution Order"
-                showBack
-                rightAction={(
-                    <button className="btn btn-sm btn-secondary" onClick={() => void loadQueueRows()} disabled={queueLoading || queueSaving}>
-                        {queueLoading ? 'Loading...' : 'Refresh'}
-                    </button>
-                )}
-            />
+            <Header title="Distribution Order" showBack />
 
             <div className="card settings-card">
                 <p className="settings-help">
-                    Atur urutan distribusi sales. Setelah sales berhasil claim lead, sistem otomatis memindahkan sales tersebut ke urutan paling belakang.
+                    Urutan ini dipakai untuk distribusi lead otomatis. Sales yang berhasil claim lead akan dipindahkan ke urutan paling belakang.
                 </p>
 
+                <div className="input-group" style={{ marginTop: 16 }}>
+                    <label>Tambah Sales ke Queue</label>
+                    <div className="settings-inline-grid">
+                        <select
+                            className="input-field"
+                            value={selectedSalesId}
+                            onChange={(event) => setSelectedSalesId(event.target.value)}
+                            disabled={queueLoading || queueSaving || queueMutating || availableSales.length === 0}
+                        >
+                            {availableSales.length === 0 ? (
+                                <option value="">Semua sales sudah masuk queue</option>
+                            ) : null}
+                            {availableSales.map((sales) => (
+                                <option key={sales.id} value={sales.id}>
+                                    {sales.name}
+                                </option>
+                            ))}
+                        </select>
+                        <select
+                            className="input-field"
+                            value={selectedInsertOrder}
+                            onChange={(event) => setSelectedInsertOrder(event.target.value)}
+                            disabled={queueLoading || queueSaving || queueMutating}
+                        >
+                            <option value="end">Posisi paling bawah</option>
+                            {insertOrderOptions.map((order) => (
+                                <option key={order} value={String(order)}>
+                                    Sisipkan di posisi {order}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={addSalesToQueue}
+                        disabled={queueLoading || queueSaving || queueMutating || !selectedSalesId}
+                    >
+                        {queueMutating ? 'Menyimpan...' : 'Tambah ke Queue'}
+                    </button>
+                </div>
+            </div>
+
+            <div className="card settings-card">
                 {queueLoading ? <p className="settings-help">Loading queue...</p> : null}
 
                 {!queueLoading && queueRows.length === 0 ? (
-                    <p className="settings-help">Belum ada sales aktif di queue.</p>
+                    <p className="settings-help">Belum ada sales aktif di distribution order.</p>
                 ) : null}
 
                 {!queueLoading && queueRows.length > 0 ? (
@@ -132,6 +241,7 @@ export default function DistributionOrderPage() {
                                     <div>
                                         <div className="settings-queue-name">{item.name}</div>
                                         <div className="settings-queue-meta">{item.email}</div>
+                                        {item.phone ? <div className="settings-queue-meta">{item.phone}</div> : null}
                                     </div>
                                 </div>
                                 <div className="settings-queue-actions">
@@ -139,7 +249,7 @@ export default function DistributionOrderPage() {
                                         type="button"
                                         className="btn btn-secondary settings-queue-btn"
                                         onClick={() => moveQueueItem(index, 'up')}
-                                        disabled={queueSaving || index === 0}
+                                        disabled={queueSaving || queueMutating || index === 0}
                                     >
                                         ↑
                                     </button>
@@ -147,9 +257,17 @@ export default function DistributionOrderPage() {
                                         type="button"
                                         className="btn btn-secondary settings-queue-btn"
                                         onClick={() => moveQueueItem(index, 'down')}
-                                        disabled={queueSaving || index === queueRows.length - 1}
+                                        disabled={queueSaving || queueMutating || index === queueRows.length - 1}
                                     >
                                         ↓
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-secondary settings-queue-btn settings-queue-remove"
+                                        onClick={() => void removeSalesFromQueue(item.id)}
+                                        disabled={queueSaving || queueMutating}
+                                    >
+                                        Hapus
                                     </button>
                                 </div>
                             </div>
@@ -163,9 +281,9 @@ export default function DistributionOrderPage() {
                 <button
                     type="button"
                     className="btn btn-primary btn-full"
-                    disabled={queueLoading || queueSaving || !queueDirty || queueRows.length === 0}
+                    disabled={queueLoading || queueSaving || queueMutating || !queueDirty || queueRows.length === 0}
                     onClick={saveQueueOrder}
-                    style={{ marginTop: 10 }}
+                    style={{ marginTop: 12 }}
                 >
                     {queueSaving ? 'Menyimpan...' : 'Simpan Urutan Distribusi'}
                 </button>

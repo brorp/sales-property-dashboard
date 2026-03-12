@@ -30,11 +30,20 @@ export const user = pgTable("user", {
     image: text("image"),
     role: text("role").notNull().default("sales"),
     clientId: text("client_id").references(() => client.id, { onDelete: "set null" }),
+    supervisorId: text("supervisor_id").references((): any => user.id, { onDelete: "set null" }),
+    createdByUserId: text("created_by_user_id").references((): any => user.id, {
+        onDelete: "set null",
+    }),
     phone: text("phone"),
     isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => ({
+    roleIdx: index("user_role_idx").on(table.role),
+    clientIdx: index("user_client_id_idx").on(table.clientId),
+    supervisorIdx: index("user_supervisor_id_idx").on(table.supervisorId),
+    createdByIdx: index("user_created_by_user_id_idx").on(table.createdByUserId),
+}));
 
 export const session = pgTable("session", {
     id: text("id").primaryKey(),
@@ -102,6 +111,27 @@ export const supervisorSales = pgTable(
 
 // ─── Application Tables ──────────────────────────────────────────────────────
 
+export const projectUnit = pgTable(
+    "project_unit",
+    {
+        id: text("id").primaryKey(),
+        clientId: text("client_id")
+            .references(() => client.id, { onDelete: "cascade" }),
+        projectType: text("project_type").notNull(),
+        unitName: text("unit_name").notNull(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        clientIdx: index("project_unit_client_id_idx").on(table.clientId),
+        clientTypeNameUnique: uniqueIndex("project_unit_client_type_name_unique").on(
+            table.clientId,
+            table.projectType,
+            table.unitName
+        ),
+    })
+);
+
 export const lead = pgTable(
     "lead",
     {
@@ -119,6 +149,11 @@ export const lead = pgTable(
         flowStatus: text("flow_status").notNull().default("open"),
         salesStatus: text("sales_status"),
         domicileCity: text("domicile_city"),
+        interestUnitId: text("interest_unit_id").references(() => projectUnit.id, {
+            onDelete: "set null",
+        }),
+        interestProjectType: text("interest_project_type"),
+        interestUnitName: text("interest_unit_name"),
         resultStatus: text("result_status"),
         unitName: text("unit_name"),
         unitDetail: text("unit_detail"),
@@ -180,34 +215,44 @@ export const salesQueue = pgTable(
     },
     (table) => ({
         salesUnique: uniqueIndex("sales_queue_sales_id_unique").on(table.salesId),
-        orderUnique: uniqueIndex("sales_queue_order_unique").on(table.queueOrder),
+        orderUnique: uniqueIndex("sales_queue_client_order_unique").on(
+            table.clientId,
+            table.queueOrder
+        ),
         clientIdx: index("sales_queue_client_id_idx").on(table.clientId),
     })
 );
 
-export const appSetting = pgTable("app_setting", {
-    id: text("id").primaryKey(),
-    clientId: text("client_id").references(() => client.id, { onDelete: "set null" }),
-    distributionAckTimeoutMinutes: integer("distribution_ack_timeout_minutes")
-        .notNull()
-        .default(5),
-    operationalStartMinute: integer("operational_start_minute")
-        .notNull()
-        .default(9 * 60),
-    operationalEndMinute: integer("operational_end_minute")
-        .notNull()
-        .default(21 * 60),
-    operationalTimezone: text("operational_timezone")
-        .notNull()
-        .default("Asia/Jakarta"),
-    outsideOfficeReply: text("outside_office_reply")
-        .notNull()
-        .default(
-            "Terima kasih sudah menghubungi kami. Jam operasional kami 09.00 - 21.00 WIB. Tim kami akan merespons saat jam operasional."
-        ),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+export const appSetting = pgTable(
+    "app_setting",
+    {
+        id: text("id").primaryKey(),
+        clientId: text("client_id").references(() => client.id, { onDelete: "set null" }),
+        distributionAckTimeoutMinutes: integer("distribution_ack_timeout_minutes")
+            .notNull()
+            .default(5),
+        operationalStartMinute: integer("operational_start_minute")
+            .notNull()
+            .default(9 * 60),
+        operationalEndMinute: integer("operational_end_minute")
+            .notNull()
+            .default(21 * 60),
+        operationalTimezone: text("operational_timezone")
+            .notNull()
+            .default("Asia/Jakarta"),
+        outsideOfficeReply: text("outside_office_reply")
+            .notNull()
+            .default(
+                "Terima kasih sudah menghubungi kami. Jam operasional kami 09.00 - 21.00 WIB. Tim kami akan merespons saat jam operasional."
+            ),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        clientUnique: uniqueIndex("app_setting_client_id_unique").on(table.clientId),
+        clientIdx: index("app_setting_client_id_idx").on(table.clientId),
+    })
+);
 
 export const distributionCycle = pgTable(
     "distribution_cycle",

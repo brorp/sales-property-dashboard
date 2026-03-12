@@ -10,8 +10,27 @@ const router: ReturnType<typeof Router> = Router();
 router.get("/", requireMinRole("supervisor") as any, async (req, res: Response, next: NextFunction) => {
     try {
         const { scope } = req as unknown as AuthenticatedRequest;
-        const team = await teamService.getTeamWithStats(scope);
+        const team = await teamService.getTeamHierarchy(scope);
         res.json(team);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.get("/:id", requireMinRole("supervisor") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { scope } = req as unknown as AuthenticatedRequest;
+        const detail = await teamService.getTeamMemberDetail(req.params.id, scope);
+
+        if (!detail) {
+            res.status(404).json({
+                error: "NOT_FOUND",
+                message: "Member tim tidak ditemukan",
+            });
+            return;
+        }
+
+        res.json(detail);
     } catch (error) {
         next(error);
     }

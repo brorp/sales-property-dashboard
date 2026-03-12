@@ -77,6 +77,12 @@ export function mapDatabaseError(error: unknown): ApiError | null {
         if (constraint.includes("provider_id") || detail.toLowerCase().includes("provider_message_id")) {
             return ApiError.conflict("DUPLICATE_WA_MESSAGE", "Pesan WhatsApp sudah tercatat");
         }
+        if (
+            constraint.includes("project_unit_client_type_name_unique") ||
+            detail.toLowerCase().includes("project_unit_client_type_name_unique")
+        ) {
+            return ApiError.conflict("UNIT_ALREADY_EXISTS", "Unit untuk project type ini sudah terdaftar");
+        }
 
         return ApiError.conflict(
             "DUPLICATE_ENTRY",

@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { ingestIncomingMessage } from "./whatsapp.service";
+import { getClientBySlug } from "./clients.service";
 import { normalizePhone } from "../utils/phone";
 import { logger } from "../utils/logger";
 
@@ -49,6 +50,7 @@ export type WhatsAppQrAdminState = {
     lastClientState: string | null;
     lastError: string | null;
     lastDisconnectCode: number | null;
+    activeClientSlug: string | null;
     updatedAt: string;
 };
 
@@ -68,6 +70,7 @@ const runtimeState: Omit<WhatsAppQrAdminState, "provider" | "enabled" | "authPat
     lastClientState: null,
     lastError: null,
     lastDisconnectCode: null,
+    activeClientSlug: null,
     updatedAt: new Date().toISOString(),
 };
 
@@ -90,6 +93,11 @@ function currentAuthPath() {
 
 function currentWebJsClientId() {
     return process.env.WA_WEBJS_CLIENT_ID || "property-lounge";
+}
+
+function currentActiveClientSlug() {
+    const raw = String(process.env.WA_ACTIVE_CLIENT_SLUG || "").trim().toLowerCase();
+    return raw || null;
 }
 
 function currentWebJsHeadless() {
@@ -589,11 +597,19 @@ async function handleIncomingMessage(message: any) {
         console.log(`[wa:qr][debug] sender resolved=${fromWa}`);
     }
 
+    const activeClientSlug = currentActiveClientSlug();
+    let activeClientId: string | null = null;
+    if (activeClientSlug) {
+        const activeClient = await getClientBySlug(activeClientSlug);
+        activeClientId = activeClient?.id || null;
+    }
+
     const result = await ingestIncomingMessage({
         fromWa,
         body,
         providerMessageId: getInboundProviderMessageId(message),
         clientName: getInboundPushName(message),
+        clientId: activeClientId,
     });
 
     if (process.env.WA_QR_DEBUG === "true") {
@@ -626,6 +642,7 @@ export function getWhatsAppQrAdminState(): WhatsAppQrAdminState {
         enabled: currentProvider() === "qr_local",
         authPath: currentAuthPath(),
         ...runtimeState,
+        activeClientSlug: currentActiveClientSlug(),
     };
 }
 
@@ -793,6 +810,7 @@ export async function startWhatsAppQrBridge() {
             pairingCode: null,
             pairingPhone: null,
             lastClientState: null,
+            activeClientSlug: currentActiveClientSlug(),
         });
         return;
     }
@@ -813,6 +831,7 @@ export async function startWhatsAppQrBridge() {
         pairingPhone: null,
         lastClientState: null,
         lastError: null,
+        activeClientSlug: currentActiveClientSlug(),
     });
 
     try {

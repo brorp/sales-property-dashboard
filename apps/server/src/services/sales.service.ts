@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db/index";
 import { salesQueue, user } from "../db/schema";
 import { generateId } from "../utils/id";
@@ -6,6 +6,12 @@ import { normalizePhone } from "../utils/phone";
 import { auth } from "../auth/index";
 
 type DbExecutor = typeof db;
+
+type SalesQueryScope = {
+    clientId?: string | null;
+    supervisorId?: string | null;
+    salesId?: string | null;
+};
 
 function queueLabelFromOrder(order: number) {
     const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -15,7 +21,7 @@ function queueLabelFromOrder(order: number) {
     return `Q${order}`;
 }
 
-async function getActiveQueueRows(executor: DbExecutor) {
+async function getActiveQueueRows(executor: DbExecutor, clientId: string) {
     return executor
         .select({
             id: salesQueue.id,
@@ -27,6 +33,7 @@ async function getActiveQueueRows(executor: DbExecutor) {
         .innerJoin(user, eq(salesQueue.salesId, user.id))
         .where(
             and(
+                eq(salesQueue.clientId, clientId),
                 eq(salesQueue.isActive, true),
                 eq(user.role, "sales"),
                 eq(user.isActive, true)
@@ -35,18 +42,71 @@ async function getActiveQueueRows(executor: DbExecutor) {
         .orderBy(asc(salesQueue.queueOrder), asc(user.name));
 }
 
-async function resequenceQueue(executor: DbExecutor, orderedRows: Array<{ id: string }>) {
-    const now = new Date();
+async function getHighestQueueOrder(executor: DbExecutor, clientId: string) {
+    const [row] = await executor
+        .select({
+            queueOrder: salesQueue.queueOrder,
+        })
+        .from(salesQueue)
+        .where(eq(salesQueue.clientId, clientId))
+        .orderBy(desc(salesQueue.queueOrder))
+        .limit(1);
 
-    // Two-phase update to avoid unique constraint conflicts on queueOrder.
+    return Number(row?.queueOrder || 0);
+}
+
+async function getQueueRowBySalesId(executor: DbExecutor, salesId: string) {
+    const [row] = await executor
+        .select({
+            id: salesQueue.id,
+            salesId: salesQueue.salesId,
+            clientId: salesQueue.clientId,
+            queueOrder: salesQueue.queueOrder,
+            label: salesQueue.label,
+            isActive: salesQueue.isActive,
+        })
+        .from(salesQueue)
+        .where(eq(salesQueue.salesId, salesId))
+        .limit(1);
+
+    return row || null;
+}
+
+async function getSalesRow(executor: DbExecutor, salesId: string) {
+    const [salesRow] = await executor
+        .select({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            clientId: user.clientId,
+            isActive: user.isActive,
+        })
+        .from(user)
+        .where(eq(user.id, salesId))
+        .limit(1);
+
+    return salesRow || null;
+}
+
+async function resequenceQueue(
+    executor: DbExecutor,
+    clientId: string,
+    orderedRows: Array<{ id: string }>
+) {
+    const now = new Date();
+    const highestOrder = await getHighestQueueOrder(executor, clientId);
+    const temporaryOrderBase = highestOrder + 1000;
+
     for (let i = 0; i < orderedRows.length; i += 1) {
         await executor
             .update(salesQueue)
             .set({
-                queueOrder: 1000 + i + 1,
+                queueOrder: temporaryOrderBase + i + 1,
                 updatedAt: now,
             })
-            .where(eq(salesQueue.id, orderedRows[i].id));
+            .where(and(eq(salesQueue.id, orderedRows[i].id), eq(salesQueue.clientId, clientId)));
     }
 
     for (let i = 0; i < orderedRows.length; i += 1) {
@@ -58,14 +118,20 @@ async function resequenceQueue(executor: DbExecutor, orderedRows: Array<{ id: st
                 label: queueLabelFromOrder(queueOrder),
                 updatedAt: now,
             })
-            .where(eq(salesQueue.id, orderedRows[i].id));
+            .where(and(eq(salesQueue.id, orderedRows[i].id), eq(salesQueue.clientId, clientId)));
     }
 }
 
-export async function getSalesUsers(clientId?: string | null) {
-    const conditions: any[] = [eq(user.role, "sales")];
-    if (clientId) {
-        conditions.push(eq(user.clientId, clientId));
+export async function getSalesUsers(scope: SalesQueryScope = {}) {
+    const conditions: any[] = [eq(user.role, "sales"), eq(user.isActive, true)];
+    if (scope.clientId) {
+        conditions.push(eq(user.clientId, scope.clientId));
+    }
+    if (scope.supervisorId) {
+        conditions.push(eq(user.supervisorId, scope.supervisorId));
+    }
+    if (scope.salesId) {
+        conditions.push(eq(user.id, scope.salesId));
     }
 
     return db
@@ -75,18 +141,46 @@ export async function getSalesUsers(clientId?: string | null) {
             email: user.email,
             phone: user.phone,
             role: user.role,
+            clientId: user.clientId,
+            supervisorId: user.supervisorId,
             isActive: user.isActive,
             queueOrder: salesQueue.queueOrder,
             queueLabel: salesQueue.label,
         })
         .from(user)
-        .leftJoin(salesQueue, eq(salesQueue.salesId, user.id))
+        .leftJoin(
+            salesQueue,
+            and(eq(salesQueue.salesId, user.id), eq(salesQueue.isActive, true))
+        )
         .where(and(...conditions))
         .orderBy(asc(salesQueue.queueOrder), asc(user.name));
 }
 
+export async function getDistributionQueue(clientId: string) {
+    const rows = await getSalesUsers({ clientId });
+    const queueRows = rows
+        .filter((row) => Number(row.queueOrder) > 0)
+        .sort((a, b) => {
+            const aOrder = Number(a.queueOrder || 9999);
+            const bOrder = Number(b.queueOrder || 9999);
+            if (aOrder !== bOrder) {
+                return aOrder - bOrder;
+            }
+            return String(a.name || "").localeCompare(String(b.name || ""));
+        });
+    const availableSales = rows
+        .filter((row) => !Number(row.queueOrder))
+        .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+
+    return {
+        queueRows,
+        availableSales,
+    };
+}
+
 export async function upsertSalesQueue(
     salesId: string,
+    clientId: string,
     queueOrder: number,
     label: string
 ) {
@@ -104,6 +198,7 @@ export async function upsertSalesQueue(
             .values({
                 id: generateId(),
                 salesId,
+                clientId,
                 queueOrder,
                 label,
                 isActive: true,
@@ -117,6 +212,7 @@ export async function upsertSalesQueue(
     const [updated] = await db
         .update(salesQueue)
         .set({
+            clientId,
             queueOrder,
             label,
             updatedAt: now,
@@ -127,7 +223,7 @@ export async function upsertSalesQueue(
     return updated;
 }
 
-export async function reorderSalesQueue(salesIds: string[]) {
+export async function reorderSalesQueue(clientId: string, salesIds: string[]) {
     const orderedIds = Array.from(
         new Set((salesIds || []).filter((id) => typeof id === "string" && id.trim().length > 0))
     );
@@ -137,7 +233,7 @@ export async function reorderSalesQueue(salesIds: string[]) {
     }
 
     await db.transaction(async (tx) => {
-        const queueRows = await getActiveQueueRows(tx as unknown as DbExecutor);
+        const queueRows = await getActiveQueueRows(tx as unknown as DbExecutor, clientId);
         if (queueRows.length === 0) {
             throw new Error("QUEUE_EMPTY");
         }
@@ -155,18 +251,129 @@ export async function reorderSalesQueue(salesIds: string[]) {
 
         await resequenceQueue(
             tx as unknown as DbExecutor,
+            clientId,
             reorderedRows as Array<{ id: string }>
         );
     });
 
-    return getSalesUsers();
+    return getDistributionQueue(clientId);
+}
+
+export async function addSalesToQueue(params: {
+    clientId: string;
+    salesId: string;
+    queueOrder?: number | null;
+}) {
+    await db.transaction(async (tx) => {
+        const executor = tx as unknown as DbExecutor;
+        const salesRow = await getSalesRow(executor, params.salesId);
+
+        if (!salesRow || salesRow.role !== "sales" || !salesRow.isActive) {
+            throw new Error("INVALID_ASSIGNED_SALES");
+        }
+
+        if (salesRow.clientId !== params.clientId) {
+            throw new Error("CROSS_CLIENT_ASSIGNMENT_FORBIDDEN");
+        }
+
+        const existingQueue = await getQueueRowBySalesId(executor, params.salesId);
+        if (existingQueue?.isActive) {
+            throw new Error("SALES_ALREADY_IN_QUEUE");
+        }
+
+        const currentQueue = await getActiveQueueRows(executor, params.clientId);
+        const targetIndexRaw =
+            typeof params.queueOrder === "number" && Number.isFinite(params.queueOrder)
+                ? params.queueOrder - 1
+                : currentQueue.length;
+        const targetIndex = Math.max(0, Math.min(currentQueue.length, targetIndexRaw));
+        const now = new Date();
+
+        const queueId = existingQueue?.id || generateId();
+
+        if (!existingQueue) {
+            await executor.insert(salesQueue).values({
+                id: queueId,
+                salesId: params.salesId,
+                clientId: params.clientId,
+                queueOrder: (await getHighestQueueOrder(executor, params.clientId)) + 1,
+                label: queueLabelFromOrder(currentQueue.length + 1),
+                isActive: true,
+                createdAt: now,
+                updatedAt: now,
+            });
+        } else {
+            await executor
+                .update(salesQueue)
+                .set({
+                    clientId: params.clientId,
+                    isActive: true,
+                    updatedAt: now,
+                })
+                .where(eq(salesQueue.id, existingQueue.id));
+        }
+
+        const reorderedRows = [...currentQueue];
+        reorderedRows.splice(targetIndex, 0, {
+            id: queueId,
+            salesId: params.salesId,
+            queueOrder: targetIndex + 1,
+            salesName: salesRow.name,
+        });
+
+        await resequenceQueue(
+            executor,
+            params.clientId,
+            reorderedRows.map((row) => ({ id: row.id }))
+        );
+    });
+
+    return getDistributionQueue(params.clientId);
+}
+
+export async function removeSalesFromQueue(params: {
+    clientId: string;
+    salesId: string;
+}) {
+    await db.transaction(async (tx) => {
+        const executor = tx as unknown as DbExecutor;
+        const existingQueue = await getQueueRowBySalesId(executor, params.salesId);
+
+        if (!existingQueue || !existingQueue.isActive || existingQueue.clientId !== params.clientId) {
+            throw new Error("QUEUE_ITEM_NOT_FOUND");
+        }
+
+        const nextInactiveOrder = (await getHighestQueueOrder(executor, params.clientId)) + 1;
+
+        await executor
+            .update(salesQueue)
+            .set({
+                isActive: false,
+                queueOrder: nextInactiveOrder,
+                updatedAt: new Date(),
+            })
+            .where(eq(salesQueue.id, existingQueue.id));
+
+        const remainingQueue = (await getActiveQueueRows(executor, params.clientId)).filter(
+            (row) => row.salesId !== params.salesId
+        );
+
+        await resequenceQueue(
+            executor,
+            params.clientId,
+            remainingQueue.map((row) => ({ id: row.id }))
+        );
+    });
+
+    return getDistributionQueue(params.clientId);
 }
 
 export async function rotateQueueAfterAssignment(
     acceptedSalesId: string,
+    clientId: string,
     executor: DbExecutor = db
 ) {
-    const queueRows = await getActiveQueueRows(executor);
+    const queueRows = await getActiveQueueRows(executor, clientId);
     if (queueRows.length <= 1) {
         return false;
     }
@@ -184,6 +391,7 @@ export async function rotateQueueAfterAssignment(
 
     await resequenceQueue(
         executor,
+        clientId,
         reorderedRows.map((row) => ({ id: row.id }))
     );
 
@@ -194,6 +402,9 @@ export async function createSalesUser(data: {
     name: string;
     email: string;
     password: string;
+    clientId: string;
+    createdByUserId: string;
+    supervisorId?: string | null;
     phone?: string | null;
     queueOrder?: number | null;
     queueLabel?: string | null;
@@ -211,6 +422,26 @@ export async function createSalesUser(data: {
         throw new Error("EMAIL_ALREADY_EXISTS");
     }
 
+    if (data.supervisorId) {
+        const [supervisorRow] = await db
+            .select({
+                id: user.id,
+                role: user.role,
+                clientId: user.clientId,
+            })
+            .from(user)
+            .where(eq(user.id, data.supervisorId))
+            .limit(1);
+
+        if (!supervisorRow || supervisorRow.role !== "supervisor") {
+            throw new Error("INVALID_SUPERVISOR");
+        }
+
+        if (supervisorRow.clientId !== data.clientId) {
+            throw new Error("CROSS_CLIENT_ASSIGNMENT_FORBIDDEN");
+        }
+    }
+
     let createdUserId: string | null = null;
     try {
         const result = await auth.api.signUpEmail({
@@ -223,7 +454,6 @@ export async function createSalesUser(data: {
         });
         createdUserId = result.user.id;
     } catch {
-        // Fallback payload if additional field is rejected by auth provider.
         const result = await auth.api.signUpEmail({
             body: {
                 name: data.name.trim(),
@@ -242,6 +472,9 @@ export async function createSalesUser(data: {
         .update(user)
         .set({
             role: "sales",
+            clientId: data.clientId,
+            supervisorId: data.supervisorId || null,
+            createdByUserId: data.createdByUserId,
             phone: data.phone ? normalizePhone(data.phone) : null,
             isActive: true,
             updatedAt: now,
@@ -250,11 +483,15 @@ export async function createSalesUser(data: {
 
     let queue = null;
     if (typeof data.queueOrder === "number" && data.queueOrder > 0) {
-        queue = await upsertSalesQueue(
-            createdUserId,
-            data.queueOrder,
-            data.queueLabel?.trim() || `Q${data.queueOrder}`
-        );
+        const queueState = await addSalesToQueue({
+            salesId: createdUserId,
+            clientId: data.clientId,
+            queueOrder: data.queueOrder,
+        });
+        queue =
+            queueState.queueRows.find((item) => item.id === createdUserId) ||
+            queueState.queueRows.find((item) => item.email === normalizedEmail) ||
+            null;
     }
 
     const [created] = await db
@@ -264,6 +501,8 @@ export async function createSalesUser(data: {
             email: user.email,
             phone: user.phone,
             role: user.role,
+            clientId: user.clientId,
+            supervisorId: user.supervisorId,
             isActive: user.isActive,
         })
         .from(user)
@@ -273,6 +512,60 @@ export async function createSalesUser(data: {
     return {
         ...created,
         queueOrder: queue?.queueOrder || null,
-        queueLabel: queue?.label || null,
+        queueLabel: queue?.queueLabel || null,
     };
+}
+
+export async function assignSalesSupervisor(params: {
+    salesIds: string[];
+    supervisorId: string | null;
+    clientId: string;
+}) {
+    const salesIds = Array.from(
+        new Set(params.salesIds.filter((id) => typeof id === "string" && id.trim()))
+    );
+
+    if (salesIds.length === 0) {
+        return [];
+    }
+
+    if (params.supervisorId) {
+        const [supervisorRow] = await db
+            .select({
+                id: user.id,
+                role: user.role,
+                clientId: user.clientId,
+            })
+            .from(user)
+            .where(eq(user.id, params.supervisorId))
+            .limit(1);
+
+        if (!supervisorRow || supervisorRow.role !== "supervisor") {
+            throw new Error("INVALID_SUPERVISOR");
+        }
+
+        if (supervisorRow.clientId !== params.clientId) {
+            throw new Error("CROSS_CLIENT_ASSIGNMENT_FORBIDDEN");
+        }
+    }
+
+    const updated = await db
+        .update(user)
+        .set({
+            supervisorId: params.supervisorId,
+            updatedAt: new Date(),
+        })
+        .where(
+            and(
+                inArray(user.id, salesIds),
+                eq(user.role, "sales"),
+                eq(user.clientId, params.clientId)
+            )
+        )
+        .returning({
+            id: user.id,
+            supervisorId: user.supervisorId,
+        });
+
+    return updated;
 }

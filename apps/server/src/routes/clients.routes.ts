@@ -3,11 +3,10 @@ import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireRole } from "../middleware/rbac";
 import * as clientsService from "../services/clients.service";
-import * as salesService from "../services/sales.service";
 import { auth } from "../auth/index";
 import { db } from "../db/index";
 import { user } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { normalizePhone } from "../utils/phone";
 
 const router: ReturnType<typeof Router> = Router();
@@ -94,7 +93,7 @@ router.post("/:id/users", requireRole("root_admin", "client_admin") as any, asyn
             return;
         }
 
-        const { name, email, password, role, phone } = req.body ?? {};
+        const { name, email, password, role, phone, supervisorId } = req.body ?? {};
         if (!name || !email || !password || !role) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "name, email, password, role wajib diisi" });
             return;
@@ -108,6 +107,23 @@ router.post("/:id/users", requireRole("root_admin", "client_admin") as any, asyn
         if (!allowedRoles.includes(role)) {
             res.status(400).json({ error: "INVALID_ROLE", message: `Role yang diizinkan: ${allowedRoles.join(", ")}` });
             return;
+        }
+
+        if (role === "sales" && supervisorId) {
+            const [supervisorRow] = await db
+                .select({
+                    id: user.id,
+                    role: user.role,
+                    clientId: user.clientId,
+                })
+                .from(user)
+                .where(eq(user.id, supervisorId))
+                .limit(1);
+
+            if (!supervisorRow || supervisorRow.role !== "supervisor" || supervisorRow.clientId !== clientId) {
+                res.status(400).json({ error: "INVALID_SUPERVISOR", message: "supervisorId tidak valid untuk client ini" });
+                return;
+            }
         }
 
         // Create user via Better Auth
@@ -135,6 +151,8 @@ router.post("/:id/users", requireRole("root_admin", "client_admin") as any, asyn
             .set({
                 role,
                 clientId,
+                supervisorId: role === "sales" ? supervisorId || null : null,
+                createdByUserId: reqUser.id,
                 phone: phone ? normalizePhone(phone) : null,
                 isActive: true,
                 updatedAt: new Date(),
@@ -148,6 +166,7 @@ router.post("/:id/users", requireRole("root_admin", "client_admin") as any, asyn
                 email: user.email,
                 role: user.role,
                 clientId: user.clientId,
+                supervisorId: user.supervisorId,
                 phone: user.phone,
                 isActive: user.isActive,
             })
@@ -156,6 +175,123 @@ router.post("/:id/users", requireRole("root_admin", "client_admin") as any, asyn
             .limit(1);
 
         res.status(201).json(fullUser);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.patch("/:id/users/:userId", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { user: reqUser } = req as unknown as AuthenticatedRequest;
+        const clientId = req.params.id;
+
+        if (reqUser.role === "client_admin" && reqUser.clientId !== clientId) {
+            res.status(403).json({ error: "FORBIDDEN", message: "Anda hanya bisa mengubah user di client Anda sendiri" });
+            return;
+        }
+
+        const [targetUser] = await db
+            .select({
+                id: user.id,
+                role: user.role,
+                clientId: user.clientId,
+            })
+            .from(user)
+            .where(eq(user.id, req.params.userId))
+            .limit(1);
+
+        if (!targetUser || targetUser.clientId !== clientId) {
+            res.status(404).json({ error: "NOT_FOUND", message: "User tidak ditemukan" });
+            return;
+        }
+
+        const { name, phone, isActive, supervisorId } = req.body ?? {};
+        const updates: Record<string, unknown> = {
+            updatedAt: new Date(),
+        };
+
+        if (typeof name === "string" && name.trim()) {
+            updates.name = name.trim();
+        }
+        if (typeof phone === "string" || phone === null) {
+            updates.phone = phone ? normalizePhone(phone) : null;
+        }
+        if (typeof isActive === "boolean") {
+            updates.isActive = isActive;
+        }
+
+        if (targetUser.role === "sales" && supervisorId !== undefined) {
+            if (supervisorId === null || supervisorId === "") {
+                updates.supervisorId = null;
+            } else {
+                const [supervisorRow] = await db
+                    .select({
+                        id: user.id,
+                        role: user.role,
+                        clientId: user.clientId,
+                    })
+                    .from(user)
+                    .where(eq(user.id, supervisorId))
+                    .limit(1);
+
+                if (!supervisorRow || supervisorRow.role !== "supervisor" || supervisorRow.clientId !== clientId) {
+                    res.status(400).json({ error: "INVALID_SUPERVISOR", message: "supervisorId tidak valid untuk client ini" });
+                    return;
+                }
+
+                updates.supervisorId = supervisorId;
+            }
+        }
+
+        const [updated] = await db
+            .update(user)
+            .set(updates)
+            .where(eq(user.id, req.params.userId))
+            .returning({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                clientId: user.clientId,
+                supervisorId: user.supervisorId,
+                phone: user.phone,
+                isActive: user.isActive,
+            });
+
+        res.json(updated);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.delete("/:id/users/:userId", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { user: reqUser } = req as unknown as AuthenticatedRequest;
+        const clientId = req.params.id;
+
+        if (reqUser.role === "client_admin" && reqUser.clientId !== clientId) {
+            res.status(403).json({ error: "FORBIDDEN", message: "Anda hanya bisa menonaktifkan user di client Anda sendiri" });
+            return;
+        }
+
+        const [updated] = await db
+            .update(user)
+            .set({
+                isActive: false,
+                updatedAt: new Date(),
+            })
+            .where(and(eq(user.id, req.params.userId), eq(user.clientId, clientId)))
+            .returning({
+                id: user.id,
+                isActive: user.isActive,
+            });
+
+        if (!updated) {
+            res.status(404).json({ error: "NOT_FOUND", message: "User tidak ditemukan" });
+            return;
+        }
+
+        res.status(204).send();
     } catch (error) {
         next(error);
     }
@@ -192,7 +328,11 @@ router.post("/:id/supervisor-sales", requireRole("root_admin", "client_admin") a
             return;
         }
 
-        const link = await clientsService.addSupervisorSalesLink(supervisorId, salesId);
+        const link = await clientsService.assignSalesSupervisor({
+            clientId: req.params.id,
+            supervisorId,
+            salesId,
+        });
         res.status(201).json(link);
     } catch (error) {
         next(error);
@@ -213,7 +353,11 @@ router.delete("/:id/supervisor-sales", requireRole("root_admin", "client_admin")
             return;
         }
 
-        const removed = await clientsService.removeSupervisorSalesLink(supervisorId, salesId);
+        const removed = await clientsService.removeSupervisorSalesLink({
+            clientId: req.params.id,
+            supervisorId,
+            salesId,
+        });
         res.json({ success: removed });
     } catch (error) {
         next(error);

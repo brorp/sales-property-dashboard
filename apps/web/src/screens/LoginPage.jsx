@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
+import { useTenant } from '../context/TenantContext';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -10,7 +11,8 @@ export default function LoginPage() {
     const [showPass, setShowPass] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const { login, user } = useAuth();
+    const { login, user, availableLoginUsers } = useAuth();
+    const tenant = useTenant();
     const router = useRouter();
 
     useEffect(() => {
@@ -19,7 +21,12 @@ export default function LoginPage() {
         }
     }, [user, router]);
 
-    if (user) return null;
+    if (user || tenant.loading) return null;
+
+    const siteTitle = tenant.isClientSite ? tenant.siteLabel : 'Property Lounge';
+    const siteSubtitle = tenant.isClientSite
+        ? `${tenant.siteLabel} workspace on Property Lounge`
+        : 'Login to your account';
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -39,16 +46,25 @@ export default function LoginPage() {
             <div className="login-glow2" />
             <div className="login-card">
                 <div className="login-logo">
-                    <div className="login-logo-icon">🏢</div>
-                    <h1>Property Lounge</h1>
-                    <p>Multi-role Dashboard</p>
+                    <div className="login-site-badge">
+                        {tenant.isClientSite ? `Client Site: ${tenant.siteLabel}` : 'SALES MANAGEMENT PANEL'}
+                    </div>
+                    <div className="login-logo-mark">
+                        <img
+                            src="/property-lounge-logo-2.png"
+                            alt="Property Lounge"
+                            className="login-logo-image"
+                        />
+                    </div>
+                    {/* <h1>{siteTitle}</h1> */}
+                    {/* <p>{siteSubtitle}</p> */}
                 </div>
                 <form onSubmit={handleSubmit} className="login-form">
                     <div className="input-group">
                         <label>Email</label>
                         <div className="input-icon-wrapper">
                             <span className="input-icon">📧</span>
-                            <input type="email" className="input-field" placeholder="nama@propertylounge.id" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                            <input type="email" className="input-field" placeholder="Masukkan email" value={email} onChange={(e) => setEmail(e.target.value)} required />
                         </div>
                     </div>
                     <div className="input-group">
@@ -61,30 +77,23 @@ export default function LoginPage() {
                     </div>
                     {error && <div className="login-error">{error}</div>}
                     <button type="submit" className="btn btn-primary btn-full login-submit" disabled={loading}>
-                        {loading ? '⏳ Memproses...' : '🔐 Masuk'}
+                        {loading ? '⏳ Memproses...' : 'Submit'}
                     </button>
                 </form>
                 <div className="demo-accounts">
-                    <p className="demo-title">Demo Accounts:</p>
+                    <p className="demo-title">Click for Demo Accounts:</p>
+                    {tenant.isClientSite ? (
+                        <p className="login-site-note">
+                            Domain ini hanya menerima akun milik tenant <strong>{tenant.siteLabel}</strong>.
+                        </p>
+                    ) : null}
                     <div className="demo-list">
-                        <button onClick={() => { setEmail('root@propertylounge.id'); setPassword('admin123'); }}>
-                            <span className="demo-role">Root</span><span>root@propertylounge.id</span>
-                        </button>
-                        <button onClick={() => { setEmail('admin@propertylounge.id'); setPassword('admin123'); }}>
-                            <span className="demo-role">Client Admin</span><span>admin@propertylounge.id</span>
-                        </button>
-                        <button onClick={() => { setEmail('supervisor@propertylounge.id'); setPassword('admin123'); }}>
-                            <span className="demo-role">Supervisor</span><span>supervisor@propertylounge.id</span>
-                        </button>
-                        <button onClick={() => { setEmail('ryan.pratama@propertylounge.id'); setPassword('sales123'); }}>
-                            <span className="demo-role">Sales</span><span>ryan.pratama@propertylounge.id</span>
-                        </button>
-                        <button onClick={() => { setEmail('rachmat@propertylounge.id'); setPassword('sales123'); }}>
-                            <span className="demo-role">Sales</span><span>rachmat@propertylounge.id</span>
-                        </button>
-                        <button onClick={() => { setEmail('nicky.robert@propertylounge.id'); setPassword('sales123'); }}>
-                            <span className="demo-role">Sales</span><span>nicky.robert@propertylounge.id</span>
-                        </button>
+                        {availableLoginUsers.map((demoUser) => (
+                            <button key={demoUser.email} onClick={() => { setEmail(demoUser.email); setPassword(demoUser.password); }}>
+                                <span className="demo-role">{demoUser.role === 'root_admin' ? 'Root' : demoUser.role.replace('_', ' ')}</span>
+                                <span>{demoUser.email}</span>
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>

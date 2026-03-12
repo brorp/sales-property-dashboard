@@ -10,19 +10,25 @@ export interface MetaLeadPayload {
     name: string;
     phone: string;
     sourceAds?: string;
+    clientId?: string | null;
 }
 
 export async function ingestMetaLead(payload: MetaLeadPayload) {
     const normalizedPhone = normalizePhone(payload.phone);
     const now = new Date();
-    const operationalWindow = await getOperationalWindowState(now);
+    const operationalWindow = await getOperationalWindowState(now, payload.clientId || null);
     const flowStatus = operationalWindow.isOpen ? "open" : "hold";
 
     if (payload.metaLeadId) {
+        const metaConditions = [eq(lead.metaLeadId, payload.metaLeadId)];
+        if (payload.clientId) {
+            metaConditions.push(eq(lead.clientId, payload.clientId));
+        }
+
         const [existingByMetaId] = await db
             .select()
             .from(lead)
-            .where(eq(lead.metaLeadId, payload.metaLeadId))
+            .where(and(...metaConditions))
             .limit(1);
 
         if (existingByMetaId) {
@@ -30,15 +36,18 @@ export async function ingestMetaLead(payload: MetaLeadPayload) {
         }
     }
 
+    const phoneConditions = [
+        eq(lead.phone, normalizedPhone),
+        or(eq(lead.flowStatus, "open"), eq(lead.flowStatus, "hold")),
+    ];
+    if (payload.clientId) {
+        phoneConditions.push(eq(lead.clientId, payload.clientId));
+    }
+
     const [existingByPhone] = await db
         .select()
         .from(lead)
-        .where(
-            and(
-                eq(lead.phone, normalizedPhone),
-                or(eq(lead.flowStatus, "open"), eq(lead.flowStatus, "hold"))
-            )
-        )
+        .where(and(...phoneConditions))
         .orderBy(asc(lead.createdAt))
         .limit(1);
 
@@ -68,6 +77,7 @@ export async function ingestMetaLead(payload: MetaLeadPayload) {
             phone: normalizedPhone,
             source: payload.sourceAds || "Meta Ads CTA",
             metaLeadId: payload.metaLeadId || null,
+            clientId: payload.clientId || null,
             entryChannel: "meta_ads",
             receivedAt: now,
             assignedTo: null,

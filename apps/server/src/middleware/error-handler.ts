@@ -82,8 +82,15 @@ export function errorHandler(
             "QUEUE_EMPTY",
             "QUEUE_SIZE_MISMATCH",
             "UNKNOWN_SALES_IN_QUEUE",
+            "QUEUE_ITEM_NOT_FOUND",
+            "INVALID_ASSIGNED_SALES",
+            "CROSS_CLIENT_ASSIGNMENT_FORBIDDEN",
             // sales user
             "FAILED_TO_CREATE_USER",
+            // units
+            "UNIT_FIELDS_REQUIRED",
+            "INVALID_INTEREST_UNIT",
+            "INTEREST_UNIT_REQUIRES_ASSIGNED",
             // settings
             "INVALID_DISTRIBUTION_ACK_TIMEOUT",
             "INVALID_OPERATIONAL_TIMEZONE",
@@ -103,6 +110,7 @@ export function errorHandler(
         const knownConflictCodes = new Set([
             "EMAIL_ALREADY_EXISTS",
             "BROADCAST_ALREADY_RUNNING",
+            "SALES_ALREADY_IN_QUEUE",
         ]);
 
         const knownForbiddenCodes = new Set([

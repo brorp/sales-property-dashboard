@@ -8,13 +8,14 @@ import { logger } from "../utils/logger";
 
 const router: ReturnType<typeof Router> = Router();
 
-function parseCloudApiPayload(payload: any) {
+function parseCloudApiPayload(payload: any, fallbackClientId?: string | null) {
     const events: Array<{
         fromWa: string;
         toWa?: string;
         body: string;
         providerMessageId?: string;
         clientName?: string;
+        clientId?: string | null;
     }> = [];
 
     const entries = Array.isArray(payload?.entry) ? payload.entry : [];
@@ -52,6 +53,7 @@ function parseCloudApiPayload(payload: any) {
                     body: textBody,
                     providerMessageId: message?.id,
                     clientName: contact?.profile?.name,
+                    clientId: fallbackClientId || null,
                 });
             }
         }
@@ -76,7 +78,7 @@ router.get("/whatsapp", (req, res: Response) => {
 
 router.post("/meta/leads", async (req, res: Response) => {
     try {
-        const { metaLeadId, name, phone, sourceAds } = req.body ?? {};
+        const { metaLeadId, name, phone, sourceAds, clientId } = req.body ?? {};
         if (!name || !phone) {
             res.status(400).json({ error: "name and phone are required" });
             return;
@@ -87,6 +89,7 @@ router.post("/meta/leads", async (req, res: Response) => {
             name,
             phone,
             sourceAds,
+            clientId: typeof clientId === "string" ? clientId : null,
         });
 
         res.status(result.created ? 201 : 200).json(result);
@@ -98,7 +101,9 @@ router.post("/meta/leads", async (req, res: Response) => {
 
 router.post("/whatsapp/messages", async (req, res: Response) => {
     try {
-        const cloudEvents = parseCloudApiPayload(req.body);
+        const fallbackClientId =
+            typeof req.body?.clientId === "string" ? req.body.clientId : null;
+        const cloudEvents = parseCloudApiPayload(req.body, fallbackClientId);
         if (cloudEvents.length > 0) {
             const results = [];
             for (const event of cloudEvents) {
@@ -116,7 +121,7 @@ router.post("/whatsapp/messages", async (req, res: Response) => {
             return;
         }
 
-        const { fromWa, toWa, body, providerMessageId, sourceAds, clientName, metaLeadId } =
+        const { fromWa, toWa, body, providerMessageId, sourceAds, clientName, metaLeadId, clientId } =
             req.body ?? {};
         if (!fromWa || !body) {
             res.status(400).json({ error: "fromWa and body are required" });
@@ -131,6 +136,7 @@ router.post("/whatsapp/messages", async (req, res: Response) => {
             sourceAds,
             clientName,
             metaLeadId,
+            clientId: typeof clientId === "string" ? clientId : null,
         });
 
         if (
@@ -150,7 +156,7 @@ router.post("/whatsapp/messages", async (req, res: Response) => {
 
 router.post("/whatsapp/dummy/client-message", async (req, res: Response) => {
     try {
-        const { clientWa, body, clientName, sourceAds, metaLeadId } = req.body ?? {};
+        const { clientWa, body, clientName, sourceAds, metaLeadId, clientId } = req.body ?? {};
         if (!clientWa || !body) {
             res.status(400).json({ error: "clientWa and body are required" });
             return;
@@ -163,6 +169,7 @@ router.post("/whatsapp/dummy/client-message", async (req, res: Response) => {
             clientName,
             sourceAds,
             metaLeadId,
+            clientId: typeof clientId === "string" ? clientId : null,
         });
 
         if (

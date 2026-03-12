@@ -19,6 +19,7 @@ import {
 } from '../constants/crm';
 import { INDONESIA_CITIES } from '../constants/indonesiaCities';
 import Header from '../components/Header';
+import { apiRequest } from '../lib/api';
 
 export default function LeadDetailPage({ leadId }) {
     const { user, isAdmin } = useAuth();
@@ -34,6 +35,7 @@ export default function LeadDetailPage({ leadId }) {
         name: '',
         salesStatus: '',
         domicileCity: '',
+        interestUnitId: '',
     });
 
     const [resultForm, setResultForm] = useState({
@@ -48,14 +50,38 @@ export default function LeadDetailPage({ leadId }) {
     const [requestError, setRequestError] = useState('');
     const [requestSuccess, setRequestSuccess] = useState('');
     const [refreshing, setRefreshing] = useState(false);
+    const [unitOptions, setUnitOptions] = useState([]);
+    const [unitsLoading, setUnitsLoading] = useState(false);
 
     const lead = getLeadById(leadId);
     const salesUsers = getSalesUsers();
     const getSalesNameById = (salesId) => salesUsers.find((item) => item.id === salesId)?.name || 'Unassigned';
 
     useEffect(() => {
-        if (!leadId) return;
-        void loadLeadById(leadId);
+        let cancelled = false;
+
+        const loadDetail = async () => {
+            if (!leadId) {
+                return;
+            }
+
+            try {
+                if (!cancelled) {
+                    setRequestError('');
+                }
+                await loadLeadById(leadId);
+            } catch (err) {
+                if (!cancelled) {
+                    setRequestError(err instanceof Error ? err.message : 'Failed loading lead');
+                }
+            }
+        };
+
+        void loadDetail();
+
+        return () => {
+            cancelled = true;
+        };
     }, [leadId, loadLeadById]);
 
     useEffect(() => {
@@ -64,6 +90,7 @@ export default function LeadDetailPage({ leadId }) {
             name: lead.name || '',
             salesStatus: lead.salesStatus || '',
             domicileCity: lead.domicileCity || '',
+            interestUnitId: lead.interestUnitId || '',
         });
         setResultForm({
             resultStatus: lead.resultStatus || '',
@@ -74,6 +101,38 @@ export default function LeadDetailPage({ leadId }) {
             rejectedNote: lead.rejectedNote || '',
         });
     }, [lead]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadUnits = async () => {
+            if (!user) {
+                return;
+            }
+
+            setUnitsLoading(true);
+            try {
+                const rows = await apiRequest('/api/units', { user });
+                if (!cancelled) {
+                    setUnitOptions(Array.isArray(rows) ? rows : []);
+                }
+            } catch {
+                if (!cancelled) {
+                    setUnitOptions([]);
+                }
+            } finally {
+                if (!cancelled) {
+                    setUnitsLoading(false);
+                }
+            }
+        };
+
+        void loadUnits();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [user]);
 
     const canEditLead = useMemo(() => {
         if (user?.role !== 'sales') {
@@ -121,7 +180,10 @@ export default function LeadDetailPage({ leadId }) {
         }
         setRefreshing(true);
         try {
+            setRequestError('');
             await loadLeadById(leadId);
+        } catch (err) {
+            setRequestError(err instanceof Error ? err.message : 'Failed loading lead');
         } finally {
             setRefreshing(false);
         }
@@ -165,6 +227,7 @@ export default function LeadDetailPage({ leadId }) {
             name: flow2Form.name,
             salesStatus: flow2Form.salesStatus,
             domicileCity: flow2Form.domicileCity || null,
+            interestUnitId: flow2Form.interestUnitId || null,
             activityNote: 'Data sales lead diupdate',
         });
     };
@@ -322,9 +385,26 @@ export default function LeadDetailPage({ leadId }) {
                             ))}
                         </select>
                     </div>
+                    <div className="input-group">
+                        <label>Tipe Unit</label>
+                        <select
+                            className="input-field"
+                            value={flow2Form.interestUnitId}
+                            onChange={(e) => setFlow2Form({ ...flow2Form, interestUnitId: e.target.value })}
+                            disabled={!canEditLead || effectiveFlowStatus !== 'assigned' || unitsLoading}
+                        >
+                            <option value="">{unitsLoading ? 'Loading unit...' : 'Pilih tipe unit'}</option>
+                            {unitOptions.map((item) => (
+                                <option key={item.id} value={item.id}>
+                                    {item.projectType} - {item.unitName}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                     <div className="lead-row-meta">
                         <span>Current: {lead.salesStatus ? getSalesStatusLabel(lead.salesStatus) : '-'}</span>
                         <span>Domisili: {lead.domicileCity || '-'}</span>
+                        <span>Unit: {lead.interestProjectType && lead.interestUnitName ? `${lead.interestProjectType} - ${lead.interestUnitName}` : '-'}</span>
                     </div>
                     <button type="submit" className="btn btn-primary btn-full" disabled={!canEditLead || effectiveFlowStatus !== 'assigned'}>
                         {effectiveFlowStatus === 'assigned' ? 'Simpan Data Sales' : 'Menunggu lead assigned'}

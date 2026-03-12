@@ -75,6 +75,12 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.settings-inline-grid {
+    display: grid;
+    gap: 8px;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+}
+
 .settings-queue-list {
     display: flex;
     flex-direction: column;
@@ -135,8 +141,16 @@
     padding: 8px 10px;
 }
 
+.settings-queue-remove {
+    min-width: 70px;
+}
+
 @media (max-width: 720px) {
     .settings-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-inline-grid {
         grid-template-columns: 1fr;
     }
 }

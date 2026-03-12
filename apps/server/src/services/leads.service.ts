@@ -4,6 +4,7 @@ import {
     activity,
     appointment,
     lead,
+    projectUnit,
     user,
 } from "../db/schema";
 import { generateId } from "../utils/id";
@@ -28,9 +29,12 @@ export type LeadPatchInput = {
     id: string;
     actorId: string;
     actorRole: string;
+    actorClientId?: string | null;
+    managedSalesIds?: string[];
     name?: string;
     domicileCity?: string | null;
     salesStatus?: string | null;
+    interestUnitId?: string | null;
     resultStatus?: string | null;
     unitName?: string | null;
     unitDetail?: string | null;
@@ -166,16 +170,10 @@ export async function findAll(
             conditions.push(eq(lead.clientId, scope.clientId));
         }
     } else if (role === "supervisor") {
-        // supervisor: only leads assigned to their sales team
         if (scope?.managedSalesIds && scope.managedSalesIds.length > 0) {
-            conditions.push(
-                or(
-                    inArray(lead.assignedTo, scope.managedSalesIds),
-                    eq(lead.assignedTo, userId) // supervisor can also see their own leads
-                )
-            );
+            conditions.push(inArray(lead.assignedTo, scope.managedSalesIds));
         } else {
-            conditions.push(eq(lead.assignedTo, userId));
+            conditions.push(eq(lead.assignedTo, "__none__"));
         }
     } else {
         // sales: only own leads
@@ -221,6 +219,9 @@ export async function findAll(
             flowStatus: lead.flowStatus,
             salesStatus: lead.salesStatus,
             domicileCity: lead.domicileCity,
+            interestUnitId: lead.interestUnitId,
+            interestProjectType: lead.interestProjectType,
+            interestUnitName: lead.interestUnitName,
             resultStatus: lead.resultStatus,
             unitName: lead.unitName,
             unitDetail: lead.unitDetail,
@@ -307,6 +308,29 @@ export async function create(data: {
     const id = generateId();
     const now = new Date();
     const assignedTo = data.assignedTo || null;
+    let resolvedClientId = data.clientId || null;
+
+    if (assignedTo) {
+        const [assignedSales] = await db
+            .select({
+                clientId: user.clientId,
+                role: user.role,
+                isActive: user.isActive,
+            })
+            .from(user)
+            .where(eq(user.id, assignedTo))
+            .limit(1);
+
+        if (!assignedSales || assignedSales.role !== "sales" || !assignedSales.isActive) {
+            throw new Error("INVALID_ASSIGNED_SALES");
+        }
+
+        if (resolvedClientId && assignedSales.clientId !== resolvedClientId) {
+            throw new Error("ASSIGNED_SALES_CLIENT_MISMATCH");
+        }
+
+        resolvedClientId = assignedSales.clientId || resolvedClientId;
+    }
 
     const [newLead] = await db
         .insert(lead)
@@ -316,11 +340,14 @@ export async function create(data: {
             phone: data.phone,
             source: data.source || "Manual Input",
             assignedTo,
-            clientId: data.clientId || null,
+            clientId: resolvedClientId,
             flowStatus: assignedTo ? "assigned" : "open",
             salesStatus: null,
             domicileCity: null,
             resultStatus: null,
+            interestUnitId: null,
+            interestProjectType: null,
+            interestUnitName: null,
             unitName: null,
             unitDetail: null,
             paymentMethod: null,
@@ -353,6 +380,7 @@ export async function assignLead(data: {
         .select({
             id: lead.id,
             assignedTo: lead.assignedTo,
+            clientId: lead.clientId,
         })
         .from(lead)
         .where(eq(lead.id, data.leadId))
@@ -364,6 +392,26 @@ export async function assignLead(data: {
 
     if (currentLead.assignedTo) {
         throw new Error("ADMIN_ASSIGNED_LEAD_READ_ONLY");
+    }
+
+    const [salesRow] = await db
+        .select({
+            id: user.id,
+            role: user.role,
+            clientId: user.clientId,
+            isActive: user.isActive,
+        })
+        .from(user)
+        .where(eq(user.id, data.salesId))
+        .limit(1);
+
+    if (
+        !salesRow ||
+        salesRow.role !== "sales" ||
+        !salesRow.isActive ||
+        salesRow.clientId !== currentLead.clientId
+    ) {
+        throw new Error("INVALID_ASSIGNED_SALES");
     }
 
     const now = new Date();
@@ -504,6 +552,21 @@ export async function patchLead(input: LeadPatchInput) {
 
     const isAdminRole = input.actorRole === "client_admin" || input.actorRole === "root_admin";
 
+    if (
+        input.actorRole === "client_admin" &&
+        input.actorClientId &&
+        currentLead.clientId !== input.actorClientId
+    ) {
+        throw new Error("FORBIDDEN_LEAD_EDIT");
+    }
+
+    if (
+        input.actorRole === "supervisor" &&
+        !input.managedSalesIds?.includes(currentLead.assignedTo || "")
+    ) {
+        throw new Error("FORBIDDEN_LEAD_EDIT");
+    }
+
     if (isAdminRole && currentLead.assignedTo) {
         throw new Error("ADMIN_ASSIGNED_LEAD_READ_ONLY");
     }
@@ -544,6 +607,43 @@ export async function patchLead(input: LeadPatchInput) {
         }
         const nextAssignedTo = sanitizeNullableText(input.assignedTo);
         if (nextAssignedTo !== undefined && nextAssignedTo !== currentLead.assignedTo) {
+            if (nextAssignedTo) {
+                const [nextSales] = await db
+                    .select({
+                        id: user.id,
+                        role: user.role,
+                        clientId: user.clientId,
+                        isActive: user.isActive,
+                    })
+                    .from(user)
+                    .where(eq(user.id, nextAssignedTo))
+                    .limit(1);
+
+                if (
+                    !nextSales ||
+                    nextSales.role !== "sales" ||
+                    !nextSales.isActive ||
+                    nextSales.clientId !== currentLead.clientId
+                ) {
+                    throw new Error("INVALID_ASSIGNED_SALES");
+                }
+
+                if (
+                    input.actorRole === "client_admin" &&
+                    input.actorClientId &&
+                    nextSales.clientId !== input.actorClientId
+                ) {
+                    throw new Error("FORBIDDEN_ASSIGN");
+                }
+
+                if (
+                    input.actorRole === "supervisor" &&
+                    !input.managedSalesIds?.includes(nextAssignedTo)
+                ) {
+                    throw new Error("FORBIDDEN_ASSIGN");
+                }
+            }
+
             updates.assignedTo = nextAssignedTo;
             updates.flowStatus = nextAssignedTo ? "assigned" : "open";
             notes.push(nextAssignedTo ? "Lead di-assign manual oleh admin" : "Assignment lead dilepas oleh admin");
@@ -570,6 +670,51 @@ export async function patchLead(input: LeadPatchInput) {
         if (nextSalesStatus !== undefined && nextSalesStatus !== currentLead.salesStatus) {
             updates.salesStatus = nextSalesStatus;
             notes.push(`Sales status diubah ke ${nextSalesStatus || "-"}`);
+        }
+    }
+
+    if (input.interestUnitId !== undefined) {
+        const nextInterestUnitId = sanitizeNullableText(input.interestUnitId);
+
+        if (nextInterestUnitId && nextFlowStatus !== "assigned") {
+            throw new Error("INTEREST_UNIT_REQUIRES_ASSIGNED");
+        }
+
+        if (nextInterestUnitId !== currentLead.interestUnitId) {
+            if (!nextInterestUnitId) {
+                updates.interestUnitId = null;
+                updates.interestProjectType = null;
+                updates.interestUnitName = null;
+                notes.push("Tipe unit dihapus");
+            } else {
+                const [unitRow] = await db
+                    .select({
+                        id: projectUnit.id,
+                        clientId: projectUnit.clientId,
+                        projectType: projectUnit.projectType,
+                        unitName: projectUnit.unitName,
+                    })
+                    .from(projectUnit)
+                    .where(eq(projectUnit.id, nextInterestUnitId))
+                    .limit(1);
+
+                if (!unitRow) {
+                    throw new Error("INVALID_INTEREST_UNIT");
+                }
+
+                if (
+                    currentLead.clientId &&
+                    unitRow.clientId &&
+                    unitRow.clientId !== currentLead.clientId
+                ) {
+                    throw new Error("INVALID_INTEREST_UNIT");
+                }
+
+                updates.interestUnitId = unitRow.id;
+                updates.interestProjectType = unitRow.projectType;
+                updates.interestUnitName = unitRow.unitName;
+                notes.push(`Tipe unit diubah ke ${unitRow.projectType} - ${unitRow.unitName}`);
+            }
         }
     }
 

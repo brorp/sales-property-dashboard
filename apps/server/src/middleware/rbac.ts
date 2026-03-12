@@ -1,8 +1,8 @@
 import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "./auth";
 import { db } from "../db/index";
-import { supervisorSales, user } from "../db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { user } from "../db/schema";
+import { and, eq } from "drizzle-orm";
 
 // ─── Role hierarchy (higher index = more privilege) ──────────────────────────
 const ROLE_HIERARCHY: Record<string, number> = {
@@ -22,6 +22,8 @@ export interface QueryScope {
     clientId: string | null;
     /** For supervisor: IDs of sales users under them */
     managedSalesIds: string[];
+    /** For client_admin/root_admin screens that need supervisor detail */
+    managedSupervisorIds: string[];
 }
 
 /**
@@ -102,24 +104,37 @@ export async function injectScope(
             userId,
             clientId: clientId ?? null,
             managedSalesIds: [],
+            managedSupervisorIds: [],
         };
 
         if (role === "supervisor") {
-            // Get sales IDs under this supervisor
-            const rows = await db
-                .select({ salesId: supervisorSales.salesId })
-                .from(supervisorSales)
-                .where(eq(supervisorSales.supervisorId, userId));
-
-            scope.managedSalesIds = rows.map((r) => r.salesId);
-        } else if (role === "client_admin" && clientId) {
-            // Get all sales + supervisor IDs in the same client
             const rows = await db
                 .select({ id: user.id })
                 .from(user)
-                .where(eq(user.clientId, clientId));
+                .where(
+                    and(
+                        eq(user.role, "sales"),
+                        eq(user.supervisorId, userId),
+                        eq(user.isActive, true)
+                    )
+                );
 
             scope.managedSalesIds = rows.map((r) => r.id);
+        } else if (role === "client_admin" && clientId) {
+            const rows = await db
+                .select({
+                    id: user.id,
+                    role: user.role,
+                })
+                .from(user)
+                .where(and(eq(user.clientId, clientId), eq(user.isActive, true)));
+
+            scope.managedSalesIds = rows
+                .filter((row) => row.role === "sales")
+                .map((row) => row.id);
+            scope.managedSupervisorIds = rows
+                .filter((row) => row.role === "supervisor")
+                .map((row) => row.id);
         }
 
         req.scope = scope;

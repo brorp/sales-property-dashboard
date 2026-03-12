@@ -2,6 +2,234 @@
     margin-bottom: 28px;
 }
 
+.dashboard-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dashboard-filter-shell {
+    position: relative;
+}
+
+.dashboard-filter-trigger {
+    min-width: 148px;
+}
+
+.dashboard-filter-popover {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: min(720px, calc(100vw - 32px));
+    padding: 16px;
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background:
+        radial-gradient(circle at top left, rgba(167, 139, 250, 0.16), transparent 28%),
+        linear-gradient(180deg, rgba(20, 16, 35, 0.98), rgba(14, 11, 26, 0.98));
+    box-shadow: 0 22px 48px rgba(3, 2, 10, 0.44);
+    z-index: 80;
+}
+
+.dashboard-filter-popover-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.dashboard-filter-popover-head h3 {
+    font-size: 1rem;
+    margin-bottom: 2px;
+}
+
+.dashboard-filter-popover-head p {
+    font-size: 0.813rem;
+    color: var(--text-secondary);
+}
+
+.dashboard-filter-close {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.dashboard-filter-preview {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.dashboard-filter-preview-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dashboard-filter-preview-card span {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+.dashboard-filter-preview-card strong {
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.dashboard-filter-quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.dashboard-quick-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+    font-size: 0.813rem;
+    font-weight: 600;
+}
+
+.dashboard-quick-pill:hover {
+    background: rgba(167, 139, 250, 0.14);
+    border-color: rgba(167, 139, 250, 0.3);
+}
+
+.dashboard-calendar-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.dashboard-calendar-head-label {
+    font-size: 0.813rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.dashboard-calendar-nav {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+}
+
+.dashboard-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.dashboard-calendar-month {
+    padding: 12px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dashboard-calendar-month-title {
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.dashboard-calendar-weekdays,
+.dashboard-calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.dashboard-calendar-weekdays {
+    margin-bottom: 8px;
+}
+
+.dashboard-calendar-weekdays span {
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.dashboard-calendar-day {
+    position: relative;
+    min-height: 40px;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text-primary);
+    border: 1px solid transparent;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.dashboard-calendar-day:hover {
+    border-color: rgba(167, 139, 250, 0.28);
+    background: rgba(167, 139, 250, 0.12);
+}
+
+.dashboard-calendar-day.is-outside {
+    color: rgba(184, 179, 209, 0.4);
+}
+
+.dashboard-calendar-day.is-today {
+    border-color: rgba(245, 158, 11, 0.28);
+}
+
+.dashboard-calendar-day.is-in-range {
+    background: rgba(124, 58, 237, 0.16);
+    color: #fff;
+}
+
+.dashboard-calendar-day.is-start,
+.dashboard-calendar-day.is-end {
+    background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
+    border-color: rgba(167, 139, 250, 0.44);
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(124, 58, 237, 0.25);
+}
+
+.dashboard-filter-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.dashboard-filter-summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: -2px 0 18px;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
 .stat-total {
     border-left: 3px solid var(--primary);
 }
@@ -84,6 +312,10 @@
     gap: 12px;
     font-size: 0.813rem;
     color: var(--text-secondary);
+}
+
+.lead-row-meta strong {
+    color: var(--text-primary);
 }
 
 .see-all-btn {
@@ -293,6 +525,35 @@
 }
 
 @media (max-width: 720px) {
+    .dashboard-header-actions {
+        width: 100%;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+    }
+
+    .dashboard-filter-trigger {
+        min-width: 132px;
+    }
+
+    .dashboard-filter-popover {
+        right: -44px;
+        width: min(720px, calc(100vw - 24px));
+        padding: 14px;
+    }
+
+    .dashboard-filter-preview {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-calendar-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-filter-summary {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
     .pie-layout {
         grid-template-columns: 1fr;
     }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
+import { useTenant } from '../context/TenantContext';
 import { apiRequest } from '../lib/api';
 
 function toReadableBroadcastStatus(value) {
@@ -22,6 +23,8 @@ function toReadableBroadcastStatus(value) {
 
 export default function BroadcastPage() {
     const { user } = useAuth();
+    const tenant = useTenant();
+    const activeClientId = tenant.whatsapp?.activeClientId || null;
     const [broadcastForm, setBroadcastForm] = useState({
         statuses: { hot: true, warm: true, cold: true },
         appointmentTag: 'all',
@@ -45,7 +48,11 @@ export default function BroadcastPage() {
         }
 
         try {
-            const data = await apiRequest('/api/broadcast/status', { user });
+            const path =
+                user?.role === 'root_admin' && activeClientId
+                    ? `/api/broadcast/status?clientId=${encodeURIComponent(activeClientId)}`
+                    : '/api/broadcast/status';
+            const data = await apiRequest(path, { user });
             setBroadcastStatus(data || null);
             if (!silent) {
                 setBroadcastFeedback(`Status: ${toReadableBroadcastStatus(data?.status || 'idle')}`);
@@ -59,7 +66,7 @@ export default function BroadcastPage() {
                 setBroadcastStatusLoading(false);
             }
         }
-    }, [user]);
+    }, [activeClientId, user]);
 
     useEffect(() => {
         void loadBroadcastStatus(true);
@@ -133,6 +140,7 @@ export default function BroadcastPage() {
                 method: 'POST',
                 user,
                 body: {
+                    ...(user?.role === 'root_admin' && activeClientId ? { clientId: activeClientId } : {}),
                     salesStatuses,
                     appointmentTag: broadcastForm.appointmentTag,
                     dateFrom: broadcastForm.dateFrom || undefined,
@@ -159,6 +167,7 @@ export default function BroadcastPage() {
             const result = await apiRequest('/api/broadcast/stop', {
                 method: 'POST',
                 user,
+                body: user?.role === 'root_admin' && activeClientId ? { clientId: activeClientId } : undefined,
             });
             setBroadcastStatus(result || null);
             setBroadcastFeedback('Broadcast stopped.');

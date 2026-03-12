@@ -1,12 +1,12 @@
 'use client';
 
 import DistributionOrderPage from '../../../src/screens/DistributionOrderPage';
-import { AdminRoute } from '../../../src/components/RouteGuards';
+import { RoleRoute } from '../../../src/components/RouteGuards';
 
 export default function DistributionOrderRoute() {
     return (
-        <AdminRoute>
+        <RoleRoute allowedRoles={['client_admin']}>
             <DistributionOrderPage />
-        </AdminRoute>
+        </RoleRoute>
     );
 }
