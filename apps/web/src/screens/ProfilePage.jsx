@@ -5,6 +5,18 @@ import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import Header from '../components/Header';
 
+function formatClientNameFromSlug(slug) {
+    if (!slug) {
+        return '';
+    }
+
+    return String(slug)
+        .split(/[-_]/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+}
+
 export default function ProfilePage() {
     const { user, logout, isAdmin, getRoleLabel } = useAuth();
     const tenant = useTenant();
@@ -18,6 +30,9 @@ export default function ProfilePage() {
     const goToEditProfile = () => { router.push('/settings/profile'); };
     const canManageDistribution = user?.role === 'client_admin';
     const canManageSharedWhatsApp = tenant.canManageSharedWhatsApp(user);
+    const workspaceLabel = tenant.isClientSite
+        ? tenant.siteLabel
+        : formatClientNameFromSlug(user?.clientSlug) || 'Master Workspace';
 
     return (
         <div className="page-container">
@@ -26,7 +41,7 @@ export default function ProfilePage() {
                 <div className="profile-avatar">{user.name.charAt(0)}</div>
                 <h2 className="profile-name">{user.name}</h2>
                 <p className="profile-email">{user.email}</p>
-                <p className="profile-email">{tenant.isClientSite ? tenant.siteLabel : 'Master Workspace'}</p>
+                <p className="profile-email">{workspaceLabel}</p>
                 <span className={`badge ${isAdmin ? 'badge-purple' : 'badge-success'}`}>
                     {isAdmin ? `👑 ${getRoleLabel(user.role)}` : '💼 Sales'}
                 </span>

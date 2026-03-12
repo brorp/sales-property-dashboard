@@ -144,6 +144,10 @@ export function TenantProvider({ children }) {
                 return isMasterSite || isClientSite;
             }
 
+            if (!context.whatsapp?.activeClientSlug) {
+                return isMasterSite || isClientSite;
+            }
+
             if (isMasterSite) {
                 return Boolean(
                     userLike.clientSlug &&
