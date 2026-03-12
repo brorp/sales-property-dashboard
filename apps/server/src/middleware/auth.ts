@@ -27,8 +27,9 @@ export interface AuthenticatedRequest extends Request {
 }
 
 async function resolveDevHeaderAuth(req: Request) {
+    const allowDevHeadersDefault = process.env.NODE_ENV === "production" ? "false" : "true";
     const allowDevHeaders =
-        String(process.env.ALLOW_DEV_AUTH_HEADERS || "true").toLowerCase() !==
+        String(process.env.ALLOW_DEV_AUTH_HEADERS || allowDevHeadersDefault).toLowerCase() !==
         "false";
     const devEmail = req.header("x-dev-user-email");
 

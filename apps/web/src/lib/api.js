@@ -40,6 +40,26 @@ function getBrowserHostname() {
     return String(window.location.hostname || '').trim().toLowerCase();
 }
 
+function isLocalBrowserHost(hostname) {
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+}
+
+function shouldUseDevAuthHeaders() {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    const envOverride = String(process.env.NEXT_PUBLIC_ENABLE_DEV_AUTH_HEADERS || '').trim().toLowerCase();
+    if (envOverride === 'true') {
+        return true;
+    }
+    if (envOverride === 'false') {
+        return false;
+    }
+
+    return isLocalBrowserHost(getBrowserHostname());
+}
+
 function deriveApiBaseFromRootDomain(protocol) {
     const rootDomain = String(process.env.NEXT_PUBLIC_APP_ROOT_DOMAIN || '').trim().toLowerCase();
     if (!rootDomain) {
@@ -140,7 +160,19 @@ function notifyUnauthorized() {
 export function getApiBaseUrl() {
     const explicitBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
     if (explicitBaseUrl && String(explicitBaseUrl).trim()) {
-        return String(explicitBaseUrl).replace(/\/$/, '');
+        const normalizedBaseUrl = String(explicitBaseUrl).replace(/\/$/, '');
+
+        if (
+            typeof window !== 'undefined' &&
+            window.location.protocol === 'https:' &&
+            normalizedBaseUrl.startsWith('http://') &&
+            !normalizedBaseUrl.startsWith('http://localhost') &&
+            !normalizedBaseUrl.startsWith('http://127.0.0.1')
+        ) {
+            return normalizedBaseUrl.replace(/^http:\/\//i, 'https://');
+        }
+
+        return normalizedBaseUrl;
     }
 
     const protocol = String(process.env.NEXT_PUBLIC_API_PROTOCOL || 'http').trim();
@@ -178,7 +210,7 @@ export async function apiRequest(path, options = {}) {
     };
     const sessionToken = getStoredAuthSessionToken();
 
-    if (user?.email) {
+    if (user?.email && shouldUseDevAuthHeaders()) {
         headers['x-dev-user-email'] = user.email;
     }
 

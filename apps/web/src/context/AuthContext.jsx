@@ -240,6 +240,23 @@ function normalizeStoredUser(parsedUser, matchedUser) {
     };
 }
 
+function canUseLocalAuthFallback() {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    const envOverride = String(process.env.NEXT_PUBLIC_ENABLE_LOCAL_LOGIN_FALLBACK || '').trim().toLowerCase();
+    if (envOverride === 'true') {
+        return true;
+    }
+    if (envOverride === 'false') {
+        return false;
+    }
+
+    const hostname = String(window.location.hostname || '').trim().toLowerCase();
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+}
+
 async function readErrorMessage(response) {
     const text = await response.text();
     if (!text) {
@@ -298,6 +315,37 @@ function persistUser(userLike) {
     window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userLike));
 }
 
+function restoreStoredFallbackUser(tenant, setUser) {
+    if (typeof window === 'undefined' || !canUseLocalAuthFallback()) {
+        setUser(null);
+        clearStoredAuthUser();
+        return;
+    }
+
+    const saved = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!saved) {
+        setUser(null);
+        clearStoredAuthUser();
+        return;
+    }
+
+    try {
+        const parsed = JSON.parse(saved);
+        const matchedUser = findLoginUserByEmail(parsed?.email);
+        if (matchedUser && tenant.isUserAllowedOnCurrentSite(matchedUser)) {
+            const restoredUser = normalizeStoredUser(parsed, matchedUser);
+            setUser(restoredUser);
+            persistUser(restoredUser);
+            return;
+        }
+    } catch {
+        // Ignore malformed local fallback state and clear it below.
+    }
+
+    setUser(null);
+    clearStoredAuthUser();
+}
+
 export function AuthProvider({ children }) {
     const tenant = useTenant();
     const [user, setUser] = useState(null);
@@ -323,51 +371,11 @@ export function AuthProvider({ children }) {
                     setUser(currentUser);
                     persistUser(currentUser);
                 } else {
-                    const saved = window.localStorage.getItem(AUTH_STORAGE_KEY);
-                    if (saved) {
-                        try {
-                            const parsed = JSON.parse(saved);
-                            const matchedUser = findLoginUserByEmail(parsed?.email);
-                            if (matchedUser && tenant.isUserAllowedOnCurrentSite(matchedUser)) {
-                                const restoredUser = normalizeStoredUser(parsed, matchedUser);
-                                setUser(restoredUser);
-                                persistUser(restoredUser);
-                            } else {
-                                setUser(null);
-                                clearStoredAuthUser();
-                            }
-                        } catch {
-                            setUser(null);
-                            clearStoredAuthUser();
-                        }
-                    } else {
-                        setUser(null);
-                        clearStoredAuthUser();
-                    }
+                    restoreStoredFallbackUser(tenant, setUser);
                 }
             } catch {
                 if (!cancelled) {
-                    const saved = window.localStorage.getItem(AUTH_STORAGE_KEY);
-                    if (saved) {
-                        try {
-                            const parsed = JSON.parse(saved);
-                            const matchedUser = findLoginUserByEmail(parsed?.email);
-                            if (matchedUser && tenant.isUserAllowedOnCurrentSite(matchedUser)) {
-                                const restoredUser = normalizeStoredUser(parsed, matchedUser);
-                                setUser(restoredUser);
-                                persistUser(restoredUser);
-                            } else {
-                                setUser(null);
-                                clearStoredAuthUser();
-                            }
-                        } catch {
-                            setUser(null);
-                            clearStoredAuthUser();
-                        }
-                    } else {
-                        setUser(null);
-                        clearStoredAuthUser();
-                    }
+                    restoreStoredFallbackUser(tenant, setUser);
                 }
             } finally {
                 if (!cancelled) {
@@ -473,6 +481,13 @@ export function AuthProvider({ children }) {
             return {
                 success: false,
                 error: 'Email atau password salah',
+            };
+        }
+
+        if (!canUseLocalAuthFallback()) {
+            return {
+                success: false,
+                error: 'Tidak bisa menghubungi server login.',
             };
         }
 

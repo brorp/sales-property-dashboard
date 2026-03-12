@@ -1,7 +1,10 @@
 import { Router } from "express";
 import type { Response as ExpressResponse, NextFunction } from "express";
+import { fromNodeHeaders } from "better-auth/node";
 import { auth } from "../auth/index";
+import { repairKnownSeedCredential } from "../auth/credential-account";
 import * as clientsService from "../services/clients.service";
+import { logger } from "../utils/logger";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -48,6 +51,23 @@ async function sendAuthResponse(source: globalThis.Response, res: ExpressRespons
     res.send(body);
 }
 
+async function signInWithEmail(
+    email: string,
+    password: string,
+    rememberMe: boolean,
+    headers: Headers
+) {
+    return auth.api.signInEmail({
+        asResponse: true,
+        headers,
+        body: {
+            email,
+            password,
+            rememberMe,
+        },
+    });
+}
+
 router.get("/app-context", async (req, res: ExpressResponse, next: NextFunction) => {
     try {
         const forwardedHost = req.header("x-forwarded-host");
@@ -84,15 +104,41 @@ router.post("/login", async (req, res: ExpressResponse, next: NextFunction) => {
             return;
         }
 
-        const authResponse = await auth.api.signInEmail({
-            asResponse: true,
-            headers: new Headers(),
-            body: {
-                email: String(email).trim().toLowerCase(),
-                password: String(password),
-                rememberMe: rememberMe !== false,
-            },
-        });
+        const normalizedEmail = String(email).trim().toLowerCase();
+        const normalizedPassword = String(password);
+        const forwardedHeaders = fromNodeHeaders(req.headers);
+        let authResponse = await signInWithEmail(
+            normalizedEmail,
+            normalizedPassword,
+            rememberMe !== false,
+            forwardedHeaders
+        );
+
+        if (authResponse.status === 401) {
+            const repairedSeedCredential = await repairKnownSeedCredential(
+                normalizedEmail,
+                normalizedPassword
+            );
+
+            if (repairedSeedCredential) {
+                authResponse = await signInWithEmail(
+                    normalizedEmail,
+                    normalizedPassword,
+                    rememberMe !== false,
+                    forwardedHeaders
+                );
+            }
+
+            if (authResponse.status === 401) {
+                logger.warn("Public login unauthorized", {
+                    email: normalizedEmail,
+                    repairedSeedCredential,
+                    origin: req.header("origin") || null,
+                    host: req.header("host") || null,
+                    userAgent: req.header("user-agent") || null,
+                });
+            }
+        }
 
         await sendAuthResponse(authResponse, res);
     } catch (error) {
