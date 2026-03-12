@@ -2,6 +2,10 @@ import { existsSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { ingestIncomingMessage } from "./whatsapp.service";
 import { getClientBySlug } from "./clients.service";
+import {
+    clearActiveWhatsAppNumber,
+    setActiveWhatsAppNumber,
+} from "./whatsapp-identity.service";
 import { normalizePhone } from "../utils/phone";
 import { logger } from "../utils/logger";
 
@@ -47,6 +51,7 @@ export type WhatsAppQrAdminState = {
     qrImageUrl: string | null;
     pairingCode: string | null;
     pairingPhone: string | null;
+    activeWaNumber: string | null;
     lastClientState: string | null;
     lastError: string | null;
     lastDisconnectCode: number | null;
@@ -67,6 +72,7 @@ const runtimeState: Omit<WhatsAppQrAdminState, "provider" | "enabled" | "authPat
     qrImageUrl: null,
     pairingCode: null,
     pairingPhone: null,
+    activeWaNumber: null,
     lastClientState: null,
     lastError: null,
     lastDisconnectCode: null,
@@ -221,9 +227,11 @@ function handleTransientRuntimeError(source: string, error: unknown) {
     const message = readErrorMessage(error);
     logger.warn(`[wa:qr] transient runtime error (${source}): ${message}`);
     clientRef = null;
+    clearActiveWhatsAppNumber();
     updateRuntimeState({
         status: "disconnected",
         lastError: message,
+        activeWaNumber: null,
         lastClientState: null,
         qr: null,
         qrImageUrl: null,
@@ -408,6 +416,19 @@ function pickPreferredPhone(candidates: Array<string | null | undefined>) {
     }
     const idPreferred = values.find((candidate) => candidate.startsWith("+62"));
     return idPreferred || values[0];
+}
+
+function resolveConnectedAccountPhone(client: any) {
+    return pickPreferredPhone([
+        jidToPhone(client?.info?.wid?._serialized),
+        jidToPhone(client?.info?.me?._serialized),
+        jidToPhone(client?.info?.id?._serialized),
+        client?.info?.wid?.user ? plainToPhone(String(client.info.wid.user)) : null,
+        client?.info?.me?.user ? plainToPhone(String(client.info.me.user)) : null,
+        client?.info?.id?.user ? plainToPhone(String(client.info.id.user)) : null,
+        plainToPhone(client?.info?.phone),
+        plainToPhone(client?.info?.phoneNumber),
+    ]);
 }
 
 async function resolveSenderPhoneWithLookup(message: any) {
@@ -753,6 +774,7 @@ async function sendWhatsAppQrPayloadByJid(
 export async function stopWhatsAppQrBridge() {
     reconnectEnabled = false;
     sessionGeneration += 1;
+    clearActiveWhatsAppNumber();
 
     if (!clientRef) {
         updateRuntimeState({
@@ -760,6 +782,8 @@ export async function stopWhatsAppQrBridge() {
             qr: null,
             qrImageUrl: null,
             pairingCode: null,
+            pairingPhone: null,
+            activeWaNumber: null,
             lastClientState: null,
         });
         return;
@@ -780,6 +804,7 @@ export async function stopWhatsAppQrBridge() {
         qrImageUrl: null,
         pairingCode: null,
         pairingPhone: null,
+        activeWaNumber: null,
         lastClientState: null,
     });
 }
@@ -793,6 +818,7 @@ export async function resetWhatsAppQrSession() {
         qrImageUrl: null,
         pairingCode: null,
         pairingPhone: null,
+        activeWaNumber: null,
         lastClientState: null,
         lastError: null,
         lastDisconnectCode: null,
@@ -803,12 +829,14 @@ export async function startWhatsAppQrBridge() {
     installRuntimeGuard();
 
     if (currentProvider() !== "qr_local") {
+        clearActiveWhatsAppNumber();
         updateRuntimeState({
             status: "disabled",
             qr: null,
             qrImageUrl: null,
             pairingCode: null,
             pairingPhone: null,
+            activeWaNumber: null,
             lastClientState: null,
             activeClientSlug: currentActiveClientSlug(),
         });
@@ -829,6 +857,7 @@ export async function startWhatsAppQrBridge() {
         qrImageUrl: null,
         pairingCode: null,
         pairingPhone: null,
+        activeWaNumber: null,
         lastClientState: null,
         lastError: null,
         activeClientSlug: currentActiveClientSlug(),
@@ -938,8 +967,11 @@ export async function startWhatsAppQrBridge() {
                 return;
             }
 
+            const activeWaNumber = resolveConnectedAccountPhone(client);
+            setActiveWhatsAppNumber(activeWaNumber);
+            updateRuntimeState({ activeWaNumber });
             markConnectedState("READY");
-            console.log("[wa:qr] connected");
+            console.log(`[wa:qr] connected${activeWaNumber ? ` as ${activeWaNumber}` : ""}`);
         });
 
         client.on("auth_failure", (message: string) => {
@@ -947,8 +979,10 @@ export async function startWhatsAppQrBridge() {
                 return;
             }
 
+            clearActiveWhatsAppNumber();
             updateRuntimeState({
                 status: "error",
+                activeWaNumber: null,
                 lastClientState: null,
                 lastError: message || "Authentication failure",
             });
@@ -961,9 +995,11 @@ export async function startWhatsAppQrBridge() {
             }
 
             clientRef = null;
+            clearActiveWhatsAppNumber();
             updateRuntimeState({
                 status: "disconnected",
                 lastDisconnectCode: null,
+                activeWaNumber: null,
                 lastClientState: null,
                 lastError: reason || null,
                 qr: null,
@@ -1008,6 +1044,7 @@ export async function startWhatsAppQrBridge() {
         }
     } catch (error) {
         clientRef = null;
+        clearActiveWhatsAppNumber();
         const message = error instanceof Error ? error.message : "Unknown error";
         const chromeMissing = /Could not find Chrome|executable file not found|Browser was not found/i.test(
             message
@@ -1018,6 +1055,7 @@ export async function startWhatsAppQrBridge() {
         console.error("[wa:qr] failed to start bridge:", error);
         updateRuntimeState({
             status: "error",
+            activeWaNumber: null,
             lastClientState: null,
             lastError: uiMessage,
         });

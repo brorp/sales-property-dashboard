@@ -4,6 +4,7 @@ import { appointment, lead, waMessage } from "../db/schema";
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
 import { resolveAppointmentTag, toAppointmentDateTime } from "../utils/appointment";
+import { getActiveWhatsAppNumber } from "./whatsapp-identity.service";
 import { sendWhatsAppMedia, sendWhatsAppText } from "./whatsapp-provider.service";
 import { logger } from "../utils/logger";
 
@@ -64,7 +65,6 @@ type BroadcastJobRuntime = {
 };
 
 const SALES_STATUS_ALLOWED = new Set(["hot", "warm", "cold", "error", "no_response", "skip"]);
-const PROPERTY_LOUNGE_WA = process.env.PROPERTY_LOUNGE_WA || "+620000000000";
 const BROADCAST_MAX_RETRY_ATTEMPTS = Number(
     process.env.BROADCAST_MAX_RETRY_ATTEMPTS || "5"
 );
@@ -315,7 +315,7 @@ async function persistBroadcastAttemptLog(params: {
         await db.insert(waMessage).values({
             id: generateId(),
             providerMessageId: params.providerMessageId,
-            fromWa: PROPERTY_LOUNGE_WA,
+            fromWa: getActiveWhatsAppNumber(),
             toWa: params.target.phone,
             body: params.message,
             direction: params.sendError ? "outbound_broadcast_failed" : "outbound_broadcast",

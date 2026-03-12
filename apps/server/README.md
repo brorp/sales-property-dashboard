@@ -24,7 +24,7 @@ pnpm --filter @property-lounge/server pm2:save
 
 Default `.env` untuk development sudah include:
 
-1. `PROPERTY_LOUNGE_WA=+620000000000`
+1. `PROPERTY_LOUNGE_WA=+620000000000` (fallback only; untuk `qr_local` nomor aktif otomatis mengikuti akun yang discan saat session connect)
 2. `WHATSAPP_VERIFY_TOKEN=dev-verify-token`
 3. `DISTRIBUTION_POLL_MS=15000`
 4. `GOOGLE_CALENDAR_MOCK=true` (appointment buat mock event id)
@@ -118,14 +118,14 @@ Jika `ADMIN_WHATSAPP_TOKEN` diisi, kirim header `x-admin-token: <token>`.
 
 Jika QR tidak muncul dan koneksi cepat putus, sistem akan coba cetak pairing code:
 
-1. Pastikan `WA_PAIRING_PHONE` terisi nomor WhatsApp yang akan dilink (format digit, contoh `62812xxxxxxx`)
+1. Pastikan `WA_PAIRING_PHONE` terisi nomor WhatsApp yang akan dilink (format digit, contoh `62812xxxxxxx`). Ini opsional dan hanya untuk flow pairing code, bukan scan QR biasa.
 2. Di WhatsApp buka `Linked devices`
 3. Pilih `Link with phone number`
 4. Masukkan code yang tampil di terminal
 
 ### Flow yang terjadi otomatis
 
-1. Client chat ke nomor WA Property Lounge.
+1. Client chat ke nomor WA yang sedang terhubung ke session Property Lounge.
 2. Sistem auto-reply:
    `Harap menunggu agent professional akan menhubungi anda`
 3. Lead/client masuk dashboard (`lead`, `wa_message`, `distribution_cycle`).

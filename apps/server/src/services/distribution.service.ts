@@ -12,8 +12,8 @@ import {
 import { generateId } from "../utils/id";
 import { sendWhatsAppText } from "./whatsapp-provider.service";
 import { getDistributionAckTimeoutMs } from "./system-settings.service";
+import { getActiveWhatsAppNumber } from "./whatsapp-identity.service";
 import { rotateQueueAfterAssignment } from "./sales.service";
-const PROPERTY_LOUNGE_WA = process.env.PROPERTY_LOUNGE_WA || "+620000000000";
 
 type DbExecutor = typeof db;
 
@@ -199,7 +199,7 @@ async function assignNextQueue(
     await executor.insert(waMessage).values({
         id: generateId(),
         providerMessageId: outboundResult.providerMessageId || null,
-        fromWa: PROPERTY_LOUNGE_WA,
+        fromWa: getActiveWhatsAppNumber(),
         toWa: next.salesPhone || `sales:${next.salesId}`,
         body: outboundResult.sent
             ? messageBody

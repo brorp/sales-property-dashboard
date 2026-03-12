@@ -5,9 +5,8 @@ import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
 import { ensureActiveCycle, handleSalesAck } from "./distribution.service";
 import { getOperationalWindowState } from "./system-settings.service";
+import { getActiveWhatsAppNumber } from "./whatsapp-identity.service";
 import { sendWhatsAppText } from "./whatsapp-provider.service";
-
-const PROPERTY_LOUNGE_WA = process.env.PROPERTY_LOUNGE_WA || "+620000000000";
 
 export interface IncomingWhatsAppPayload {
     fromWa: string;
@@ -93,7 +92,7 @@ async function sendSalesSystemReply(params: {
     await db.insert(waMessage).values({
         id: generateId(),
         providerMessageId: outboundResult.providerMessageId || null,
-        fromWa: PROPERTY_LOUNGE_WA,
+        fromWa: getActiveWhatsAppNumber(),
         toWa: params.salesPhone || `sales:${params.salesId}`,
         body: outboundResult.sent
             ? params.body
@@ -112,7 +111,7 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
 
     const now = new Date();
     const fromWa = normalizePhone(payload.fromWa);
-    const toWa = payload.toWa ? normalizePhone(payload.toWa) : PROPERTY_LOUNGE_WA;
+    const toWa = payload.toWa ? normalizePhone(payload.toWa) : getActiveWhatsAppNumber();
     const messageBody = payload.body.trim();
 
     const [salesSender] = await db

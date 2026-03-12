@@ -3,6 +3,7 @@ import type { Response } from "express";
 import { ingestMetaLead } from "../services/meta.service";
 import { ingestIncomingMessage } from "../services/whatsapp.service";
 import { processExpiredAttempts } from "../services/distribution.service";
+import { getActiveWhatsAppNumber } from "../services/whatsapp-identity.service";
 import { sendWhatsAppText } from "../services/whatsapp-provider.service";
 import { logger } from "../utils/logger";
 
@@ -164,7 +165,7 @@ router.post("/whatsapp/dummy/client-message", async (req, res: Response) => {
 
         const result = await ingestIncomingMessage({
             fromWa: clientWa,
-            toWa: process.env.PROPERTY_LOUNGE_WA || "+620000000000",
+            toWa: getActiveWhatsAppNumber(),
             body,
             clientName,
             sourceAds,
@@ -197,7 +198,7 @@ router.post("/whatsapp/dummy/sales-ack", async (req, res: Response) => {
 
         const result = await ingestIncomingMessage({
             fromWa: salesWa,
-            toWa: process.env.PROPERTY_LOUNGE_WA || "+620000000000",
+            toWa: getActiveWhatsAppNumber(),
             body,
         });
 

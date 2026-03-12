@@ -250,6 +250,7 @@ export default function SettingsPage() {
 
                 <p className="settings-meta"><strong>Provider:</strong> {state?.provider || '-'}</p>
                 <p className="settings-meta"><strong>WA Tenant:</strong> {state?.activeClientSlug || tenant.whatsapp?.activeClientSlug || '-'}</p>
+                <p className="settings-meta"><strong>Active WA Number:</strong> {state?.activeWaNumber || '-'}</p>
                 {tenant.whatsapp?.mode === 'shared_single_client' ? (
                     <p className="settings-help">
                         Local QR saat ini masih shared singleton dan diikat ke tenant <strong>{tenant.whatsapp?.activeClientSlug || '-'}</strong>.
