@@ -619,10 +619,17 @@ async function handleIncomingMessage(message: any) {
     }
 
     const activeClientSlug = currentActiveClientSlug();
+    if (!activeClientSlug) {
+        logger.error("[wa:qr] inbound ignored: WA_ACTIVE_CLIENT_SLUG is not configured");
+        return;
+    }
+
     let activeClientId: string | null = null;
-    if (activeClientSlug) {
-        const activeClient = await getClientBySlug(activeClientSlug);
-        activeClientId = activeClient?.id || null;
+    const activeClient = await getClientBySlug(activeClientSlug);
+    activeClientId = activeClient?.id || null;
+    if (!activeClientId) {
+        logger.error(`[wa:qr] inbound ignored: active client slug "${activeClientSlug}" was not found`);
+        return;
     }
 
     const result = await ingestIncomingMessage({

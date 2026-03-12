@@ -13,6 +13,7 @@ module.exports = {
                 NODE_ENV: "production",
                 WA_PROVIDER: "qr_local",
                 WA_QR_AUTH_PATH: ".wa-qr-auth",
+                WA_ACTIVE_CLIENT_SLUG: process.env.WA_ACTIVE_CLIENT_SLUG || "widari",
                 WA_WEBJS_CLIENT_ID: "property-lounge",
                 WA_WEBJS_HEADLESS: "true",
                 WA_WEBJS_EXECUTABLE_PATH: "/usr/bin/google-chrome-stable", // adjust if chromium path differs
