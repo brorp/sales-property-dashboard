@@ -17,7 +17,7 @@ module.exports = {
                 WA_WEBJS_HEADLESS: "true",
                 WA_WEBJS_EXECUTABLE_PATH: "/usr/bin/google-chrome-stable", // adjust if chromium path differs
                 WA_WEBJS_PUPPETEER_ARGS:
-                    "--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--no-zygote,--single-process,--disable-gpu",
+                    "",
             }
         },
     ],

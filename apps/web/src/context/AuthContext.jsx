@@ -63,6 +63,10 @@ const DEMO_LOGIN_USER_EMAILS = new Set([
     'anto@widari.propertylounge.id',
 ]);
 
+function isDemoLoginUser(userLike) {
+    return Boolean(userLike?.email && DEMO_LOGIN_USER_EMAILS.has(userLike.email));
+}
+
 function isManagerRole(role) {
     return MANAGER_ROLES.has(role || '');
 }
@@ -101,6 +105,18 @@ function normalizeStoredUser(parsedUser, matchedUser) {
     };
 }
 
+function canUseUserOnCurrentSite(tenant, userLike) {
+    if (!tenant || !userLike) {
+        return false;
+    }
+
+    if (tenant.isUserAllowedOnCurrentSite(userLike)) {
+        return true;
+    }
+
+    return tenant.isMasterSite && isDemoLoginUser(userLike);
+}
+
 export function AuthProvider({ children }) {
     const tenant = useTenant();
     const [user, setUser] = useState(null);
@@ -116,7 +132,7 @@ export function AuthProvider({ children }) {
             try {
                 const parsed = JSON.parse(saved);
                 const matchedUser = findLoginUserByEmail(parsed?.email);
-                if (matchedUser && tenant.isUserAllowedOnCurrentSite(matchedUser)) {
+                if (matchedUser && canUseUserOnCurrentSite(tenant, matchedUser)) {
                     setUser(normalizeStoredUser(parsed, matchedUser));
                 } else {
                     clearStoredAuthUser();
@@ -153,7 +169,7 @@ export function AuthProvider({ children }) {
         const found = LOGIN_USERS.find(u => u.email === email && u.password === password);
         if (!found) return { success: false, error: 'Email atau password salah' };
 
-        if (!tenant.isUserAllowedOnCurrentSite(found)) {
+        if (!canUseUserOnCurrentSite(tenant, found)) {
             if (tenant.isClientSite && tenant.tenant?.name) {
                 return {
                     success: false,
@@ -199,10 +215,7 @@ export function AuthProvider({ children }) {
     const availableLoginUsers = useMemo(
         () =>
             LOGIN_USERS.filter((item) => {
-                return (
-                    DEMO_LOGIN_USER_EMAILS.has(item.email) &&
-                    tenant.isUserAllowedOnCurrentSite(item)
-                );
+                return isDemoLoginUser(item) && canUseUserOnCurrentSite(tenant, item);
             }),
         [tenant]
     );
