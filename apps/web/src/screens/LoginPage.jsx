@@ -28,16 +28,20 @@ export default function LoginPage() {
         ? `${tenant.siteLabel} workspace on Property Lounge`
         : 'Login to your account';
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setLoading(true);
-        setTimeout(() => {
-            const result = login(email, password);
-            if (result.success) { router.replace('/'); }
-            else { setError(result.error); }
+        try {
+            const result = await login(email, password);
+            if (result.success) {
+                router.replace('/');
+            } else {
+                setError(result.error);
+            }
+        } finally {
             setLoading(false);
-        }, 500);
+        }
     };
 
     return (

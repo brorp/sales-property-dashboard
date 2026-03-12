@@ -1,5 +1,5 @@
 import { db } from "../db/index";
-import { user } from "../db/schema";
+import { client, user } from "../db/schema";
 import { eq } from "drizzle-orm";
 
 export async function getProfile(userId: string) {
@@ -10,11 +10,14 @@ export async function getProfile(userId: string) {
             email: user.email,
             role: user.role,
             clientId: user.clientId,
+            clientSlug: client.slug,
+            clientName: client.name,
             supervisorId: user.supervisorId,
             image: user.image,
             createdAt: user.createdAt,
         })
         .from(user)
+        .leftJoin(client, eq(user.clientId, client.id))
         .where(eq(user.id, userId))
         .limit(1);
 
@@ -80,6 +83,9 @@ export async function updateProfile(
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
         });
+    if (!updated) {
+        return null;
+    }
 
-    return updated || null;
+    return getProfile(updated.id);
 }

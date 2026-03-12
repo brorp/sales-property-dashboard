@@ -2,7 +2,12 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useTenant } from './TenantContext';
-import { AUTH_INVALID_EVENT, AUTH_STORAGE_KEY, clearStoredAuthUser } from '../lib/api';
+import {
+    AUTH_INVALID_EVENT,
+    AUTH_STORAGE_KEY,
+    clearStoredAuthUser,
+    getApiBaseUrl,
+} from '../lib/api';
 
 const MANAGER_ROLES = new Set(['admin', 'root_admin', 'client_admin', 'supervisor']);
 
@@ -32,12 +37,76 @@ const LOGIN_USERS = [
         clientSlug: 'widari',
     },
     {
+        id: 'seed-supervisor-widari-b',
+        name: 'Supervisor Widari B',
+        email: 'supervisor.b@widari.propertylounge.id',
+        password: 'admin123',
+        role: 'supervisor',
+        clientSlug: 'widari',
+    },
+    {
         id: 'seed-sales-ryan',
         name: 'Anto Widari',
         email: 'anto@widari.propertylounge.id',
         password: 'sales123',
         role: 'sales',
         clientSlug: 'widari',
+    },
+    {
+        id: 'seed-sales-andi',
+        name: 'Andi Widari',
+        email: 'andi@widari.propertylounge.id',
+        password: 'sales123',
+        role: 'sales',
+        clientSlug: 'widari',
+    },
+    {
+        id: 'seed-sales-rudi',
+        name: 'Rudi Widari',
+        email: 'rudi@widari.propertylounge.id',
+        password: 'sales123',
+        role: 'sales',
+        clientSlug: 'widari',
+    },
+    {
+        id: 'seed-sales-beni',
+        name: 'Beni Widari',
+        email: 'beni@widari.propertylounge.id',
+        password: 'sales123',
+        role: 'sales',
+        clientSlug: 'widari',
+    },
+    {
+        id: 'seed-sales-dika',
+        name: 'Dika Widari',
+        email: 'dika@widari.propertylounge.id',
+        password: 'sales123',
+        role: 'sales',
+        clientSlug: 'widari',
+    },
+    {
+        id: 'seed-client-admin-aryana',
+        name: 'Aryana Admin',
+        email: 'admin@aryana.propertylounge.id',
+        password: 'admin123',
+        role: 'client_admin',
+        clientSlug: 'aryana',
+    },
+    {
+        id: 'seed-supervisor-aryana-c',
+        name: 'Supervisor Aryana C',
+        email: 'supervisor.c@aryana.propertylounge.id',
+        password: 'admin123',
+        role: 'supervisor',
+        clientSlug: 'aryana',
+    },
+    {
+        id: 'seed-supervisor-aryana-d',
+        name: 'Supervisor Aryana D',
+        email: 'supervisor.d@aryana.propertylounge.id',
+        password: 'admin123',
+        role: 'supervisor',
+        clientSlug: 'aryana',
     },
     {
         id: 'seed-sales-rachmat',
@@ -48,9 +117,49 @@ const LOGIN_USERS = [
         clientSlug: 'aryana',
     },
     {
+        id: 'seed-sales-aryana-2',
+        name: 'Sales Aryana 2',
+        email: 'sales2@aryana.propertylounge.id',
+        password: 'sales123',
+        role: 'sales',
+        clientSlug: 'aryana',
+    },
+    {
+        id: 'seed-client-admin-agung',
+        name: 'Agung Sedayu Admin',
+        email: 'admin@agungsedayu.propertylounge.id',
+        password: 'admin123',
+        role: 'client_admin',
+        clientSlug: 'agung-sedayu',
+    },
+    {
+        id: 'seed-supervisor-agung-e',
+        name: 'Supervisor Agung E',
+        email: 'supervisor.e@agungsedayu.propertylounge.id',
+        password: 'admin123',
+        role: 'supervisor',
+        clientSlug: 'agung-sedayu',
+    },
+    {
+        id: 'seed-supervisor-agung-f',
+        name: 'Supervisor Agung F',
+        email: 'supervisor.f@agungsedayu.propertylounge.id',
+        password: 'admin123',
+        role: 'supervisor',
+        clientSlug: 'agung-sedayu',
+    },
+    {
         id: 'seed-sales-nicky',
         name: 'Sales Agung 1',
         email: 'sales1@agungsedayu.propertylounge.id',
+        password: 'sales123',
+        role: 'sales',
+        clientSlug: 'agung-sedayu',
+    },
+    {
+        id: 'seed-sales-agung-2',
+        name: 'Sales Agung 2',
+        email: 'sales2@agungsedayu.propertylounge.id',
         password: 'sales123',
         role: 'sales',
         clientSlug: 'agung-sedayu',
@@ -63,9 +172,7 @@ const DEMO_LOGIN_USER_EMAILS = new Set([
     'anto@widari.propertylounge.id',
 ]);
 
-function isDemoLoginUser(userLike) {
-    return Boolean(userLike?.email && DEMO_LOGIN_USER_EMAILS.has(userLike.email));
-}
+const AuthContext = createContext(null);
 
 function isManagerRole(role) {
     return MANAGER_ROLES.has(role || '');
@@ -85,36 +192,75 @@ function getRoleLabel(role) {
     }
 }
 
-const AuthContext = createContext(null);
+function isDemoLoginUser(userLike) {
+    return Boolean(userLike?.email && DEMO_LOGIN_USER_EMAILS.has(userLike.email));
+}
 
-function findLoginUserByEmail(email) {
-    if (!email) {
+function normalizeSessionUser(profile) {
+    if (!profile?.id || !profile?.email) {
         return null;
     }
 
-    return LOGIN_USERS.find((item) => item.email === email) || null;
-}
-
-function normalizeStoredUser(parsedUser, matchedUser) {
     return {
-        id: matchedUser.id,
-        name: parsedUser?.name || matchedUser.name,
-        email: matchedUser.email,
-        role: matchedUser.role,
-        clientSlug: matchedUser.clientSlug || null,
+        id: profile.id,
+        name: profile.name || profile.email,
+        email: profile.email,
+        role: profile.role || 'sales',
+        clientId: profile.clientId || null,
+        clientSlug: profile.clientSlug || null,
+        supervisorId: profile.supervisorId || null,
+        image: profile.image || null,
     };
 }
 
-function canUseUserOnCurrentSite(tenant, userLike) {
-    if (!tenant || !userLike) {
-        return false;
+async function readErrorMessage(response) {
+    const text = await response.text();
+    if (!text) {
+        return `HTTP ${response.status}`;
     }
 
-    if (tenant.isUserAllowedOnCurrentSite(userLike)) {
-        return true;
+    try {
+        const parsed = JSON.parse(text);
+        if (typeof parsed?.error === 'string' && parsed.error.trim()) {
+            return parsed.error;
+        }
+        if (typeof parsed?.message === 'string' && parsed.message.trim()) {
+            return parsed.message;
+        }
+    } catch {
+        // Ignore JSON parsing errors and fall back to raw text.
     }
 
-    return tenant.isMasterSite && isDemoLoginUser(userLike);
+    return text;
+}
+
+async function fetchCurrentProfile() {
+    const response = await fetch(`${getApiBaseUrl()}/api/profile/me`, {
+        credentials: 'include',
+    });
+
+    if (response.status === 401) {
+        return null;
+    }
+
+    if (!response.ok) {
+        throw new Error(await readErrorMessage(response));
+    }
+
+    return normalizeSessionUser(await response.json());
+}
+
+function persistUser(userLike) {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    if (!userLike) {
+        clearStoredAuthUser();
+        return;
+    }
+
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userLike));
 }
 
 export function AuthProvider({ children }) {
@@ -127,22 +273,41 @@ export function AuthProvider({ children }) {
             return;
         }
 
-        const saved = localStorage.getItem(AUTH_STORAGE_KEY);
-        if (saved) {
+        let cancelled = false;
+
+        async function loadUserFromSession() {
+            setLoading(true);
+
             try {
-                const parsed = JSON.parse(saved);
-                const matchedUser = findLoginUserByEmail(parsed?.email);
-                if (matchedUser && canUseUserOnCurrentSite(tenant, matchedUser)) {
-                    setUser(normalizeStoredUser(parsed, matchedUser));
+                const currentUser = await fetchCurrentProfile();
+                if (cancelled) {
+                    return;
+                }
+
+                if (currentUser && tenant.isUserAllowedOnCurrentSite(currentUser)) {
+                    setUser(currentUser);
+                    persistUser(currentUser);
                 } else {
-                    clearStoredAuthUser();
                     setUser(null);
+                    clearStoredAuthUser();
                 }
             } catch {
-                clearStoredAuthUser();
+                if (!cancelled) {
+                    setUser(null);
+                    clearStoredAuthUser();
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
             }
         }
-        setLoading(false);
+
+        void loadUserFromSession();
+
+        return () => {
+            cancelled = true;
+        };
     }, [tenant]);
 
     useEffect(() => {
@@ -161,15 +326,48 @@ export function AuthProvider({ children }) {
         };
     }, []);
 
-    const login = (email, password) => {
+    const login = async (email, password) => {
         if (tenant.loading) {
             return { success: false, error: 'Tenant context belum siap' };
         }
 
-        const found = LOGIN_USERS.find(u => u.email === email && u.password === password);
-        if (!found) return { success: false, error: 'Email atau password salah' };
+        const response = await fetch(`${getApiBaseUrl()}/api/auth/sign-in/email`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({
+                email,
+                password,
+                rememberMe: true,
+            }),
+        });
 
-        if (!canUseUserOnCurrentSite(tenant, found)) {
+        if (!response.ok) {
+            return {
+                success: false,
+                error: await readErrorMessage(response),
+            };
+        }
+
+        const currentUser = await fetchCurrentProfile();
+        if (!currentUser) {
+            return {
+                success: false,
+                error: 'Session login tidak terbentuk.',
+            };
+        }
+
+        if (!tenant.isUserAllowedOnCurrentSite(currentUser)) {
+            await fetch(`${getApiBaseUrl()}/api/auth/sign-out`, {
+                method: 'POST',
+                credentials: 'include',
+            }).catch(() => {});
+
+            clearStoredAuthUser();
+            setUser(null);
+
             if (tenant.isClientSite && tenant.tenant?.name) {
                 return {
                     success: false,
@@ -183,21 +381,19 @@ export function AuthProvider({ children }) {
             };
         }
 
-        const userData = {
-            id: found.id,
-            name: found.name,
-            email: found.email,
-            role: found.role,
-            clientSlug: found.clientSlug || null,
-        };
-        setUser(userData);
-        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(userData));
+        setUser(currentUser);
+        persistUser(currentUser);
         return { success: true };
     };
 
     const logout = () => {
         setUser(null);
         clearStoredAuthUser();
+
+        void fetch(`${getApiBaseUrl()}/api/auth/sign-out`, {
+            method: 'POST',
+            credentials: 'include',
+        }).catch(() => {});
     };
 
     const updateCurrentUser = (patch) => {
@@ -206,7 +402,7 @@ export function AuthProvider({ children }) {
                 return prev;
             }
             const next = { ...prev, ...patch };
-            localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
+            persistUser(next);
             return next;
         });
     };
@@ -214,9 +410,9 @@ export function AuthProvider({ children }) {
     const isAdmin = isManagerRole(user?.role);
     const availableLoginUsers = useMemo(
         () =>
-            LOGIN_USERS.filter((item) => {
-                return isDemoLoginUser(item) && canUseUserOnCurrentSite(tenant, item);
-            }),
+            LOGIN_USERS.filter((item) => (
+                isDemoLoginUser(item) && tenant.isUserAllowedOnCurrentSite(item)
+            )),
         [tenant]
     );
 
@@ -229,6 +425,8 @@ export function AuthProvider({ children }) {
 
 export const useAuth = () => {
     const ctx = useContext(AuthContext);
-    if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+    if (!ctx) {
+        throw new Error('useAuth must be used within AuthProvider');
+    }
     return ctx;
 };

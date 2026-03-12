@@ -113,7 +113,7 @@ export function TenantProvider({ children }) {
             }
 
             if (isMasterSite) {
-                return isLocalHost ? true : userLike.role === 'root_admin';
+                return true;
             }
 
             if (!currentTenantSlug) {
