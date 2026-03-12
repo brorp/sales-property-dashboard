@@ -71,6 +71,23 @@ export function getConfiguredCorsOrigins(): string[] {
     return configuredOrigins;
 }
 
+export function getBetterAuthTrustedOrigins(): string[] {
+    const trusted = new Set(configuredOrigins);
+
+    for (const domain of wildcardRootDomains) {
+        trusted.add(`https://${domain}`);
+        trusted.add(`http://${domain}`);
+        trusted.add(`https://*.${domain}`);
+        trusted.add(`http://*.${domain}`);
+    }
+
+    if (allowVercelPreview) {
+        trusted.add("https://*.vercel.app");
+    }
+
+    return Array.from(trusted);
+}
+
 export function getCorsAllowVercelPreview(): boolean {
     return allowVercelPreview;
 }

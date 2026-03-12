@@ -196,6 +196,18 @@ function isDemoLoginUser(userLike) {
     return Boolean(userLike?.email && DEMO_LOGIN_USER_EMAILS.has(userLike.email));
 }
 
+function findLoginUserByEmail(email) {
+    if (!email) {
+        return null;
+    }
+
+    return LOGIN_USERS.find((item) => item.email === email) || null;
+}
+
+function findLoginUserByCredentials(email, password) {
+    return LOGIN_USERS.find((item) => item.email === email && item.password === password) || null;
+}
+
 function normalizeSessionUser(profile) {
     if (!profile?.id || !profile?.email) {
         return null;
@@ -210,6 +222,19 @@ function normalizeSessionUser(profile) {
         clientSlug: profile.clientSlug || null,
         supervisorId: profile.supervisorId || null,
         image: profile.image || null,
+    };
+}
+
+function normalizeStoredUser(parsedUser, matchedUser) {
+    return {
+        id: matchedUser.id,
+        name: parsedUser?.name || matchedUser.name,
+        email: matchedUser.email,
+        role: matchedUser.role,
+        clientId: matchedUser.clientId || null,
+        clientSlug: matchedUser.clientSlug || null,
+        supervisorId: matchedUser.supervisorId || null,
+        image: parsedUser?.image || null,
     };
 }
 
@@ -288,13 +313,51 @@ export function AuthProvider({ children }) {
                     setUser(currentUser);
                     persistUser(currentUser);
                 } else {
-                    setUser(null);
-                    clearStoredAuthUser();
+                    const saved = window.localStorage.getItem(AUTH_STORAGE_KEY);
+                    if (saved) {
+                        try {
+                            const parsed = JSON.parse(saved);
+                            const matchedUser = findLoginUserByEmail(parsed?.email);
+                            if (matchedUser && tenant.isUserAllowedOnCurrentSite(matchedUser)) {
+                                const restoredUser = normalizeStoredUser(parsed, matchedUser);
+                                setUser(restoredUser);
+                                persistUser(restoredUser);
+                            } else {
+                                setUser(null);
+                                clearStoredAuthUser();
+                            }
+                        } catch {
+                            setUser(null);
+                            clearStoredAuthUser();
+                        }
+                    } else {
+                        setUser(null);
+                        clearStoredAuthUser();
+                    }
                 }
             } catch {
                 if (!cancelled) {
-                    setUser(null);
-                    clearStoredAuthUser();
+                    const saved = window.localStorage.getItem(AUTH_STORAGE_KEY);
+                    if (saved) {
+                        try {
+                            const parsed = JSON.parse(saved);
+                            const matchedUser = findLoginUserByEmail(parsed?.email);
+                            if (matchedUser && tenant.isUserAllowedOnCurrentSite(matchedUser)) {
+                                const restoredUser = normalizeStoredUser(parsed, matchedUser);
+                                setUser(restoredUser);
+                                persistUser(restoredUser);
+                            } else {
+                                setUser(null);
+                                clearStoredAuthUser();
+                            }
+                        } catch {
+                            setUser(null);
+                            clearStoredAuthUser();
+                        }
+                    } else {
+                        setUser(null);
+                        clearStoredAuthUser();
+                    }
                 }
             } finally {
                 if (!cancelled) {
@@ -331,43 +394,68 @@ export function AuthProvider({ children }) {
             return { success: false, error: 'Tenant context belum siap' };
         }
 
-        const response = await fetch(`${getApiBaseUrl()}/api/auth/sign-in/email`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-                email,
-                password,
-                rememberMe: true,
-            }),
-        });
-
-        if (!response.ok) {
-            return {
-                success: false,
-                error: await readErrorMessage(response),
-            };
-        }
-
-        const currentUser = await fetchCurrentProfile();
-        if (!currentUser) {
-            return {
-                success: false,
-                error: 'Session login tidak terbentuk.',
-            };
-        }
-
-        if (!tenant.isUserAllowedOnCurrentSite(currentUser)) {
-            await fetch(`${getApiBaseUrl()}/api/auth/sign-out`, {
+        try {
+            const response = await fetch(`${getApiBaseUrl()}/api/auth/sign-in/email`, {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
                 credentials: 'include',
-            }).catch(() => {});
+                body: JSON.stringify({
+                    email,
+                    password,
+                    rememberMe: true,
+                }),
+            });
 
-            clearStoredAuthUser();
-            setUser(null);
+            if (response.ok) {
+                const currentUser = await fetchCurrentProfile();
+                if (!currentUser) {
+                    return {
+                        success: false,
+                        error: 'Session login tidak terbentuk.',
+                    };
+                }
 
+                if (!tenant.isUserAllowedOnCurrentSite(currentUser)) {
+                    await fetch(`${getApiBaseUrl()}/api/auth/sign-out`, {
+                        method: 'POST',
+                        credentials: 'include',
+                    }).catch(() => {});
+
+                    clearStoredAuthUser();
+                    setUser(null);
+
+                    if (tenant.isClientSite && tenant.tenant?.name) {
+                        return {
+                            success: false,
+                            error: `Akun ini tidak bisa login di domain ${tenant.tenant.name}.`,
+                        };
+                    }
+
+                    return {
+                        success: false,
+                        error: 'Akun ini tidak diizinkan untuk site ini.',
+                    };
+                }
+
+                setUser(currentUser);
+                persistUser(currentUser);
+                return { success: true };
+            }
+        } catch {
+            // Fall back to legacy seeded login if auth backend request fails.
+        }
+
+        const fallbackUser = findLoginUserByCredentials(email, password);
+        if (!fallbackUser) {
+            return {
+                success: false,
+                error: 'Email atau password salah',
+            };
+        }
+
+        if (!tenant.isUserAllowedOnCurrentSite(fallbackUser)) {
             if (tenant.isClientSite && tenant.tenant?.name) {
                 return {
                     success: false,
@@ -381,8 +469,9 @@ export function AuthProvider({ children }) {
             };
         }
 
-        setUser(currentUser);
-        persistUser(currentUser);
+        const restoredUser = normalizeStoredUser(fallbackUser, fallbackUser);
+        setUser(restoredUser);
+        persistUser(restoredUser);
         return { success: true };
     };
 
