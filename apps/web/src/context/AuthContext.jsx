@@ -394,8 +394,10 @@ export function AuthProvider({ children }) {
             return { success: false, error: 'Tenant context belum siap' };
         }
 
+        let requestFailed = false;
+
         try {
-            const response = await fetch(`${getApiBaseUrl()}/api/auth/sign-in/email`, {
+            const response = await fetch(`${getApiBaseUrl()}/api/public/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -443,8 +445,20 @@ export function AuthProvider({ children }) {
                 persistUser(currentUser);
                 return { success: true };
             }
+
+            return {
+                success: false,
+                error: await readErrorMessage(response),
+            };
         } catch {
-            // Fall back to legacy seeded login if auth backend request fails.
+            requestFailed = true;
+        }
+
+        if (!requestFailed) {
+            return {
+                success: false,
+                error: 'Email atau password salah',
+            };
         }
 
         const fallbackUser = findLoginUserByCredentials(email, password);
