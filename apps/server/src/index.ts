@@ -15,15 +15,18 @@ import webhooksRoutes from "./routes/webhooks.routes";
 import whatsappAdminRoutes from "./routes/whatsapp-admin.routes";
 import { startDistributionWorker } from "./worker/distribution.worker";
 import { startWhatsAppQrBridge } from "./services/whatsapp-qr.service";
-import { logger } from "./utils/logger";
+import {
+    createComponentLogger,
+    registerGlobalProcessErrorHandlers,
+} from "./utils/logger";
 import { requestLogger } from "./middleware/request-logger";
 import { errorHandler } from "./middleware/error-handler";
 
 const app: ReturnType<typeof express> = express();
-const PORT = process.env.PORT || 3001;
+const PORT = Number(process.env.PORT || 3001);
 const WA_PROVIDER = (process.env.WA_PROVIDER || "dummy").toLowerCase();
+const serverLogger = createComponentLogger("server");
 
-// CORS
 app.use(
     cors({
         origin: corsOriginDelegate,
@@ -31,57 +34,48 @@ app.use(
     })
 );
 
-// HTTP request logging
 app.use(requestLogger);
-
-// Better Auth handler — must be before express.json() for auth routes
 app.all("/api/auth/*splat", toNodeHandler(auth));
-
-// Parse JSON body for API routes
 app.use(
     express.json({
         limit: process.env.JSON_BODY_LIMIT || "20mb",
     })
 );
 
-// Public webhook routes (Meta Ads + WhatsApp)
 app.use("/webhooks", webhooksRoutes);
 app.use("/api/whatsapp-admin", whatsappAdminRoutes);
 app.use("/api/public", publicRoutes);
-
-// API routes
 app.use("/api", apiRoutes);
 
-// Health check
 app.get("/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// Global error handler — must be AFTER all routes
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-    logger.info(`🚀 Property Lounge API running on http://localhost:${PORT}`);
-    logger.info(`📋 Auth:      http://localhost:${PORT}/api/auth`);
-    logger.info(`📊 Dashboard: http://localhost:${PORT}/api/dashboard`);
-    logger.info(`👥 Leads:     http://localhost:${PORT}/api/leads`);
-    logger.info(`👔 Team:      http://localhost:${PORT}/api/team`);
-    logger.info(`🧭 Sales:     http://localhost:${PORT}/api/sales`);
-    logger.info(`👤 Profile:   http://localhost:${PORT}/api/profile`);
-    logger.info(`🔔 Webhooks:  http://localhost:${PORT}/webhooks`);
-    logger.info(`⚙️  WA Admin:  http://localhost:${PORT}/api/whatsapp-admin/status`);
-    logger.info(`💬 WA Mode:   ${WA_PROVIDER}`);
-    logger.info(
-        `🌐 CORS:      ${getConfiguredCorsOrigins().join(", ")}${getCorsAllowVercelPreview() ? " (+ *.vercel.app)" : ""
-        }${getCorsWildcardRootDomains().length > 0 ? ` (+ *.${getCorsWildcardRootDomains().join(", *.")})` : ""}`
-    );
-    if (WA_PROVIDER === "qr_local") {
-        logger.info(
-            `📱 WA QR Auth: ${process.env.WA_QR_AUTH_PATH || ".wa-qr-auth"}`
-        );
-    }
+    const baseUrl = `http://localhost:${PORT}`;
+
+    serverLogger.info("HTTP server started", {
+        port: PORT,
+        baseUrl,
+        waProvider: WA_PROVIDER,
+    });
+
+    serverLogger.info("Runtime configuration", {
+        authUrl: `${baseUrl}/api/auth`,
+        apiBaseUrl: `${baseUrl}/api`,
+        webhookBaseUrl: `${baseUrl}/webhooks`,
+        whatsappAdminUrl: `${baseUrl}/api/whatsapp-admin/status`,
+        corsOrigins: getConfiguredCorsOrigins(),
+        corsAllowVercelPreview: getCorsAllowVercelPreview(),
+        corsWildcardRootDomains: getCorsWildcardRootDomains(),
+        waQrAuthPath: WA_PROVIDER === "qr_local" ? process.env.WA_QR_AUTH_PATH || ".wa-qr-auth" : null,
+    });
+
     startDistributionWorker();
     void startWhatsAppQrBridge();
+    registerGlobalProcessErrorHandlers();
 });
 
 export default app;

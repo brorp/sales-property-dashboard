@@ -1,43 +1,75 @@
+import { randomUUID } from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
-import { logger } from "../utils/logger";
 import type { AuthenticatedRequest } from "./auth";
+import { createComponentLogger } from "../utils/logger";
 
-/**
- * Express middleware that logs every HTTP request → response cycle.
- *
- * Captured fields: method, url, status, response-time (ms), userId (if authenticated).
- * Uses the "http" log level so it can be toggled via LOG_LEVEL.
- */
+const httpLogger = createComponentLogger("http");
+
+function createRequestId(req: Request) {
+    const incoming = req.header("x-request-id");
+    if (incoming && incoming.trim()) {
+        return incoming.trim();
+    }
+
+    return randomUUID().replace(/-/g, "").slice(0, 12);
+}
+
+function buildRequestMeta(req: Request, res: Response, durationMs?: number) {
+    const authReq = req as AuthenticatedRequest;
+
+    return {
+        requestId: authReq.requestId || null,
+        method: req.method,
+        path: req.originalUrl,
+        statusCode: res.statusCode,
+        durationMs: durationMs !== undefined ? Number(durationMs.toFixed(1)) : undefined,
+        ip: req.ip,
+        userId: authReq.user?.id || null,
+        userRole: authReq.user?.role || null,
+        clientId: authReq.user?.clientId || null,
+    };
+}
+
 export function requestLogger(req: Request, res: Response, next: NextFunction) {
-    // Skip noisy endpoints
     if (req.path === "/health") {
         next();
         return;
     }
 
-    const start = Date.now();
+    const requestId = createRequestId(req);
+    const startedAt = process.hrtime.bigint();
+    let completed = false;
 
-    // Capture when the response finishes
+    (req as AuthenticatedRequest).requestId = requestId;
+    res.setHeader("x-request-id", requestId);
+
+    httpLogger.debug("Request started", buildRequestMeta(req, res));
+
     res.on("finish", () => {
-        const duration = Date.now() - start;
-        const userId = (req as AuthenticatedRequest).user?.id ?? "anonymous";
-
-        const meta = {
-            method: req.method,
-            url: req.originalUrl,
-            status: res.statusCode,
-            duration: `${duration}ms`,
-            userId,
-            ip: req.ip,
-        };
+        completed = true;
+        const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+        const meta = buildRequestMeta(req, res, durationMs);
 
         if (res.statusCode >= 500) {
-            logger.error("Request completed with server error", meta);
-        } else if (res.statusCode >= 400) {
-            logger.warn("Request completed with client error", meta);
-        } else {
-            logger.http("Request completed", meta);
+            httpLogger.error("Request completed", meta);
+            return;
         }
+
+        if (res.statusCode >= 400) {
+            httpLogger.warn("Request completed", meta);
+            return;
+        }
+
+        httpLogger.http("Request completed", meta);
+    });
+
+    res.on("close", () => {
+        if (completed || res.writableEnded) {
+            return;
+        }
+
+        const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+        httpLogger.warn("Request aborted", buildRequestMeta(req, res, durationMs));
     });
 
     next();

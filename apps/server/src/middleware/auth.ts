@@ -23,6 +23,7 @@ export interface AuthenticatedRequest extends Request {
         token: string;
         expiresAt: Date;
     };
+    requestId?: string;
     scope?: QueryScope;
 }
 

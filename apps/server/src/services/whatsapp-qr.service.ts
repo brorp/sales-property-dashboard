@@ -7,7 +7,7 @@ import {
     setActiveWhatsAppNumber,
 } from "./whatsapp-identity.service";
 import { normalizePhone } from "../utils/phone";
-import { logger } from "../utils/logger";
+import { createComponentLogger, markErrorAsHandled } from "../utils/logger";
 
 type WebJsClient = {
     initialize: () => Promise<void>;
@@ -66,6 +66,8 @@ let reconnectEnabled = true;
 let sessionGeneration = 0;
 let runtimeGuardInstalled = false;
 
+const waQrLogger = createComponentLogger("wa:qr");
+
 const runtimeState: Omit<WhatsAppQrAdminState, "provider" | "enabled" | "authPath"> = {
     status: "idle",
     qr: null,
@@ -104,6 +106,10 @@ function currentWebJsClientId() {
 function currentActiveClientSlug() {
     const raw = String(process.env.WA_ACTIVE_CLIENT_SLUG || "").trim().toLowerCase();
     return raw || null;
+}
+
+function isQrDebugEnabled() {
+    return process.env.WA_QR_DEBUG === "true";
 }
 
 function currentWebJsHeadless() {
@@ -225,7 +231,8 @@ function scheduleBridgeRestart(delayMs = 2500) {
 
 function handleTransientRuntimeError(source: string, error: unknown) {
     const message = readErrorMessage(error);
-    logger.warn(`[wa:qr] transient runtime error (${source}): ${message}`);
+    markErrorAsHandled(error);
+    waQrLogger.warn("Transient runtime error", { source, error, message });
     clientRef = null;
     clearActiveWhatsAppNumber();
     updateRuntimeState({
@@ -253,7 +260,7 @@ function installRuntimeGuard() {
             return;
         }
 
-        logger.error("[wa:qr] uncaught exception", { error });
+        waQrLogger.error("Uncaught WhatsApp QR exception", { origin, error });
         process.exit(1);
     });
 }
@@ -573,8 +580,8 @@ function canReplyToJid(jid: string | null) {
 
 async function handleIncomingMessage(message: any) {
     if (!message || message.fromMe) {
-        if (process.env.WA_QR_DEBUG === "true") {
-            console.log("[wa:qr][debug] skip message: fromMe or invalid payload");
+        if (isQrDebugEnabled()) {
+            waQrLogger.debug("Skip inbound message", { reason: "from_me_or_invalid_payload" });
         }
         return;
     }
@@ -584,20 +591,21 @@ async function handleIncomingMessage(message: any) {
     const body = extractTextMessage(message);
 
     if (!body) {
-        if (process.env.WA_QR_DEBUG === "true") {
-            console.log("[wa:qr][debug] skip message: text body not found");
+        if (isQrDebugEnabled()) {
+            waQrLogger.debug("Skip inbound message", { reason: "text_body_not_found" });
         }
         return;
     }
 
     const fromWa = await resolveSenderPhoneWithLookup(message);
     if (!fromWa) {
-        if (process.env.WA_QR_DEBUG === "true") {
-            console.log(
-                `[wa:qr][debug] skip message: unsupported sender from=${String(
-                    message?.from || ""
-                )} author=${String(message?.author || "")} type=${String(message?.type || "")}`
-            );
+        if (isQrDebugEnabled()) {
+            waQrLogger.debug("Skip inbound message", {
+                reason: "unsupported_sender",
+                from: String(message?.from || ""),
+                author: String(message?.author || ""),
+                type: String(message?.type || ""),
+            });
         }
 
         if (inboundReplyJid && canReplyToJid(inboundReplyJid)) {
@@ -606,21 +614,22 @@ async function handleIncomingMessage(message: any) {
                 "Harap menunggu agent professional akan menghubungi anda"
             );
             if (!fallbackReply.sent) {
-                logger.error(`[wa:qr] fallback auto-reply failed to jid=${inboundReplyJid}`, {
-                    error: fallbackReply.error || "unknown error"
+                waQrLogger.error("Fallback auto-reply failed", {
+                    jid: inboundReplyJid,
+                    error: fallbackReply.error || "unknown error",
                 });
             }
         }
         return;
     }
 
-    if (process.env.WA_QR_DEBUG === "true") {
-        console.log(`[wa:qr][debug] sender resolved=${fromWa}`);
+    if (isQrDebugEnabled()) {
+        waQrLogger.debug("Inbound sender resolved", { fromWa });
     }
 
     const activeClientSlug = currentActiveClientSlug();
     if (!activeClientSlug) {
-        logger.error("[wa:qr] inbound ignored: WA_ACTIVE_CLIENT_SLUG is not configured");
+        waQrLogger.error("Inbound message ignored", { reason: "missing_active_client_slug" });
         return;
     }
 
@@ -628,7 +637,10 @@ async function handleIncomingMessage(message: any) {
     const activeClient = await getClientBySlug(activeClientSlug);
     activeClientId = activeClient?.id || null;
     if (!activeClientId) {
-        logger.error(`[wa:qr] inbound ignored: active client slug "${activeClientSlug}" was not found`);
+        waQrLogger.error("Inbound message ignored", {
+            reason: "active_client_not_found",
+            activeClientSlug,
+        });
         return;
     }
 
@@ -640,9 +652,12 @@ async function handleIncomingMessage(message: any) {
         clientId: activeClientId,
     });
 
-    if (process.env.WA_QR_DEBUG === "true") {
-        console.log(`[wa:qr][debug] inbound processed: type=${result.type} from=${fromWa}`);
-    }
+    waQrLogger.info("Inbound message processed", {
+        type: result.type,
+        fromWa,
+        clientId: activeClientId,
+        firstClientMessage: Boolean(result.firstClientMessage),
+    });
 
     if (result.type === "client_message" && result.firstClientMessage) {
         const autoReplyText =
@@ -655,11 +670,16 @@ async function handleIncomingMessage(message: any) {
             : await sendWhatsAppQrText(fromWa, autoReplyText);
 
         if (!replyResult.sent) {
-            logger.error(`[wa:qr] auto-reply failed to ${fromWa}`, {
-                error: replyResult.error || "unknown error"
+            waQrLogger.error("Auto-reply failed", {
+                fromWa,
+                jid: inboundReplyJid || phoneToChatId(fromWa),
+                error: replyResult.error || "unknown error",
             });
-        } else if (process.env.WA_QR_DEBUG === "true") {
-            logger.debug(`[wa:qr][debug] auto-reply sent to jid=${inboundReplyJid || phoneToChatId(fromWa)}`);
+        } else if (isQrDebugEnabled()) {
+            waQrLogger.debug("Auto-reply sent", {
+                fromWa,
+                jid: inboundReplyJid || phoneToChatId(fromWa),
+            });
         }
     }
 }
@@ -882,9 +902,11 @@ export async function startWhatsAppQrBridge() {
             messageMediaCtor = (webJsAny.MessageMedia || null) as WebJsMessageMediaCtor | null;
         } catch (importError) {
             const message =
-                "[wa:qr] missing dependency. Run: pnpm --filter @property-lounge/server add whatsapp-web.js";
-            console.error(message);
-            console.error("[wa:qr] import error:", importError);
+                "Missing dependency. Run: pnpm --filter @property-lounge/server add whatsapp-web.js";
+            waQrLogger.error("Failed loading whatsapp-web.js", {
+                error: importError,
+                action: "pnpm --filter @property-lounge/server add whatsapp-web.js",
+            });
             updateRuntimeState({
                 status: "error",
                 lastError: message,
@@ -905,9 +927,10 @@ export async function startWhatsAppQrBridge() {
         if (chromeExecutable) {
             puppeteerOptions.executablePath = chromeExecutable;
         } else {
-            console.warn(
-                "[wa:qr] Chrome executable not auto-detected. Configure WA_WEBJS_EXECUTABLE_PATH or install Chrome for Puppeteer."
-            );
+            waQrLogger.warn("Chrome executable not auto-detected", {
+                platform: process.platform,
+                envVar: "WA_WEBJS_EXECUTABLE_PATH",
+            });
         }
 
         const client: WebJsClient = new ClientCtor({
@@ -920,8 +943,13 @@ export async function startWhatsAppQrBridge() {
         });
 
         clientRef = client;
-        console.log(`[wa:qr] using auth path: ${authPath}`);
-        console.log("[wa:qr] waiting for QR / existing session...");
+        waQrLogger.info("Starting WhatsApp QR bridge", {
+            authPath,
+            clientId: currentWebJsClientId(),
+            headless: currentWebJsHeadless(),
+            executablePath: chromeExecutable || null,
+            activeClientSlug: currentActiveClientSlug(),
+        });
 
         client.on("qr", (qr: string) => {
             if (generation !== sessionGeneration) {
@@ -936,7 +964,7 @@ export async function startWhatsAppQrBridge() {
                 pairingPhone: null,
                 lastClientState: null,
             });
-            console.log("[wa:qr] QR updated. Open Admin Settings page to scan it.");
+            waQrLogger.info("QR updated", { status: "awaiting_qr" });
         });
 
         client.on("authenticated", () => {
@@ -954,7 +982,7 @@ export async function startWhatsAppQrBridge() {
                 lastClientState: "AUTHENTICATED",
                 lastError: null,
             });
-            console.log("[wa:qr] authenticated, waiting for ready...");
+            waQrLogger.info("WhatsApp QR authenticated", { status: "starting" });
         });
 
         client.on("change_state", (state: string) => {
@@ -978,7 +1006,7 @@ export async function startWhatsAppQrBridge() {
             setActiveWhatsAppNumber(activeWaNumber);
             updateRuntimeState({ activeWaNumber });
             markConnectedState("READY");
-            console.log(`[wa:qr] connected${activeWaNumber ? ` as ${activeWaNumber}` : ""}`);
+            waQrLogger.info("WhatsApp QR connected", { activeWaNumber: activeWaNumber || null });
         });
 
         client.on("auth_failure", (message: string) => {
@@ -993,7 +1021,7 @@ export async function startWhatsAppQrBridge() {
                 lastClientState: null,
                 lastError: message || "Authentication failure",
             });
-            console.error("[wa:qr] auth failure:", message);
+            waQrLogger.error("WhatsApp QR authentication failed", { message });
         });
 
         client.on("disconnected", (reason: string) => {
@@ -1014,7 +1042,7 @@ export async function startWhatsAppQrBridge() {
                 pairingCode: null,
                 pairingPhone: null,
             });
-            console.log(`[wa:qr] disconnected: ${reason || "unknown"}`);
+            waQrLogger.warn("WhatsApp QR disconnected", { reason: reason || "unknown" });
 
             if (!reconnectEnabled || generation !== sessionGeneration) {
                 return;
@@ -1035,7 +1063,7 @@ export async function startWhatsAppQrBridge() {
             try {
                 await handleIncomingMessage(message);
             } catch (error) {
-                console.error("[wa:qr] failed handling inbound message:", error);
+                waQrLogger.error("Failed handling inbound WhatsApp message", { error });
             }
         });
 
@@ -1059,7 +1087,11 @@ export async function startWhatsAppQrBridge() {
         const uiMessage = chromeMissing
             ? "Chrome belum ditemukan untuk WhatsApp session. Install browser dengan `pnpm dlx puppeteer browsers install chrome` atau set WA_WEBJS_EXECUTABLE_PATH ke lokasi Chrome."
             : message;
-        console.error("[wa:qr] failed to start bridge:", error);
+        waQrLogger.error("Failed to start WhatsApp QR bridge", {
+            error,
+            chromeMissing,
+            activeClientSlug: currentActiveClientSlug(),
+        });
         updateRuntimeState({
             status: "error",
             activeWaNumber: null,

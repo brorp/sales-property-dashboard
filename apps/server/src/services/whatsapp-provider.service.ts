@@ -1,5 +1,8 @@
 import { normalizePhone } from "../utils/phone";
+import { createComponentLogger } from "../utils/logger";
 import { sendWhatsAppQrMedia, sendWhatsAppQrText } from "./whatsapp-qr.service";
+
+const waProviderLogger = createComponentLogger("wa:provider");
 
 type SendResult = {
     sent: boolean;
@@ -13,6 +16,15 @@ function toWhatsAppRecipient(input: string) {
     return normalized.replace(/[^\d]/g, "");
 }
 
+function previewBody(body: string) {
+    const trimmed = String(body || "").trim();
+    if (!trimmed) {
+        return "";
+    }
+
+    return trimmed.length > 120 ? `${trimmed.slice(0, 117)}...` : trimmed;
+}
+
 export async function sendWhatsAppText(to: string, body: string): Promise<SendResult> {
     const provider = (process.env.WA_PROVIDER || "dummy").toLowerCase();
 
@@ -21,7 +33,10 @@ export async function sendWhatsAppText(to: string, body: string): Promise<SendRe
     }
 
     if (provider !== "cloud_api") {
-        console.log(`[wa:dummy] -> ${to}: ${body}`);
+        waProviderLogger.info("Dummy WhatsApp text send simulated", {
+            to,
+            bodyPreview: previewBody(body),
+        });
         return { sent: true, provider: "dummy" };
     }
 
@@ -96,9 +111,12 @@ export async function sendWhatsAppMedia(params: {
     }
 
     if (provider !== "cloud_api") {
-        console.log(
-            `[wa:dummy][media] -> ${params.to}: mime=${params.mimeType} text=${params.body || ""}`
-        );
+        waProviderLogger.info("Dummy WhatsApp media send simulated", {
+            to: params.to,
+            mimeType: params.mimeType,
+            fileName: params.fileName || null,
+            bodyPreview: previewBody(params.body || ""),
+        });
         return { sent: true, provider: "dummy" };
     }
 

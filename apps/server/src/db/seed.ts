@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { rm } from "node:fs/promises";
 import { eq } from "drizzle-orm";
 import { logger } from "../utils/logger";
 import { auth } from "../auth/index";
@@ -8,16 +9,19 @@ import {
     activity,
     appSetting,
     appointment,
+    account,
     client,
     distributionAttempt,
     distributionCycle,
     lead,
     leadProgressHistory,
     leadStatusHistory,
+    projectUnit,
     salesQueue,
     session,
     supervisorSales,
     user,
+    verification,
     waMessage,
 } from "./schema";
 import { ROOT_USER, TENANTS, type SeedUser } from "./seed-data";
@@ -40,7 +44,17 @@ async function resetOperationalData() {
         await tx.delete(lead);
         await tx.delete(salesQueue);
         await tx.delete(supervisorSales);
+        await tx.delete(appSetting);
+        await tx.delete(projectUnit);
+        await tx.delete(verification);
+        await tx.delete(session);
+        await tx.delete(account);
+        await tx.delete(user);
+        await tx.delete(client);
     });
+
+    const waQrAuthPath = process.env.WA_QR_AUTH_PATH || ".wa-qr-auth";
+    await rm(waQrAuthPath, { recursive: true, force: true }).catch(() => {});
 }
 
 async function ensureClients() {
