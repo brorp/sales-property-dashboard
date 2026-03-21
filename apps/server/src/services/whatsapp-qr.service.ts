@@ -154,6 +154,22 @@ function currentWebJsVersionCache() {
     return { type: "local" as const };
 }
 
+function currentWebJsVersion() {
+    const raw = String(process.env.WA_WEBJS_WEB_VERSION || "").trim();
+    return raw || undefined;
+}
+
+function currentWebJsUserAgent() {
+    const raw = String(process.env.WA_WEBJS_USER_AGENT || "").trim();
+    if (!raw) {
+        return false;
+    }
+    if (raw.toLowerCase() === "browser_default") {
+        return false;
+    }
+    return raw;
+}
+
 function findLocalChromeExecutable() {
     const envPath = process.env.WA_WEBJS_EXECUTABLE_PATH?.trim();
     if (envPath) {
@@ -1107,6 +1123,8 @@ export async function startWhatsAppQrBridge() {
         }
 
         const webVersionCache = currentWebJsVersionCache();
+        const webVersion = currentWebJsVersion();
+        const userAgent = currentWebJsUserAgent();
 
         const client: WebJsClient = new ClientCtor({
             authStrategy: new LocalAuthCtor({
@@ -1114,7 +1132,9 @@ export async function startWhatsAppQrBridge() {
                 dataPath: authPath,
             }),
             webVersionCache,
+            webVersion,
             puppeteer: puppeteerOptions,
+            userAgent,
         });
 
         clientRef = client;
@@ -1123,6 +1143,8 @@ export async function startWhatsAppQrBridge() {
             clientId: currentWebJsClientId(),
             headless: currentWebJsHeadless(),
             executablePath: chromeExecutable || null,
+            userAgent: userAgent || null,
+            webVersion: webVersion || null,
             webVersionCacheType: webVersionCache.type,
             webVersionCacheRemotePath:
                 "remotePath" in webVersionCache ? webVersionCache.remotePath : null,
