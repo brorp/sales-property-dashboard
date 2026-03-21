@@ -15,14 +15,6 @@ const MANAGER_ROLES = new Set(['admin', 'root_admin', 'client_admin', 'superviso
 
 const LOGIN_USERS = [
     {
-        id: 'seed-root-admin',
-        name: 'Root Admin',
-        email: 'root@propertylounge.id',
-        password: 'admin123',
-        role: 'root_admin',
-        clientSlug: null,
-    },
-    {
         id: 'seed-client-admin',
         name: 'Widari Admin',
         email: 'admin@widari.propertylounge.id',
@@ -30,11 +22,28 @@ const LOGIN_USERS = [
         role: 'client_admin',
         clientSlug: 'widari',
     },
+    {
+        id: 'seed-supervisor-aldi',
+        name: 'Aldi',
+        email: 'aldi@widari.propertylounge.id',
+        password: 'admin123',
+        role: 'supervisor',
+        clientSlug: 'widari',
+    },
+    {
+        id: 'seed-sales-steven',
+        name: 'Steven',
+        email: 'steven@widari.propertylounge.id',
+        password: 'sales123',
+        role: 'sales',
+        clientSlug: 'widari',
+    },
 ];
 
 const DEMO_LOGIN_USER_EMAILS = new Set([
-    'root@propertylounge.id',
     'admin@widari.propertylounge.id',
+    'aldi@widari.propertylounge.id',
+    'steven@widari.propertylounge.id',
 ]);
 
 const AuthContext = createContext(null);

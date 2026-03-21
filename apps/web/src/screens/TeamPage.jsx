@@ -14,6 +14,7 @@ const initialForm = {
     email: '',
     phone: '',
     password: '',
+    supervisorId: '',
     queueOrder: '',
     queueLabel: '',
 };
@@ -109,8 +110,17 @@ export default function TeamPage() {
             await refreshTeamStats();
         }, [refreshTeamStats]),
     });
+    const groups = Array.isArray(teamStats?.groups) ? teamStats.groups : [];
+    const availableSupervisors = useMemo(() => {
+        return groups
+            .flatMap((group) => Array.isArray(group.supervisors) ? group.supervisors : [])
+            .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')));
+    }, [groups]);
+
     const canCreateSupervisor = user?.role === 'client_admin';
-    const canCreateSales = user?.role === 'supervisor';
+    const canCreateSales =
+        user?.role === 'supervisor' ||
+        (user?.role === 'client_admin' && availableSupervisors.length > 0);
     const canEditMembers = user?.role === 'client_admin';
     const canManageSalesLifecycle = user?.role === 'client_admin' || user?.role === 'root_admin';
     const summary = teamStats?.summary || {
@@ -123,9 +133,10 @@ export default function TeamPage() {
         pending: 0,
         appointments: 0,
     };
-
-    const groups = Array.isArray(teamStats?.groups) ? teamStats.groups : [];
-    const activeClientId = groups[0]?.clientId || null;
+    const activeClientId =
+        (user?.role === 'client_admin' ? user?.clientId : null) ||
+        groups[0]?.clientId ||
+        null;
     const showClientHeader = user?.role === 'root_admin' || groups.length > 1;
     const overviewCards = [
         {
@@ -294,6 +305,15 @@ export default function TeamPage() {
                     },
                 });
             } else {
+                const targetSupervisorId =
+                    user?.role === 'supervisor'
+                        ? user.id
+                        : createModal?.supervisorId || form.supervisorId || null;
+
+                if (user?.role === 'client_admin' && !targetSupervisorId) {
+                    throw new Error('Pilih supervisor terlebih dahulu untuk menambahkan sales');
+                }
+
                 await createSalesUser({
                     name: form.name.trim(),
                     email: form.email.trim().toLowerCase(),
@@ -301,7 +321,7 @@ export default function TeamPage() {
                     phone: form.phone.trim() || null,
                     queueOrder: form.queueOrder ? Number(form.queueOrder) : null,
                     queueLabel: form.queueLabel.trim() || null,
-                    supervisorId: createModal?.supervisorId || null,
+                    supervisorId: targetSupervisorId,
                 });
             }
             setForm(initialForm);
@@ -343,6 +363,7 @@ export default function TeamPage() {
         });
         setForm({
             ...initialForm,
+            supervisorId: supervisor?.id || '',
             password: 'sales123',
         });
         setSubmitError('');
@@ -682,6 +703,24 @@ export default function TeamPage() {
                             </div>
                             {createModal.mode === 'sales' ? (
                                 <>
+                                    {user?.role === 'client_admin' ? (
+                                        <div className="input-group">
+                                            <label>Supervisor</label>
+                                            <select
+                                                className="input-field"
+                                                value={form.supervisorId}
+                                                onChange={(event) => setForm({ ...form, supervisorId: event.target.value })}
+                                                required
+                                            >
+                                                <option value="">Pilih supervisor</option>
+                                                {availableSupervisors.map((supervisor) => (
+                                                    <option key={supervisor.id} value={supervisor.id}>
+                                                        {supervisor.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    ) : null}
                                     <div className="input-group">
                                         <label>Queue Order (optional)</label>
                                         <input type="number" min={1} className="input-field" value={form.queueOrder} onChange={(event) => setForm({ ...form, queueOrder: event.target.value })} />
