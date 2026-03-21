@@ -307,7 +307,7 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
                 id: generateId(),
                 name: payload.clientName || "Unknown Client",
                 phone: fromWa,
-                source: payload.sourceAds || "WhatsApp Inbound",
+                source: "Online",
                 metaLeadId: payload.metaLeadId || null,
                 clientId: payload.clientId || null,
                 entryChannel: "whatsapp_inbound",

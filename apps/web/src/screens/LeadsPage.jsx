@@ -31,6 +31,7 @@ const EMPTY_DATE_RANGE = {
     dateFrom: '',
     dateTo: '',
 };
+const FIXED_LEAD_SOURCES = ['Online', 'Offline', 'Walk In', 'Agent'];
 
 const IMPORT_REASON_LABELS = {
     missing_identifier: 'Row tidak punya leadId atau phone.',
@@ -373,6 +374,10 @@ export default function LeadsPage() {
             }
         });
 
+        FIXED_LEAD_SOURCES.forEach((value) => {
+            values.add(value);
+        });
+
         return Array.from(values).sort((a, b) => a.localeCompare(b));
     }, [allLeads, leadSources]);
 
@@ -427,11 +432,6 @@ export default function LeadsPage() {
     const handleAddLead = async (e) => {
         e.preventDefault();
         if (!newLead.name || !newLead.phone || !newLead.source) return;
-
-        if (leadSources.length === 0) {
-            setSubmitError('Tambahkan source lead dulu di Settings > Kelola Source Leads.');
-            return;
-        }
 
         setSubmitLoading(true);
         setSubmitError('');
@@ -1024,13 +1024,10 @@ export default function LeadsPage() {
                                     <label>Sumber</label>
                                     <select className="input-field" value={newLead.source} onChange={(e) => setNewLead({ ...newLead, source: e.target.value })} required>
                                         <option value="">Pilih source lead</option>
-                                        {leadSources.map((source) => (
-                                            <option key={source.id} value={source.value}>{source.value}</option>
+                                        {availableLeadSources.map((source) => (
+                                            <option key={source} value={source}>{source}</option>
                                         ))}
                                     </select>
-                                    {leadSources.length === 0 ? (
-                                        <div className="settings-help">Belum ada source lead. Tambahkan dulu di Settings &gt; Kelola Source Leads.</div>
-                                    ) : null}
                                 </div>
                                 {isAdmin && (
                                     <div className="input-group">
@@ -1042,7 +1039,7 @@ export default function LeadsPage() {
                                     </div>
                                 )}
                                 {submitError ? <div className="login-error">{submitError}</div> : null}
-                                <button type="submit" className="btn btn-primary btn-full" disabled={submitLoading || leadSources.length === 0}>
+                                <button type="submit" className="btn btn-primary btn-full" disabled={submitLoading}>
                                     {submitLoading ? 'Menyimpan...' : 'Tambah Lead'}
                                 </button>
                                 <button type="button" className="btn btn-secondary btn-full" onClick={closeAddLeadModal}>Batal</button>

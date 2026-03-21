@@ -25,7 +25,6 @@ export default function ProfilePage() {
     const handleLogout = () => { logout(); router.replace('/login'); };
     const goToDistributionOrder = () => { router.push('/settings/distribution-order'); };
     const goToUnits = () => { router.push('/settings/units'); };
-    const goToLeadSources = () => { router.push('/settings/lead-sources'); };
     const goToWhatsAppSettings = () => { router.push('/settings/whatsapp'); };
     const goToBroadcast = () => { router.push('/broadcast'); };
     const goToEditProfile = () => { router.push('/settings/profile'); };
@@ -59,11 +58,6 @@ export default function ProfilePage() {
                 {canManageDistribution ? (
                     <button className="profile-menu-item" onClick={goToUnits}>
                         <span>🏢</span><span>Kelola Unit</span><span className="profile-menu-arrow">→</span>
-                    </button>
-                ) : null}
-                {canManageDistribution ? (
-                    <button className="profile-menu-item" onClick={goToLeadSources}>
-                        <span>🧲</span><span>Kelola Source Leads</span><span className="profile-menu-arrow">→</span>
                     </button>
                 ) : null}
                 {canManageSharedWhatsApp ? (

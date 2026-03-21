@@ -4,7 +4,6 @@ import {
     activity,
     appointment,
     lead,
-    leadSourceOption,
     projectUnit,
     user,
 } from "../db/schema";
@@ -16,6 +15,7 @@ import {
 } from "../utils/appointment";
 import { createGoogleCalendarEvent } from "./calendar.service";
 import { syncLeadAppointmentsSalesOwner } from "./appointments.service";
+import { normalizeFixedLeadSource } from "../constants/lead-sources";
 
 interface LeadFilters {
     search?: string;
@@ -329,7 +329,7 @@ export async function create(data: {
     const now = new Date();
     const assignedTo = data.assignedTo || null;
     let resolvedClientId = data.clientId || null;
-    const normalizedSource = sanitizeRequiredText(data.source) || "Manual Input";
+    const normalizedSource = normalizeFixedLeadSource(data.source) || "Online";
 
     if (assignedTo) {
         const [assignedSales] = await db
@@ -353,21 +353,8 @@ export async function create(data: {
         resolvedClientId = assignedSales.clientId || resolvedClientId;
     }
 
-    if (resolvedClientId && normalizedSource !== "WhatsApp Inbound") {
-        const [sourceOption] = await db
-            .select({ id: leadSourceOption.id })
-            .from(leadSourceOption)
-            .where(
-                and(
-                    eq(leadSourceOption.clientId, resolvedClientId),
-                    eq(leadSourceOption.value, normalizedSource)
-                )
-            )
-            .limit(1);
-
-        if (!sourceOption) {
-            throw new Error("INVALID_LEAD_SOURCE");
-        }
+    if (resolvedClientId && !normalizeFixedLeadSource(normalizedSource)) {
+        throw new Error("INVALID_LEAD_SOURCE");
     }
 
     const [newLead] = await db

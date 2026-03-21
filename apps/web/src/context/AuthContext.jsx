@@ -30,44 +30,11 @@ const LOGIN_USERS = [
         role: 'client_admin',
         clientSlug: 'widari',
     },
-    {
-        id: 'seed-supervisor',
-        name: 'Supervisor Widari A',
-        email: 'supervisor.a@widari.propertylounge.id',
-        password: 'admin123',
-        role: 'supervisor',
-        clientSlug: 'widari',
-    },
-    {
-        id: 'seed-sales-ryan',
-        name: 'Anto Widari',
-        email: 'anto@widari.propertylounge.id',
-        password: 'sales123',
-        role: 'sales',
-        clientSlug: 'widari',
-    },
-    {
-        id: 'seed-sales-andi',
-        name: 'Andi Widari',
-        email: 'andi@widari.propertylounge.id',
-        password: 'sales123',
-        role: 'sales',
-        clientSlug: 'widari',
-    },
-    {
-        id: 'seed-sales-rudi',
-        name: 'Rudi Widari',
-        email: 'rudi@widari.propertylounge.id',
-        password: 'sales123',
-        role: 'sales',
-        clientSlug: 'widari',
-    },
 ];
 
 const DEMO_LOGIN_USER_EMAILS = new Set([
+    'root@propertylounge.id',
     'admin@widari.propertylounge.id',
-    'supervisor.a@widari.propertylounge.id',
-    'anto@widari.propertylounge.id',
 ]);
 
 const AuthContext = createContext(null);
