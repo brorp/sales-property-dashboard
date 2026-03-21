@@ -114,6 +114,37 @@ function isQrDebugEnabled() {
     return process.env.WA_QR_DEBUG === "true";
 }
 
+function writeWaStdout(level: "info" | "warn" | "error", message: string, meta: Record<string, unknown>) {
+    const payload = {
+        timestamp: new Date().toISOString(),
+        level,
+        component: "wa:qr",
+        message,
+        ...meta,
+    };
+    const line = JSON.stringify(payload);
+    if (level === "error") {
+        console.error(line);
+        return;
+    }
+    console.log(line);
+}
+
+function logWaQrInfo(message: string, meta: Record<string, unknown> = {}) {
+    waQrLogger.info(message, meta);
+    writeWaStdout("info", message, meta);
+}
+
+function logWaQrWarn(message: string, meta: Record<string, unknown> = {}) {
+    waQrLogger.warn(message, meta);
+    writeWaStdout("warn", message, meta);
+}
+
+function logWaQrError(message: string, meta: Record<string, unknown> = {}) {
+    waQrLogger.error(message, meta);
+    writeWaStdout("error", message, meta);
+}
+
 function currentWebJsHeadless() {
     return String(process.env.WA_WEBJS_HEADLESS || "true").toLowerCase() !== "false";
 }
@@ -400,7 +431,11 @@ function isBroadcastLikeMessage(chatId: string | null) {
 function isPrivateUserChat(chatId: string | null) {
     return Boolean(
         chatId &&
-        (chatId.endsWith("@c.us") || chatId.endsWith("@s.whatsapp.net"))
+        (
+            chatId.endsWith("@c.us") ||
+            chatId.endsWith("@s.whatsapp.net") ||
+            chatId.endsWith("@lid")
+        )
     );
 }
 
@@ -414,7 +449,7 @@ function describeInboundEvent(message: any) {
 }
 
 function logIgnoredWhatsAppEvent(message: any, reason: string, extra: Record<string, unknown> = {}) {
-    waQrLogger.info("Inbound WhatsApp event ignored", {
+    logWaQrInfo("Inbound WhatsApp event ignored", {
         reason,
         ...describeInboundEvent(message),
         ...extra,
@@ -788,12 +823,12 @@ async function handleIncomingMessage(message: any) {
     }
 
     if (isQrDebugEnabled()) {
-        waQrLogger.debug("Inbound sender resolved", { fromWa });
+        logWaQrInfo("Inbound sender resolved", { fromWa });
     }
 
     const activeClientSlug = currentActiveClientSlug();
     if (!activeClientSlug) {
-        waQrLogger.error("Inbound message ignored", { reason: "missing_active_client_slug" });
+        logWaQrError("Inbound message ignored", { reason: "missing_active_client_slug" });
         return;
     }
 
@@ -801,7 +836,7 @@ async function handleIncomingMessage(message: any) {
     const activeClient = await getClientBySlug(activeClientSlug);
     activeClientId = activeClient?.id || null;
     if (!activeClientId) {
-        waQrLogger.error("Inbound message ignored", {
+        logWaQrError("Inbound message ignored", {
             reason: "active_client_not_found",
             activeClientSlug,
         });
@@ -816,7 +851,7 @@ async function handleIncomingMessage(message: any) {
         clientId: activeClientId,
     });
 
-    waQrLogger.info("Inbound message processed", {
+    logWaQrInfo("Inbound message processed", {
         type: result.type,
         fromWa,
         clientId: activeClientId,
@@ -834,13 +869,13 @@ async function handleIncomingMessage(message: any) {
             : await sendWhatsAppQrText(fromWa, autoReplyText);
 
         if (!replyResult.sent) {
-            waQrLogger.error("Auto-reply failed", {
+            logWaQrError("Auto-reply failed", {
                 fromWa,
                 jid: inboundReplyJid || phoneToChatId(fromWa),
                 error: replyResult.error || "unknown error",
             });
         } else if (isQrDebugEnabled()) {
-            waQrLogger.debug("Auto-reply sent", {
+            logWaQrInfo("Auto-reply sent", {
                 fromWa,
                 jid: inboundReplyJid || phoneToChatId(fromWa),
             });
@@ -854,7 +889,7 @@ async function handleIncomingMessageEvent(eventName: string, generation: number,
     }
 
     if (isQrDebugEnabled()) {
-        waQrLogger.debug("Inbound WhatsApp event received", {
+        logWaQrInfo("Inbound WhatsApp event received", {
             eventName,
             messageId: getInboundProviderMessageId(message) || null,
             chatId: getEventChatId(message) || null,
@@ -866,7 +901,7 @@ async function handleIncomingMessageEvent(eventName: string, generation: number,
     try {
         await handleIncomingMessage(message);
     } catch (error) {
-        waQrLogger.error("Failed handling inbound WhatsApp message", {
+        logWaQrError("Failed handling inbound WhatsApp message", {
             eventName,
             error,
         });
