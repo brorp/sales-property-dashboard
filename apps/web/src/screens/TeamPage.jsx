@@ -19,6 +19,29 @@ const initialForm = {
     queueLabel: '',
 };
 
+const LOCKED_TEAM_MEMBER_EMAILS = new Set([
+    'supervisor.picagent@widari.propertylounge.id',
+    'picagent@gmail.com',
+]);
+
+function isLockedTeamMember(member) {
+    const email = String(member?.email || '').trim().toLowerCase();
+    return LOCKED_TEAM_MEMBER_EMAILS.has(email);
+}
+
+function sortMembersWithLockedLast(items = []) {
+    return [...items].sort((a, b) => {
+        const aLocked = isLockedTeamMember(a);
+        const bLocked = isLockedTeamMember(b);
+
+        if (aLocked !== bLocked) {
+            return aLocked ? 1 : -1;
+        }
+
+        return String(a?.name || '').localeCompare(String(b?.name || ''));
+    });
+}
+
 function TeamSummaryCard({ label, value, tone = 'default', helper }) {
     return (
         <div className={`team-summary-card team-summary-${tone}`}>
@@ -114,6 +137,7 @@ export default function TeamPage() {
     const availableSupervisors = useMemo(() => {
         return groups
             .flatMap((group) => Array.isArray(group.supervisors) ? group.supervisors : [])
+            .filter((supervisor) => !isLockedTeamMember(supervisor))
             .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')));
     }, [groups]);
 
@@ -378,7 +402,7 @@ export default function TeamPage() {
     };
 
     const openEditMember = (member) => {
-        if (!member?.id || !member?.clientId) {
+        if (!member?.id || !member?.clientId || isLockedTeamMember(member)) {
             return;
         }
 
@@ -417,7 +441,7 @@ export default function TeamPage() {
                 body: {
                     name: editForm.name.trim(),
                     phone: editForm.phone.trim() ? editForm.phone.trim() : null,
-                    ...(editingMember.role === 'sales'
+                    ...((editingMember.role === 'sales' || editingMember.role === 'supervisor')
                         ? {
                             email: editForm.email.trim().toLowerCase(),
                             password: editForm.password.trim() || undefined,
@@ -510,7 +534,7 @@ export default function TeamPage() {
                         ) : null}
 
                         <div className="team-hierarchy">
-                            {Array.isArray(group.supervisors) && group.supervisors.map((supervisor) => (
+                            {sortMembersWithLockedLast(group.supervisors || []).map((supervisor) => (
                                 <article key={supervisor.id} className="team-hierarchy-card">
                                     <div className="team-member-row">
                                         <MemberButton
@@ -520,7 +544,7 @@ export default function TeamPage() {
                                             onClick={() => goToMemberDetail(supervisor.id)}
                                         />
                                         <div className="team-member-action-stack">
-                                            {canEditMembers ? (
+                                            {canEditMembers && !isLockedTeamMember(supervisor) ? (
                                                 <button
                                                     type="button"
                                                     className="btn btn-sm btn-secondary team-edit-btn"
@@ -529,7 +553,7 @@ export default function TeamPage() {
                                                     Edit
                                                 </button>
                                             ) : null}
-                                            {canCreateSupervisor ? (
+                                            {canCreateSupervisor && !isLockedTeamMember(supervisor) ? (
                                                 <button
                                                     type="button"
                                                     className="btn btn-sm btn-primary team-edit-btn"
@@ -545,7 +569,7 @@ export default function TeamPage() {
 
                                     {Array.isArray(supervisor.sales) && supervisor.sales.length > 0 ? (
                                         <div className="team-children-list">
-                                            {supervisor.sales.map((sales) => (
+                                            {sortMembersWithLockedLast(supervisor.sales || []).map((sales) => (
                                                 <div key={sales.id} className="team-child-row">
                                                     <div className="team-member-row">
                                                         <MemberButton
@@ -556,7 +580,7 @@ export default function TeamPage() {
                                                             compact
                                                         />
                                                         <div className="team-member-action-stack">
-                                                            {canEditMembers ? (
+                                                            {canEditMembers && !isLockedTeamMember(sales) ? (
                                                                 <button
                                                                     type="button"
                                                                     className="btn btn-sm btn-secondary team-edit-btn"
@@ -565,7 +589,7 @@ export default function TeamPage() {
                                                                     Edit
                                                                 </button>
                                                             ) : null}
-                                                            {canManageSalesLifecycle ? (
+                                                            {canManageSalesLifecycle && !isLockedTeamMember(sales) ? (
                                                                 <button
                                                                     type="button"
                                                                     className="btn btn-sm btn-danger team-edit-btn"
@@ -596,7 +620,7 @@ export default function TeamPage() {
                                     </div>
 
                                     <div className="team-children-list">
-                                        {group.unassignedSales.map((sales) => (
+                                        {sortMembersWithLockedLast(group.unassignedSales || []).map((sales) => (
                                             <div key={sales.id} className="team-child-row">
                                                 <div className="team-member-row">
                                                     <MemberButton
@@ -607,7 +631,7 @@ export default function TeamPage() {
                                                         compact
                                                     />
                                                     <div className="team-member-action-stack">
-                                                        {canEditMembers ? (
+                                                        {canEditMembers && !isLockedTeamMember(sales) ? (
                                                             <button
                                                                 type="button"
                                                                 className="btn btn-sm btn-secondary team-edit-btn"
@@ -616,7 +640,7 @@ export default function TeamPage() {
                                                                 Edit
                                                             </button>
                                                         ) : null}
-                                                        {canManageSalesLifecycle ? (
+                                                        {canManageSalesLifecycle && !isLockedTeamMember(sales) ? (
                                                             <button
                                                                 type="button"
                                                                 className="btn btn-sm btn-danger team-edit-btn"
@@ -769,7 +793,7 @@ export default function TeamPage() {
                                     onChange={(event) => setEditForm((prev) => ({ ...prev, phone: event.target.value }))}
                                 />
                             </div>
-                            {editingMember.role === 'sales' ? (
+                            {editingMember.role === 'sales' || editingMember.role === 'supervisor' ? (
                                 <>
                                     <div className="input-group">
                                         <label>Email Login</label>

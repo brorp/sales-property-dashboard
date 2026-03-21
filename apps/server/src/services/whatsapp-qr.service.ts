@@ -810,6 +810,31 @@ async function handleIncomingMessage(message: any) {
     }
 }
 
+async function handleIncomingMessageEvent(eventName: string, generation: number, message: any) {
+    if (generation !== sessionGeneration) {
+        return;
+    }
+
+    if (isQrDebugEnabled()) {
+        waQrLogger.debug("Inbound WhatsApp event received", {
+            eventName,
+            messageId: getInboundProviderMessageId(message) || null,
+            chatId: getEventChatId(message) || null,
+            fromMe: isEventFromMe(message),
+            type: String(message?.type || message?._data?.type || "").toLowerCase() || null,
+        });
+    }
+
+    try {
+        await handleIncomingMessage(message);
+    } catch (error) {
+        waQrLogger.error("Failed handling inbound WhatsApp message", {
+            eventName,
+            error,
+        });
+    }
+}
+
 export function getWhatsAppQrAdminState(): WhatsAppQrAdminState {
     return {
         provider: currentProvider(),
@@ -1182,15 +1207,11 @@ export async function startWhatsAppQrBridge() {
         });
 
         client.on("message", async (message: any) => {
-            if (generation !== sessionGeneration) {
-                return;
-            }
+            await handleIncomingMessageEvent("message", generation, message);
+        });
 
-            try {
-                await handleIncomingMessage(message);
-            } catch (error) {
-                waQrLogger.error("Failed handling inbound WhatsApp message", { error });
-            }
+        client.on("message_create", async (message: any) => {
+            await handleIncomingMessageEvent("message_create", generation, message);
         });
 
         await client.initialize();
