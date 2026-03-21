@@ -5,6 +5,9 @@ import AppShell from '../src/components/AppShell';
 export const metadata = {
     title: 'Property Lounge Dashboard',
     description: 'Sales and lead distribution dashboard',
+    icons: {
+        icon: '/favicon.ico',
+    },
 };
 
 export default function RootLayout({ children }) {

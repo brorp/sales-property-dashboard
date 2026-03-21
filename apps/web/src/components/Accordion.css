@@ -1,0 +1,109 @@
+.custom-accordion {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.custom-accordion.expanded {
+    border-color: var(--primary);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.accordion-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 0.2s ease;
+}
+
+.accordion-header:hover {
+    background-color: var(--bg-input);
+}
+
+.accordion-header-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.accordion-title {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.accordion-summary {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.accordion-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: transform 0.3s ease;
+    margin-left: 16px;
+}
+
+.accordion-icon.rotated {
+    transform: rotate(180deg);
+    color: var(--primary);
+}
+
+.accordion-body-wrapper {
+    transition: height 0.3s ease-in-out;
+}
+
+.accordion-body {
+    padding: 0 20px 20px 20px;
+    opacity: 0;
+    animation: fadeIn 0.4s ease forwards;
+}
+
+.custom-accordion.expanded .accordion-body {
+    opacity: 1;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Sub-accordion styling inside Team Performance */
+.sub-accordion {
+    margin-bottom: 12px;
+    border-radius: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+}
+
+.sub-accordion.expanded {
+    border-color: var(--purple);
+}
+
+.sub-accordion .accordion-header {
+    padding: 12px 16px;
+}
+
+.sub-accordion .accordion-title {
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.sub-accordion .accordion-body {
+    padding: 0 16px 16px 16px;
+}

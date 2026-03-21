@@ -1,23 +1,39 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import { useLeads } from '../context/LeadsContext';
 import { useAuth } from '../context/AuthContext';
-import { getAppointmentTagLabel, toWaLink } from '../constants/crm';
+import { APPOINTMENT_TAGS, getAppointmentTagLabel, toWaLink } from '../constants/crm';
+import { usePagePolling } from '../hooks/usePagePolling';
 
 export default function AppointmentsPage() {
-    const { isAdmin } = useAuth();
-    const { appointments, refreshAppointments } = useLeads();
+    const { user, isAdmin } = useAuth();
+    const { appointments, refreshAppointments, getSalesUsers } = useLeads();
     const router = useRouter();
     const [search, setSearch] = useState('');
     const [tagFilter, setTagFilter] = useState('all');
+    const [salesFilter, setSalesFilter] = useState('all');
+    const salesUsers = getSalesUsers();
+    const canFilterBySales = user?.role === 'root_admin' || user?.role === 'client_admin' || user?.role === 'supervisor';
+
+    usePagePolling({
+        enabled: Boolean(user),
+        intervalMs: 3000,
+        run: useCallback(async () => {
+            await refreshAppointments();
+        }, [refreshAppointments]),
+    });
 
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
         return appointments.filter((item) => {
             if (tagFilter !== 'all' && item.appointmentTag !== tagFilter) {
+                return false;
+            }
+
+            if (salesFilter !== 'all' && item.salesId !== salesFilter) {
                 return false;
             }
 
@@ -31,7 +47,7 @@ export default function AppointmentsPage() {
                 String(item.location || '').toLowerCase().includes(q)
             );
         });
-    }, [appointments, search, tagFilter]);
+    }, [appointments, salesFilter, search, tagFilter]);
 
     return (
         <div className="page-container">
@@ -62,19 +78,36 @@ export default function AppointmentsPage() {
                 >
                     Semua
                 </button>
-                <button
-                    className={`filter-pill ${tagFilter === 'mau_survey' ? 'active' : ''}`}
-                    onClick={() => setTagFilter('mau_survey')}
-                >
-                    Mau Survey
-                </button>
-                <button
-                    className={`filter-pill ${tagFilter === 'sudah_survey' ? 'active' : ''}`}
-                    onClick={() => setTagFilter('sudah_survey')}
-                >
-                    Sudah Survey
-                </button>
+                {APPOINTMENT_TAGS.map((tag) => (
+                    <button
+                        key={tag.key}
+                        className={`filter-pill ${tagFilter === tag.key ? 'active' : ''}`}
+                        onClick={() => setTagFilter(tag.key)}
+                    >
+                        {tag.label}
+                    </button>
+                ))}
             </div>
+
+            {canFilterBySales ? (
+                <div className="filter-pills" style={{ marginBottom: 16 }}>
+                    <button
+                        className={`filter-pill ${salesFilter === 'all' ? 'active' : ''}`}
+                        onClick={() => setSalesFilter('all')}
+                    >
+                        Semua Sales
+                    </button>
+                    {salesUsers.map((sales) => (
+                        <button
+                            key={sales.id}
+                            className={`filter-pill ${salesFilter === sales.id ? 'active' : ''}`}
+                            onClick={() => setSalesFilter(sales.id)}
+                        >
+                            {sales.name}
+                        </button>
+                    ))}
+                </div>
+            ) : null}
 
             <p className="leads-result-count">{filtered.length} appointment</p>
 
@@ -94,7 +127,13 @@ export default function AppointmentsPage() {
                         >
                             <div className="lead-row-top">
                                 <div className="lead-row-name">{item.leadName}</div>
-                                <span className={`badge ${item.appointmentTag === 'mau_survey' ? 'badge-warm' : 'badge-success'}`}>
+                                <span className={`badge ${
+                                    item.appointmentTag === 'mau_survey'
+                                        ? 'badge-warm'
+                                        : item.appointmentTag === 'dibatalkan'
+                                            ? 'badge-danger'
+                                            : 'badge-success'
+                                }`}>
                                     {getAppointmentTagLabel(item.appointmentTag)}
                                 </span>
                             </div>

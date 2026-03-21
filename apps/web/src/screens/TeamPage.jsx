@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
 import Header from '../components/Header';
 import { apiRequest } from '../lib/api';
+import { downloadLeadTransferWorkbook } from '../lib/lead-transfer-workbook';
+import { usePagePolling } from '../hooks/usePagePolling';
 
 const initialForm = {
     name: '',
@@ -34,27 +36,28 @@ function MemberStats({ member }) {
                 <span className="team-member-stat-label">Leads</span>
             </div>
             <div className="team-member-stat">
+                <span className="team-member-stat-value">{member.accepted || 0}</span>
+                <span className="team-member-stat-label">Accepted</span>
+            </div>
+            <div className="team-member-stat">
                 <span className="team-member-stat-value">{member.closed || 0}</span>
                 <span className="team-member-stat-label">Closing</span>
             </div>
             <div className="team-member-stat">
-                <span className="team-member-stat-value">{member.hot || 0}</span>
-                <span className="team-member-stat-label">Hot</span>
-            </div>
-            <div className="team-member-stat">
-                <span className="team-member-stat-value">{member.pending || 0}</span>
-                <span className="team-member-stat-label">Pending</span>
+                <span className="team-member-stat-value">{member.appointments || 0}</span>
+                <span className="team-member-stat-label">Appointment</span>
             </div>
         </div>
     );
 }
 
-function MemberButton({ member, subtitle, metaBadge, onClick, compact = false }) {
+function MemberButton({ member, subtitle, metaBadge, onClick, compact = false, interactive = true }) {
+    const Container = interactive ? 'button' : 'div';
+
     return (
-        <button
-            type="button"
+        <Container
+            {...(interactive ? { type: 'button', onClick } : {})}
             className={`team-member-trigger ${compact ? 'team-member-trigger-compact' : ''}`}
-            onClick={onClick}
         >
             <div className="team-member-main">
                 <div className={`team-avatar ${compact ? 'team-avatar-sm' : ''}`}>
@@ -69,8 +72,8 @@ function MemberButton({ member, subtitle, metaBadge, onClick, compact = false })
                     {subtitle ? <p className="team-member-subtitle">{subtitle}</p> : null}
                 </div>
             </div>
-            <span className="team-member-arrow">→</span>
-        </button>
+            {interactive ? <span className="team-member-arrow">→</span> : null}
+        </Container>
     );
 }
 
@@ -85,9 +88,11 @@ export default function TeamPage() {
     const [submitError, setSubmitError] = useState('');
     const [submitSuccess, setSubmitSuccess] = useState('');
     const [editingMember, setEditingMember] = useState(null);
-    const [editForm, setEditForm] = useState({ name: '', phone: '' });
+    const [editForm, setEditForm] = useState({ name: '', phone: '', email: '', password: '' });
     const [editLoading, setEditLoading] = useState(false);
     const [editError, setEditError] = useState('');
+    const [lifecycleState, setLifecycleState] = useState(null);
+    const [reactivatingSalesId, setReactivatingSalesId] = useState('');
 
     useEffect(() => {
         if (!isAdmin) {
@@ -97,26 +102,32 @@ export default function TeamPage() {
         void refreshTeamStats();
     }, [isAdmin, refreshTeamStats]);
 
-    if (!isAdmin) {
-        return null;
-    }
-
+    usePagePolling({
+        enabled: Boolean(isAdmin && user),
+        intervalMs: 3000,
+        run: useCallback(async () => {
+            await refreshTeamStats();
+        }, [refreshTeamStats]),
+    });
     const canCreateSupervisor = user?.role === 'client_admin';
     const canCreateSales = user?.role === 'supervisor';
     const canEditMembers = user?.role === 'client_admin';
+    const canManageSalesLifecycle = user?.role === 'client_admin' || user?.role === 'root_admin';
     const summary = teamStats?.summary || {
         supervisors: 0,
         sales: 0,
         totalLeads: 0,
+        accepted: 0,
         closed: 0,
         hot: 0,
         pending: 0,
+        appointments: 0,
     };
 
     const groups = Array.isArray(teamStats?.groups) ? teamStats.groups : [];
     const activeClientId = groups[0]?.clientId || null;
     const showClientHeader = user?.role === 'root_admin' || groups.length > 1;
-    const overviewCards = useMemo(() => ([
+    const overviewCards = [
         {
             key: 'supervisors',
             label: 'Supervisors',
@@ -139,13 +150,17 @@ export default function TeamPage() {
             helper: `${summary.hot || 0} leads hot`,
         },
         {
-            key: 'pending',
-            label: 'Pending',
-            value: summary.pending || 0,
+            key: 'appointments',
+            label: 'Appointments',
+            value: summary.appointments || 0,
             tone: 'default',
-            helper: 'Perlu follow up',
+            helper: `${summary.accepted || 0} accepted`,
         },
-    ]), [summary.closed, summary.hot, summary.pending, summary.sales, summary.supervisors, summary.totalLeads]);
+    ];
+
+    if (!isAdmin) {
+        return null;
+    }
 
     const handleRefresh = async () => {
         setRefreshing(true);
@@ -153,6 +168,101 @@ export default function TeamPage() {
             await refreshTeamStats();
         } finally {
             setRefreshing(false);
+        }
+    };
+
+    const openDeactivateMember = (member) => {
+        setSubmitError('');
+        setLifecycleState({
+            member,
+            step: 'export',
+            exporting: false,
+            submitting: false,
+            error: '',
+            exportedCount: null,
+        });
+        setSubmitSuccess('');
+    };
+
+    const closeLifecycleModal = () => {
+        setLifecycleState(null);
+    };
+
+    const handleExportSalesLeads = async () => {
+        if (!user || !lifecycleState?.member?.id) {
+            return;
+        }
+
+        setLifecycleState((prev) => (prev ? { ...prev, exporting: true, error: '' } : prev));
+
+        try {
+            const exported = await apiRequest(`/api/sales/${lifecycleState.member.id}/leads/export`, {
+                user,
+            });
+            await downloadLeadTransferWorkbook({
+                fileName: exported.fileName,
+                rows: exported.rows || [],
+            });
+
+            setLifecycleState((prev) => (prev ? {
+                ...prev,
+                exporting: false,
+                step: 'confirm',
+                exportedCount: exported.exportedCount || 0,
+            } : prev));
+        } catch (err) {
+            setLifecycleState((prev) => (prev ? {
+                ...prev,
+                exporting: false,
+                error: err instanceof Error ? err.message : 'Gagal export leads sales',
+            } : prev));
+        }
+    };
+
+    const handleConfirmDeactivate = async () => {
+        if (!user || !lifecycleState?.member?.id) {
+            return;
+        }
+
+        setLifecycleState((prev) => (prev ? { ...prev, submitting: true, error: '' } : prev));
+
+        try {
+            await apiRequest(`/api/sales/${lifecycleState.member.id}/deactivate`, {
+                method: 'POST',
+                user,
+            });
+            await refreshTeamStats();
+            setSubmitSuccess(`Sales ${lifecycleState.member.name} berhasil dinonaktifkan.`);
+            closeLifecycleModal();
+        } catch (err) {
+            setLifecycleState((prev) => (prev ? {
+                ...prev,
+                submitting: false,
+                error: err instanceof Error ? err.message : 'Gagal menonaktifkan sales',
+            } : prev));
+        }
+    };
+
+    const handleReactivateSales = async (member) => {
+        if (!user || !member?.id) {
+            return;
+        }
+
+        setReactivatingSalesId(member.id);
+        setSubmitSuccess('');
+        setSubmitError('');
+
+        try {
+            await apiRequest(`/api/sales/${member.id}/reactivate`, {
+                method: 'POST',
+                user,
+            });
+            await refreshTeamStats();
+            setSubmitSuccess(`Sales ${member.name} berhasil diaktifkan kembali.`);
+        } catch (err) {
+            setSubmitError(err instanceof Error ? err.message : 'Gagal mengaktifkan sales');
+        } finally {
+            setReactivatingSalesId('');
         }
     };
 
@@ -255,6 +365,8 @@ export default function TeamPage() {
         setEditForm({
             name: member.name || '',
             phone: member.phone || '',
+            email: member.email || '',
+            password: '',
         });
         setEditError('');
         setSubmitSuccess('');
@@ -262,7 +374,7 @@ export default function TeamPage() {
 
     const closeEditMember = () => {
         setEditingMember(null);
-        setEditForm({ name: '', phone: '' });
+        setEditForm({ name: '', phone: '', email: '', password: '' });
         setEditError('');
         setEditLoading(false);
     };
@@ -284,6 +396,12 @@ export default function TeamPage() {
                 body: {
                     name: editForm.name.trim(),
                     phone: editForm.phone.trim() ? editForm.phone.trim() : null,
+                    ...(editingMember.role === 'sales'
+                        ? {
+                            email: editForm.email.trim().toLowerCase(),
+                            password: editForm.password.trim() || undefined,
+                        }
+                        : {}),
                 },
             });
             await refreshTeamStats();
@@ -333,6 +451,7 @@ export default function TeamPage() {
             ) : null}
 
             {submitSuccess ? <div className="settings-success">{submitSuccess}</div> : null}
+            {submitError ? <div className="login-error">{submitError}</div> : null}
 
             <section className="team-overview-grid">
                 {overviewCards.map((item) => (
@@ -410,7 +529,7 @@ export default function TeamPage() {
                                                     <div className="team-member-row">
                                                         <MemberButton
                                                             member={sales}
-                                                            subtitle={`${sales.phone || 'Belum ada nomor WhatsApp'} • ${sales.totalLeads || 0} leads • ${sales.closed || 0} closing`}
+                                                            subtitle={`${sales.phone || 'Belum ada nomor WhatsApp'} • ${sales.totalLeads || 0} leads • ${sales.appointments || 0} appointment`}
                                                             metaBadge="Sales"
                                                             onClick={() => goToMemberDetail(sales.id)}
                                                             compact
@@ -423,6 +542,15 @@ export default function TeamPage() {
                                                                     onClick={() => openEditMember(sales)}
                                                                 >
                                                                     Edit
+                                                                </button>
+                                                            ) : null}
+                                                            {canManageSalesLifecycle ? (
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-sm btn-danger team-edit-btn"
+                                                                    onClick={() => openDeactivateMember(sales)}
+                                                                >
+                                                                    Deactivate
                                                                 </button>
                                                             ) : null}
                                                         </div>
@@ -452,7 +580,7 @@ export default function TeamPage() {
                                                 <div className="team-member-row">
                                                     <MemberButton
                                                         member={sales}
-                                                        subtitle={`${sales.phone || 'Belum ada nomor WhatsApp'} • ${sales.totalLeads || 0} leads • ${sales.closed || 0} closing`}
+                                                        subtitle={`${sales.phone || 'Belum ada nomor WhatsApp'} • ${sales.totalLeads || 0} leads • ${sales.appointments || 0} appointment`}
                                                         metaBadge="Sales"
                                                         onClick={() => goToMemberDetail(sales.id)}
                                                         compact
@@ -467,6 +595,53 @@ export default function TeamPage() {
                                                                 Edit
                                                             </button>
                                                         ) : null}
+                                                        {canManageSalesLifecycle ? (
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-sm btn-danger team-edit-btn"
+                                                                onClick={() => openDeactivateMember(sales)}
+                                                            >
+                                                                Deactivate
+                                                            </button>
+                                                        ) : null}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </article>
+                            ) : null}
+
+                            {Array.isArray(group.inactiveSales) && group.inactiveSales.length > 0 ? (
+                                <article className="team-hierarchy-card team-inactive-shell">
+                                    <div className="team-unassigned-head">
+                                        <div>
+                                            <span className="team-group-kicker">Perlu aktivasi manual</span>
+                                            <h3 className="team-group-title">Sales Inactive</h3>
+                                        </div>
+                                        <span className="badge badge-danger">{group.inactiveSales.length} Inactive</span>
+                                    </div>
+
+                                    <div className="team-children-list">
+                                        {group.inactiveSales.map((sales) => (
+                                            <div key={sales.id} className="team-child-row">
+                                                <div className="team-member-row">
+                                                    <MemberButton
+                                                        member={sales}
+                                                        subtitle={`${sales.phone || 'Belum ada nomor WhatsApp'} • ${sales.totalLeads || 0} leads`}
+                                                        metaBadge="Inactive"
+                                                        compact
+                                                        interactive={false}
+                                                    />
+                                                    <div className="team-member-action-stack">
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-sm btn-primary team-edit-btn"
+                                                            onClick={() => void handleReactivateSales(sales)}
+                                                            disabled={reactivatingSalesId === sales.id}
+                                                        >
+                                                            {reactivatingSalesId === sales.id ? 'Loading...' : 'Reactivate'}
+                                                        </button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -555,6 +730,29 @@ export default function TeamPage() {
                                     onChange={(event) => setEditForm((prev) => ({ ...prev, phone: event.target.value }))}
                                 />
                             </div>
+                            {editingMember.role === 'sales' ? (
+                                <>
+                                    <div className="input-group">
+                                        <label>Email Login</label>
+                                        <input
+                                            type="email"
+                                            className="input-field"
+                                            value={editForm.email}
+                                            onChange={(event) => setEditForm((prev) => ({ ...prev, email: event.target.value }))}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="input-group">
+                                        <label>Password Baru (opsional)</label>
+                                        <input
+                                            className="input-field"
+                                            placeholder="Kosongkan jika tidak diganti"
+                                            value={editForm.password}
+                                            onChange={(event) => setEditForm((prev) => ({ ...prev, password: event.target.value }))}
+                                        />
+                                    </div>
+                                </>
+                            ) : null}
                             {editError ? <div className="login-error">{editError}</div> : null}
                             <button type="submit" className="btn btn-primary btn-full" disabled={editLoading}>
                                 {editLoading ? 'Menyimpan...' : 'Simpan Perubahan'}
@@ -563,6 +761,72 @@ export default function TeamPage() {
                                 Batal
                             </button>
                         </form>
+                    </div>
+                </div>
+            ) : null}
+
+            {lifecycleState ? (
+                <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget) closeLifecycleModal(); }}>
+                    <div className="bottom-sheet">
+                        <div className="sheet-handle" />
+                        <h2>{lifecycleState.step === 'export' ? 'Export Leads Sebelum Deactivate' : 'Konfirmasi Deactivate Sales'}</h2>
+                        <div className="team-lifecycle-copy">
+                            {lifecycleState.step === 'export' ? (
+                                <>
+                                    <p>
+                                        Sebelum menonaktifkan <strong>{lifecycleState.member?.name}</strong>, export semua leads yang
+                                        masih berelasi dengan sales ini terlebih dahulu.
+                                    </p>
+                                    <p>
+                                        File CSV hasil export ini bisa dipakai lagi di menu import leads untuk reassign ke sales lain
+                                        tanpa membuat lead duplikat.
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <p>
+                                        Export selesai untuk <strong>{lifecycleState.member?.name}</strong>
+                                        {typeof lifecycleState.exportedCount === 'number' ? ` (${lifecycleState.exportedCount} leads)` : ''}.
+                                    </p>
+                                    <p>
+                                        Setelah dinonaktifkan, sales ini tidak bisa login dan tidak akan ikut distribusi lead sampai
+                                        diaktifkan kembali oleh admin.
+                                    </p>
+                                </>
+                            )}
+                        </div>
+
+                        {lifecycleState.error ? <div className="login-error">{lifecycleState.error}</div> : null}
+
+                        <div className="team-lifecycle-actions">
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={closeLifecycleModal}
+                                disabled={lifecycleState.exporting || lifecycleState.submitting}
+                            >
+                                Batal
+                            </button>
+                            {lifecycleState.step === 'export' ? (
+                                <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    onClick={() => void handleExportSalesLeads()}
+                                    disabled={lifecycleState.exporting}
+                                >
+                                    {lifecycleState.exporting ? 'Exporting...' : 'Export Leads XLSX'}
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="btn btn-danger"
+                                    onClick={() => void handleConfirmDeactivate()}
+                                    disabled={lifecycleState.submitting}
+                                >
+                                    {lifecycleState.submitting ? 'Menyimpan...' : 'Ya, Deactivate Sales'}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             ) : null}

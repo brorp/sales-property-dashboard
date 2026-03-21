@@ -97,8 +97,113 @@
     line-height: 1.3;
 }
 
+.lead-modal-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.lead-modal-tab {
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: rgba(37, 32, 58, 0.64);
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.lead-modal-tab.is-active {
+    background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
+    color: var(--text-on-primary);
+    border-color: rgba(139, 92, 246, 0.6);
+}
+
+.lead-import-stack {
+    display: grid;
+    gap: 14px;
+}
+
+.lead-import-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.lead-import-preview {
+    display: grid;
+    gap: 12px;
+}
+
+.lead-import-summary-grid .team-summary-card {
+    position: relative;
+    overflow: hidden;
+    padding: 14px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    background: linear-gradient(135deg, rgba(31, 25, 52, 0.96), rgba(19, 16, 34, 0.98));
+}
+
+.lead-import-summary-grid .team-summary-label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.lead-import-summary-grid .team-summary-value {
+    display: block;
+    margin-top: 8px;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.lead-import-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.lead-import-preview-list {
+    display: grid;
+    gap: 8px;
+}
+
+.lead-import-preview-row {
+    padding: 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.lead-import-preview-main {
+    display: grid;
+    gap: 8px;
+}
+
+.lead-import-preview-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: center;
+}
+
+.lead-import-preview-copy {
+    display: grid;
+    gap: 4px;
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+}
+
 @media (max-width: 640px) {
     .export-checklist {
+        grid-template-columns: 1fr;
+    }
+
+    .lead-import-summary-grid {
         grid-template-columns: 1fr;
     }
 }

@@ -13,6 +13,7 @@ import broadcastRoutes from "./broadcast.routes";
 import settingsRoutes from "./settings.routes";
 import clientsRoutes from "./clients.routes";
 import unitsRoutes from "./units.routes";
+import leadSourcesRoutes from "./lead-sources.routes";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -32,5 +33,6 @@ router.use("/broadcast", broadcastRoutes);
 router.use("/settings", settingsRoutes);
 router.use("/clients", clientsRoutes);
 router.use("/units", unitsRoutes);
+router.use("/lead-sources", leadSourcesRoutes);
 
 export default router;

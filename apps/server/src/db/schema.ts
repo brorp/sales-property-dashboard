@@ -36,6 +36,14 @@ export const user = pgTable("user", {
     }),
     phone: text("phone"),
     isActive: boolean("is_active").notNull().default(true),
+    deactivatedAt: timestamp("deactivated_at"),
+    deactivatedByUserId: text("deactivated_by_user_id").references((): any => user.id, {
+        onDelete: "set null",
+    }),
+    reactivatedAt: timestamp("reactivated_at"),
+    reactivatedByUserId: text("reactivated_by_user_id").references((): any => user.id, {
+        onDelete: "set null",
+    }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({
@@ -43,6 +51,8 @@ export const user = pgTable("user", {
     clientIdx: index("user_client_id_idx").on(table.clientId),
     supervisorIdx: index("user_supervisor_id_idx").on(table.supervisorId),
     createdByIdx: index("user_created_by_user_id_idx").on(table.createdByUserId),
+    deactivatedByIdx: index("user_deactivated_by_user_id_idx").on(table.deactivatedByUserId),
+    reactivatedByIdx: index("user_reactivated_by_user_id_idx").on(table.reactivatedByUserId),
 }));
 
 export const session = pgTable("session", {
@@ -193,10 +203,12 @@ export const appointment = pgTable("appointment", {
     salesId: text("sales_id").references(() => user.id, { onDelete: "set null" }),
     date: date("date").notNull(),
     time: text("time").notNull(),
+    status: text("status").notNull().default("mau_survey"),
     location: text("location").notNull(),
     notes: text("notes"),
     googleEventId: text("google_event_id"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export const salesQueue = pgTable(
@@ -251,6 +263,26 @@ export const appSetting = pgTable(
     (table) => ({
         clientUnique: uniqueIndex("app_setting_client_id_unique").on(table.clientId),
         clientIdx: index("app_setting_client_id_idx").on(table.clientId),
+    })
+);
+
+export const leadSourceOption = pgTable(
+    "lead_source_option",
+    {
+        id: text("id").primaryKey(),
+        clientId: text("client_id")
+            .notNull()
+            .references(() => client.id, { onDelete: "cascade" }),
+        value: text("value").notNull(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        clientIdx: index("lead_source_option_client_id_idx").on(table.clientId),
+        clientValueUnique: uniqueIndex("lead_source_option_client_value_unique").on(
+            table.clientId,
+            table.value
+        ),
     })
 );
 
@@ -358,5 +390,33 @@ export const leadProgressHistory = pgTable(
     },
     (table) => ({
         leadIdx: index("lead_progress_history_lead_id_idx").on(table.leadId),
+    })
+);
+
+export const leadReassignmentAudit = pgTable(
+    "lead_reassignment_audit",
+    {
+        id: text("id").primaryKey(),
+        leadId: text("lead_id")
+            .notNull()
+            .references(() => lead.id, { onDelete: "cascade" }),
+        fromSalesId: text("from_sales_id").references(() => user.id, { onDelete: "set null" }),
+        toSalesId: text("to_sales_id").references(() => user.id, { onDelete: "set null" }),
+        triggeredByUserId: text("triggered_by_user_id").references(() => user.id, {
+            onDelete: "set null",
+        }),
+        source: text("source").notNull().default("manual_reassign"),
+        importBatchId: text("import_batch_id"),
+        metadata: text("metadata"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        leadIdx: index("lead_reassignment_audit_lead_id_idx").on(table.leadId),
+        fromSalesIdx: index("lead_reassignment_audit_from_sales_id_idx").on(table.fromSalesId),
+        toSalesIdx: index("lead_reassignment_audit_to_sales_id_idx").on(table.toSalesId),
+        triggeredByIdx: index("lead_reassignment_audit_triggered_by_user_id_idx").on(
+            table.triggeredByUserId
+        ),
+        batchIdx: index("lead_reassignment_audit_import_batch_id_idx").on(table.importBatchId),
     })
 );

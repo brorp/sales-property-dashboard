@@ -1,8 +1,11 @@
 import { Router } from "express";
 import type { Response as ExpressResponse, NextFunction } from "express";
 import { fromNodeHeaders } from "better-auth/node";
+import { eq } from "drizzle-orm";
 import { auth } from "../auth/index";
 import { repairKnownSeedCredential } from "../auth/credential-account";
+import { db } from "../db/index";
+import { user } from "../db/schema";
 import * as clientsService from "../services/clients.service";
 import { logger } from "../utils/logger";
 
@@ -106,6 +109,23 @@ router.post("/login", async (req, res: ExpressResponse, next: NextFunction) => {
 
         const normalizedEmail = String(email).trim().toLowerCase();
         const normalizedPassword = String(password);
+        const [existingUser] = await db
+            .select({
+                id: user.id,
+                isActive: user.isActive,
+            })
+            .from(user)
+            .where(eq(user.email, normalizedEmail))
+            .limit(1);
+
+        if (existingUser && !existingUser.isActive) {
+            res.status(403).json({
+                error: "ACCOUNT_INACTIVE",
+                message: "Akun ini sedang nonaktif. Hubungi admin untuk aktivasi ulang.",
+            });
+            return;
+        }
+
         const forwardedHeaders = fromNodeHeaders(req.headers);
         let authResponse = await signInWithEmail(
             normalizedEmail,

@@ -56,6 +56,15 @@ type BroadcastJobState = {
     clientId: string | null;
 };
 
+type ResolvedBroadcastFilters = {
+    salesStatuses: string[];
+    appointmentTag: AppointmentTagFilter;
+    dateFrom: Date | null;
+    dateTo: Date | null;
+    rawDateFrom: string | null;
+    rawDateTo: string | null;
+};
+
 type BroadcastJobRuntime = {
     state: BroadcastJobState;
     queue: BroadcastQueueItem[];
@@ -162,6 +171,20 @@ function getBroadcastMaxRetryAttempts() {
     return Math.floor(parsed);
 }
 
+function resolveBroadcastFilters(input: Pick<
+    StartBroadcastInput,
+    "salesStatuses" | "appointmentTag" | "dateFrom" | "dateTo"
+>) {
+    return {
+        salesStatuses: sanitizeStatuses(input.salesStatuses || []),
+        appointmentTag: sanitizeAppointmentTag(input.appointmentTag),
+        dateFrom: toDateStart(input.dateFrom),
+        dateTo: toDateEnd(input.dateTo),
+        rawDateFrom: input.dateFrom || null,
+        rawDateTo: input.dateTo || null,
+    } satisfies ResolvedBroadcastFilters;
+}
+
 function buildStateForResponse(state: BroadcastJobState | null) {
     if (!state) {
         return {
@@ -217,22 +240,35 @@ async function getTargets(filters: {
             leadId: appointment.leadId,
             date: appointment.date,
             time: appointment.time,
+            status: appointment.status,
         })
         .from(appointment)
         .where(inArray(appointment.leadId, leadIds));
 
-    const latestAppointmentByLead = new Map<string, { date: string; time: string }>();
+    const latestAppointmentByLead = new Map<string, {
+        date: string;
+        time: string;
+        status: string;
+    }>();
     for (const item of appointmentRows) {
         const prev = latestAppointmentByLead.get(item.leadId);
         if (!prev) {
-            latestAppointmentByLead.set(item.leadId, { date: item.date, time: item.time });
+            latestAppointmentByLead.set(item.leadId, {
+                date: item.date,
+                time: item.time,
+                status: item.status,
+            });
             continue;
         }
 
         const prevTs = toAppointmentDateTime(prev.date, prev.time).getTime();
         const nextTs = toAppointmentDateTime(item.date, item.time).getTime();
         if (nextTs > prevTs) {
-            latestAppointmentByLead.set(item.leadId, { date: item.date, time: item.time });
+            latestAppointmentByLead.set(item.leadId, {
+                date: item.date,
+                time: item.time,
+                status: item.status,
+            });
         }
     }
 
@@ -414,6 +450,32 @@ export function getBroadcastStatus(clientId?: string | null) {
     return buildStateForResponse(currentJobs.get(getScopeKey(clientId))?.state || null);
 }
 
+export async function estimateBroadcast(
+    input: Pick<StartBroadcastInput, "salesStatuses" | "appointmentTag" | "dateFrom" | "dateTo">,
+    clientId?: string | null
+) {
+    const filters = resolveBroadcastFilters(input);
+    const targets = await getTargets(
+        {
+            salesStatuses: filters.salesStatuses,
+            appointmentTag: filters.appointmentTag,
+            dateFrom: filters.dateFrom,
+            dateTo: filters.dateTo,
+        },
+        clientId
+    );
+
+    return {
+        totalTargets: targets.length,
+        filters: {
+            salesStatuses: filters.salesStatuses,
+            appointmentTag: filters.appointmentTag,
+            dateFrom: filters.rawDateFrom,
+            dateTo: filters.rawDateTo,
+        },
+    };
+}
+
 export async function startBroadcast(
     input: StartBroadcastInput,
     startedBy: string,
@@ -426,10 +488,7 @@ export async function startBroadcast(
         throw new Error("BROADCAST_ALREADY_RUNNING");
     }
 
-    const salesStatuses = sanitizeStatuses(input.salesStatuses || []);
-    const appointmentTag = sanitizeAppointmentTag(input.appointmentTag);
-    const dateFrom = toDateStart(input.dateFrom);
-    const dateTo = toDateEnd(input.dateTo);
+    const filters = resolveBroadcastFilters(input);
     const intervalMinutes = sanitizeIntervalMinutes(input.intervalMinutes);
     const message = String(input.message || "").trim();
     const maxRetries = getBroadcastMaxRetryAttempts();
@@ -449,12 +508,15 @@ export async function startBroadcast(
         throw new Error("BROADCAST_CONTENT_EMPTY");
     }
 
-    const targets = await getTargets({
-        salesStatuses,
-        appointmentTag,
-        dateFrom,
-        dateTo,
-    }, clientId);
+    const targets = await getTargets(
+        {
+            salesStatuses: filters.salesStatuses,
+            appointmentTag: filters.appointmentTag,
+            dateFrom: filters.dateFrom,
+            dateTo: filters.dateTo,
+        },
+        clientId
+    );
 
     if (targets.length === 0) {
         throw new Error("BROADCAST_NO_TARGET");
@@ -467,10 +529,10 @@ export async function startBroadcast(
         finishedAt: null,
         startedBy,
         filters: {
-            salesStatuses,
-            appointmentTag,
-            dateFrom: input.dateFrom || null,
-            dateTo: input.dateTo || null,
+            salesStatuses: filters.salesStatuses,
+            appointmentTag: filters.appointmentTag,
+            dateFrom: filters.rawDateFrom,
+            dateTo: filters.rawDateTo,
         },
         intervalMinutes,
         message,

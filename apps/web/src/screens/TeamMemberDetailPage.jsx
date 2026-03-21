@@ -9,6 +9,7 @@ import { apiRequest } from '../lib/api';
 
 function getStatusBadgeClass(kind, value) {
     if (kind === 'flow') {
+        if (value === 'accepted') return 'badge-success';
         if (value === 'assigned') return 'badge-purple';
         if (value === 'hold') return 'badge-warm';
         return 'badge-neutral';
@@ -130,16 +131,16 @@ export default function TeamMemberDetailPage({ memberId }) {
                                 <span className="team-member-stat-label">Leads</span>
                             </div>
                             <div className="team-member-stat">
+                                <span className="team-member-stat-value">{member.accepted || 0}</span>
+                                <span className="team-member-stat-label">Accepted</span>
+                            </div>
+                            <div className="team-member-stat">
                                 <span className="team-member-stat-value">{member.closed || 0}</span>
                                 <span className="team-member-stat-label">Closing</span>
                             </div>
                             <div className="team-member-stat">
-                                <span className="team-member-stat-value">{member.hot || 0}</span>
-                                <span className="team-member-stat-label">Hot</span>
-                            </div>
-                            <div className="team-member-stat">
-                                <span className="team-member-stat-value">{member.pending || 0}</span>
-                                <span className="team-member-stat-label">Pending</span>
+                                <span className="team-member-stat-value">{member.appointments || 0}</span>
+                                <span className="team-member-stat-label">Appointment</span>
                             </div>
                         </div>
                     </section>
@@ -172,7 +173,7 @@ export default function TeamMemberDetailPage({ memberId }) {
                                                         <span className="badge badge-neutral">{sales.totalLeads || 0} Leads</span>
                                                     </div>
                                                     <p className="team-email">{sales.email}</p>
-                                                    <p className="team-member-subtitle">{sales.closed || 0} closing • {sales.hot || 0} hot</p>
+                                                    <p className="team-member-subtitle">{sales.accepted || 0} accepted • {sales.appointments || 0} appointment</p>
                                                 </div>
                                             </div>
                                             <span className="team-member-arrow">→</span>

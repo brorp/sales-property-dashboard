@@ -1,11 +1,12 @@
 import { Router } from "express";
 import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
-import { requireMinRole } from "../middleware/rbac";
+import { requireMinRole, requireRole } from "../middleware/rbac";
 import { db } from "../db/index";
 import { user as userTable } from "../db/schema";
 import { eq } from "drizzle-orm";
 import * as leadsService from "../services/leads.service";
+import * as leadTransferService from "../services/lead-transfer.service";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -54,6 +55,7 @@ router.get("/", async (req, res: Response, next: NextFunction) => {
             assignedTo,
             appointmentTag,
             domicileCity,
+            source,
         } = req.query;
 
         const leads = await leadsService.findAll(
@@ -65,6 +67,7 @@ router.get("/", async (req, res: Response, next: NextFunction) => {
                 assignedTo: assignedTo as string,
                 appointmentTag: appointmentTag as string,
                 domicileCity: domicileCity as string,
+                source: source as string,
             },
             user.id,
             user.role,
@@ -72,6 +75,69 @@ router.get("/", async (req, res: Response, next: NextFunction) => {
         );
 
         res.json(leads);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.post("/import-reassign/preview", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { user } = req as unknown as AuthenticatedRequest;
+        const { csvText, rows, targetSalesId } = req.body ?? {};
+
+        if ((!csvText && !Array.isArray(rows)) || !targetSalesId) {
+            res.status(400).json({
+                error: "VALIDATION_ERROR",
+                message: "rows/csvText dan targetSalesId wajib diisi",
+            });
+            return;
+        }
+
+        const preview = await leadTransferService.previewLeadReassignmentImport(
+            {
+                csvText: typeof csvText === "string" ? csvText : undefined,
+                rows: Array.isArray(rows) ? rows : undefined,
+            },
+            String(targetSalesId),
+            {
+                actorId: user.id,
+                actorRole: user.role,
+                actorClientId: user.clientId || null,
+            }
+        );
+
+        res.json(preview);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.post("/import-reassign/commit", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { user } = req as unknown as AuthenticatedRequest;
+        const { csvText, rows, targetSalesId, fileName } = req.body ?? {};
+
+        if ((!csvText && !Array.isArray(rows)) || !targetSalesId) {
+            res.status(400).json({
+                error: "VALIDATION_ERROR",
+                message: "rows/csvText dan targetSalesId wajib diisi",
+            });
+            return;
+        }
+
+        const committed = await leadTransferService.commitLeadReassignmentImport({
+            csvText: typeof csvText === "string" ? csvText : undefined,
+            rows: Array.isArray(rows) ? rows : undefined,
+            targetSalesId: String(targetSalesId),
+            fileName: typeof fileName === "string" ? fileName : undefined,
+            actor: {
+                actorId: user.id,
+                actorRole: user.role,
+                actorClientId: user.clientId || null,
+            },
+        });
+
+        res.json(committed);
     } catch (error) {
         next(error);
     }
@@ -172,6 +238,11 @@ router.patch("/:id", async (req, res: Response, next: NextFunction) => {
 
         if (!canEditLeadByUser(currentLead, user, scope)) {
             res.status(403).json({ error: "FORBIDDEN_LEAD_EDIT", message: "Anda tidak memiliki akses edit ke lead ini" });
+            return;
+        }
+
+        if (currentLead.resultStatus === "akad" && (salesStatus || resultStatus || name || domicileCity || interestUnitId || unitName || paymentMethod || rejectedReason)) {
+            res.status(400).json({ error: "LOCKED_LEAD", message: "Lead yang sudah Akad telah dikunci secara permanen dan tidak dapat diubah datanya." });
             return;
         }
 

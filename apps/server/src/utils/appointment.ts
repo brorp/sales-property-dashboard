@@ -1,4 +1,4 @@
-export type AppointmentTag = "none" | "mau_survey" | "sudah_survey";
+export type AppointmentTag = "none" | "mau_survey" | "sudah_survey" | "dibatalkan";
 
 function safeDatePart(dateValue: string) {
     if (!dateValue || typeof dateValue !== "string") {
@@ -28,15 +28,37 @@ export function resolveAppointmentTag(
         | {
               date: string;
               time: string;
+              status?: string | null;
           }
         | null
-        | undefined,
-    now: Date = new Date()
+        | undefined
 ): AppointmentTag {
     if (!appointment) {
         return "none";
     }
 
+    const normalizedStatus = String(appointment.status || "").trim().toLowerCase();
+    if (
+        normalizedStatus === "mau_survey" ||
+        normalizedStatus === "sudah_survey" ||
+        normalizedStatus === "dibatalkan"
+    ) {
+        return normalizedStatus;
+    }
+
     const appointmentAt = toAppointmentDateTime(appointment.date, appointment.time);
-    return appointmentAt.getTime() > now.getTime() ? "mau_survey" : "sudah_survey";
+    return appointmentAt.getTime() > Date.now() ? "mau_survey" : "sudah_survey";
+}
+
+export function sanitizeAppointmentStatus(value: unknown): AppointmentTag {
+    const normalized = String(value || "").trim().toLowerCase();
+    if (
+        normalized === "mau_survey" ||
+        normalized === "sudah_survey" ||
+        normalized === "dibatalkan"
+    ) {
+        return normalized;
+    }
+
+    return "mau_survey";
 }

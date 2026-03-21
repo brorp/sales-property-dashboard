@@ -14,6 +14,8 @@ import {
     distributionAttempt,
     distributionCycle,
     lead,
+    leadReassignmentAudit,
+    leadSourceOption,
     leadProgressHistory,
     leadStatusHistory,
     projectUnit,
@@ -24,7 +26,14 @@ import {
     verification,
     waMessage,
 } from "./schema";
-import { ROOT_USER, TENANTS, type SeedUser } from "./seed-data";
+import {
+    ROOT_USER,
+    TENANTS,
+    TENANT_LEADS,
+    TENANT_LEAD_SOURCE_OPTIONS,
+    type SeedUser,
+    type SeedLead,
+} from "./seed-data";
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
 
@@ -38,10 +47,12 @@ async function resetOperationalData() {
         await tx.delete(distributionCycle);
         await tx.delete(leadProgressHistory);
         await tx.delete(leadStatusHistory);
+        await tx.delete(leadReassignmentAudit);
         await tx.delete(activity);
         await tx.delete(appointment);
         await tx.delete(waMessage);
         await tx.delete(lead);
+        await tx.delete(leadSourceOption);
         await tx.delete(salesQueue);
         await tx.delete(supervisorSales);
         await tx.delete(appSetting);
@@ -252,6 +263,95 @@ async function seedSystemSettings() {
     }
 }
 
+async function seedLeadSourceOptions() {
+    await db.delete(leadSourceOption);
+
+    for (const tenant of TENANTS) {
+        const options = TENANT_LEAD_SOURCE_OPTIONS[tenant.id] || [];
+        for (const value of options) {
+            await db.insert(leadSourceOption).values({
+                id: generateId(),
+                clientId: tenant.id,
+                value,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            });
+        }
+    }
+}
+
+function resolveReceivedAt(offsetDays?: number) {
+    const now = new Date();
+    if (!Number.isFinite(Number(offsetDays))) {
+        return now;
+    }
+
+    const value = new Date(now);
+    value.setDate(value.getDate() - Number(offsetDays || 0));
+    value.setHours(9, 0, 0, 0);
+    return value;
+}
+
+async function upsertSeedLead(seedLead: SeedLead, emailToId: Map<string, string>, keyToEmail: Map<string, string>) {
+    const assignedToEmail = keyToEmail.get(seedLead.assignedToKey || "");
+    const assignedTo = assignedToEmail ? emailToId.get(assignedToEmail) || null : null;
+    if (!assignedTo) {
+        logger.warn(`  ⚠️ skipped lead ${seedLead.key}: assigned sales not found`);
+        return;
+    }
+
+    const metaLeadId = `seed-${seedLead.key}`;
+    const receivedAt = resolveReceivedAt(seedLead.receivedAtOffsetDays);
+    const payload = {
+        name: seedLead.name,
+        phone: normalizePhone(seedLead.phone),
+        source: seedLead.source,
+        metaLeadId,
+        entryChannel: "manual_seed",
+        receivedAt,
+        clientId: seedLead.clientId,
+        assignedTo,
+        flowStatus: seedLead.flowStatus || "accepted",
+        salesStatus: seedLead.salesStatus,
+        interestProjectType: seedLead.interestProjectType,
+        interestUnitName: seedLead.interestUnitName,
+        resultStatus: seedLead.resultStatus,
+        unitName: seedLead.unitName || seedLead.interestUnitName,
+        clientStatus: seedLead.clientStatus || seedLead.salesStatus || "warm",
+        layer2Status: seedLead.layer2Status || "prospecting",
+        rejectedReason: seedLead.rejectedReason || null,
+        rejectedNote: seedLead.rejectedNote || null,
+        progress: seedLead.progress || "pending",
+        updatedAt: new Date(),
+    };
+
+    const [existing] = await db
+        .select({ id: lead.id })
+        .from(lead)
+        .where(eq(lead.metaLeadId, metaLeadId))
+        .limit(1);
+
+    if (existing) {
+        await db.update(lead).set(payload).where(eq(lead.id, existing.id));
+        return;
+    }
+
+    await db.insert(lead).values({
+        id: generateId(),
+        createdAt: receivedAt,
+        ...payload,
+    });
+}
+
+async function seedDemoLeads(emailToId: Map<string, string>, keyToEmail: Map<string, string>) {
+    for (const tenant of TENANTS) {
+        const tenantLeads = TENANT_LEADS[tenant.id] || [];
+        for (const seedLead of tenantLeads) {
+            await upsertSeedLead(seedLead, emailToId, keyToEmail);
+        }
+    }
+}
+
 async function seed() {
     logger.info("🌱 Seeding hierarchical multi-tenant database...");
 
@@ -326,6 +426,12 @@ async function seed() {
 
     await seedSystemSettings();
     logger.info("  ✅ seeded system settings");
+
+    await seedLeadSourceOptions();
+    logger.info("  ✅ seeded lead source options");
+
+    await seedDemoLeads(emailToId, keyToEmail);
+    logger.info("  ✅ seeded demo transaction leads");
 
     logger.info("✨ Seed complete");
     process.exit(0);

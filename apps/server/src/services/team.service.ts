@@ -2,12 +2,15 @@ import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db/index";
 import { client, lead, user } from "../db/schema";
 import type { QueryScope } from "../middleware/rbac";
+import { countAppointmentsForSalesIds } from "./appointments.service";
 
 function createEmptyStats() {
     return {
         totalLeads: 0,
+        accepted: 0,
         closed: 0,
         hot: 0,
+        appointments: 0,
         pending: 0,
         closeRate: 0,
     };
@@ -27,6 +30,7 @@ function buildStatsFromLeads(items: Array<{
     resultStatus: string | null;
 }>) {
     const totalLeads = items.length;
+    const accepted = items.filter((item) => item.flowStatus === "accepted").length;
     const closed = items.filter((item) => item.resultStatus === "closing").length;
     const hot = items.filter((item) => item.salesStatus === "hot").length;
     const pending = items.filter(
@@ -38,8 +42,10 @@ function buildStatsFromLeads(items: Array<{
 
     return {
         totalLeads,
+        accepted,
         closed,
         hot,
+        appointments: 0,
         pending,
         closeRate: toCloseRate(closed, totalLeads),
     };
@@ -88,6 +94,20 @@ function getVisibleMemberCondition(scope?: QueryScope) {
     return andAll([...baseConditions, eq(user.id, scope.userId)]);
 }
 
+function getInactiveSalesCondition(scope?: QueryScope) {
+    const baseConditions = [eq(user.role, "sales"), eq(user.isActive, false)];
+
+    if (!scope || scope.role === "root_admin") {
+        return andAll(baseConditions);
+    }
+
+    if (scope.role === "client_admin" && scope.clientId) {
+        return andAll([...baseConditions, eq(user.clientId, scope.clientId)]);
+    }
+
+    return andAll([...baseConditions, eq(user.id, "__none__")]);
+}
+
 async function loadScopedMembers(scope?: QueryScope) {
     return db
         .select({
@@ -113,6 +133,33 @@ async function loadScopedMembers(scope?: QueryScope) {
             ])
         )
         .orderBy(asc(client.name), asc(user.role), asc(user.name));
+}
+
+async function loadInactiveSalesMembers(scope?: QueryScope) {
+    if (scope?.role !== "client_admin" && scope?.role !== "root_admin" && scope) {
+        return [];
+    }
+
+    return db
+        .select({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            clientId: user.clientId,
+            clientName: client.name,
+            supervisorId: user.supervisorId,
+            createdByUserId: user.createdByUserId,
+            isActive: user.isActive,
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+            deactivatedAt: user.deactivatedAt,
+        })
+        .from(user)
+        .leftJoin(client, eq(user.clientId, client.id))
+        .where(getInactiveSalesCondition(scope))
+        .orderBy(asc(client.name), asc(user.name));
 }
 
 async function loadLeadsForSalesIds(salesIds: string[]) {
@@ -170,20 +217,30 @@ function buildStatsMap(
 
 function mergeStats(items: ReturnType<typeof createEmptyStats>[]) {
     const totalLeads = items.reduce((sum, item) => sum + item.totalLeads, 0);
+    const accepted = items.reduce((sum, item) => sum + item.accepted, 0);
     const closed = items.reduce((sum, item) => sum + item.closed, 0);
     const hot = items.reduce((sum, item) => sum + item.hot, 0);
+    const appointments = items.reduce((sum, item) => sum + item.appointments, 0);
     const pending = items.reduce((sum, item) => sum + item.pending, 0);
 
     return {
         totalLeads,
+        accepted,
         closed,
         hot,
+        appointments,
         pending,
         closeRate: toCloseRate(closed, totalLeads),
     };
 }
 
-function buildSalesMember(member: any, statsMap: Map<string, ReturnType<typeof createEmptyStats>>) {
+function buildSalesMember(
+    member: any,
+    statsMap: Map<string, ReturnType<typeof createEmptyStats>>,
+    appointmentCountMap: Map<string, number>
+) {
+    const stats = statsMap.get(member.id) || createEmptyStats();
+
     return {
         id: member.id,
         name: member.name,
@@ -193,17 +250,21 @@ function buildSalesMember(member: any, statsMap: Map<string, ReturnType<typeof c
         clientId: member.clientId,
         clientName: member.clientName,
         supervisorId: member.supervisorId,
-        ...((statsMap.get(member.id) || createEmptyStats())),
+        isActive: member.isActive,
+        deactivatedAt: member.deactivatedAt || null,
+        ...stats,
+        appointments: appointmentCountMap.get(member.id) || 0,
     };
 }
 
 function buildSupervisorMember(
     member: any,
     salesMembers: any[],
-    statsMap: Map<string, ReturnType<typeof createEmptyStats>>
+    statsMap: Map<string, ReturnType<typeof createEmptyStats>>,
+    appointmentCountMap: Map<string, number>
 ) {
     const sales = salesMembers
-        .map((item) => buildSalesMember(item, statsMap))
+        .map((item) => buildSalesMember(item, statsMap, appointmentCountMap))
         .sort((a, b) => a.name.localeCompare(b.name));
 
     return {
@@ -218,8 +279,10 @@ function buildSupervisorMember(
         sales,
         ...mergeStats(sales.map((item) => ({
             totalLeads: item.totalLeads,
+            accepted: item.accepted,
             closed: item.closed,
             hot: item.hot,
+            appointments: item.appointments,
             pending: item.pending,
             closeRate: item.closeRate,
         }))),
@@ -228,11 +291,15 @@ function buildSupervisorMember(
 
 export async function getTeamHierarchy(scope?: QueryScope) {
     const members = await loadScopedMembers(scope);
+    const inactiveSalesMembers = await loadInactiveSalesMembers(scope);
     const salesMembers = members.filter((item) => item.role === "sales");
     const supervisors = members.filter((item) => item.role === "supervisor");
-    const salesStatsMap = buildStatsMap(
-        await loadLeadsForSalesIds(salesMembers.map((item) => item.id))
-    );
+    const salesIds = [...salesMembers, ...inactiveSalesMembers].map((item) => item.id);
+    const [leadRows, appointmentCountMap] = await Promise.all([
+        loadLeadsForSalesIds(salesIds),
+        countAppointmentsForSalesIds(salesIds),
+    ]);
+    const salesStatsMap = buildStatsMap(leadRows);
 
     const groupMap = new Map<string, {
         id: string;
@@ -240,6 +307,7 @@ export async function getTeamHierarchy(scope?: QueryScope) {
         clientName: string;
         supervisors: any[];
         unassignedSales: any[];
+        inactiveSales: any[];
     }>();
 
     const ensureGroup = (clientId: string | null, clientName: string | null) => {
@@ -251,6 +319,7 @@ export async function getTeamHierarchy(scope?: QueryScope) {
                 clientName: clientName || "Tanpa Client",
                 supervisors: [],
                 unassignedSales: [],
+                inactiveSales: [],
             });
         }
         return groupMap.get(key)!;
@@ -265,7 +334,8 @@ export async function getTeamHierarchy(scope?: QueryScope) {
                 buildSupervisorMember(
                     supervisor,
                     salesMembers.filter((item) => item.supervisorId === supervisor.id),
-                    salesStatsMap
+                    salesStatsMap,
+                    appointmentCountMap
                 )
             );
         }
@@ -276,14 +346,24 @@ export async function getTeamHierarchy(scope?: QueryScope) {
                 buildSupervisorMember(
                     supervisor,
                     salesMembers.filter((item) => item.supervisorId === supervisor.id),
-                    salesStatsMap
+                    salesStatsMap,
+                    appointmentCountMap
                 )
             );
         }
 
         for (const sales of salesMembers.filter((item) => !item.supervisorId)) {
             const group = ensureGroup(sales.clientId, sales.clientName);
-            group.unassignedSales.push(buildSalesMember(sales, salesStatsMap));
+            group.unassignedSales.push(
+                buildSalesMember(sales, salesStatsMap, appointmentCountMap)
+            );
+        }
+
+        for (const inactiveSales of inactiveSalesMembers) {
+            const group = ensureGroup(inactiveSales.clientId, inactiveSales.clientName);
+            group.inactiveSales.push(
+                buildSalesMember(inactiveSales, salesStatsMap, appointmentCountMap)
+            );
         }
     }
 
@@ -291,15 +371,19 @@ export async function getTeamHierarchy(scope?: QueryScope) {
         .map((group) => {
             const supervisorStats = group.supervisors.map((item) => ({
                 totalLeads: item.totalLeads,
+                accepted: item.accepted,
                 closed: item.closed,
                 hot: item.hot,
+                appointments: item.appointments,
                 pending: item.pending,
                 closeRate: item.closeRate,
             }));
             const unassignedStats = group.unassignedSales.map((item) => ({
                 totalLeads: item.totalLeads,
+                accepted: item.accepted,
                 closed: item.closed,
                 hot: item.hot,
+                appointments: item.appointments,
                 pending: item.pending,
                 closeRate: item.closeRate,
             }));
@@ -308,6 +392,7 @@ export async function getTeamHierarchy(scope?: QueryScope) {
                 ...group,
                 supervisors: group.supervisors.sort((a, b) => a.name.localeCompare(b.name)),
                 unassignedSales: group.unassignedSales.sort((a, b) => a.name.localeCompare(b.name)),
+                inactiveSales: group.inactiveSales.sort((a, b) => a.name.localeCompare(b.name)),
                 summary: {
                     supervisors: group.supervisors.length,
                     sales:
@@ -324,8 +409,10 @@ export async function getTeamHierarchy(scope?: QueryScope) {
     const overallStats = mergeStats(
         groups.map((group) => ({
             totalLeads: group.summary.totalLeads,
+            accepted: group.summary.accepted,
             closed: group.summary.closed,
             hot: group.summary.hot,
+            appointments: group.summary.appointments,
             pending: group.summary.pending,
             closeRate: group.summary.closeRate,
         }))
@@ -501,6 +588,9 @@ export async function getTeamMemberDetail(memberId: string, scope?: QueryScope) 
         member.role === "supervisor" ? await loadManagedSales(member.id) : [];
     const managedSalesIds = managedSales.map((item) => item.id);
     const leadRows = await loadMemberLeadDetails(member, managedSalesIds);
+    const appointmentCountMap = await countAppointmentsForSalesIds(
+        member.role === "sales" ? [member.id] : managedSalesIds
+    );
     const salesStatsMap = buildStatsMap(
         leadRows.map((item) => ({
             assignedTo: item.assignedTo,
@@ -513,15 +603,21 @@ export async function getTeamMemberDetail(memberId: string, scope?: QueryScope) 
     const memberStats =
         member.role === "supervisor"
             ? mergeStats(
-                managedSales.map((item) => salesStatsMap.get(item.id) || createEmptyStats())
-            )
-            : buildStatsFromLeads(
-                leadRows.map((item) => ({
-                    flowStatus: item.flowStatus,
-                    salesStatus: item.salesStatus,
-                    resultStatus: item.resultStatus,
+                managedSales.map((item) => ({
+                    ...(salesStatsMap.get(item.id) || createEmptyStats()),
+                    appointments: appointmentCountMap.get(item.id) || 0,
                 }))
-            );
+            )
+            : {
+                ...buildStatsFromLeads(
+                    leadRows.map((item) => ({
+                        flowStatus: item.flowStatus,
+                        salesStatus: item.salesStatus,
+                        resultStatus: item.resultStatus,
+                    }))
+                ),
+                appointments: appointmentCountMap.get(member.id) || 0,
+            };
 
     return {
         member: {
@@ -551,6 +647,7 @@ export async function getTeamMemberDetail(memberId: string, scope?: QueryScope) 
             role: item.role,
             supervisorId: item.supervisorId,
             ...((salesStatsMap.get(item.id) || createEmptyStats())),
+            appointments: appointmentCountMap.get(item.id) || 0,
         })),
         leads: leadRows,
     };

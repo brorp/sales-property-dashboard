@@ -7,6 +7,10 @@ import { useLeads } from '../context/LeadsContext';
 import { getRejectedReasonLabel, getSalesStatusLabel, getResultStatusLabel } from '../constants/crm';
 import { apiRequest } from '../lib/api';
 import Header from '../components/Header';
+import { usePagePolling } from '../hooks/usePagePolling';
+import TransactionRecapSection from './dashboard-sections/TransactionRecapSection';
+import TeamPerformanceSection from './dashboard-sections/TeamPerformanceSection';
+import DatabaseControlCenterSection from './dashboard-sections/DatabaseControlCenterSection';
 
 const STATUS_COLOR_MAP = {
     hot: 'var(--hot)',
@@ -33,6 +37,9 @@ const DEFAULT_ANALYTICS = {
     ongoingAppointments: [],
     resultRecap: { total: 0, items: [], cancelReasons: { total: 0, items: [] } },
     holdLeads: [],
+    transactionRecap: null,
+    teamPerformance: null,
+    databaseControl: null,
 };
 
 const DAY_LABELS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
@@ -211,6 +218,26 @@ function formatDatePreview(value) {
     }).format(parsed);
 }
 
+function formatReminderDateTime(dateValue, timeValue) {
+    if (!dateValue) {
+        return '-';
+    }
+
+    const safeTime = String(timeValue || '00:00').slice(0, 5);
+    const parsed = new Date(`${dateValue}T${safeTime}:00`);
+    if (Number.isNaN(parsed.getTime())) {
+        return `${dateValue} ${safeTime}`;
+    }
+
+    return new Intl.DateTimeFormat('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(parsed);
+}
+
 function buildDashboardQuery(range) {
     const params = new URLSearchParams();
     if (range?.dateFrom) {
@@ -273,7 +300,9 @@ export default function DashboardPage() {
     const { user, isAdmin, getRoleLabel } = useAuth();
     const { dashboardAnalytics, refreshAll } = useLeads();
     const router = useRouter();
-    const filterRef = useRef(null);
+    const transactionFilterRef = useRef(null);
+    const teamPerformanceFilterRef = useRef(null);
+    const databaseControlFilterRef = useRef(null);
 
     const [refreshing, setRefreshing] = useState(false);
     const [filterLoading, setFilterLoading] = useState(false);
@@ -282,15 +311,22 @@ export default function DashboardPage() {
     const [holdActionLoadingId, setHoldActionLoadingId] = useState('');
     const [holdActionMessage, setHoldActionMessage] = useState('');
     const [holdActionError, setHoldActionError] = useState('');
-    const [filterOpen, setFilterOpen] = useState(false);
+    const [filterOpenKey, setFilterOpenKey] = useState('');
     const [appliedDateRange, setAppliedDateRange] = useState(EMPTY_DATE_RANGE);
     const [draftDateRange, setDraftDateRange] = useState(EMPTY_DATE_RANGE);
     const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
 
-    const showDateFilter = user?.role === 'client_admin';
+    const showDateFilter = Boolean(user);
     const hasActiveDateFilter = Boolean(appliedDateRange.dateFrom || appliedDateRange.dateTo);
-    const showHierarchyOverview =
-        user?.role === 'client_admin' || user?.role === 'root_admin';
+    const showHierarchyOverview = user?.role === 'root_admin';
+    const canUseTeamFilters = user?.role === 'client_admin' || user?.role === 'root_admin';
+    const showRoleReminder = user?.role === 'supervisor' || user?.role === 'sales';
+    const scopedDashboardLabel =
+        user?.role === 'supervisor'
+            ? 'Tim Anda'
+            : user?.role === 'sales'
+                ? 'Data Anda'
+                : 'Semua Supervisor & PIC Agent';
 
     const analytics = useMemo(() => {
         return pageAnalytics ?? dashboardAnalytics ?? DEFAULT_ANALYTICS;
@@ -316,6 +352,10 @@ export default function DashboardPage() {
     }, [analytics.statusPie.items, analytics.statusPie.total]);
 
     const dashboardTitle = useMemo(() => {
+        if (user?.role === 'sales' && user?.name) {
+            return user.name;
+        }
+
         const shortRoleLabel =
             user?.role === 'client_admin'
                 ? 'Admin'
@@ -349,6 +389,14 @@ export default function DashboardPage() {
         setPageAnalytics(data || DEFAULT_ANALYTICS);
         return data || DEFAULT_ANALYTICS;
     }, [user]);
+
+    usePagePolling({
+        enabled: Boolean(user),
+        intervalMs: 3000,
+        run: useCallback(async () => {
+            await loadDashboardAnalytics(appliedDateRange);
+        }, [appliedDateRange, loadDashboardAnalytics]),
+    });
 
     const handleRefresh = async () => {
         setRefreshing(true);
@@ -384,11 +432,11 @@ export default function DashboardPage() {
         }
     };
 
-    const openDateFilter = () => {
+    const openDateFilter = (filterKey) => {
         const nextDraft = normalizeDateRange(appliedDateRange);
         setDraftDateRange(nextDraft);
         setCalendarMonth(startOfMonth(parseDateInput(nextDraft.dateFrom) || new Date()));
-        setFilterOpen(true);
+        setFilterOpenKey(filterKey);
     };
 
     const handleDateSelection = (date) => {
@@ -438,7 +486,7 @@ export default function DashboardPage() {
             await loadDashboardAnalytics(nextRange);
             setAppliedDateRange(nextRange);
             setDraftDateRange(nextRange);
-            setFilterOpen(false);
+            setFilterOpenKey('');
         } catch (err) {
             setDashboardError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
         } finally {
@@ -456,7 +504,7 @@ export default function DashboardPage() {
             await loadDashboardAnalytics(nextRange);
             setAppliedDateRange(nextRange);
             setDraftDateRange(nextRange);
-            setFilterOpen(false);
+            setFilterOpenKey('');
         } catch (err) {
             setDashboardError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
         } finally {
@@ -465,28 +513,194 @@ export default function DashboardPage() {
     };
 
     useEffect(() => {
-        if (!filterOpen) {
+        if (!filterOpenKey) {
             return undefined;
         }
 
+        const activeFilterRef =
+            filterOpenKey === 'transaction'
+                ? transactionFilterRef
+                : filterOpenKey === 'team-performance'
+                    ? teamPerformanceFilterRef
+                    : databaseControlFilterRef;
+
         const handlePointerDown = (event) => {
-            if (filterRef.current && !filterRef.current.contains(event.target)) {
-                setFilterOpen(false);
+            if (activeFilterRef.current && !activeFilterRef.current.contains(event.target)) {
+                setFilterOpenKey('');
             }
         };
 
         document.addEventListener('mousedown', handlePointerDown);
         return () => document.removeEventListener('mousedown', handlePointerDown);
-    }, [filterOpen]);
+    }, [filterOpenKey]);
 
     useEffect(() => {
         if (!user) {
             setPageAnalytics(null);
             setAppliedDateRange({ ...EMPTY_DATE_RANGE });
             setDraftDateRange({ ...EMPTY_DATE_RANGE });
-            setFilterOpen(false);
+            setFilterOpenKey('');
         }
     }, [user]);
+
+    const renderDateFilterControl = (filterKey, filterRef) => {
+        if (!showDateFilter) {
+            return null;
+        }
+
+        const isOpen = filterOpenKey === filterKey;
+
+        return (
+            <div className="dashboard-filter-shell" ref={filterRef}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <button
+                        type="button"
+                        className={`btn btn-sm ${hasActiveDateFilter ? 'btn-primary' : 'btn-secondary'} dashboard-filter-trigger`}
+                        onClick={() => {
+                            if (isOpen) {
+                                setFilterOpenKey('');
+                                return;
+                            }
+                            openDateFilter(filterKey);
+                        }}
+                    >
+                        {formatRangeButtonLabel(appliedDateRange)}
+                    </button>
+
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                        {formatRangeSummary(appliedDateRange)}
+                    </span>
+                </div>
+
+                {isOpen ? (
+                    <div className="dashboard-filter-popover">
+                        <div className="dashboard-filter-popover-head">
+                            <div>
+                                <h3>Pilih Rentang Tanggal</h3>
+                                <p>Filter analytics section ini berdasarkan lead masuk.</p>
+                            </div>
+                            <button
+                                type="button"
+                                className="dashboard-filter-close"
+                                onClick={() => setFilterOpenKey('')}
+                                aria-label="Tutup filter"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div className="dashboard-filter-preview">
+                            <div className="dashboard-filter-preview-card">
+                                <span>Mulai</span>
+                                <strong>{formatDatePreview(draftDateRange.dateFrom)}</strong>
+                            </div>
+                            <div className="dashboard-filter-preview-card">
+                                <span>Sampai</span>
+                                <strong>{formatDatePreview(draftDateRange.dateTo || draftDateRange.dateFrom)}</strong>
+                            </div>
+                        </div>
+
+                        <div className="dashboard-filter-quick">
+                            {QUICK_RANGES.map((preset) => (
+                                <button
+                                    key={preset.key}
+                                    type="button"
+                                    className="dashboard-quick-pill"
+                                    onClick={() => handleQuickRange(preset.key)}
+                                >
+                                    {preset.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="dashboard-calendar-head">
+                            <button
+                                type="button"
+                                className="dashboard-calendar-nav"
+                                onClick={() => setCalendarMonth((prev) => addMonths(prev, -1))}
+                                aria-label="Bulan sebelumnya"
+                            >
+                                ←
+                            </button>
+                            <div className="dashboard-calendar-head-label">Calendar Range</div>
+                            <button
+                                type="button"
+                                className="dashboard-calendar-nav"
+                                onClick={() => setCalendarMonth((prev) => addMonths(prev, 1))}
+                                aria-label="Bulan berikutnya"
+                            >
+                                →
+                            </button>
+                        </div>
+
+                        <div className="dashboard-calendar-grid">
+                            {[0, 1].map((offset) => {
+                                const monthDate = addMonths(calendarMonth, offset);
+                                const days = buildMonthDays(monthDate);
+
+                                return (
+                                    <div key={formatMonthLabel(monthDate)} className="dashboard-calendar-month">
+                                        <div className="dashboard-calendar-month-title">{formatMonthLabel(monthDate)}</div>
+                                        <div className="dashboard-calendar-weekdays">
+                                            {DAY_LABELS.map((dayLabel) => (
+                                                <span key={dayLabel}>{dayLabel}</span>
+                                            ))}
+                                        </div>
+                                        <div className="dashboard-calendar-days">
+                                            {days.map((day) => {
+                                                const isOutsideMonth = day.getMonth() !== monthDate.getMonth();
+                                                const isStart = isSameDay(day, draftStartDate);
+                                                const isEnd = isSameDay(day, draftEndDate);
+                                                const isInRange = isDateBetween(day, draftStartDate, draftEndDate);
+                                                const isToday = isSameDay(day, new Date());
+
+                                                return (
+                                                    <button
+                                                        key={`${formatMonthLabel(monthDate)}-${formatDateInput(day)}`}
+                                                        type="button"
+                                                        className={[
+                                                            'dashboard-calendar-day',
+                                                            isOutsideMonth ? 'is-outside' : '',
+                                                            isToday ? 'is-today' : '',
+                                                            isInRange ? 'is-in-range' : '',
+                                                            isStart ? 'is-start' : '',
+                                                            isEnd ? 'is-end' : '',
+                                                        ].filter(Boolean).join(' ')}
+                                                        onClick={() => handleDateSelection(day)}
+                                                    >
+                                                        {day.getDate()}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="dashboard-filter-actions">
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-secondary"
+                                onClick={() => void handleClearDateFilter()}
+                                disabled={filterLoading}
+                            >
+                                Reset
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-primary"
+                                onClick={() => void handleApplyDateFilter()}
+                                disabled={filterLoading || !draftDateRange.dateFrom}
+                            >
+                                {filterLoading ? 'Loading...' : 'Apply'}
+                            </button>
+                        </div>
+                    </div>
+                ) : null}
+            </div>
+        );
+    };
 
     return (
         <div className="page-container">
@@ -494,151 +708,6 @@ export default function DashboardPage() {
                 title={dashboardTitle}
                 rightAction={(
                     <div className="dashboard-header-actions">
-                        {showDateFilter ? (
-                            <div className="dashboard-filter-shell" ref={filterRef}>
-                                <button
-                                    type="button"
-                                    className={`btn btn-sm ${hasActiveDateFilter ? 'btn-primary' : 'btn-secondary'} dashboard-filter-trigger`}
-                                    onClick={() => {
-                                        if (filterOpen) {
-                                            setFilterOpen(false);
-                                            return;
-                                        }
-                                        openDateFilter();
-                                    }}
-                                >
-                                    {formatRangeButtonLabel(appliedDateRange)}
-                                </button>
-
-                                {filterOpen ? (
-                                    <div className="dashboard-filter-popover">
-                                        <div className="dashboard-filter-popover-head">
-                                            <div>
-                                                <h3>Pilih Rentang Tanggal</h3>
-                                                <p>Filter semua analytics home berdasarkan lead masuk.</p>
-                                            </div>
-                                            <button
-                                                type="button"
-                                                className="dashboard-filter-close"
-                                                onClick={() => setFilterOpen(false)}
-                                                aria-label="Tutup filter"
-                                            >
-                                                ×
-                                            </button>
-                                        </div>
-
-                                        <div className="dashboard-filter-preview">
-                                            <div className="dashboard-filter-preview-card">
-                                                <span>Mulai</span>
-                                                <strong>{formatDatePreview(draftDateRange.dateFrom)}</strong>
-                                            </div>
-                                            <div className="dashboard-filter-preview-card">
-                                                <span>Sampai</span>
-                                                <strong>{formatDatePreview(draftDateRange.dateTo || draftDateRange.dateFrom)}</strong>
-                                            </div>
-                                        </div>
-
-                                        <div className="dashboard-filter-quick">
-                                            {QUICK_RANGES.map((preset) => (
-                                                <button
-                                                    key={preset.key}
-                                                    type="button"
-                                                    className="dashboard-quick-pill"
-                                                    onClick={() => handleQuickRange(preset.key)}
-                                                >
-                                                    {preset.label}
-                                                </button>
-                                            ))}
-                                        </div>
-
-                                        <div className="dashboard-calendar-head">
-                                            <button
-                                                type="button"
-                                                className="dashboard-calendar-nav"
-                                                onClick={() => setCalendarMonth((prev) => addMonths(prev, -1))}
-                                                aria-label="Bulan sebelumnya"
-                                            >
-                                                ←
-                                            </button>
-                                            <div className="dashboard-calendar-head-label">Calendar Range</div>
-                                            <button
-                                                type="button"
-                                                className="dashboard-calendar-nav"
-                                                onClick={() => setCalendarMonth((prev) => addMonths(prev, 1))}
-                                                aria-label="Bulan berikutnya"
-                                            >
-                                                →
-                                            </button>
-                                        </div>
-
-                                        <div className="dashboard-calendar-grid">
-                                            {[0, 1].map((offset) => {
-                                                const monthDate = addMonths(calendarMonth, offset);
-                                                const days = buildMonthDays(monthDate);
-
-                                                return (
-                                                    <div key={formatMonthLabel(monthDate)} className="dashboard-calendar-month">
-                                                        <div className="dashboard-calendar-month-title">{formatMonthLabel(monthDate)}</div>
-                                                        <div className="dashboard-calendar-weekdays">
-                                                            {DAY_LABELS.map((dayLabel) => (
-                                                                <span key={dayLabel}>{dayLabel}</span>
-                                                            ))}
-                                                        </div>
-                                                        <div className="dashboard-calendar-days">
-                                                            {days.map((day) => {
-                                                                const isOutsideMonth = day.getMonth() !== monthDate.getMonth();
-                                                                const isStart = isSameDay(day, draftStartDate);
-                                                                const isEnd = isSameDay(day, draftEndDate);
-                                                                const isInRange = isDateBetween(day, draftStartDate, draftEndDate);
-                                                                const isToday = isSameDay(day, new Date());
-
-                                                                return (
-                                                                    <button
-                                                                        key={`${formatMonthLabel(monthDate)}-${formatDateInput(day)}`}
-                                                                        type="button"
-                                                                        className={[
-                                                                            'dashboard-calendar-day',
-                                                                            isOutsideMonth ? 'is-outside' : '',
-                                                                            isToday ? 'is-today' : '',
-                                                                            isInRange ? 'is-in-range' : '',
-                                                                            isStart ? 'is-start' : '',
-                                                                            isEnd ? 'is-end' : '',
-                                                                        ].filter(Boolean).join(' ')}
-                                                                        onClick={() => handleDateSelection(day)}
-                                                                    >
-                                                                        {day.getDate()}
-                                                                    </button>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-
-                                        <div className="dashboard-filter-actions">
-                                            <button
-                                                type="button"
-                                                className="btn btn-sm btn-secondary"
-                                                onClick={() => void handleClearDateFilter()}
-                                                disabled={filterLoading}
-                                            >
-                                                Reset
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="btn btn-sm btn-primary"
-                                                onClick={() => void handleApplyDateFilter()}
-                                                disabled={filterLoading || !draftDateRange.dateFrom}
-                                            >
-                                                {filterLoading ? 'Loading...' : 'Apply'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : null}
-                            </div>
-                        ) : null}
-
                         <button className="btn btn-sm btn-secondary" onClick={() => void handleRefresh()} disabled={refreshing}>
                             {refreshing ? 'Loading...' : 'Refresh'}
                         </button>
@@ -646,14 +715,35 @@ export default function DashboardPage() {
                 )}
             />
 
-            {showDateFilter ? (
-                <div className="dashboard-filter-summary">
-                    <span className="badge badge-purple">{hasActiveDateFilter ? 'Range Active' : 'All Data'}</span>
-                    <span>{formatRangeSummary(appliedDateRange)}</span>
-                </div>
-            ) : null}
-
             {dashboardError ? <div className="settings-error">{dashboardError}</div> : null}
+
+            {showRoleReminder && analytics.ongoingAppointments.length > 0 ? (
+                <section className="dash-section">
+                    <h2 className="section-title">Reminder Mau Survey</h2>
+                    <div className="card-list">
+                        {analytics.ongoingAppointments.map((item) => (
+                            <div
+                                key={item.id}
+                                className="card card-clickable"
+                                onClick={() => router.push(`/leads/${item.leadId}`)}
+                            >
+                                <div className="lead-row-top">
+                                    <div className="lead-row-name">{item.leadName}</div>
+                                    <span className="badge badge-primary">Mau Survey</span>
+                                </div>
+                                <div className="lead-row-meta">
+                                    <span>📱 {item.leadPhone}</span>
+                                    <span>🗓️ {formatReminderDateTime(item.date, item.time)}</span>
+                                </div>
+                                <div className="lead-row-meta">
+                                    {user?.role === 'supervisor' && item.salesName ? <span>Sales: {item.salesName}</span> : null}
+                                    {item.location ? <span>Lokasi: {item.location}</span> : null}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+            ) : null}
 
             {showHierarchyOverview && analytics.hierarchySummary ? (
                 <section className="dash-section">
@@ -779,186 +869,29 @@ export default function DashboardPage() {
                 </section>
             ) : null}
 
-            <div className="stats-grid">
-                <div className="stat-card stat-total">
-                    <span className="stat-label">Total Leads</span>
-                    <span className="stat-value">{dashboardStats.total}</span>
-                </div>
-                <div className="stat-card stat-pending">
-                    <span className="stat-label">Open</span>
-                    <span className="stat-value" style={{ color: 'var(--warm)' }}>{dashboardStats.open}</span>
-                </div>
-                <div className="stat-card stat-hot">
-                    <span className="stat-label">Assigned</span>
-                    <span className="stat-value" style={{ color: 'var(--primary-light)' }}>{dashboardStats.assigned}</span>
-                </div>
-                <div className="stat-card stat-closed">
-                    <span className="stat-label">Closing</span>
-                    <span className="stat-value" style={{ color: 'var(--success)' }}>{dashboardStats.closing}</span>
-                </div>
-            </div>
-
-            <section className="dash-section">
-                <div className="card">
-                    <div className="section-title">Survey Rate Ratio</div>
-                    <div className="lead-row-meta" style={{ marginBottom: 8 }}>
-                        <span>Total Leads: {analytics.surveyRatio.totalLeads}</span>
-                        <span>Sudah Survey: {analytics.surveyRatio.surveyedLeads}</span>
-                    </div>
-                    <div className="chart-track" style={{ marginBottom: 8 }}>
-                        <div className="chart-fill" style={{ width: `${Math.max(analytics.surveyRatio.ratioPercent, analytics.surveyRatio.surveyedLeads > 0 ? 2 : 0)}%`, background: 'linear-gradient(90deg, var(--primary), var(--success))' }} />
-                    </div>
-                    <div className="lead-row-meta">
-                        <span>{isAdmin ? 'Overall Ratio' : 'Agent Ratio'}</span>
-                        <strong>{analytics.surveyRatio.ratioPercent}%</strong>
-                    </div>
-                </div>
-            </section>
-
-            {isAdmin && analytics.perAgentSurveyRatio.length > 0 ? (
-                <section className="dash-section">
-                    <h2 className="section-title">Survey Ratio per Agent</h2>
-                    <div className="card agent-pie-grid">
-                        {analytics.perAgentSurveyRatio.map((item) => (
-                            <div key={item.salesId} className="agent-pie-card">
-                                <div className="mini-pie" style={{ background: `conic-gradient(var(--success) 0deg ${(item.ratioPercent / 100) * 360}deg, var(--bg-input) ${(item.ratioPercent / 100) * 360}deg 360deg)` }}>
-                                    <div className="mini-pie-center">{item.ratioPercent}%</div>
-                                </div>
-                                <div className="agent-pie-meta">
-                                    <div className="agent-pie-name">{item.salesName}</div>
-                                    <div className="agent-pie-ratio">{item.surveyedLeads}/{item.totalLeads} surveyed</div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-            ) : null}
-
-            {analytics.statusPie.items.length > 0 ? (
-                <section className="dash-section">
-                    <h2 className="section-title">Sales Status Breakdown</h2>
-                    <div className="card">
-                        <div className="pie-layout">
-                            <div className="pie-chart" style={{ background: statusPieGradient }}>
-                                <div className="pie-chart-center">
-                                    <strong>{analytics.statusPie.total}</strong>
-                                    <span>Total</span>
-                                </div>
-                            </div>
-                            <div className="pie-legend">
-                                {analytics.statusPie.items.map((item) => (
-                                    <div key={item.key} className="pie-legend-row">
-                                        <span className="pie-legend-left">
-                                            <span className="pie-dot" style={{ background: STATUS_COLOR_MAP[item.key] || 'var(--primary-light)' }} />
-                                            <span>{getSalesStatusLabel(item.key)}</span>
-                                        </span>
-                                        <span>{item.percentage}% ({item.count})</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            ) : null}
-
-            {isAdmin ? (
-                <section className="dash-section">
-                    <h2 className="section-title">Domisili Leads</h2>
-                    <div className="card chart-card">
-                        {analytics.domicileBars.length === 0 ? (
-                            <div className="empty-desc">Belum ada data domisili.</div>
-                        ) : analytics.domicileBars.map((item) => (
-                            <div key={item.city} className="chart-row">
-                                <div className="chart-row-head">
-                                    <span>{item.city}</span>
-                                    <span>{item.percentage}% ({item.count})</span>
-                                </div>
-                                <div className="chart-track">
-                                    <div
-                                        className="chart-fill"
-                                        style={{
-                                            width: `${Math.max(item.percentage, item.count > 0 ? 2 : 0)}%`,
-                                            background: 'var(--warm)',
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-            ) : null}
-
-            <section className="dash-section">
-                <h2 className="section-title">Ongoing Appointment (Mau Survey)</h2>
-                <div className="card-list">
-                    {analytics.ongoingAppointments.length === 0 ? (
-                        <div className="card">Belum ada appointment yang mau survey.</div>
-                    ) : analytics.ongoingAppointments.map((item) => (
-                        <div key={item.id} className="card card-clickable appt-card" onClick={() => router.push(`/leads/${item.leadId}`)}>
-                            <div className="lead-row-top">
-                                <div className="lead-row-name">{item.leadName}</div>
-                                <span className="badge badge-warm">Mau Survey</span>
-                            </div>
-                            <div className="lead-row-meta">
-                                <span>📅 {item.date}</span>
-                                <span>🕐 {item.time}</span>
-                            </div>
-                            <div className="lead-row-meta">
-                                <span>📍 {item.location}</span>
-                                {isAdmin ? <span>👤 {item.salesName || '-'}</span> : null}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </section>
-
-            <section className="dash-section">
-                <h2 className="section-title">Result Status Recap</h2>
-                <div className="card chart-card">
-                    {analytics.resultRecap.items.map((item) => (
-                        <div key={item.key} className="chart-row">
-                            <div className="chart-row-head">
-                                <span>{getResultStatusLabel(item.key)}</span>
-                                <span>{item.percentage}% ({item.count})</span>
-                            </div>
-                            <div className="chart-track">
-                                <div
-                                    className="chart-fill"
-                                    style={{
-                                        width: `${Math.max(item.percentage, item.count > 0 ? 2 : 0)}%`,
-                                        background: item.key === 'closing' ? 'var(--success)' : item.key === 'batal' ? 'var(--danger)' : 'var(--primary)',
-                                    }}
-                                />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </section>
-
-            {analytics.resultRecap.cancelReasons.total > 0 ? (
-                <section className="dash-section">
-                    <h2 className="section-title">Alasan Batal</h2>
-                    <div className="card chart-card">
-                        {analytics.resultRecap.cancelReasons.items.map((item) => (
-                            <div key={item.key} className="chart-row">
-                                <div className="chart-row-head">
-                                    <span>{getRejectedReasonLabel(item.key)}</span>
-                                    <span>{item.percentage}% ({item.count})</span>
-                                </div>
-                                <div className="chart-track">
-                                    <div
-                                        className="chart-fill"
-                                        style={{
-                                            width: `${Math.max(item.percentage, item.count > 0 ? 2 : 0)}%`,
-                                            background: 'var(--danger)',
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-            ) : null}
+            <TransactionRecapSection
+                data={analytics.transactionRecap}
+                dateFilterControl={renderDateFilterControl('transaction', transactionFilterRef)}
+                allowTeamFiltering={canUseTeamFilters}
+                showCrossTeamInsights={canUseTeamFilters}
+                scopeLabel={scopedDashboardLabel}
+                viewerRole={user?.role}
+                viewerId={user?.id}
+                viewerName={user?.name}
+            />
+            <TeamPerformanceSection
+                data={analytics.teamPerformance}
+                dateFilterControl={renderDateFilterControl('team-performance', teamPerformanceFilterRef)}
+                allowTeamFiltering={canUseTeamFilters}
+                autoShowScopedDetails={!canUseTeamFilters}
+                scopeLabel={scopedDashboardLabel}
+            />
+            <DatabaseControlCenterSection
+                data={analytics.databaseControl}
+                dateFilterControl={renderDateFilterControl('database-control', databaseControlFilterRef)}
+                allowScopeFiltering={canUseTeamFilters}
+                scopeLabel={scopedDashboardLabel}
+            />
         </div>
     );
 }

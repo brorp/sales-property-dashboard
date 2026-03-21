@@ -4,6 +4,7 @@ import {
     activity,
     appointment,
     lead,
+    leadSourceOption,
     projectUnit,
     user,
 } from "../db/schema";
@@ -14,6 +15,7 @@ import {
     type AppointmentTag,
 } from "../utils/appointment";
 import { createGoogleCalendarEvent } from "./calendar.service";
+import { syncLeadAppointmentsSalesOwner } from "./appointments.service";
 
 interface LeadFilters {
     search?: string;
@@ -23,6 +25,7 @@ interface LeadFilters {
     assignedTo?: string;
     appointmentTag?: string;
     domicileCity?: string;
+    source?: string;
 }
 
 export type LeadPatchInput = {
@@ -66,6 +69,9 @@ function normalizeFlowStatus(
     if (flowStatus === "hold") {
         return "hold";
     }
+    if (flowStatus === "accepted") {
+        return "accepted";
+    }
     if (flowStatus === "assigned") {
         return "assigned";
     }
@@ -83,11 +89,20 @@ function sanitizeRequiredText(value: unknown) {
     return trimmed.length > 0 ? trimmed : undefined;
 }
 
+function isLayer2FlowStatus(flowStatus: string | null | undefined) {
+    return flowStatus === "assigned" || flowStatus === "accepted";
+}
+
 function mapAppointmentTagFilter(value: string | undefined) {
     if (!value || value === "all") {
         return undefined;
     }
-    if (value !== "mau_survey" && value !== "sudah_survey" && value !== "none") {
+    if (
+        value !== "mau_survey" &&
+        value !== "sudah_survey" &&
+        value !== "dibatalkan" &&
+        value !== "none"
+    ) {
         return undefined;
     }
     return value;
@@ -126,6 +141,7 @@ async function enrichWithAppointmentTag<TRow extends { id: string }>(rows: TRow[
             leadId: appointment.leadId,
             date: appointment.date,
             time: appointment.time,
+            status: appointment.status,
             location: appointment.location,
             notes: appointment.notes,
             createdAt: appointment.createdAt,
@@ -198,6 +214,10 @@ export async function findAll(
 
     if (filters.domicileCity && filters.domicileCity !== "all") {
         conditions.push(eq(lead.domicileCity, filters.domicileCity));
+    }
+
+    if (filters.source && filters.source !== "all") {
+        conditions.push(eq(lead.source, filters.source));
     }
 
     if (filters.search) {
@@ -309,6 +329,7 @@ export async function create(data: {
     const now = new Date();
     const assignedTo = data.assignedTo || null;
     let resolvedClientId = data.clientId || null;
+    const normalizedSource = sanitizeRequiredText(data.source) || "Manual Input";
 
     if (assignedTo) {
         const [assignedSales] = await db
@@ -332,13 +353,30 @@ export async function create(data: {
         resolvedClientId = assignedSales.clientId || resolvedClientId;
     }
 
+    if (resolvedClientId && normalizedSource !== "WhatsApp Inbound") {
+        const [sourceOption] = await db
+            .select({ id: leadSourceOption.id })
+            .from(leadSourceOption)
+            .where(
+                and(
+                    eq(leadSourceOption.clientId, resolvedClientId),
+                    eq(leadSourceOption.value, normalizedSource)
+                )
+            )
+            .limit(1);
+
+        if (!sourceOption) {
+            throw new Error("INVALID_LEAD_SOURCE");
+        }
+    }
+
     const [newLead] = await db
         .insert(lead)
         .values({
             id,
             name: data.name,
             phone: data.phone,
-            source: data.source || "Manual Input",
+            source: normalizedSource,
             assignedTo,
             clientId: resolvedClientId,
             flowStatus: assignedTo ? "assigned" : "open",
@@ -433,6 +471,11 @@ export async function assignLead(data: {
         timestamp: now,
     });
 
+    await syncLeadAppointmentsSalesOwner({
+        leadId: data.leadId,
+        salesId: data.salesId,
+    });
+
     return updated;
 }
 
@@ -503,10 +546,12 @@ export async function addAppointment(
             salesId: data.salesId || null,
             date: data.date,
             time: data.time,
+            status: "mau_survey",
             location: data.location,
             notes: data.notes || null,
             googleEventId: calendar.eventId,
             createdAt: now,
+            updatedAt: now,
         })
         .returning();
 
@@ -514,7 +559,7 @@ export async function addAppointment(
         id: generateId(),
         leadId,
         type: "appointment",
-        note: `Appointment dibuat untuk ${data.date} ${data.time} di ${data.location}`,
+        note: `Appointment dibuat (Mau Survey) untuk ${data.date} ${data.time} di ${data.location}`,
         timestamp: now,
     });
 
@@ -531,6 +576,7 @@ export async function getLeadAppointmentTag(leadId: string) {
         .select({
             date: appointment.date,
             time: appointment.time,
+            status: appointment.status,
         })
         .from(appointment)
         .where(eq(appointment.leadId, leadId));
@@ -586,6 +632,11 @@ export async function patchLead(input: LeadPatchInput) {
         updatedAt: now,
     };
     const notes: string[] = [];
+    const currentNormalizedFlowStatus = normalizeFlowStatus(
+        currentLead.flowStatus,
+        currentLead.assignedTo
+    );
+    let layer2UpdatedBySales = false;
 
     const nextName = sanitizeRequiredText(input.name);
     if (typeof nextName === "string" && nextName !== currentLead.name) {
@@ -598,6 +649,9 @@ export async function patchLead(input: LeadPatchInput) {
         if (nextCity !== undefined && nextCity !== currentLead.domicileCity) {
             updates.domicileCity = nextCity;
             notes.push(`Domisili diubah ke ${nextCity || "-"}`);
+            if (input.actorRole === "sales") {
+                layer2UpdatedBySales = true;
+            }
         }
     }
 
@@ -649,11 +703,6 @@ export async function patchLead(input: LeadPatchInput) {
             notes.push(nextAssignedTo ? "Lead di-assign manual oleh admin" : "Assignment lead dilepas oleh admin");
         }
     }
-
-    const currentNormalizedFlowStatus = normalizeFlowStatus(
-        currentLead.flowStatus,
-        currentLead.assignedTo
-    );
     const nextFlowStatus =
         (typeof updates.flowStatus === "string"
             ? updates.flowStatus
@@ -664,19 +713,22 @@ export async function patchLead(input: LeadPatchInput) {
         if (nextSalesStatus && !SALES_STATUS_SET.has(nextSalesStatus)) {
             throw new Error("INVALID_SALES_STATUS");
         }
-        if (nextSalesStatus && nextFlowStatus !== "assigned") {
+        if (nextSalesStatus && !isLayer2FlowStatus(nextFlowStatus)) {
             throw new Error("SALES_STATUS_REQUIRES_ASSIGNED");
         }
         if (nextSalesStatus !== undefined && nextSalesStatus !== currentLead.salesStatus) {
             updates.salesStatus = nextSalesStatus;
             notes.push(`Sales status diubah ke ${nextSalesStatus || "-"}`);
+            if (input.actorRole === "sales") {
+                layer2UpdatedBySales = true;
+            }
         }
     }
 
     if (input.interestUnitId !== undefined) {
         const nextInterestUnitId = sanitizeNullableText(input.interestUnitId);
 
-        if (nextInterestUnitId && nextFlowStatus !== "assigned") {
+        if (nextInterestUnitId && !isLayer2FlowStatus(nextFlowStatus)) {
             throw new Error("INTEREST_UNIT_REQUIRES_ASSIGNED");
         }
 
@@ -686,6 +738,9 @@ export async function patchLead(input: LeadPatchInput) {
                 updates.interestProjectType = null;
                 updates.interestUnitName = null;
                 notes.push("Tipe unit dihapus");
+                if (input.actorRole === "sales") {
+                    layer2UpdatedBySales = true;
+                }
             } else {
                 const [unitRow] = await db
                     .select({
@@ -714,8 +769,21 @@ export async function patchLead(input: LeadPatchInput) {
                 updates.interestProjectType = unitRow.projectType;
                 updates.interestUnitName = unitRow.unitName;
                 notes.push(`Tipe unit diubah ke ${unitRow.projectType} - ${unitRow.unitName}`);
+                if (input.actorRole === "sales") {
+                    layer2UpdatedBySales = true;
+                }
             }
         }
+    }
+
+    if (
+        input.actorRole === "sales" &&
+        currentNormalizedFlowStatus === "assigned" &&
+        layer2UpdatedBySales &&
+        typeof updates.flowStatus !== "string"
+    ) {
+        updates.flowStatus = "accepted";
+        notes.push("Flow status diubah ke Accepted");
     }
 
     const nextResultStatusRaw =
@@ -863,6 +931,18 @@ export async function patchLead(input: LeadPatchInput) {
             .where(eq(lead.id, input.id))
             .returning()
         : [currentLead];
+
+    if (updates.assignedTo !== undefined) {
+        await syncLeadAppointmentsSalesOwner({
+            leadId: input.id,
+            salesId:
+                typeof updates.assignedTo === "string"
+                    ? updates.assignedTo
+                    : updates.assignedTo === null
+                        ? null
+                        : updatedLead.assignedTo || null,
+        });
+    }
 
     const explicitNote = sanitizeRequiredText(input.activityNote);
     const activityNote = [

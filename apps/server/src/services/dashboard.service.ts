@@ -11,11 +11,17 @@ type LeadRow = {
     source: string;
     assignedTo: string | null;
     assignedUserName: string | null;
+    assignedUserEmail: string | null;
+    supervisorId: string | null;
     flowStatus: string;
     salesStatus: string | null;
     domicileCity: string | null;
+    interestProjectType: string | null;
+    interestUnitName: string | null;
     resultStatus: string | null;
+    unitName: string | null;
     rejectedReason: string | null;
+    progress: string;
     createdAt: Date;
     updatedAt: Date;
 };
@@ -25,11 +31,13 @@ type AppointmentRow = {
     leadId: string;
     date: string;
     time: string;
+    status: string;
     location: string;
     notes: string | null;
     salesId: string | null;
     salesName: string | null;
     createdAt: Date;
+    updatedAt: Date;
     leadName: string;
     leadPhone: string;
     assignedTo: string | null;
@@ -55,11 +63,92 @@ const RESULT_STATUS_META = [
     { key: "batal", label: "Batal" },
 ] as const;
 
+const TRANSACTION_STATUS_META = [
+    { key: "all", label: "Semua" },
+    { key: "akad", label: "Akad" },
+    { key: "full_book", label: "Full Book" },
+    { key: "on_process", label: "On Process" },
+    { key: "reserve", label: "Reserve" },
+    { key: "cancel", label: "Cancel" },
+] as const;
+
+const DATABASE_STATUS_LAYER_META = {
+    l1: [
+        { key: "open", label: "Open" },
+        { key: "hold", label: "Hold" },
+        { key: "assigned", label: "Assigned" },
+        { key: "accepted", label: "Accepted" },
+    ],
+    l2: [
+        { key: "hot", label: "Hot" },
+        { key: "warm", label: "Warm" },
+        { key: "cold", label: "Cold" },
+        { key: "no_response", label: "No Response" },
+        { key: "error", label: "Error" },
+        { key: "skip", label: "Skip" },
+        { key: "unfilled", label: "Belum Diisi" },
+    ],
+    l3: [
+        { key: "sudah_survey", label: "Survey" },
+        { key: "mau_survey", label: "Mau Survey" },
+        { key: "dibatalkan", label: "Dibatalkan" },
+        { key: "none", label: "Belum Ada Appointment" },
+    ],
+    l4: [
+        { key: "akad", label: "Akad" },
+        { key: "full_book", label: "Full Book" },
+        { key: "on_process", label: "On Process" },
+        { key: "reserve", label: "Reserve" },
+        { key: "cancel", label: "Cancel" },
+        { key: "none", label: "Belum Masuk Transaksi" },
+    ],
+} as const;
+
+const DATABASE_STATUS_LAYER_OPTIONS = [
+    { key: "l1", label: "L1" },
+    { key: "l2", label: "L2" },
+    { key: "l3", label: "L3" },
+    { key: "l4", label: "L4" },
+] as const;
+
+const PIC_AGENT_EMAIL = "picagent@gmail.com";
+
+function toLowerTrimmed(value: string | null | undefined) {
+    return String(value || "").trim().toLowerCase();
+}
+
+function resolveTransactionStatusKey(resultStatus: string | null | undefined) {
+    const normalized = toLowerTrimmed(resultStatus);
+    if (
+        normalized === "akad" ||
+        normalized === "full_book" ||
+        normalized === "on_process" ||
+        normalized === "reserve" ||
+        normalized === "cancel"
+    ) {
+        return normalized;
+    }
+    return null;
+}
+
+function resolveTransactionUnitType(item: Pick<
+    LeadRow,
+    "interestProjectType" | "interestUnitName" | "unitName"
+>) {
+    return (
+        item.interestProjectType ||
+        item.interestUnitName ||
+        item.unitName ||
+        "Belum Diisi"
+    );
+}
+
 function normalizeFlowStatus(
     flowStatus: string | null | undefined,
     assignedTo: string | null | undefined
 ) {
     if (flowStatus === "hold") return "hold";
+    if (flowStatus === "accepted") return "accepted";
     if (flowStatus === "assigned") return "assigned";
     if (assignedTo) return "assigned";
     return "open";
@@ -68,6 +157,34 @@ function normalizeFlowStatus(
 function toPercent(count: number, total: number) {
     if (total <= 0) return 0;
     return Math.round((count / total) * 10000) / 100;
+}
+
+function createStatusCountMap(items: ReadonlyArray<{ key: string }>) {
+    return new Map(items.map((item) => [item.key, 0]));
+}
+
+function createDatabaseStatusScopeBucket() {
+    return {
+        totalData: 0,
+        layers: {
+            l1: createStatusCountMap(DATABASE_STATUS_LAYER_META.l1),
+            l2: createStatusCountMap(DATABASE_STATUS_LAYER_META.l2),
+            l3: createStatusCountMap(DATABASE_STATUS_LAYER_META.l3),
+            l4: createStatusCountMap(DATABASE_STATUS_LAYER_META.l4),
+        },
+    };
+}
+
+function incrementStatusCount(
+    bucket: ReturnType<typeof createDatabaseStatusScopeBucket>,
+    layerKey: keyof typeof DATABASE_STATUS_LAYER_META,
+    rawStatus: string | null | undefined,
+    fallbackKey: string
+) {
+    const layerMap = bucket.layers[layerKey];
+    const normalizedStatus = String(rawStatus || "").trim().toLowerCase();
+    const nextKey = layerMap.has(normalizedStatus) ? normalizedStatus : fallbackKey;
+    layerMap.set(nextKey, (layerMap.get(nextKey) || 0) + 1);
 }
 
 function toDateStart(dateValue?: string) {
@@ -161,11 +278,17 @@ async function loadScopedLeadsAndAppointments(
             source: lead.source,
             assignedTo: lead.assignedTo,
             assignedUserName: user.name,
+            assignedUserEmail: user.email,
+            supervisorId: user.supervisorId,
             flowStatus: lead.flowStatus,
             salesStatus: lead.salesStatus,
             domicileCity: lead.domicileCity,
+            interestProjectType: lead.interestProjectType,
+            interestUnitName: lead.interestUnitName,
             resultStatus: lead.resultStatus,
+            unitName: lead.unitName,
             rejectedReason: lead.rejectedReason,
+            progress: lead.progress,
             createdAt: lead.createdAt,
             updatedAt: lead.updatedAt,
         })
@@ -188,11 +311,13 @@ async function loadScopedLeadsAndAppointments(
             leadId: appointment.leadId,
             date: appointment.date,
             time: appointment.time,
+            status: appointment.status,
             location: appointment.location,
             notes: appointment.notes,
             salesId: appointment.salesId,
             salesName: user.name,
             createdAt: appointment.createdAt,
+            updatedAt: appointment.updatedAt,
             leadName: lead.name,
             leadPhone: lead.phone,
             assignedTo: lead.assignedTo,
@@ -373,6 +498,21 @@ export async function getHomeAnalytics(
     const { leads: scopedLeads, appointments: scopedAppointments } =
         await loadScopedLeadsAndAppointments(userId, role, scope, filters);
 
+    // Fetch unique supervisor names mapped from leads
+    const supervisorIdsMap = new Set<string>();
+    for (const lead of scopedLeads) {
+        if (lead.supervisorId) supervisorIdsMap.add(lead.supervisorId);
+    }
+    const supervisorIdsList = Array.from(supervisorIdsMap);
+    const supervisorNameMap = new Map<string, string>();
+    if (supervisorIdsList.length > 0) {
+        const sups = await db
+            .select({ id: user.id, name: user.name })
+            .from(user)
+            .where(inArray(user.id, supervisorIdsList));
+        sups.forEach((s) => supervisorNameMap.set(s.id, s.name));
+    }
+
     const latestAppointmentByLead = getLatestAppointmentByLead(scopedAppointments);
 
     const decoratedLeads = scopedLeads.map((item) => {
@@ -393,6 +533,7 @@ export async function getHomeAnalytics(
     const flowOverview = {
         open: decoratedLeads.filter((item) => item.flowStatus === "open").length,
         assigned: decoratedLeads.filter((item) => item.flowStatus === "assigned").length,
+        accepted: decoratedLeads.filter((item) => item.flowStatus === "accepted").length,
     };
 
     const surveyRatio = {
@@ -547,6 +688,447 @@ export async function getHomeAnalytics(
                 }))
             : [];
 
+    // --- NEW AGGREGATIONS FOR V2 DASHBOARD ---
+    let userConditions: any = eq(user.isActive, true);
+    if (role === "client_admin" && scope?.clientId) {
+        userConditions = and(userConditions, eq(user.clientId, scope.clientId));
+    } else if (role === "supervisor") {
+        userConditions = and(userConditions, inArray(user.id, [userId, ...(scope?.managedSalesIds || [])]));
+    } else if (role === "sales") {
+        userConditions = and(userConditions, eq(user.id, userId));
+    }
+
+    const allScopedUsers = await db
+        .select({
+            id: user.id,
+            name: user.name,
+            role: user.role,
+            supervisorId: user.supervisorId
+        })
+        .from(user)
+        .where(userConditions);
+
+    const teamStats = new Map<string, any>();
+
+    // 1. Pre-fill Supervisors
+    for (const u of allScopedUsers) {
+        if (u.role === "supervisor") {
+            if (!teamStats.has(u.id)) {
+                teamStats.set(u.id, {
+                    teamId: u.id, teamName: u.name,
+                    ongoing: 0,
+                    reserve: 0,
+                    onProcess: 0,
+                    fullBook: 0,
+                    akad: 0,
+                    cancel: 0,
+                    hold: 0,
+                    skip: 0,
+                    prospek: 0,
+                    survey: 0,
+                    mauSurvey: 0,
+                    hot: 0,
+                    potensi: 0,
+                    batal: 0,
+                    cancelReasons: {} as Record<string, number>,
+                    salesMap: new Map<string, any>()
+                });
+            }
+        }
+    }
+
+    // 2. Pre-fill Sales
+    for (const s of allScopedUsers) {
+        if (s.role === "sales") {
+            const supId = s.supervisorId || 'unassigned_sup';
+            
+            if (!teamStats.has(supId)) {
+                teamStats.set(supId, {
+                    teamId: supId, teamName: supervisorNameMap.get(supId) || (supId === 'unassigned_sup' ? 'Unassigned Supervisor' : 'Unknown Supervisor'),
+                    ongoing: 0,
+                    reserve: 0,
+                    onProcess: 0,
+                    fullBook: 0,
+                    akad: 0,
+                    cancel: 0,
+                    hold: 0,
+                    skip: 0,
+                    prospek: 0,
+                    survey: 0,
+                    mauSurvey: 0,
+                    hot: 0,
+                    potensi: 0,
+                    batal: 0,
+                    cancelReasons: {} as Record<string, number>,
+                    salesMap: new Map<string, any>()
+                });
+            }
+            
+            const stats = teamStats.get(supId)!;
+            stats.salesMap.set(s.id, {
+                salesId: s.id, salesName: s.name,
+                ongoing: 0,
+                reserve: 0,
+                onProcess: 0,
+                fullBook: 0,
+                akad: 0,
+                cancel: 0,
+                hold: 0,
+                skip: 0,
+                prospek: 0,
+                survey: 0,
+                mauSurvey: 0,
+                hot: 0,
+                potensi: 0,
+                batal: 0,
+            });
+        }
+    }
+    let totalOngoing = 0;
+    let totalClosing = 0;
+    let totalFullBook = 0;
+    let totalPotensi = 0;
+    let totalBatal = 0;
+    let totalMauSurvey = 0;
+    let totalHot = 0;
+
+    const sourceCounts = new Map<string, number>();
+    const picAgentComparisonMaps = new Map<
+        string,
+        {
+            agent: number;
+            others: number;
+        }
+    >();
+    const unitTypeBreakdownMaps = new Map<string, Map<string, number>>();
+    const transactionSourceBreakdownMaps = new Map<string, Map<string, number>>();
+    const databaseStatusScopeMap = new Map<string, ReturnType<typeof createDatabaseStatusScopeBucket>>();
+
+    const ensureDatabaseStatusScope = (scopeId: string) => {
+        if (!databaseStatusScopeMap.has(scopeId)) {
+            databaseStatusScopeMap.set(scopeId, createDatabaseStatusScopeBucket());
+        }
+
+        return databaseStatusScopeMap.get(scopeId)!;
+    };
+
+    ensureDatabaseStatusScope("all");
+
+    for (const item of TRANSACTION_STATUS_META) {
+        picAgentComparisonMaps.set(item.key, {
+            agent: 0,
+            others: 0,
+        });
+        unitTypeBreakdownMaps.set(item.key, new Map<string, number>());
+        transactionSourceBreakdownMaps.set(item.key, new Map<string, number>());
+    }
+
+    for (const item of decoratedLeads) {
+        const supervisorId = item.supervisorId || 'unassigned_sup';
+        const supervisorName = supervisorNameMap.get(supervisorId) || 'Unassigned Supervisor';
+
+        const salesId = item.assignedTo || 'unassigned_sales';
+        const salesName = item.assignedUserName || 'Unassigned Sales';
+
+        if (!teamStats.has(supervisorId)) {
+            teamStats.set(supervisorId, {
+                teamId: supervisorId,
+                teamName: supervisorName,
+                ongoing: 0,
+                closing: 0,
+                reserve: 0,
+                onProcess: 0,
+                fullBook: 0,
+                akad: 0,
+                cancel: 0,
+                hold: 0,
+                skip: 0,
+                prospek: 0,
+                survey: 0,
+                mauSurvey: 0,
+                hot: 0,
+                potensi: 0,
+                batal: 0,
+                cancelReasons: {} as Record<string, number>,
+                salesMap: new Map<string, any>()
+            });
+        }
+        const stats = teamStats.get(supervisorId)!;
+
+        if (!stats.salesMap.has(salesId)) {
+            stats.salesMap.set(salesId, {
+                salesId, salesName,
+                ongoing: 0,
+                closing: 0,
+                reserve: 0,
+                onProcess: 0,
+                fullBook: 0,
+                akad: 0,
+                cancel: 0,
+                hold: 0,
+                skip: 0,
+                prospek: 0,
+                survey: 0,
+                mauSurvey: 0,
+                hot: 0,
+                potensi: 0,
+                batal: 0,
+                conversionRate: 0
+            });
+        }
+        const sStats = stats.salesMap.get(salesId)!;
+
+        // Source Breakdown
+        const src = item.source || "Lainnya";
+        sourceCounts.set(src, (sourceCounts.get(src) || 0) + 1);
+
+        const transactionStatusKey = resolveTransactionStatusKey(item.resultStatus);
+        if (transactionStatusKey) {
+            const picAgentBucket = picAgentComparisonMaps.get(transactionStatusKey);
+            const picAgentTotalBucket = picAgentComparisonMaps.get("all");
+            const isPicAgentOwned = toLowerTrimmed(item.assignedUserEmail) === PIC_AGENT_EMAIL;
+            const isAgentSource = toLowerTrimmed(item.source) === "agent";
+            const targetKey = isAgentSource || isPicAgentOwned ? "agent" : "others";
+
+            if (picAgentBucket) {
+                picAgentBucket[targetKey] += 1;
+            }
+            if (picAgentTotalBucket) {
+                picAgentTotalBucket[targetKey] += 1;
+            }
+
+            const unitType = resolveTransactionUnitType(item);
+            const statusUnitTypeMap = unitTypeBreakdownMaps.get(transactionStatusKey);
+            const totalUnitTypeMap = unitTypeBreakdownMaps.get("all");
+
+            if (statusUnitTypeMap) {
+                statusUnitTypeMap.set(unitType, (statusUnitTypeMap.get(unitType) || 0) + 1);
+            }
+            if (totalUnitTypeMap) {
+                totalUnitTypeMap.set(unitType, (totalUnitTypeMap.get(unitType) || 0) + 1);
+            }
+
+            const transactionSourceMap = transactionSourceBreakdownMaps.get(transactionStatusKey);
+            const totalTransactionSourceMap = transactionSourceBreakdownMaps.get("all");
+            const sourceLabel = item.source || "Lainnya";
+
+            if (transactionSourceMap) {
+                transactionSourceMap.set(sourceLabel, (transactionSourceMap.get(sourceLabel) || 0) + 1);
+            }
+            if (totalTransactionSourceMap) {
+                totalTransactionSourceMap.set(sourceLabel, (totalTransactionSourceMap.get(sourceLabel) || 0) + 1);
+            }
+        }
+
+        const databaseScopeIds = ["all", supervisorId];
+        for (const scopeId of databaseScopeIds) {
+            const scopeBucket = ensureDatabaseStatusScope(scopeId);
+            scopeBucket.totalData += 1;
+            incrementStatusCount(scopeBucket, "l1", item.flowStatus, "open");
+            incrementStatusCount(scopeBucket, "l2", item.salesStatus, "unfilled");
+            incrementStatusCount(scopeBucket, "l3", item.appointmentTag, "none");
+            incrementStatusCount(scopeBucket, "l4", resolveTransactionStatusKey(item.resultStatus), "none");
+        }
+
+        stats.prospek += 1;
+        sStats.prospek += 1;
+
+        const isHold = item.flowStatus === "hold";
+        const isSkip = item.salesStatus === "skip";
+        const isSurvey = item.appointmentTag === "sudah_survey";
+        const isMauSurvey = item.appointmentTag === "mau_survey";
+        const isHot = item.salesStatus === "hot";
+        const isPotensi = item.salesStatus === "hot" || item.salesStatus === "warm";
+        
+        const rStatus = String(item.resultStatus || '').toLowerCase();
+
+        const isReserve = rStatus === 'reserve';
+        const isOnProcess = rStatus === 'on_process';
+        const isFullBook = rStatus === 'full_book';
+        const isAkad = rStatus === 'akad';
+        const isCancel = rStatus === 'cancel';
+
+        if (isAkad) {
+            stats.akad += 1; sStats.akad += 1;
+            totalClosing += 1;
+        } else if (isCancel) {
+            stats.cancel += 1; sStats.cancel += 1;
+            totalBatal += 1;
+            const reason = item.rejectedReason || "Lainnya";
+            stats.cancelReasons[reason] = (stats.cancelReasons[reason] || 0) + 1;
+        } else if (isHold) {
+            stats.hold += 1; sStats.hold += 1;
+        } else if (isSkip) {
+            stats.skip += 1; sStats.skip += 1;
+        } else {
+            stats.ongoing += 1; sStats.ongoing += 1;
+            totalOngoing += 1;
+        }
+
+        if (isSurvey) { stats.survey += 1; sStats.survey += 1; }
+        if (isMauSurvey) {
+            stats.mauSurvey += 1; sStats.mauSurvey += 1;
+            totalMauSurvey += 1;
+        }
+        if (isHot) {
+            stats.hot += 1; sStats.hot += 1;
+            totalHot += 1;
+        }
+        if (isPotensi) {
+            stats.potensi += 1; sStats.potensi += 1;
+            totalPotensi += 1;
+        }
+
+        if (isReserve) { stats.reserve += 1; sStats.reserve += 1; }
+        if (isOnProcess) { stats.onProcess += 1; sStats.onProcess += 1; }
+        if (isFullBook) {
+            stats.fullBook += 1; sStats.fullBook += 1;
+            totalFullBook += 1;
+        }
+    }
+
+    const teamList = Array.from(teamStats.values()).map(t => {
+        const salesList = Array.from(t.salesMap.values() as any[]).map((s: any) => ({
+            ...s,
+            prospectRate: toPercent((s.hot || 0) + (s.mauSurvey || 0), s.prospek),
+            surveyRate: toPercent(s.survey, s.prospek),
+            closingRate: toPercent(s.fullBook, s.prospek),
+            conversionRate: toPercent(s.akad, s.survey || s.prospek)
+        })).sort((a, b) => {
+            if ((b.fullBook || 0) !== (a.fullBook || 0)) {
+                return (b.fullBook || 0) - (a.fullBook || 0);
+            }
+            return (b.prospek || 0) - (a.prospek || 0);
+        });
+
+        return {
+            teamId: t.teamId,
+            teamName: t.teamName,
+            ongoing: t.ongoing,
+            reserve: t.reserve,
+            onProcess: t.onProcess,
+            fullBook: t.fullBook,
+            akad: t.akad,
+            cancel: t.cancel,
+            hold: t.hold,
+            skip: t.skip,
+            prospek: t.prospek,
+            survey: t.survey,
+            mauSurvey: t.mauSurvey,
+            hot: t.hot,
+            potensi: t.potensi,
+            cancelReasons: t.cancelReasons,
+            prospectRate: toPercent((t.hot || 0) + (t.mauSurvey || 0), t.prospek),
+            surveyRate: toPercent(t.survey, t.prospek),
+            closingRate: toPercent(t.fullBook, t.prospek),
+            conversionRate: toPercent(t.akad, t.survey || t.prospek),
+            sales: salesList
+        };
+    }).sort((a, b) => b.ongoing - a.ongoing); 
+
+    const sourceBreakdown = Array.from(sourceCounts.entries()).map(([source, count]) => ({
+        source,
+        count,
+        percentage: toPercent(count, totalLeads)
+    })).sort((a, b) => b.count - a.count);
+
+    for (const team of teamList) {
+        ensureDatabaseStatusScope(team.teamId);
+    }
+
+    const transactionRecap = {
+        totalOngoing,
+        totalAkad: teamList.reduce((acc, t) => acc + t.akad, 0),
+        totalReserve: teamList.reduce((acc, t) => acc + t.reserve, 0),
+        totalOnProcess: teamList.reduce((acc, t) => acc + t.onProcess, 0),
+        totalFullBook: teamList.reduce((acc, t) => acc + t.fullBook, 0),
+        totalCancel: teamList.reduce((acc, t) => acc + t.cancel, 0),
+        teams: teamList,
+        chartStatusOptions: TRANSACTION_STATUS_META,
+        picAgentComparison: Object.fromEntries(
+            Array.from(picAgentComparisonMaps.entries()).map(([key, value]) => [
+                key,
+                {
+                    agent: value.agent,
+                    others: value.others,
+                    total: value.agent + value.others,
+                },
+            ])
+        ),
+        unitTypeBreakdown: Object.fromEntries(
+            Array.from(unitTypeBreakdownMaps.entries()).map(([key, unitTypeMap]) => [
+                key,
+                Array.from(unitTypeMap.entries())
+                    .map(([label, count]) => ({
+                        label,
+                        count,
+                    }))
+                    .sort((a, b) => b.count - a.count),
+            ])
+        ),
+        transactionSourceBreakdown: Object.fromEntries(
+            Array.from(transactionSourceBreakdownMaps.entries()).map(([key, sourceMap]) => [
+                key,
+                Array.from(sourceMap.entries())
+                    .map(([label, count]) => ({
+                        label,
+                        count,
+                    }))
+                    .sort((a, b) => b.count - a.count),
+            ])
+        ),
+    };
+
+    const teamPerformance = {
+        totalProspek: totalLeads,
+        totalLeads,
+        totalSurvey: surveyedLeads,
+        totalMauSurvey,
+        totalHot,
+        totalFullBook,
+        totalPotensi,
+        totalBatal,
+        totalClosing: totalFullBook,
+        prospectRate: toPercent(totalHot + totalMauSurvey, totalLeads),
+        surveyRate: toPercent(surveyedLeads, totalLeads),
+        closingRate: toPercent(totalFullBook, totalLeads),
+        conversionRate: toPercent(totalClosing, surveyedLeads || totalLeads),
+        teams: teamList
+    };
+
+    const databaseControl = {
+        totalData: totalLeads,
+        closingRate: toPercent(totalClosing, totalLeads),
+        surveyRate: toPercent(surveyedLeads, totalLeads),
+        prospectRate: toPercent(totalPotensi, totalLeads),
+        sourceBreakdown,
+        domicileBreakdown: domicileBars,
+        statusBreakdown: statusPieItems,
+        scopeOptions: teamList.map((team) => ({
+            key: team.teamId,
+            label: team.teamName,
+        })),
+        statusLayerOptions: DATABASE_STATUS_LAYER_OPTIONS,
+        statusLayerBreakdown: Object.fromEntries(
+            Array.from(databaseStatusScopeMap.entries()).map(([scopeId, bucket]) => [
+                scopeId,
+                {
+                    totalData: bucket.totalData,
+                    layers: Object.fromEntries(
+                        Object.entries(bucket.layers).map(([layerKey, layerMap]) => [
+                            layerKey,
+                            DATABASE_STATUS_LAYER_META[layerKey as keyof typeof DATABASE_STATUS_LAYER_META].map((status) => ({
+                                key: status.key,
+                                label: status.label,
+                                count: layerMap.get(status.key) || 0,
+                            })),
+                        ])
+                    ),
+                },
+            ])
+        ),
+    };
+
     return {
         scope: isManagerRole ? "overall" : "agent",
         hierarchySummary: await buildHierarchySummary(userId, role, scope),
@@ -568,5 +1150,8 @@ export async function getHomeAnalytics(
             },
         },
         holdLeads,
+        transactionRecap,
+        teamPerformance,
+        databaseControl
     };
 }

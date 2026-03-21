@@ -196,19 +196,19 @@ export function getApiBaseUrl() {
     return `${protocol}://${hostWithPort}`.replace(/\/$/, '');
 }
 
-export async function apiRequest(path, options = {}) {
+export function buildApiRequestHeaders(options = {}) {
     const {
-        method = 'GET',
-        body,
         user,
         extraHeaders = {},
+        includeJsonContentType = true,
     } = options;
 
-    const headers = {
-        'Content-Type': 'application/json',
-        ...extraHeaders,
-    };
+    const headers = { ...extraHeaders };
     const sessionToken = getStoredAuthSessionToken();
+
+    if (includeJsonContentType && !headers['Content-Type']) {
+        headers['Content-Type'] = 'application/json';
+    }
 
     if (user?.email && shouldUseDevAuthHeaders()) {
         headers['x-dev-user-email'] = user.email;
@@ -217,6 +217,17 @@ export async function apiRequest(path, options = {}) {
     if (sessionToken && !headers.Authorization) {
         headers.Authorization = `Bearer ${sessionToken}`;
     }
+
+    return headers;
+}
+
+export async function apiRequest(path, options = {}) {
+    const {
+        method = 'GET',
+        body,
+    } = options;
+
+    const headers = buildApiRequestHeaders(options);
 
     const res = await fetch(`${getApiBaseUrl()}${path}`, {
         method,

@@ -23,13 +23,28 @@ import { apiRequest } from '../lib/api';
 
 export default function LeadDetailPage({ leadId }) {
     const { user, isAdmin } = useAuth();
-    const { getLeadById, loadLeadById, updateLead, addAppointment, getSalesUsers } = useLeads();
+    const {
+        getLeadById,
+        loadLeadById,
+        updateLead,
+        addAppointment,
+        updateAppointment,
+        cancelAppointment,
+        getSalesUsers,
+    } = useLeads();
 
     const [showAppt, setShowAppt] = useState(false);
     const [showNote, setShowNote] = useState(false);
     const [showReassign, setShowReassign] = useState(false);
+    const [editingAppointment, setEditingAppointment] = useState(null);
     const [note, setNote] = useState('');
-    const [appt, setAppt] = useState({ date: '', time: '', location: '', notes: '' });
+    const [appt, setAppt] = useState({
+        date: '',
+        time: '',
+        location: '',
+        notes: '',
+        status: 'mau_survey',
+    });
 
     const [flow2Form, setFlow2Form] = useState({
         name: '',
@@ -165,12 +180,21 @@ export default function LeadDetailPage({ leadId }) {
         try {
             setRequestError('');
             setRequestSuccess('');
-            await addAppointment(lead.id, payload);
-            setAppt({ date: '', time: '', location: '', notes: '' });
+            if (editingAppointment?.id) {
+                await updateAppointment(editingAppointment.id, payload);
+            } else {
+                await addAppointment(lead.id, payload);
+            }
+            setAppt({ date: '', time: '', location: '', notes: '', status: 'mau_survey' });
+            setEditingAppointment(null);
             setShowAppt(false);
-            setRequestSuccess('Appointment berhasil dibuat.');
+            setRequestSuccess(
+                editingAppointment?.id
+                    ? 'Appointment berhasil diperbarui.'
+                    : 'Appointment berhasil dibuat.'
+            );
         } catch (err) {
-            setRequestError(err instanceof Error ? err.message : 'Failed adding appointment');
+            setRequestError(err instanceof Error ? err.message : 'Failed saving appointment');
         }
     };
 
@@ -204,17 +228,19 @@ export default function LeadDetailPage({ leadId }) {
         </div>
     );
 
+    const isLockedByAkad = lead.resultStatus === 'akad';
     const appointmentTag = lead.appointmentTag || 'none';
-    const canUpdateResult = appointmentTag === 'sudah_survey';
+    const canUpdateResult = appointmentTag === 'sudah_survey' && !isLockedByAkad;
     const effectiveFlowStatus =
         lead.flowStatus === 'open' && lead.assignedTo ? 'assigned' : lead.flowStatus;
+    const canUpdateLayer2 = (effectiveFlowStatus === 'assigned' || effectiveFlowStatus === 'accepted') && !isLockedByAkad;
 
     const handleSaveFlow2 = async (e) => {
         e.preventDefault();
         if (!canEditLead) return;
 
-        if (effectiveFlowStatus !== 'assigned') {
-            setRequestError('Data sales hanya bisa diupdate saat lead sudah assigned.');
+        if (!canUpdateLayer2) {
+            setRequestError('Data sales hanya bisa diupdate saat lead sudah assigned atau accepted.');
             return;
         }
 
@@ -246,38 +272,38 @@ export default function LeadDetailPage({ leadId }) {
             return;
         }
 
-        if (resultForm.resultStatus === 'closing') {
+        if (resultForm.resultStatus === 'akad') {
             if (!resultForm.unitName || !resultForm.unitDetail || !resultForm.paymentMethod) {
-                setRequestError('Untuk status closing, unit name/detail/payment method wajib diisi.');
+                setRequestError('Untuk status akad, unit name/detail/payment method wajib diisi.');
                 return;
             }
             await runLeadUpdate({
-                resultStatus: 'closing',
+                resultStatus: 'akad',
                 unitName: resultForm.unitName,
                 unitDetail: resultForm.unitDetail,
                 paymentMethod: resultForm.paymentMethod,
-                activityNote: 'Result status diubah ke closing',
+                activityNote: 'Result status diubah ke akad',
             });
             return;
         }
 
-        if (resultForm.resultStatus === 'batal') {
+        if (resultForm.resultStatus === 'cancel') {
             if (!resultForm.rejectedReason) {
-                setRequestError('Alasan batal wajib diisi.');
+                setRequestError('Alasan cancel wajib diisi.');
                 return;
             }
             await runLeadUpdate({
-                resultStatus: 'batal',
+                resultStatus: 'cancel',
                 rejectedReason: resultForm.rejectedReason,
                 rejectedNote: resultForm.rejectedNote || null,
-                activityNote: `Result status diubah ke batal (${getRejectedReasonLabel(resultForm.rejectedReason)})`,
+                activityNote: `Result status diubah ke cancel (${getRejectedReasonLabel(resultForm.rejectedReason)})`,
             });
             return;
         }
 
         await runLeadUpdate({
-            resultStatus: 'menunggu',
-            activityNote: 'Result status diubah ke menunggu',
+            resultStatus: resultForm.resultStatus,
+            activityNote: `Result status diubah ke ${getResultStatusLabel(resultForm.resultStatus)}`,
         });
     };
 
@@ -293,6 +319,52 @@ export default function LeadDetailPage({ leadId }) {
         e.preventDefault();
         if (!appt.date || !appt.time || !appt.location) return;
         await runAddAppointment(appt);
+    };
+
+    const openCreateAppointment = () => {
+        setEditingAppointment(null);
+        setAppt({
+            date: '',
+            time: '',
+            location: '',
+            notes: '',
+            status: 'mau_survey',
+        });
+        setShowAppt(true);
+    };
+
+    const openEditAppointment = (item) => {
+        setEditingAppointment(item);
+        setAppt({
+            date: item.date || '',
+            time: item.time || '',
+            location: item.location || '',
+            notes: item.notes || '',
+            status: item.status || 'mau_survey',
+        });
+        setShowAppt(true);
+    };
+
+    const handleCancelAppointment = async (item) => {
+        if (!item?.id) {
+            return;
+        }
+
+        const confirmed = window.confirm('Tandai appointment ini sebagai dibatalkan?');
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setRequestError('');
+            setRequestSuccess('');
+            await cancelAppointment(item.id, {
+                notes: item.notes || null,
+            });
+            setRequestSuccess('Appointment berhasil dibatalkan.');
+        } catch (err) {
+            setRequestError(err instanceof Error ? err.message : 'Failed cancelling appointment');
+        }
     };
 
     return (
@@ -327,7 +399,12 @@ export default function LeadDetailPage({ leadId }) {
 
             <div className="detail-section">
                 <h3 className="section-title">Update Data Sales</h3>
-                {effectiveFlowStatus !== 'assigned' ? (
+                {isLockedByAkad && (
+                    <div className="detail-rejected-summary" style={{ marginBottom: 12, backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                        <strong>🔒 LEAD TERKUNCI</strong>: Lead ini telah mencapai status AKAD dan datanya tidak dapat diubah lagi.
+                    </div>
+                )}
+                {!canUpdateLayer2 && !isLockedByAkad ? (
                     <div className="detail-rejected-summary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                         <span>Lead masih open. Menunggu sales claim OK agar status menjadi assigned.</span>
                         {canAdminAssignOpenLead ? (
@@ -363,7 +440,7 @@ export default function LeadDetailPage({ leadId }) {
                             className="input-field"
                             value={flow2Form.salesStatus}
                             onChange={(e) => setFlow2Form({ ...flow2Form, salesStatus: e.target.value })}
-                            disabled={!canEditLead || effectiveFlowStatus !== 'assigned'}
+                            disabled={!canEditLead || !canUpdateLayer2}
                         >
                             <option value="">Pilih status</option>
                             {SALES_STATUSES.map((item) => (
@@ -377,7 +454,7 @@ export default function LeadDetailPage({ leadId }) {
                             className="input-field"
                             value={flow2Form.domicileCity}
                             onChange={(e) => setFlow2Form({ ...flow2Form, domicileCity: e.target.value })}
-                            disabled={!canEditLead || effectiveFlowStatus !== 'assigned'}
+                            disabled={!canEditLead || !canUpdateLayer2}
                         >
                             <option value="">Pilih kota</option>
                             {INDONESIA_CITIES.map((city) => (
@@ -391,7 +468,7 @@ export default function LeadDetailPage({ leadId }) {
                             className="input-field"
                             value={flow2Form.interestUnitId}
                             onChange={(e) => setFlow2Form({ ...flow2Form, interestUnitId: e.target.value })}
-                            disabled={!canEditLead || effectiveFlowStatus !== 'assigned' || unitsLoading}
+                            disabled={!canEditLead || !canUpdateLayer2 || unitsLoading}
                         >
                             <option value="">{unitsLoading ? 'Loading unit...' : 'Pilih tipe unit'}</option>
                             {unitOptions.map((item) => (
@@ -406,8 +483,8 @@ export default function LeadDetailPage({ leadId }) {
                         <span>Domisili: {lead.domicileCity || '-'}</span>
                         <span>Unit: {lead.interestProjectType && lead.interestUnitName ? `${lead.interestProjectType} - ${lead.interestUnitName}` : '-'}</span>
                     </div>
-                    <button type="submit" className="btn btn-primary btn-full" disabled={!canEditLead || effectiveFlowStatus !== 'assigned'}>
-                        {effectiveFlowStatus === 'assigned' ? 'Simpan Data Sales' : 'Menunggu lead assigned'}
+                    <button type="submit" className="btn btn-primary btn-full" disabled={!canEditLead || !canUpdateLayer2}>
+                        {canUpdateLayer2 ? 'Simpan Data Sales' : 'Menunggu lead assigned'}
                     </button>
                 </form>
             </div>
@@ -428,16 +505,47 @@ export default function LeadDetailPage({ leadId }) {
                     <div>
                         {lead.appointments.map((item) => (
                             <div key={item.id} className="card detail-appt-card">
-                                <div className="detail-appt-date">🕐 {item.date} • {item.time}</div>
+                                <div className="lead-row-top" style={{ marginBottom: 8 }}>
+                                    <div className="detail-appt-date">🕐 {item.date} • {item.time}</div>
+                                    <span className={`badge ${
+                                        item.status === 'sudah_survey'
+                                            ? 'badge-success'
+                                            : item.status === 'dibatalkan'
+                                                ? 'badge-danger'
+                                                : 'badge-warm'
+                                    }`}>
+                                        {getAppointmentTagLabel(item.status || 'mau_survey')}
+                                    </span>
+                                </div>
                                 <div className="detail-appt-location">📍 {item.location}</div>
                                 {item.notes ? <div className="detail-appt-notes">{item.notes}</div> : null}
+                                {canEditLead ? (
+                                    <div className="detail-actions" style={{ marginTop: 12 }}>
+                                        <button
+                                            type="button"
+                                            className="btn btn-secondary btn-full"
+                                            onClick={() => openEditAppointment(item)}
+                                        >
+                                            Edit Appointment
+                                        </button>
+                                        {item.status !== 'dibatalkan' ? (
+                                            <button
+                                                type="button"
+                                                className="btn btn-danger btn-full"
+                                                onClick={() => void handleCancelAppointment(item)}
+                                            >
+                                                Batalkan
+                                            </button>
+                                        ) : null}
+                                    </div>
+                                ) : null}
                             </div>
                         ))}
                     </div>
                 ) : (
                     <div className="card">Belum ada appointment.</div>
                 )}
-                <button className="btn btn-primary btn-full" style={{ marginTop: 12 }} onClick={() => setShowAppt(true)} disabled={!canEditLead}>
+                <button className="btn btn-primary btn-full" style={{ marginTop: 12 }} onClick={openCreateAppointment} disabled={!canEditLead}>
                     Buat Appointment
                 </button>
             </div>
@@ -465,7 +573,7 @@ export default function LeadDetailPage({ leadId }) {
                         </select>
                     </div>
 
-                    {resultForm.resultStatus === 'closing' ? (
+                    {resultForm.resultStatus === 'akad' ? (
                         <>
                             <div className="input-group">
                                 <label>Nama Unit</label>
@@ -482,10 +590,10 @@ export default function LeadDetailPage({ leadId }) {
                         </>
                     ) : null}
 
-                    {resultForm.resultStatus === 'batal' ? (
+                    {resultForm.resultStatus === 'cancel' ? (
                         <>
                             <div className="input-group">
-                                <label>Kategori Reject</label>
+                                <label>Kategori Cancel</label>
                                 <select className="input-field" value={resultForm.rejectedReason} onChange={(e) => setResultForm({ ...resultForm, rejectedReason: e.target.value })} disabled={!canEditLead || !canUpdateResult}>
                                     {REJECTED_REASON_OPTIONS.map((item) => (
                                         <option key={item.key} value={item.key}>{item.label}</option>
@@ -501,7 +609,7 @@ export default function LeadDetailPage({ leadId }) {
 
                     <div className="lead-row-meta">
                         <span>Current: {lead.resultStatus ? getResultStatusLabel(lead.resultStatus) : '-'}</span>
-                        {lead.resultStatus === 'batal' ? <span>Reason: {getRejectedReasonLabel(lead.rejectedReason)}</span> : null}
+                        {lead.resultStatus === 'cancel' ? <span>Reason: {getRejectedReasonLabel(lead.rejectedReason)}</span> : null}
                     </div>
 
                     <button type="submit" className="btn btn-primary btn-full" disabled={!canEditLead || !canUpdateResult}>
@@ -529,7 +637,7 @@ export default function LeadDetailPage({ leadId }) {
 
             <div className="detail-actions">
                 <button className="btn btn-secondary btn-full" onClick={() => setShowNote(true)} disabled={!canEditLead}>Tambah Catatan</button>
-                <button className="btn btn-primary btn-full" onClick={() => setShowAppt(true)} disabled={!canEditLead}>Buat Appointment</button>
+                <button className="btn btn-primary btn-full" onClick={openCreateAppointment} disabled={!canEditLead}>Buat Appointment</button>
             </div>
 
             {showNote && (
@@ -549,18 +657,38 @@ export default function LeadDetailPage({ leadId }) {
             )}
 
             {showAppt && (
-                <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowAppt(false); }}>
+                <div className="modal-overlay" onClick={(e) => {
+                    if (e.target === e.currentTarget) {
+                        setShowAppt(false);
+                        setEditingAppointment(null);
+                    }
+                }}>
                     <div className="bottom-sheet">
                         <div className="sheet-handle" />
-                        <h2>Buat Appointment</h2>
+                        <h2>{editingAppointment ? 'Edit Appointment' : 'Buat Appointment'}</h2>
                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: 16 }}>Client: <strong>{lead.name}</strong></p>
                         <form onSubmit={handleAddAppt} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div className="input-group"><label>Tanggal</label><input type="date" className="input-field" value={appt.date} onChange={(e) => setAppt({ ...appt, date: e.target.value })} required /></div>
                             <div className="input-group"><label>Waktu</label><input type="time" className="input-field" value={appt.time} onChange={(e) => setAppt({ ...appt, time: e.target.value })} required /></div>
                             <div className="input-group"><label>Lokasi</label><input type="text" className="input-field" placeholder="Contoh: BSD City, Tangerang" value={appt.location} onChange={(e) => setAppt({ ...appt, location: e.target.value })} required /></div>
                             <div className="input-group"><label>Catatan</label><textarea className="input-field" placeholder="Catatan tambahan..." rows={3} value={appt.notes} onChange={(e) => setAppt({ ...appt, notes: e.target.value })} style={{ resize: 'vertical' }} /></div>
-                            <button type="submit" className="btn btn-primary btn-full">Buat Jadwal</button>
-                            <button type="button" className="btn btn-secondary btn-full" onClick={() => setShowAppt(false)}>Batal</button>
+                            {editingAppointment ? (
+                                <div className="input-group">
+                                    <label>Status Appointment</label>
+                                    <select className="input-field" value={appt.status} onChange={(e) => setAppt({ ...appt, status: e.target.value })}>
+                                        {APPOINTMENT_TAGS.map((tag) => (
+                                            <option key={tag.key} value={tag.key}>{tag.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            ) : null}
+                            <button type="submit" className="btn btn-primary btn-full">
+                                {editingAppointment ? 'Simpan Appointment' : 'Buat Jadwal'}
+                            </button>
+                            <button type="button" className="btn btn-secondary btn-full" onClick={() => {
+                                setShowAppt(false);
+                                setEditingAppointment(null);
+                            }}>Batal</button>
                         </form>
                     </div>
                 </div>

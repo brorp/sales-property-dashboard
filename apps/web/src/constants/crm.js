@@ -2,6 +2,7 @@ export const FLOW_STATUSES = [
     { key: 'open', label: 'Open' },
     { key: 'hold', label: 'Hold' },
     { key: 'assigned', label: 'Assigned' },
+    { key: 'accepted', label: 'Accepted' },
 ];
 
 export const SALES_STATUSES = [
@@ -16,12 +17,15 @@ export const SALES_STATUSES = [
 export const APPOINTMENT_TAGS = [
     { key: 'mau_survey', label: 'Mau Survey' },
     { key: 'sudah_survey', label: 'Sudah Survey' },
+    { key: 'dibatalkan', label: 'Dibatalkan' },
 ];
 
 export const RESULT_STATUSES = [
-    { key: 'closing', label: 'Closing' },
-    { key: 'menunggu', label: 'Menunggu' },
-    { key: 'batal', label: 'Batal' },
+    { key: 'reserve', label: 'Reserve' },
+    { key: 'on_process', label: 'On process' },
+    { key: 'full_book', label: 'Full Book' },
+    { key: 'akad', label: 'Akad' },
+    { key: 'cancel', label: 'Cancel' },
 ];
 
 export const REJECTED_REASON_OPTIONS = [

@@ -297,6 +297,12 @@
     border-style: dashed;
 }
 
+.team-inactive-shell {
+    border-style: dashed;
+    border-color: rgba(248, 113, 113, 0.22);
+    background: rgba(38, 18, 28, 0.32);
+}
+
 .team-member-row {
     display: flex;
     align-items: flex-start;
@@ -314,6 +320,27 @@
 .team-edit-btn {
     align-self: stretch;
     flex-shrink: 0;
+}
+
+.team-lifecycle-copy {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 16px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.team-lifecycle-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.team-modal-helper {
+    font-size: 0.813rem;
+    color: var(--text-muted);
 }
 
 @media (min-width: 768px) {
@@ -342,5 +369,9 @@
 
     .team-edit-btn {
         align-self: flex-end;
+    }
+
+    .team-lifecycle-actions {
+        flex-direction: column-reverse;
     }
 }

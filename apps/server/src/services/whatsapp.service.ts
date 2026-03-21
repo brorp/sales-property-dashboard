@@ -7,6 +7,9 @@ import { ensureActiveCycle, handleSalesAck } from "./distribution.service";
 import { getOperationalWindowState } from "./system-settings.service";
 import { getActiveWhatsAppNumber } from "./whatsapp-identity.service";
 import { sendWhatsAppText } from "./whatsapp-provider.service";
+import { createComponentLogger } from "../utils/logger";
+
+const waIngestLogger = createComponentLogger("wa:ingest");
 
 export interface IncomingWhatsAppPayload {
     fromWa: string;
@@ -106,13 +109,36 @@ async function sendSalesSystemReply(params: {
 
 export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
     if (await isDuplicateMessage(payload.providerMessageId)) {
+        waIngestLogger.info("Inbound payload ignored", {
+            reason: "duplicate_message_id",
+            providerMessageId: payload.providerMessageId || null,
+            fromWa: payload.fromWa || null,
+        });
         return { type: "duplicate" as const };
     }
 
     const now = new Date();
-    const fromWa = normalizePhone(payload.fromWa);
-    const toWa = payload.toWa ? normalizePhone(payload.toWa) : getActiveWhatsAppNumber();
-    const messageBody = payload.body.trim();
+    const fromWa = normalizePhone(String(payload.fromWa || ""));
+    const toWa = payload.toWa ? normalizePhone(String(payload.toWa)) : getActiveWhatsAppNumber();
+    const messageBody = String(payload.body || "").trim();
+
+    if (!fromWa || fromWa.replace(/[^\d]/g, "").length < 8) {
+        waIngestLogger.info("Inbound payload ignored", {
+            reason: "invalid_sender_phone",
+            providerMessageId: payload.providerMessageId || null,
+            fromWa: payload.fromWa || null,
+        });
+        return { type: "ignored" as const, reason: "invalid_sender_phone" as const };
+    }
+
+    if (!messageBody) {
+        waIngestLogger.info("Inbound payload ignored", {
+            reason: "empty_body",
+            providerMessageId: payload.providerMessageId || null,
+            fromWa,
+        });
+        return { type: "ignored" as const, reason: "empty_body" as const };
+    }
 
     const [salesSender] = await db
         .select({
@@ -260,18 +286,13 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
         clientLead = updatedLead;
     }
 
-    const duplicateClientInbound = await hasInboundClientMessage({
-        fromWa,
-        leadId: clientLead?.id || null,
-        clientId: payload.clientId || clientLead?.clientId || null,
-    });
-    if (duplicateClientInbound) {
-        return {
-            type: "duplicate_client_lead" as const,
-            ignored: true,
-            leadId: clientLead?.id || null,
-        };
-    }
+    const hadInboundBefore = clientLead
+        ? await hasInboundClientMessage({
+            leadId: clientLead.id,
+            clientId: payload.clientId || clientLead.clientId || null,
+            fromWa,
+        })
+        : false;
 
     const operationalWindow = await getOperationalWindowState(
         now,
@@ -343,7 +364,7 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
             message,
             lead: clientLead,
             cycle: null,
-            firstClientMessage: true,
+            firstClientMessage: !hadInboundBefore,
             heldByOperationalHours: true,
             autoReplyText:
                 operationalWindow.outsideOfficeReply ||
@@ -358,7 +379,7 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
         message,
         lead: clientLead,
         cycle,
-        firstClientMessage: true,
+        firstClientMessage: !hadInboundBefore,
         heldByOperationalHours: false,
         autoReplyText: "Harap menunggu agent professional akan menghubungi anda",
     };

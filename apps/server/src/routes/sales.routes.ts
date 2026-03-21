@@ -1,8 +1,10 @@
 import { Router } from "express";
 import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
-import { requireMinRole } from "../middleware/rbac";
+import { requireMinRole, requireRole } from "../middleware/rbac";
 import * as salesService from "../services/sales.service";
+import * as salesLifecycleService from "../services/sales-lifecycle.service";
+import * as leadTransferService from "../services/lead-transfer.service";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -66,6 +68,48 @@ router.post("/", requireMinRole("supervisor") as any, async (req, res: Response,
             queueLabel,
         });
         res.status(201).json(created);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.get("/:id/leads/export", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { user } = req as unknown as AuthenticatedRequest;
+        const exported = await leadTransferService.exportSalesLeadsWorkbookData(req.params.id, {
+            actorId: user.id,
+            actorRole: user.role,
+            actorClientId: user.clientId || null,
+        });
+        res.json(exported);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.post("/:id/deactivate", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { user } = req as unknown as AuthenticatedRequest;
+        const updated = await salesLifecycleService.deactivateSalesUser(req.params.id, {
+            actorId: user.id,
+            actorRole: user.role,
+            actorClientId: user.clientId || null,
+        });
+        res.json(updated);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.post("/:id/reactivate", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { user } = req as unknown as AuthenticatedRequest;
+        const updated = await salesLifecycleService.reactivateSalesUser(req.params.id, {
+            actorId: user.id,
+            actorRole: user.role,
+            actorClientId: user.clientId || null,
+        });
+        res.json(updated);
     } catch (error) {
         next(error);
     }

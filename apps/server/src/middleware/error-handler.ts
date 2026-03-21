@@ -43,6 +43,10 @@ const knownBadRequestCodes = new Set([
     "MEDIA_EMPTY",
     "BROADCAST_CONTENT_EMPTY",
     "BROADCAST_NO_TARGET",
+    "IMPORT_FILE_EMPTY",
+    "IMPORT_HEADER_INVALID",
+    "SALES_CLIENT_NOT_FOUND",
+    "TARGET_SALES_CLIENT_NOT_FOUND",
 ]);
 
 const knownConflictCodes = new Set([
@@ -55,6 +59,11 @@ const knownForbiddenCodes = new Set([
     "FORBIDDEN_ASSIGN",
     "FORBIDDEN_LEAD_EDIT",
     "ADMIN_ASSIGNED_LEAD_READ_ONLY",
+]);
+
+const knownNotFoundCodes = new Set([
+    "SALES_NOT_FOUND",
+    "TARGET_SALES_NOT_FOUND",
 ]);
 
 function getRequestContext(req: Request) {
@@ -153,6 +162,17 @@ export function errorHandler(
                 error: err,
             });
             sendErrorResponse(res, req, 409, { error: err.message, message: err.message });
+            return;
+        }
+
+        if (knownNotFoundCodes.has(err.message)) {
+            errorLogger.warn("Handled business rule error", {
+                ...requestContext,
+                statusCode: 404,
+                errorCode: err.message,
+                error: err,
+            });
+            sendErrorResponse(res, req, 404, { error: err.message, message: err.message });
             return;
         }
 

@@ -180,12 +180,16 @@ export async function requireAuth(
                 supervisorId: user.supervisorId,
                 createdByUserId: user.createdByUserId,
                 image: user.image,
+                isActive: user.isActive,
             })
             .from(user)
-            .where(eq(user.id, String(sessionUser.id)))
+            .where(and(eq(user.id, String(sessionUser.id)), eq(user.isActive, true)))
             .limit(1);
 
         if (!fullUser) {
+            if (result.session?.id) {
+                await db.delete(session).where(eq(session.id, result.session.id)).catch(() => {});
+            }
             res.status(401).json({ error: "Unauthorized" });
             return;
         }

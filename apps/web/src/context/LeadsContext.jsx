@@ -19,6 +19,7 @@ const EMPTY_TEAM_STATS = {
     },
     groups: [],
 };
+const EMPTY_LEAD_SOURCES = [];
 
 function normalizeTeamStatsPayload(input) {
     if (!input || typeof input !== 'object' || Array.isArray(input)) {
@@ -79,6 +80,7 @@ export function LeadsProvider({ children }) {
     const [salesUsers, setSalesUsers] = useState([]);
     const [teamStats, setTeamStats] = useState(EMPTY_TEAM_STATS);
     const [appointments, setAppointments] = useState([]);
+    const [leadSources, setLeadSources] = useState(EMPTY_LEAD_SOURCES);
     const [dashboardAnalytics, setDashboardAnalytics] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -150,6 +152,18 @@ export function LeadsProvider({ children }) {
         return normalized;
     }, [user]);
 
+    const refreshLeadSources = useCallback(async () => {
+        if (!user) {
+            setLeadSources(EMPTY_LEAD_SOURCES);
+            return EMPTY_LEAD_SOURCES;
+        }
+
+        const rows = await apiRequest('/api/lead-sources', { user });
+        const normalized = Array.isArray(rows) ? rows : EMPTY_LEAD_SOURCES;
+        setLeadSources(normalized);
+        return normalized;
+    }, [user]);
+
     const refreshDashboardAnalytics = useCallback(async () => {
         if (!user) {
             setDashboardAnalytics(null);
@@ -168,6 +182,7 @@ export function LeadsProvider({ children }) {
             setSalesUsers([]);
             setTeamStats(EMPTY_TEAM_STATS);
             setAppointments([]);
+            setLeadSources(EMPTY_LEAD_SOURCES);
             setDashboardAnalytics(null);
             return;
         }
@@ -178,6 +193,7 @@ export function LeadsProvider({ children }) {
                 refreshSalesUsers(),
                 refreshTeamStats(),
                 refreshAppointments(),
+                refreshLeadSources(),
                 refreshDashboardAnalytics(),
             ]);
             setError('');
@@ -186,7 +202,7 @@ export function LeadsProvider({ children }) {
         } finally {
             setLoading(false);
         }
-    }, [refreshLeads, refreshSalesUsers, refreshTeamStats, refreshAppointments, refreshDashboardAnalytics, user]);
+    }, [refreshLeads, refreshSalesUsers, refreshTeamStats, refreshAppointments, refreshDashboardAnalytics, refreshLeadSources, user]);
 
     useEffect(() => {
         if (authLoading) {
@@ -281,7 +297,58 @@ export function LeadsProvider({ children }) {
         return created;
     }, [refreshSalesUsers, refreshTeamStats, user]);
 
+    const updateAppointment = useCallback(async (appointmentId, payload) => {
+        if (!user) {
+            throw new Error('Unauthorized');
+        }
+
+        const updated = await apiRequest(`/api/appointments/${appointmentId}`, {
+            method: 'PATCH',
+            user,
+            body: payload,
+        });
+
+        if (updated?.leadId) {
+            await loadLeadById(updated.leadId);
+        }
+
+        await Promise.all([
+            refreshLeads(),
+            refreshAppointments(),
+            refreshDashboardAnalytics(),
+            refreshTeamStats(),
+        ]);
+
+        return updated;
+    }, [loadLeadById, refreshAppointments, refreshDashboardAnalytics, refreshLeads, refreshTeamStats, user]);
+
+    const cancelAppointment = useCallback(async (appointmentId, payload = {}) => {
+        if (!user) {
+            throw new Error('Unauthorized');
+        }
+
+        const updated = await apiRequest(`/api/appointments/${appointmentId}/cancel`, {
+            method: 'POST',
+            user,
+            body: payload,
+        });
+
+        if (updated?.leadId) {
+            await loadLeadById(updated.leadId);
+        }
+
+        await Promise.all([
+            refreshLeads(),
+            refreshAppointments(),
+            refreshDashboardAnalytics(),
+            refreshTeamStats(),
+        ]);
+
+        return updated;
+    }, [loadLeadById, refreshAppointments, refreshDashboardAnalytics, refreshLeads, refreshTeamStats, user]);
+
     const getSalesUsers = useCallback(() => salesUsers, [salesUsers]);
+    const getLeadSources = useCallback(() => leadSources, [leadSources]);
 
     const getStats = useCallback(() => {
         return {
@@ -304,6 +371,7 @@ export function LeadsProvider({ children }) {
         loading,
         error,
         appointments,
+        leadSources,
         dashboardAnalytics,
         getLeadsForUser,
         getLeadById,
@@ -311,13 +379,17 @@ export function LeadsProvider({ children }) {
         updateLead,
         addLead,
         addAppointment,
+        updateAppointment,
+        cancelAppointment,
         getSalesUsers,
+        getLeadSources,
         getStats,
         resetData,
         refreshAll,
         refreshLeads,
         refreshSalesUsers,
         refreshAppointments,
+        refreshLeadSources,
         refreshDashboardAnalytics,
         teamStats,
         refreshTeamStats,
@@ -326,24 +398,29 @@ export function LeadsProvider({ children }) {
         addAppointment,
         addLead,
         appointments,
+        cancelAppointment,
         createSalesUser,
         dashboardAnalytics,
         error,
         getLeadById,
         getLeadsForUser,
+        getLeadSources,
         getSalesUsers,
         getStats,
         leads,
         loadLeadById,
         loading,
+        leadSources,
         refreshAll,
         refreshAppointments,
         refreshDashboardAnalytics,
         refreshLeads,
+        refreshLeadSources,
         refreshSalesUsers,
         refreshTeamStats,
         resetData,
         teamStats,
+        updateAppointment,
         updateLead,
     ]);
 

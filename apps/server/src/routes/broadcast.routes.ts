@@ -22,6 +22,40 @@ router.get("/status", requireMinRole("client_admin") as any, async (req, res: Re
     }
 });
 
+router.post("/estimate", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { user } = req as unknown as AuthenticatedRequest;
+        const {
+            salesStatuses,
+            appointmentTag,
+            dateFrom,
+            dateTo,
+            clientId,
+        } = req.body ?? {};
+
+        const targetClientId =
+            user.role === "root_admin"
+                ? typeof clientId === "string" && clientId.trim()
+                    ? clientId
+                    : null
+                : user.clientId || null;
+
+        const result = await broadcastService.estimateBroadcast(
+            {
+                salesStatuses: Array.isArray(salesStatuses) ? salesStatuses : [],
+                appointmentTag,
+                dateFrom,
+                dateTo,
+            },
+            targetClientId
+        );
+
+        res.json(result);
+    } catch (error) {
+        next(error);
+    }
+});
+
 router.post("/start", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;

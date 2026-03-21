@@ -14,6 +14,7 @@ import publicRoutes from "./routes/public.routes";
 import webhooksRoutes from "./routes/webhooks.routes";
 import whatsappAdminRoutes from "./routes/whatsapp-admin.routes";
 import { startDistributionWorker } from "./worker/distribution.worker";
+import { startAppointmentReminderWorker } from "./worker/appointment-reminder.worker";
 import { startWhatsAppQrBridge } from "./services/whatsapp-qr.service";
 import {
     createComponentLogger,
@@ -74,6 +75,7 @@ app.listen(PORT, () => {
     });
 
     startDistributionWorker();
+    startAppointmentReminderWorker();
     void startWhatsAppQrBridge();
     registerGlobalProcessErrorHandlers();
 });

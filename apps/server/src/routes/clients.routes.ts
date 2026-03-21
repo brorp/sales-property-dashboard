@@ -4,6 +4,7 @@ import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireRole } from "../middleware/rbac";
 import * as clientsService from "../services/clients.service";
 import { auth } from "../auth/index";
+import { ensureCredentialAccount } from "../auth/credential-account";
 import { db } from "../db/index";
 import { user } from "../db/schema";
 import { and, eq } from "drizzle-orm";
@@ -205,7 +206,7 @@ router.patch("/:id/users/:userId", requireRole("root_admin", "client_admin") as 
             return;
         }
 
-        const { name, phone, isActive, supervisorId } = req.body ?? {};
+        const { name, phone, isActive, supervisorId, email, password } = req.body ?? {};
         const updates: Record<string, unknown> = {
             updatedAt: new Date(),
         };
@@ -215,6 +216,23 @@ router.patch("/:id/users/:userId", requireRole("root_admin", "client_admin") as 
         }
         if (typeof phone === "string" || phone === null) {
             updates.phone = phone ? normalizePhone(phone) : null;
+        }
+        if (typeof email === "string" && email.trim()) {
+            const normalizedEmail = email.trim().toLowerCase();
+            const [emailOwner] = await db
+                .select({
+                    id: user.id,
+                })
+                .from(user)
+                .where(eq(user.email, normalizedEmail))
+                .limit(1);
+
+            if (emailOwner && emailOwner.id !== targetUser.id) {
+                res.status(409).json({ error: "EMAIL_ALREADY_EXISTS", message: "Email sudah dipakai user lain" });
+                return;
+            }
+
+            updates.email = normalizedEmail;
         }
         if (typeof isActive === "boolean") {
             updates.isActive = isActive;
@@ -257,6 +275,10 @@ router.patch("/:id/users/:userId", requireRole("root_admin", "client_admin") as 
                 phone: user.phone,
                 isActive: user.isActive,
             });
+
+        if (typeof password === "string" && password.trim()) {
+            await ensureCredentialAccount(req.params.userId, password);
+        }
 
         res.json(updated);
     } catch (error) {

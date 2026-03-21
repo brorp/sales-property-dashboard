@@ -38,9 +38,30 @@ export default function BroadcastPage() {
     const [broadcastStatus, setBroadcastStatus] = useState(null);
     const [broadcastLoading, setBroadcastLoading] = useState(false);
     const [broadcastStopping, setBroadcastStopping] = useState(false);
+    const [broadcastEstimating, setBroadcastEstimating] = useState(false);
     const [broadcastStatusLoading, setBroadcastStatusLoading] = useState(false);
     const [broadcastFeedback, setBroadcastFeedback] = useState('');
     const [broadcastError, setBroadcastError] = useState('');
+    const [broadcastEstimate, setBroadcastEstimate] = useState(null);
+
+    const buildBroadcastPayload = useCallback((includeContent = true) => {
+        const salesStatuses = Object.entries(broadcastForm.statuses)
+            .filter(([, checked]) => checked)
+            .map(([key]) => key);
+
+        return {
+            ...(user?.role === 'root_admin' && activeClientId ? { clientId: activeClientId } : {}),
+            salesStatuses,
+            appointmentTag: broadcastForm.appointmentTag,
+            dateFrom: broadcastForm.dateFrom || undefined,
+            dateTo: broadcastForm.dateTo || undefined,
+            ...(includeContent ? {
+                message: broadcastForm.message,
+                mediaDataUrl: broadcastForm.mediaDataUrl || undefined,
+                intervalMinutes: Number(broadcastForm.intervalMinutes),
+            } : {}),
+        };
+    }, [activeClientId, broadcastForm, user]);
 
     const loadBroadcastStatus = useCallback(async (silent = false) => {
         if (!silent) {
@@ -84,6 +105,18 @@ export default function BroadcastPage() {
         return () => clearInterval(intervalId);
     }, [broadcastStatus?.status, loadBroadcastStatus]);
 
+    useEffect(() => {
+        setBroadcastEstimate(null);
+    }, [
+        activeClientId,
+        broadcastForm.statuses.hot,
+        broadcastForm.statuses.warm,
+        broadcastForm.statuses.cold,
+        broadcastForm.appointmentTag,
+        broadcastForm.dateFrom,
+        broadcastForm.dateTo,
+    ]);
+
     const handleBroadcastMediaChange = async (event) => {
         const file = event.target.files?.[0];
         if (!file) {
@@ -117,9 +150,7 @@ export default function BroadcastPage() {
     const handleStartBroadcast = async (event) => {
         event.preventDefault();
 
-        const salesStatuses = Object.entries(broadcastForm.statuses)
-            .filter(([, checked]) => checked)
-            .map(([key]) => key);
+        const { salesStatuses, ...payload } = buildBroadcastPayload();
 
         if (salesStatuses.length === 0) {
             setBroadcastError('Pilih minimal 1 status leads (hot/warm/cold)');
@@ -128,6 +159,16 @@ export default function BroadcastPage() {
 
         if (!broadcastForm.message.trim() && !broadcastForm.mediaDataUrl) {
             setBroadcastError('Isi text broadcast atau upload media');
+            return;
+        }
+
+        if (!broadcastEstimate) {
+            setBroadcastError('Check count data broadcast dulu sebelum start.');
+            return;
+        }
+
+        if (broadcastEstimate.totalTargets <= 0) {
+            setBroadcastError('Target broadcast kosong. Ubah filter lalu check count lagi.');
             return;
         }
 
@@ -140,22 +181,51 @@ export default function BroadcastPage() {
                 method: 'POST',
                 user,
                 body: {
-                    ...(user?.role === 'root_admin' && activeClientId ? { clientId: activeClientId } : {}),
                     salesStatuses,
-                    appointmentTag: broadcastForm.appointmentTag,
-                    dateFrom: broadcastForm.dateFrom || undefined,
-                    dateTo: broadcastForm.dateTo || undefined,
-                    message: broadcastForm.message,
-                    mediaDataUrl: broadcastForm.mediaDataUrl || undefined,
-                    intervalMinutes: Number(broadcastForm.intervalMinutes),
+                    ...payload,
                 },
             });
             setBroadcastStatus(result || null);
+            setBroadcastEstimate((prev) => prev || { totalTargets: result?.totalTargets || 0 });
             setBroadcastFeedback(`Broadcast started. Targets: ${result?.totalTargets || 0}`);
         } catch (err) {
             setBroadcastError(err instanceof Error ? err.message : 'Failed start broadcast');
         } finally {
             setBroadcastLoading(false);
+        }
+    };
+
+    const handleEstimateBroadcast = async () => {
+        const { salesStatuses, ...payload } = buildBroadcastPayload(false);
+
+        if (salesStatuses.length === 0) {
+            setBroadcastError('Pilih minimal 1 status leads (hot/warm/cold)');
+            return;
+        }
+
+        setBroadcastEstimating(true);
+        setBroadcastError('');
+        setBroadcastFeedback('');
+
+        try {
+            const result = await apiRequest('/api/broadcast/estimate', {
+                method: 'POST',
+                user,
+                body: {
+                    salesStatuses,
+                    ...payload,
+                },
+            });
+            setBroadcastEstimate({
+                totalTargets: Number(result?.totalTargets || 0),
+                checkedAt: new Date().toISOString(),
+            });
+            setBroadcastFeedback(`Count checked. Total target nomor: ${result?.totalTargets || 0}`);
+        } catch (err) {
+            setBroadcastEstimate(null);
+            setBroadcastError(err instanceof Error ? err.message : 'Failed check broadcast count');
+        } finally {
+            setBroadcastEstimating(false);
         }
     };
 
@@ -286,14 +356,38 @@ export default function BroadcastPage() {
                     />
                 </div>
 
+                <div className="broadcast-estimate-card">
+                    <div>
+                        <span className="broadcast-estimate-label">Target Broadcast</span>
+                        <strong className="broadcast-estimate-count">
+                            {broadcastEstimate ? `${broadcastEstimate.totalTargets} nomor` : 'Belum dicek'}
+                        </strong>
+                    </div>
+                    <span className="broadcast-estimate-hint">
+                        Check count dulu supaya admin tahu jumlah nomor yang akan menerima broadcast.
+                    </span>
+                </div>
+
                 {broadcastError ? <div className="settings-error">{broadcastError}</div> : null}
                 {broadcastFeedback ? <div className="settings-success">{broadcastFeedback}</div> : null}
 
                 <div className="broadcast-actions">
+                    <button
+                        type="button"
+                        className="btn btn-secondary"
+                        onClick={handleEstimateBroadcast}
+                        disabled={broadcastEstimating || broadcastLoading || broadcastStatus?.status === 'running'}
+                    >
+                        {broadcastEstimating ? 'Checking...' : 'Check Count'}
+                    </button>
                     <button type="button" className="btn btn-danger" onClick={handleStopBroadcast} disabled={broadcastStopping || broadcastStatus?.status !== 'running'}>
                         {broadcastStopping ? 'Stopping...' : 'Stop'}
                     </button>
-                    <button type="submit" className="btn btn-primary" disabled={broadcastLoading || broadcastStatus?.status === 'running'}>
+                    <button
+                        type="submit"
+                        className="btn btn-primary"
+                        disabled={broadcastLoading || broadcastStatus?.status === 'running' || !broadcastEstimate || broadcastEstimate.totalTargets <= 0}
+                    >
                         {broadcastLoading ? 'Starting...' : 'Start'}
                     </button>
                 </div>

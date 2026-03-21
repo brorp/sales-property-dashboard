@@ -65,6 +65,8 @@ let isStarting = false;
 let reconnectEnabled = true;
 let sessionGeneration = 0;
 let runtimeGuardInstalled = false;
+const RECENT_INBOUND_EVENT_WINDOW_MS = 5 * 60 * 1000;
+const recentInboundEventIds = new Map<string, number>();
 
 const waQrLogger = createComponentLogger("wa:qr");
 
@@ -308,6 +310,105 @@ function normalizeChatId(input: string) {
     return trimmed;
 }
 
+function getEventMessageType(message: any) {
+    return String(message?.type || message?._data?.type || "").trim().toLowerCase();
+}
+
+function getEventChatId(message: any) {
+    const candidates = uniq([
+        typeof message?.from === "string" ? message.from : null,
+        typeof message?._data?.from === "string" ? message._data.from : null,
+        typeof message?.id?.remote === "string" ? message.id.remote : null,
+        typeof message?._data?.id?.remote === "string" ? message._data.id.remote : null,
+        typeof message?._data?.chatId === "string" ? message._data.chatId : null,
+        typeof message?._data?.chat?.id?._serialized === "string"
+            ? message._data.chat.id._serialized
+            : null,
+    ]);
+
+    const chatId = candidates[0] || null;
+    return chatId ? normalizeChatId(chatId) : null;
+}
+
+function isEventFromMe(message: any) {
+    return Boolean(
+        message?.fromMe ||
+        message?._data?.fromMe ||
+        message?.id?.fromMe ||
+        message?._data?.id?.fromMe
+    );
+}
+
+function isStatusLikeMessage(message: any, chatId: string | null) {
+    const type = getEventMessageType(message);
+    return Boolean(
+        chatId === "status@broadcast" ||
+        message?.isStatus === true ||
+        message?._data?.isStatus === true ||
+        message?._data?.isStatusV3 === true ||
+        type === "status" ||
+        type === "status_notification"
+    );
+}
+
+function isGroupLikeMessage(chatId: string | null) {
+    return Boolean(chatId && chatId.endsWith("@g.us"));
+}
+
+function isBroadcastLikeMessage(chatId: string | null) {
+    return Boolean(chatId && chatId.endsWith("@broadcast"));
+}
+
+function isPrivateUserChat(chatId: string | null) {
+    return Boolean(
+        chatId &&
+        (chatId.endsWith("@c.us") || chatId.endsWith("@s.whatsapp.net"))
+    );
+}
+
+function describeInboundEvent(message: any) {
+    return {
+        providerMessageId: getInboundProviderMessageId(message) || null,
+        chatId: getEventChatId(message),
+        type: getEventMessageType(message) || null,
+        fromMe: isEventFromMe(message),
+    };
+}
+
+function logIgnoredWhatsAppEvent(message: any, reason: string, extra: Record<string, unknown> = {}) {
+    waQrLogger.info("Inbound WhatsApp event ignored", {
+        reason,
+        ...describeInboundEvent(message),
+        ...extra,
+    });
+}
+
+function pruneRecentInboundEventIds(now = Date.now()) {
+    for (const [providerMessageId, createdAt] of recentInboundEventIds.entries()) {
+        if (now - createdAt > RECENT_INBOUND_EVENT_WINDOW_MS) {
+            recentInboundEventIds.delete(providerMessageId);
+        }
+    }
+}
+
+function hasRecentInboundEventId(providerMessageId: string | null | undefined) {
+    if (!providerMessageId) {
+        return false;
+    }
+
+    pruneRecentInboundEventIds();
+    return recentInboundEventIds.has(providerMessageId);
+}
+
+function rememberRecentInboundEventId(providerMessageId: string | null | undefined) {
+    if (!providerMessageId) {
+        return;
+    }
+
+    pruneRecentInboundEventIds();
+    recentInboundEventIds.set(providerMessageId, Date.now());
+}
+
 function plainToPhone(value: unknown) {
     if (typeof value !== "string") {
         return null;
@@ -527,8 +628,14 @@ function getInboundProviderMessageId(message: any) {
     if (typeof id?._serialized === "string" && id._serialized) {
         return id._serialized;
     }
+    if (typeof message?._data?.id?._serialized === "string" && message._data.id._serialized) {
+        return message._data.id._serialized;
+    }
     if (typeof id?.id === "string" && id.id) {
         return id.id;
+    }
+    if (typeof message?._data?.id?.id === "string" && message._data.id.id) {
+        return message._data.id.id;
     }
     return undefined;
 }
@@ -578,48 +685,67 @@ function canReplyToJid(jid: string | null) {
     return Boolean(normalized);
 }
 
+export function shouldIgnoreWhatsAppEvent(message: any) {
+    if (!message) {
+        return { ignore: true, reason: "invalid_payload" as const };
+    }
+
+    const chatId = getEventChatId(message);
+
+    if (isEventFromMe(message)) {
+        return { ignore: true, reason: "from_me" as const };
+    }
+
+    if (isStatusLikeMessage(message, chatId)) {
+        return { ignore: true, reason: "status_broadcast" as const };
+    }
+
+    if (isGroupLikeMessage(chatId)) {
+        return { ignore: true, reason: "group_message" as const };
+    }
+
+    if (isBroadcastLikeMessage(chatId)) {
+        return { ignore: true, reason: "broadcast_message" as const };
+    }
+
+    if (!isPrivateUserChat(chatId)) {
+        return { ignore: true, reason: "invalid_private_chat" as const };
+    }
+
+    const providerMessageId = getInboundProviderMessageId(message);
+    if (hasRecentInboundEventId(providerMessageId)) {
+        return { ignore: true, reason: "duplicate_message_id" as const };
+    }
+
+    return { ignore: false, reason: null };
+}
+
+export function isValidIncomingLeadMessage(message: any) {
+    return !shouldIgnoreWhatsAppEvent(message).ignore;
+}
+
 async function handleIncomingMessage(message: any) {
-    if (!message || message.fromMe) {
-        if (isQrDebugEnabled()) {
-            waQrLogger.debug("Skip inbound message", { reason: "from_me_or_invalid_payload" });
-        }
+    const ignoreDecision = shouldIgnoreWhatsAppEvent(message);
+    if (ignoreDecision.ignore) {
+        logIgnoredWhatsAppEvent(message, ignoreDecision.reason || "ignored");
         return;
     }
+
+    const providerMessageId = getInboundProviderMessageId(message);
+    rememberRecentInboundEventId(providerMessageId);
 
     const inboundReplyJidRaw = resolveInboundReplyJid(message);
     const inboundReplyJid = inboundReplyJidRaw ? normalizeChatId(inboundReplyJidRaw) : null;
     const body = extractTextMessage(message);
 
     if (!body) {
-        if (isQrDebugEnabled()) {
-            waQrLogger.debug("Skip inbound message", { reason: "text_body_not_found" });
-        }
+        logIgnoredWhatsAppEvent(message, "unsupported_body");
         return;
     }
 
     const fromWa = await resolveSenderPhoneWithLookup(message);
     if (!fromWa) {
-        if (isQrDebugEnabled()) {
-            waQrLogger.debug("Skip inbound message", {
-                reason: "unsupported_sender",
-                from: String(message?.from || ""),
-                author: String(message?.author || ""),
-                type: String(message?.type || ""),
-            });
-        }
-
-        if (inboundReplyJid && canReplyToJid(inboundReplyJid)) {
-            const fallbackReply = await sendWhatsAppQrTextByJid(
-                inboundReplyJid,
-                "Harap menunggu agent professional akan menghubungi anda"
-            );
-            if (!fallbackReply.sent) {
-                waQrLogger.error("Fallback auto-reply failed", {
-                    jid: inboundReplyJid,
-                    error: fallbackReply.error || "unknown error",
-                });
-            }
-        }
+        logIgnoredWhatsAppEvent(message, "invalid_sender_phone");
         return;
     }
 
@@ -647,7 +773,7 @@ async function handleIncomingMessage(message: any) {
     const result = await ingestIncomingMessage({
         fromWa,
         body,
-        providerMessageId: getInboundProviderMessageId(message),
+        providerMessageId,
         clientName: getInboundPushName(message),
         clientId: activeClientId,
     });
