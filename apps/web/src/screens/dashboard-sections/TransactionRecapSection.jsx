@@ -548,17 +548,18 @@ export default function TransactionRecapSection({
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                             <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total Reserve</span>
-                                <strong style={{ fontSize: '1.4rem', marginTop: '4px' }}>{summaryScope.totalReserve || 0}</strong>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total Full Book</span>
+                                <strong style={{ fontSize: '1.4rem', color: 'var(--purple)', marginTop: '4px' }}>{summaryScope.totalFullBook || 0}</strong>
                             </div>
                             <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total On Process</span>
                                 <strong style={{ fontSize: '1.4rem', color: 'var(--primary)', marginTop: '4px' }}>{summaryScope.totalOnProcess || 0}</strong>
                             </div>
                             <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total Full Book</span>
-                                <strong style={{ fontSize: '1.4rem', color: 'var(--purple)', marginTop: '4px' }}>{summaryScope.totalFullBook || 0}</strong>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total Reserve</span>
+                                <strong style={{ fontSize: '1.4rem', marginTop: '4px' }}>{summaryScope.totalReserve || 0}</strong>
                             </div>
+                            
                             <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total Cancel</span>
                                 <strong style={{ fontSize: '1.4rem', color: 'var(--danger)' }}>{summaryScope.totalCancel || 0}</strong>
@@ -576,7 +577,7 @@ export default function TransactionRecapSection({
                 <div style={{ marginBottom: '24px', paddingBottom: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>Divisi Closing PIC Agent vs All Supervisor Data</h3>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>➤ Divisi Closing PIC Agent vs All Supervisor Data</h3>
                             <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
                                 {PIC_AGENT_STATUS_OPTIONS.map((status) => (
                                     <button
@@ -613,7 +614,7 @@ export default function TransactionRecapSection({
             <div style={{ marginBottom: '24px', paddingBottom: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                        <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>Analisa Closing per Status</h3>
+                        <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>➤ Analisa Closing per Status</h3>
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                             Filter status aktif: <strong style={{ color: 'var(--text-primary)' }}>{selectedChartStatusMeta?.label || 'Semua'}</strong>
                         </span>

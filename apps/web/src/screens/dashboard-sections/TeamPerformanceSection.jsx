@@ -106,18 +106,17 @@ function SalesRow({ sales }) {
                         Total Leads: {formatCount(sales.prospek || 0)}
                     </span>
                 </div>
-
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Survey</span>
-                    <strong style={{ color: 'var(--green)' }}>{formatCount(sales.survey || 0)}</strong>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Hot</span>
+                    <strong style={{ color: '#f59e0b' }}>{formatCount(sales.hot || 0)}</strong>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Mau</span>
                     <strong style={{ color: 'var(--primary)' }}>{formatCount(sales.mauSurvey || 0)}</strong>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Hot</span>
-                    <strong style={{ color: '#f59e0b' }}>{formatCount(sales.hot || 0)}</strong>
+                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Survey</span>
+                    <strong style={{ color: 'var(--green)' }}>{formatCount(sales.survey || 0)}</strong>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Full Book</span>
@@ -156,6 +155,10 @@ function buildScopeMetrics(scope, fallbackData) {
         };
     }
 
+    const validTeams = (fallbackData.teams || []).filter(
+        (t) => t.teamId !== 'unassigned_sup' && t.teamName !== 'Unassigned Supervisor'
+    );
+
     return {
         totalLeads: fallbackData.totalLeads || fallbackData.totalProspek || 0,
         totalSurvey: fallbackData.totalSurvey || 0,
@@ -166,6 +169,7 @@ function buildScopeMetrics(scope, fallbackData) {
         surveyRate: fallbackData.surveyRate || 0,
         closingRate: fallbackData.closingRate || 0,
         sales: [],
+        teams: validTeams,
     };
 }
 
@@ -218,7 +222,7 @@ function TeamPerformancePanel({ title, metrics, showSalesList }) {
                 />
             </div>
 
-            {showSalesList && metrics.sales.length > 0 ? (
+            {showSalesList && metrics.sales && metrics.sales.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                         <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Breakdown per Sales</h4>
@@ -228,6 +232,31 @@ function TeamPerformancePanel({ title, metrics, showSalesList }) {
                             <SalesRow key={sales.salesId} sales={sales} />
                         ))}
                     </div>
+                </div>
+            ) : null}
+
+            {showSalesList && metrics.teams && metrics.teams.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginTop: '12px' }}>
+                    {metrics.teams.map((team) => (
+                        <div key={team.teamId} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+                                <h4 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                                    Supervisor: {getTeamDisplayLabel(team)}
+                                </h4>
+                                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                    Total Leads: <strong style={{ color: 'var(--text-primary)' }}>{formatCount(team.prospek || 0)}</strong>
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {(team.sales || []).map((sales) => (
+                                    <SalesRow key={sales.salesId} sales={sales} />
+                                ))}
+                                {(!team.sales || team.sales.length === 0) && (
+                                    <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Belum ada data sales.</span>
+                                )}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             ) : null}
         </div>
@@ -337,7 +366,7 @@ export default function TeamPerformanceSection({
                         <TeamPerformancePanel
                             title={selectedTeamData ? getTeamDisplayLabel(selectedTeamData) : scopeLabel}
                             metrics={buildScopeMetrics(selectedTeamData, data)}
-                            showSalesList={Boolean(selectedTeamData)}
+                            showSalesList={true}
                         />
                     </>
                 ) : !allowTeamFiltering ? (
