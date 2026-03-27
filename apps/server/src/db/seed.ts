@@ -10,13 +10,17 @@ import {
     appSetting,
     appointment,
     account,
+    cancelReason,
     client,
+    customerPipelineFollowUp,
     distributionAttempt,
     distributionCycle,
     lead,
+    leadPenalty,
     leadReassignmentAudit,
     leadSourceOption,
     leadProgressHistory,
+    salesDistributionSuspension,
     leadStatusHistory,
     projectUnit,
     salesQueue,
@@ -31,6 +35,7 @@ import {
     TENANTS,
     TENANT_LEADS,
     TENANT_LEAD_SOURCE_OPTIONS,
+    TENANT_CANCEL_REASONS,
     type SeedUser,
     type SeedLead,
 } from "./seed-data";
@@ -48,10 +53,14 @@ async function resetOperationalData() {
         await tx.delete(leadProgressHistory);
         await tx.delete(leadStatusHistory);
         await tx.delete(leadReassignmentAudit);
+        await tx.delete(leadPenalty);
+        await tx.delete(salesDistributionSuspension);
+        await tx.delete(customerPipelineFollowUp);
         await tx.delete(activity);
         await tx.delete(appointment);
         await tx.delete(waMessage);
         await tx.delete(lead);
+        await tx.delete(cancelReason);
         await tx.delete(leadSourceOption);
         await tx.delete(salesQueue);
         await tx.delete(supervisorSales);
@@ -280,6 +289,26 @@ async function seedLeadSourceOptions() {
     }
 }
 
+async function seedCancelReasons() {
+    await db.delete(cancelReason);
+
+    for (const tenant of TENANTS) {
+        const reasons = TENANT_CANCEL_REASONS[tenant.id] || [];
+        for (const reason of reasons) {
+            await db.insert(cancelReason).values({
+                id: generateId(),
+                clientId: tenant.id,
+                code: reason.code,
+                label: reason.label,
+                isActive: true,
+                sortOrder: reason.sortOrder,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            });
+        }
+    }
+}
+
 function resolveReceivedAt(offsetDays?: number) {
     const now = new Date();
     if (!Number.isFinite(Number(offsetDays))) {
@@ -312,6 +341,7 @@ async function upsertSeedLead(seedLead: SeedLead, emailToId: Map<string, string>
         clientId: seedLead.clientId,
         assignedTo,
         flowStatus: seedLead.flowStatus || "accepted",
+        acceptedAt: (seedLead.flowStatus || "accepted") === "accepted" ? receivedAt : null,
         salesStatus: seedLead.salesStatus,
         interestProjectType: seedLead.interestProjectType,
         interestUnitName: seedLead.interestUnitName,
@@ -429,6 +459,9 @@ async function seed() {
 
     await seedLeadSourceOptions();
     logger.info("  ✅ seeded lead source options");
+
+    await seedCancelReasons();
+    logger.info("  ✅ seeded cancel reasons");
 
     await seedDemoLeads(emailToId, keyToEmail);
     logger.info("  ✅ seeded demo transaction leads");

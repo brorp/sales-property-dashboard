@@ -41,6 +41,10 @@ function normalizeLead(input) {
         return null;
     }
 
+    const customerPipeline = Array.isArray(input.customerPipeline) ? input.customerPipeline : [];
+    const derivedPipelineCompletedCount = customerPipeline.filter((item) => item?.isChecked).length;
+    const derivedPipelineTotalSteps = customerPipeline.length;
+
     return {
         ...input,
         flowStatus: input.flowStatus || 'open',
@@ -52,8 +56,12 @@ function normalizeLead(input) {
         resultStatus: input.resultStatus || null,
         rejectedReason: input.rejectedReason || null,
         rejectedNote: input.rejectedNote || null,
+        acceptedAt: input.acceptedAt || null,
         appointmentTag: input.appointmentTag || 'none',
         latestAppointment: input.latestAppointment || null,
+        customerPipelineCompletedCount: Number(input.customerPipelineCompletedCount ?? derivedPipelineCompletedCount ?? 0),
+        customerPipelineTotalSteps: Number(input.customerPipelineTotalSteps ?? derivedPipelineTotalSteps ?? 0),
+        customerPipeline,
         activities: Array.isArray(input.activities) ? input.activities : [],
         appointments: Array.isArray(input.appointments) ? input.appointments : [],
     };
@@ -247,6 +255,49 @@ export function LeadsProvider({ children }) {
         return normalized;
     }, [refreshAppointments, refreshDashboardAnalytics, refreshLeads, refreshTeamStats, syncLeadToState, user]);
 
+    const acceptLead = useCallback(async (id) => {
+        if (!user) {
+            throw new Error('Unauthorized');
+        }
+
+        const updated = await apiRequest(`/api/leads/${id}/accept`, {
+            method: 'POST',
+            user,
+        });
+
+        const normalized = syncLeadToState(updated);
+        await Promise.all([
+            refreshLeads(),
+            refreshTeamStats(),
+            refreshDashboardAnalytics(),
+            refreshAppointments(),
+        ]);
+        return normalized;
+    }, [refreshAppointments, refreshDashboardAnalytics, refreshLeads, refreshTeamStats, syncLeadToState, user]);
+
+    const completeCustomerPipelineStep = useCallback(async (leadId, stepNo, note) => {
+        if (!user) {
+            throw new Error('Unauthorized');
+        }
+
+        await apiRequest(`/api/leads/${leadId}/customer-pipeline/${stepNo}/complete`, {
+            method: 'POST',
+            user,
+            body: {
+                note,
+            },
+        });
+
+        const detail = await loadLeadById(leadId);
+        await Promise.all([
+            refreshLeads(),
+            refreshTeamStats(),
+            refreshDashboardAnalytics(),
+            refreshAppointments(),
+        ]);
+        return detail;
+    }, [loadLeadById, refreshAppointments, refreshDashboardAnalytics, refreshLeads, refreshTeamStats, user]);
+
     const addLead = useCallback(async (leadData) => {
         if (!user) {
             throw new Error('Unauthorized');
@@ -354,11 +405,11 @@ export function LeadsProvider({ children }) {
         return {
             total: leads.length,
             hot: leads.filter((item) => item.salesStatus === 'hot').length,
-            closed: leads.filter((item) => item.resultStatus === 'closing').length,
+            closed: leads.filter((item) => item.resultStatus === 'akad' || item.resultStatus === 'full_book').length,
             assigned: leads.filter((item) => item.flowStatus === 'assigned').length,
             open: leads.filter((item) => item.flowStatus === 'open').length,
-            menunggu: leads.filter((item) => item.resultStatus === 'menunggu').length,
-            batal: leads.filter((item) => item.resultStatus === 'batal').length,
+            menunggu: leads.filter((item) => item.resultStatus === 'reserve' || item.resultStatus === 'on_process').length,
+            batal: leads.filter((item) => item.resultStatus === 'cancel').length,
         };
     }, [leads]);
 
@@ -377,6 +428,8 @@ export function LeadsProvider({ children }) {
         getLeadById,
         loadLeadById,
         updateLead,
+        acceptLead,
+        completeCustomerPipelineStep,
         addLead,
         addAppointment,
         updateAppointment,
@@ -411,6 +464,8 @@ export function LeadsProvider({ children }) {
         loadLeadById,
         loading,
         leadSources,
+        acceptLead,
+        completeCustomerPipelineStep,
         refreshAll,
         refreshAppointments,
         refreshDashboardAnalytics,

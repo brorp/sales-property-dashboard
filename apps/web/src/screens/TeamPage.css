@@ -209,6 +209,12 @@
     color: var(--text-muted);
 }
 
+.team-member-alert {
+    margin-top: 6px;
+    font-size: 0.78rem;
+    color: #fca5a5;
+}
+
 .team-member-arrow {
     font-size: 1.15rem;
     color: var(--purple);

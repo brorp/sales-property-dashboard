@@ -1,8 +1,18 @@
 'use client';
 
+import { useCallback, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
+import { apiRequest } from '../lib/api';
+import {
+    getSeenLeadsAt,
+    getSeenLogsAt,
+    hasUnreadSince,
+    markLeadsSeenAt,
+    markLogsSeenAt,
+} from '../lib/notification-seen';
+import { usePagePolling } from '../hooks/usePagePolling';
 
 function Icon({ name }) {
     const common = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
@@ -108,6 +118,52 @@ export default function BottomNav() {
     const tenant = useTenant();
     const pathname = usePathname();
     const router = useRouter();
+    const [summary, setSummary] = useState({ latestLeadAt: null, latestLogAt: null });
+    const [seenState, setSeenState] = useState({ leads: null, logs: null });
+
+    const loadNotificationSummary = useCallback(async () => {
+        if (!user) {
+            return;
+        }
+
+        const data = await apiRequest('/api/notifications/summary', { user });
+        setSummary({
+            latestLeadAt: data?.latestLeadAt || null,
+            latestLogAt: data?.latestLogAt || null,
+        });
+    }, [user]);
+
+    useEffect(() => {
+        if (!user) {
+            return;
+        }
+
+        setSeenState({
+            leads: getSeenLeadsAt(),
+            logs: getSeenLogsAt(),
+        });
+        void loadNotificationSummary();
+    }, [loadNotificationSummary, user]);
+
+    usePagePolling({
+        enabled: Boolean(user),
+        intervalMs: 3000,
+        run: loadNotificationSummary,
+    });
+
+    useEffect(() => {
+        if (pathname.startsWith('/leads')) {
+            const nextValue = summary.latestLeadAt || new Date().toISOString();
+            markLeadsSeenAt(nextValue);
+            setSeenState((prev) => ({ ...prev, leads: nextValue }));
+        }
+
+        if (pathname.startsWith('/activity-logs')) {
+            const nextValue = summary.latestLogAt || new Date().toISOString();
+            markLogsSeenAt(nextValue);
+            setSeenState((prev) => ({ ...prev, logs: nextValue }));
+        }
+    }, [pathname, summary.latestLeadAt, summary.latestLogAt]);
 
     if (!user || pathname === '/login') return null;
 
@@ -127,6 +183,8 @@ export default function BottomNav() {
         logout();
         router.replace('/login');
     };
+    const hasUnreadLeads = hasUnreadSince(summary.latestLeadAt, seenState.leads);
+    const hasUnreadLogs = hasUnreadSince(summary.latestLogAt, seenState.logs);
 
     return (
         <nav className="bottom-nav">
@@ -144,6 +202,8 @@ export default function BottomNav() {
                     >
                         <span className="bottom-nav-icon"><Icon name={tab.icon} /></span>
                         <span className="bottom-nav-label">{tab.label}</span>
+                        {tab.key === '/leads' && hasUnreadLeads && !isActive(tab.key) ? <span className="bottom-nav-unread-dot" /> : null}
+                        {tab.key === '/activity-logs' && hasUnreadLogs && !isActive(tab.key) ? <span className="bottom-nav-unread-dot" /> : null}
                         {isActive(tab.key) && <span className="bottom-nav-indicator" />}
                     </button>
                 ))}

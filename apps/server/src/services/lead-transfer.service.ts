@@ -88,9 +88,30 @@ const EXPORT_COLUMNS = [
     "updatedAt",
 ] as const;
 
+function getLeadExportAccessCode() {
+    const value = String(process.env.LEADS_EXPORT_ACCESS_CODE || "").trim();
+    return value || null;
+}
+
 function assertAdminActor(actor: AdminActor) {
     if (actor.actorRole !== "root_admin" && actor.actorRole !== "client_admin") {
         throw new Error("FORBIDDEN");
+    }
+}
+
+export function assertLeadExportAccessCode(accessCode: unknown) {
+    const configuredCode = getLeadExportAccessCode();
+    if (!configuredCode) {
+        throw new Error("LEADS_EXPORT_ACCESS_CODE_NOT_CONFIGURED");
+    }
+
+    const submittedCode = typeof accessCode === "string" ? accessCode.trim() : "";
+    if (!submittedCode) {
+        throw new Error("LEADS_EXPORT_ACCESS_CODE_REQUIRED");
+    }
+
+    if (submittedCode !== configuredCode) {
+        throw new Error("LEADS_EXPORT_ACCESS_CODE_INVALID");
     }
 }
 
@@ -249,8 +270,13 @@ function mapLeadFlowStatus(flowStatus: string | null | undefined, assignedTo: st
     return assignedTo ? "assigned" : "open";
 }
 
-export async function exportSalesLeadsWorkbookData(salesId: string, actor: AdminActor) {
+export async function exportSalesLeadsWorkbookData(
+    salesId: string,
+    actor: AdminActor,
+    accessCode?: string | null
+) {
     assertAdminActor(actor);
+    assertLeadExportAccessCode(accessCode);
 
     const salesRow = await getManagedSalesRow(salesId, actor, false);
     if (!salesRow) {

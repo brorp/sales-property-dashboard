@@ -6,10 +6,10 @@ export const FLOW_STATUSES = [
 ];
 
 export const SALES_STATUSES = [
-    { key: 'hot', label: 'Hot' },
     { key: 'warm', label: 'Warm' },
-    { key: 'cold', label: 'Cold' },
+    { key: 'hot', label: 'Hot' },
     { key: 'error', label: 'Error' },
+    { key: 'cold', label: 'Cold' },
     { key: 'no_response', label: 'No Response' },
     { key: 'skip', label: 'Skip' },
 ];
@@ -28,15 +28,22 @@ export const RESULT_STATUSES = [
     { key: 'cancel', label: 'Cancel' },
 ];
 
-export const REJECTED_REASON_OPTIONS = [
-    { key: 'harga', label: 'Harga' },
-    { key: 'lokasi', label: 'Lokasi' },
-    { key: 'kompetitor', label: 'Pilih Kompetitor' },
-    { key: 'belum_siap', label: 'Belum Siap Beli' },
-    { key: 'tidak_responsif', label: 'Tidak Responsif' },
-    { key: 'tidak_cocok', label: 'Produk Tidak Cocok' },
-    { key: 'lainnya', label: 'Lainnya' },
-];
+export const CUSTOMER_PIPELINE_STEPS = Array.from({ length: 5 }, (_, index) => ({
+    stepNo: index + 1,
+    label: `Follow Up ${index + 1}`,
+}));
+
+export const SALES_STATUS_COLD_OPEN_DAYS = 14;
+
+function normalizeKey(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function humanizeUnknownKey(key) {
+    return String(key || '-')
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 export function getSalesStatusLabel(key) {
     if (key === 'unfilled') {
@@ -62,8 +69,60 @@ export function getAppointmentTagLabel(key) {
 }
 
 export function getRejectedReasonLabel(key) {
-    const found = REJECTED_REASON_OPTIONS.find((item) => item.key === key);
-    return found ? found.label : key || '-';
+    return humanizeUnknownKey(key);
+}
+
+export function getStatusBadgeClass(kind, value) {
+    const normalizedKind = normalizeKey(kind);
+    const normalizedValue = normalizeKey(value);
+
+    if (normalizedKind === 'flow') {
+        if (normalizedValue === 'assigned' || normalizedValue === 'accepted') {
+            return 'badge-warm';
+        }
+        if (normalizedValue === 'hold') {
+            return 'badge-purple';
+        }
+        return 'badge-neutral';
+    }
+
+    if (normalizedKind === 'sales') {
+        if (normalizedValue === 'warm' || normalizedValue === 'hot') {
+            return 'badge-warm';
+        }
+        if (normalizedValue === 'cold' || normalizedValue === 'error' || normalizedValue === 'no_response' || normalizedValue === 'skip') {
+            return 'badge-danger';
+        }
+        return 'badge-neutral';
+    }
+
+    if (normalizedKind === 'appointment') {
+        if (normalizedValue === 'mau_survey') {
+            return 'badge-info';
+        }
+        if (normalizedValue === 'sudah_survey') {
+            return 'badge-survey';
+        }
+        if (normalizedValue === 'dibatalkan') {
+            return 'badge-danger';
+        }
+        return 'badge-neutral';
+    }
+
+    if (normalizedKind === 'result') {
+        if (normalizedValue === 'akad' || normalizedValue === 'full_book') {
+            return 'badge-success';
+        }
+        if (normalizedValue === 'reserve' || normalizedValue === 'on_process') {
+            return 'badge-warm';
+        }
+        if (normalizedValue === 'cancel') {
+            return 'badge-danger';
+        }
+        return 'badge-neutral';
+    }
+
+    return 'badge-neutral';
 }
 
 export function getTimeAgo(dateStr) {

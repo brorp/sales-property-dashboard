@@ -7,6 +7,7 @@ import {
     type AppointmentTag,
 } from "../utils/appointment";
 import { generateId } from "../utils/id";
+import { getAppointmentStatusLabel } from "../utils/lead-workflow";
 
 type DbExecutor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -139,12 +140,21 @@ export async function updateAppointment(params: {
 
     const target = updated || existing;
     const appointmentStatus = sanitizeAppointmentStatus(target.status);
+    const previousStatus = sanitizeAppointmentStatus(existing.status);
+    const activityType =
+        params.status !== undefined && appointmentStatus !== previousStatus
+            ? "survey"
+            : "appointment";
+    const note =
+        params.status !== undefined && appointmentStatus !== previousStatus
+            ? `Status survey diubah dari ${getAppointmentStatusLabel(previousStatus)} ke ${getAppointmentStatusLabel(appointmentStatus)}`
+            : `Appointment diperbarui untuk ${target.date} ${target.time} di ${target.location}`;
 
     await db.insert(activity).values({
         id: generateId(),
         leadId: target.leadId,
-        type: "appointment",
-        note: `Appointment diupdate menjadi ${appointmentStatus} untuk ${target.date} ${target.time} di ${target.location}`,
+        type: activityType,
+        note,
         timestamp: new Date(),
     });
 

@@ -25,10 +25,12 @@ export default function ProfilePage() {
     const handleLogout = () => { logout(); router.replace('/login'); };
     const goToDistributionOrder = () => { router.push('/settings/distribution-order'); };
     const goToUnits = () => { router.push('/settings/units'); };
+    const goToCancelReasons = () => { router.push('/settings/cancel-reasons'); };
     const goToWhatsAppSettings = () => { router.push('/settings/whatsapp'); };
     const goToBroadcast = () => { router.push('/broadcast'); };
     const goToEditProfile = () => { router.push('/settings/profile'); };
     const canManageDistribution = user?.role === 'client_admin';
+    const canManageCancelReasons = user?.role === 'client_admin' || user?.role === 'root_admin';
     const canManageSharedWhatsApp = tenant.canManageSharedWhatsApp(user);
     const workspaceLabel = tenant.isClientSite
         ? tenant.siteLabel
@@ -58,6 +60,11 @@ export default function ProfilePage() {
                 {canManageDistribution ? (
                     <button className="profile-menu-item" onClick={goToUnits}>
                         <span>🏢</span><span>Kelola Unit</span><span className="profile-menu-arrow">→</span>
+                    </button>
+                ) : null}
+                {canManageCancelReasons ? (
+                    <button className="profile-menu-item" onClick={goToCancelReasons}>
+                        <span>🛑</span><span>Kelola Cancel Reason</span><span className="profile-menu-arrow">→</span>
                     </button>
                 ) : null}
                 {canManageSharedWhatsApp ? (

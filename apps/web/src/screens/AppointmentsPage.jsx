@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import { useLeads } from '../context/LeadsContext';
 import { useAuth } from '../context/AuthContext';
-import { APPOINTMENT_TAGS, getAppointmentTagLabel, toWaLink } from '../constants/crm';
+import { APPOINTMENT_TAGS, getAppointmentTagLabel, getStatusBadgeClass, toWaLink } from '../constants/crm';
 import { usePagePolling } from '../hooks/usePagePolling';
 
 export default function AppointmentsPage() {
@@ -127,13 +127,7 @@ export default function AppointmentsPage() {
                         >
                             <div className="lead-row-top">
                                 <div className="lead-row-name">{item.leadName}</div>
-                                <span className={`badge ${
-                                    item.appointmentTag === 'mau_survey'
-                                        ? 'badge-warm'
-                                        : item.appointmentTag === 'dibatalkan'
-                                            ? 'badge-danger'
-                                            : 'badge-success'
-                                }`}>
+                                <span className={`badge ${getStatusBadgeClass('appointment', item.appointmentTag)}`}>
                                     {getAppointmentTagLabel(item.appointmentTag)}
                                 </span>
                             </div>

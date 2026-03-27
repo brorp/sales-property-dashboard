@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Header from '../components/Header';
+import PickerTriggerField from '../components/PickerTriggerField';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { apiRequest, getApiBaseUrl } from '../lib/api';
@@ -346,37 +347,31 @@ export default function SettingsPage() {
                 </div>
 
                 <h3 style={{ marginTop: 12 }}>Operational Hours</h3>
-                <div className="input-group">
-                    <label>Jam buka</label>
-                    <input
-                        type="time"
-                        className="input-field"
-                        value={systemSettingsForm.operationalStart}
-                        onChange={(event) =>
-                            setSystemSettingsForm((prev) => ({
-                                ...prev,
-                                operationalStart: event.target.value,
-                            }))
-                        }
-                        disabled={systemSettingsLoading || systemSettingsSaving}
-                    />
-                </div>
+                <PickerTriggerField
+                    label="Jam buka"
+                    type="time"
+                    value={systemSettingsForm.operationalStart}
+                    onChange={(event) =>
+                        setSystemSettingsForm((prev) => ({
+                            ...prev,
+                            operationalStart: event.target.value,
+                        }))
+                    }
+                    disabled={systemSettingsLoading || systemSettingsSaving}
+                />
 
-                <div className="input-group">
-                    <label>Jam tutup</label>
-                    <input
-                        type="time"
-                        className="input-field"
-                        value={systemSettingsForm.operationalEnd}
-                        onChange={(event) =>
-                            setSystemSettingsForm((prev) => ({
-                                ...prev,
-                                operationalEnd: event.target.value,
-                            }))
-                        }
-                        disabled={systemSettingsLoading || systemSettingsSaving}
-                    />
-                </div>
+                <PickerTriggerField
+                    label="Jam tutup"
+                    type="time"
+                    value={systemSettingsForm.operationalEnd}
+                    onChange={(event) =>
+                        setSystemSettingsForm((prev) => ({
+                            ...prev,
+                            operationalEnd: event.target.value,
+                        }))
+                    }
+                    disabled={systemSettingsLoading || systemSettingsSaving}
+                />
 
                 <div className="input-group">
                     <label>Timezone</label>

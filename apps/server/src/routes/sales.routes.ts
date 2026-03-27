@@ -73,14 +73,14 @@ router.post("/", requireMinRole("supervisor") as any, async (req, res: Response,
     }
 });
 
-router.get("/:id/leads/export", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
+router.post("/:id/leads/export", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
         const exported = await leadTransferService.exportSalesLeadsWorkbookData(req.params.id, {
             actorId: user.id,
             actorRole: user.role,
             actorClientId: user.clientId || null,
-        });
+        }, req.body?.accessCode);
         res.json(exported);
     } catch (error) {
         next(error);

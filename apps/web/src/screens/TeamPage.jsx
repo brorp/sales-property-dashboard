@@ -42,6 +42,25 @@ function sortMembersWithLockedLast(items = []) {
     });
 }
 
+function formatSuspensionUntil(value) {
+    if (!value) {
+        return '-';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        return '-';
+    }
+
+    return parsed.toLocaleString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
 function TeamSummaryCard({ label, value, tone = 'default', helper }) {
     return (
         <div className={`team-summary-card team-summary-${tone}`}>
@@ -77,6 +96,7 @@ function MemberStats({ member }) {
 
 function MemberButton({ member, subtitle, metaBadge, onClick, compact = false, interactive = true }) {
     const Container = interactive ? 'button' : 'div';
+    const isSuspended = Boolean(member?.isSuspended && member?.suspension);
 
     return (
         <Container
@@ -91,9 +111,16 @@ function MemberButton({ member, subtitle, metaBadge, onClick, compact = false, i
                     <div className="team-member-title-row">
                         <h3 className="team-name">{member.name}</h3>
                         {metaBadge ? <span className="badge badge-purple">{metaBadge}</span> : null}
+                        {isSuspended ? <span className="badge badge-danger">Suspended</span> : null}
+                        {isSuspended ? <span className="badge badge-neutral">Layer {member.suspension?.penaltyLayer || '-'}</span> : null}
                     </div>
                     <p className="team-email">{member.email}</p>
                     {subtitle ? <p className="team-member-subtitle">{subtitle}</p> : null}
+                    {isSuspended ? (
+                        <p className="team-member-alert">
+                            Queue nonaktif sampai {formatSuspensionUntil(member.suspension?.suspendedUntil)}
+                        </p>
+                    ) : null}
                 </div>
             </div>
             {interactive ? <span className="team-member-arrow">→</span> : null}
@@ -156,6 +183,7 @@ export default function TeamPage() {
         hot: 0,
         pending: 0,
         appointments: 0,
+        suspendedSales: 0,
     };
     const activeClientId =
         (user?.role === 'client_admin' ? user?.clientId : null) ||
@@ -191,6 +219,13 @@ export default function TeamPage() {
             tone: 'default',
             helper: `${summary.accepted || 0} accepted`,
         },
+        ...(summary.suspendedSales ? [{
+            key: 'suspended',
+            label: 'Suspended',
+            value: summary.suspendedSales || 0,
+            tone: 'hot',
+            helper: 'Queue distribusi sedang diblok',
+        }] : []),
     ];
 
     if (!isAdmin) {
@@ -215,6 +250,7 @@ export default function TeamPage() {
             submitting: false,
             error: '',
             exportedCount: null,
+            accessCode: '',
         });
         setSubmitSuccess('');
     };
@@ -228,11 +264,23 @@ export default function TeamPage() {
             return;
         }
 
+        if (!String(lifecycleState.accessCode || '').trim()) {
+            setLifecycleState((prev) => (prev ? {
+                ...prev,
+                error: 'Access code export wajib diisi sebelum export.',
+            } : prev));
+            return;
+        }
+
         setLifecycleState((prev) => (prev ? { ...prev, exporting: true, error: '' } : prev));
 
         try {
             const exported = await apiRequest(`/api/sales/${lifecycleState.member.id}/leads/export`, {
+                method: 'POST',
                 user,
+                body: {
+                    accessCode: lifecycleState.accessCode.trim(),
+                },
             });
             await downloadLeadTransferWorkbook({
                 fileName: exported.fileName,
@@ -841,9 +889,23 @@ export default function TeamPage() {
                                         masih berelasi dengan sales ini terlebih dahulu.
                                     </p>
                                     <p>
-                                        File CSV hasil export ini bisa dipakai lagi di menu import leads untuk reassign ke sales lain
+                                        File XLSX hasil export ini bisa dipakai lagi di menu import leads untuk reassign ke sales lain
                                         tanpa membuat lead duplikat.
                                     </p>
+                                    <div className="input-group" style={{ marginTop: 12 }}>
+                                        <label>Access Code Export</label>
+                                        <input
+                                            type="password"
+                                            className="input-field"
+                                            value={lifecycleState.accessCode || ''}
+                                            onChange={(event) => setLifecycleState((prev) => (
+                                                prev
+                                                    ? { ...prev, accessCode: event.target.value, error: '' }
+                                                    : prev
+                                            ))}
+                                            placeholder="Masukkan access code export"
+                                        />
+                                    </div>
                                 </>
                             ) : (
                                 <>

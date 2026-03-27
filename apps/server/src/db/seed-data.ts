@@ -40,6 +40,12 @@ export type SeedLead = {
     receivedAtOffsetDays?: number;
 };
 
+export type SeedCancelReason = {
+    code: string;
+    label: string;
+    sortOrder: number;
+};
+
 export const ROOT_USER: SeedUser = {
     key: "root",
     name: "Root Admin",
@@ -147,7 +153,19 @@ export const TENANTS: SeedClient[] = [
 ];
 
 export const TENANT_LEAD_SOURCE_OPTIONS: Record<string, string[]> = {
-    widari: ["Online", "Offline", "Walk In", "Agent"],
+    widari: ["Online", "Offline", "Walk In", "Agent", "Old", "Pribadi"],
+};
+
+export const TENANT_CANCEL_REASONS: Record<string, SeedCancelReason[]> = {
+    widari: [
+        { code: "harga", label: "Harga", sortOrder: 1 },
+        { code: "lokasi", label: "Lokasi", sortOrder: 2 },
+        { code: "kompetitor", label: "Pilih Kompetitor", sortOrder: 3 },
+        { code: "belum_siap", label: "Belum Siap Beli", sortOrder: 4 },
+        { code: "tidak_responsif", label: "Tidak Responsif", sortOrder: 5 },
+        { code: "tidak_cocok", label: "Produk Tidak Cocok", sortOrder: 6 },
+        { code: "lainnya", label: "Lainnya", sortOrder: 7 },
+    ],
 };
 
 export const TENANT_LEADS: Record<string, SeedLead[]> = {

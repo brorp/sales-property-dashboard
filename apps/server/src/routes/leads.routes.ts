@@ -143,6 +143,15 @@ router.post("/import-reassign/commit", requireRole("root_admin", "client_admin")
     }
 });
 
+router.post("/export/authorize", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        leadTransferService.assertLeadExportAccessCode(req.body?.accessCode);
+        res.json({ success: true });
+    } catch (error) {
+        next(error);
+    }
+});
+
 router.get("/:id", async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
@@ -156,6 +165,80 @@ router.get("/:id", async (req, res: Response, next: NextFunction) => {
             return;
         }
         res.json(lead);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.post("/:id/accept", requireRole("sales") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { user } = req as unknown as AuthenticatedRequest;
+        const currentLead = await leadsService.findById(req.params.id);
+        if (!currentLead) {
+            res.status(404).json({ error: "NOT_FOUND", message: "Lead tidak ditemukan" });
+            return;
+        }
+
+        if (currentLead.assignedTo !== user.id) {
+            res.status(403).json({ error: "FORBIDDEN_LEAD_ACCEPT", message: "Anda tidak memiliki akses menerima lead ini" });
+            return;
+        }
+
+        const accepted = await leadsService.acceptLead({
+            leadId: req.params.id,
+            actorId: user.id,
+            actorName: user.name,
+        });
+
+        res.json(accepted);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.get("/:id/customer-pipeline", async (req, res: Response, next: NextFunction) => {
+    try {
+        const { user, scope } = req as unknown as AuthenticatedRequest;
+        const currentLead = await leadsService.findById(req.params.id);
+        if (!currentLead) {
+            res.status(404).json({ error: "NOT_FOUND", message: "Lead tidak ditemukan" });
+            return;
+        }
+
+        if (!canViewLeadByUser(currentLead, user, scope)) {
+            res.status(403).json({ error: "FORBIDDEN", message: "Anda tidak memiliki akses ke lead ini" });
+            return;
+        }
+
+        res.json(currentLead.customerPipeline || []);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.post("/:id/customer-pipeline/:stepNo/complete", requireRole("sales") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { user } = req as unknown as AuthenticatedRequest;
+        const currentLead = await leadsService.findById(req.params.id);
+        if (!currentLead) {
+            res.status(404).json({ error: "NOT_FOUND", message: "Lead tidak ditemukan" });
+            return;
+        }
+
+        if (currentLead.assignedTo !== user.id) {
+            res.status(403).json({ error: "FORBIDDEN_CUSTOMER_PIPELINE_UPDATE", message: "Hanya sales owner yang bisa mengubah customer pipeline" });
+            return;
+        }
+
+        const updated = await leadsService.completeCustomerPipelineStep({
+            leadId: req.params.id,
+            stepNo: Number(req.params.stepNo),
+            note: req.body?.note,
+            actorId: user.id,
+            actorName: user.name,
+        });
+
+        res.json(updated);
     } catch (error) {
         next(error);
     }

@@ -59,6 +59,23 @@
     color: var(--text-muted);
 }
 
+.leads-card-pipeline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.leads-card-pipeline-label {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
 .export-filter-actions {
     display: flex;
     gap: 8px;
@@ -199,6 +216,12 @@
 }
 
 @media (max-width: 640px) {
+    .leads-card-details,
+    .leads-card-pipeline {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
     .export-checklist {
         grid-template-columns: 1fr;
     }

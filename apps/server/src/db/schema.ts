@@ -157,6 +157,7 @@ export const lead = pgTable(
             onDelete: "set null",
         }),
         flowStatus: text("flow_status").notNull().default("open"),
+        acceptedAt: timestamp("accepted_at"),
         salesStatus: text("sales_status"),
         domicileCity: text("domicile_city"),
         interestUnitId: text("interest_unit_id").references(() => projectUnit.id, {
@@ -182,6 +183,117 @@ export const lead = pgTable(
         flowStatusIdx: index("lead_flow_status_idx").on(table.flowStatus),
         clientIdx: index("lead_client_id_idx").on(table.clientId),
         metaLeadUnique: uniqueIndex("lead_meta_lead_id_unique").on(table.metaLeadId),
+    })
+);
+
+export const customerPipelineFollowUp = pgTable(
+    "customer_pipeline_follow_up",
+    {
+        id: text("id").primaryKey(),
+        leadId: text("lead_id")
+            .notNull()
+            .references(() => lead.id, { onDelete: "cascade" }),
+        stepNo: integer("step_no").notNull(),
+        note: text("note"),
+        isChecked: boolean("is_checked").notNull().default(false),
+        checkedAt: timestamp("checked_at"),
+        checkedBy: text("checked_by").references(() => user.id, { onDelete: "set null" }),
+        isLocked: boolean("is_locked").notNull().default(false),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        leadIdx: index("customer_pipeline_follow_up_lead_id_idx").on(table.leadId),
+        checkedByIdx: index("customer_pipeline_follow_up_checked_by_idx").on(table.checkedBy),
+        leadStepUnique: uniqueIndex("customer_pipeline_follow_up_lead_step_unique").on(
+            table.leadId,
+            table.stepNo
+        ),
+    })
+);
+
+export const cancelReason = pgTable(
+    "cancel_reason",
+    {
+        id: text("id").primaryKey(),
+        clientId: text("client_id")
+            .notNull()
+            .references(() => client.id, { onDelete: "cascade" }),
+        code: text("code").notNull(),
+        label: text("label").notNull(),
+        isActive: boolean("is_active").notNull().default(true),
+        sortOrder: integer("sort_order").notNull().default(0),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        clientIdx: index("cancel_reason_client_id_idx").on(table.clientId),
+        activeIdx: index("cancel_reason_is_active_idx").on(table.isActive),
+        clientCodeUnique: uniqueIndex("cancel_reason_client_code_unique").on(
+            table.clientId,
+            table.code
+        ),
+    })
+);
+
+export const leadPenalty = pgTable(
+    "lead_penalty",
+    {
+        id: text("id").primaryKey(),
+        leadId: text("lead_id")
+            .notNull()
+            .references(() => lead.id, { onDelete: "cascade" }),
+        salesId: text("sales_id").references(() => user.id, { onDelete: "set null" }),
+        ruleCode: text("rule_code").notNull(),
+        penaltyLayer: integer("penalty_layer").notNull().default(1),
+        suspendedDays: integer("suspended_days").notNull().default(0),
+        status: text("status").notNull().default("active"),
+        note: text("note"),
+        metadata: text("metadata"),
+        triggeredAt: timestamp("triggered_at").notNull().defaultNow(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        leadIdx: index("lead_penalty_lead_id_idx").on(table.leadId),
+        salesIdx: index("lead_penalty_sales_id_idx").on(table.salesId),
+        ruleIdx: index("lead_penalty_rule_code_idx").on(table.ruleCode),
+        leadRuleUnique: uniqueIndex("lead_penalty_lead_rule_unique").on(
+            table.leadId,
+            table.ruleCode
+        ),
+    })
+);
+
+export const salesDistributionSuspension = pgTable(
+    "sales_distribution_suspension",
+    {
+        id: text("id").primaryKey(),
+        salesId: text("sales_id")
+            .notNull()
+            .references(() => user.id, { onDelete: "cascade" }),
+        clientId: text("client_id").references(() => client.id, { onDelete: "set null" }),
+        penaltyId: text("penalty_id")
+            .notNull()
+            .references(() => leadPenalty.id, { onDelete: "cascade" }),
+        ruleCode: text("rule_code").notNull(),
+        penaltyLayer: integer("penalty_layer").notNull().default(1),
+        suspendedDays: integer("suspended_days").notNull().default(0),
+        status: text("status").notNull().default("active"),
+        note: text("note"),
+        suspendedFrom: timestamp("suspended_from").notNull().defaultNow(),
+        suspendedUntil: timestamp("suspended_until").notNull(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        salesIdx: index("sales_distribution_suspension_sales_id_idx").on(table.salesId),
+        clientIdx: index("sales_distribution_suspension_client_id_idx").on(table.clientId),
+        penaltyIdx: uniqueIndex("sales_distribution_suspension_penalty_id_unique").on(table.penaltyId),
+        activeIdx: index("sales_distribution_suspension_status_idx").on(
+            table.status,
+            table.suspendedUntil
+        ),
     })
 );
 

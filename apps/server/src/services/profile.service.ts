@@ -1,6 +1,7 @@
 import { db } from "../db/index";
 import { client, user } from "../db/schema";
 import { eq } from "drizzle-orm";
+import { getActiveSalesSuspension } from "./sales-suspension.service";
 
 export async function getProfile(userId: string) {
     const [userData] = await db
@@ -23,7 +24,24 @@ export async function getProfile(userId: string) {
 
     if (!userData) return null;
 
-    return userData;
+    const suspension =
+        userData.role === "sales"
+            ? await getActiveSalesSuspension(userData.id)
+            : null;
+
+    return {
+        ...userData,
+        isSuspended: Boolean(suspension),
+        suspension: suspension
+            ? {
+                penaltyLayer: suspension.penaltyLayer,
+                suspendedDays: suspension.suspendedDays,
+                suspendedFrom: suspension.suspendedFrom,
+                suspendedUntil: suspension.suspendedUntil,
+                ruleCode: suspension.ruleCode,
+            }
+            : null,
+    };
 }
 
 function sanitizeOptionalText(value: unknown) {

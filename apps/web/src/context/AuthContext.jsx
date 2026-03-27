@@ -96,6 +96,8 @@ function normalizeSessionUser(profile) {
         clientSlug: profile.clientSlug || null,
         supervisorId: profile.supervisorId || null,
         image: profile.image || null,
+        isSuspended: Boolean(profile.isSuspended),
+        suspension: profile.suspension || null,
     };
 }
 
@@ -109,6 +111,8 @@ function normalizeStoredUser(parsedUser, matchedUser) {
         clientSlug: matchedUser.clientSlug || null,
         supervisorId: matchedUser.supervisorId || null,
         image: parsedUser?.image || null,
+        isSuspended: false,
+        suspension: null,
     };
 }
 

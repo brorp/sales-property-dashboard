@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Header from '../components/Header';
+import PickerTriggerField from '../components/PickerTriggerField';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { apiRequest } from '../lib/api';
@@ -307,15 +308,15 @@ export default function BroadcastPage() {
                 <div className="input-group">
                     <label>Rentang Tanggal Leads Masuk</label>
                     <div className="broadcast-date-grid">
-                        <input
+                        <PickerTriggerField
                             type="date"
-                            className="input-field"
+                            label="Dari"
                             value={broadcastForm.dateFrom}
                             onChange={(event) => setBroadcastForm((prev) => ({ ...prev, dateFrom: event.target.value }))}
                         />
-                        <input
+                        <PickerTriggerField
                             type="date"
-                            className="input-field"
+                            label="Sampai"
                             value={broadcastForm.dateTo}
                             onChange={(event) => setBroadcastForm((prev) => ({ ...prev, dateTo: event.target.value }))}
                         />

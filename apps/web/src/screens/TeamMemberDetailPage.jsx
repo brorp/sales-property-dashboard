@@ -4,27 +4,26 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
-import { getFlowStatusLabel, getResultStatusLabel, getSalesStatusLabel, getTimeAgo } from '../constants/crm';
+import { getFlowStatusLabel, getResultStatusLabel, getSalesStatusLabel, getStatusBadgeClass, getTimeAgo } from '../constants/crm';
 import { apiRequest } from '../lib/api';
 
-function getStatusBadgeClass(kind, value) {
-    if (kind === 'flow') {
-        if (value === 'accepted') return 'badge-success';
-        if (value === 'assigned') return 'badge-purple';
-        if (value === 'hold') return 'badge-warm';
-        return 'badge-neutral';
+function formatSuspensionUntil(value) {
+    if (!value) {
+        return '-';
     }
 
-    if (kind === 'sales') {
-        if (value === 'hot') return 'badge-hot';
-        if (value === 'warm') return 'badge-warm';
-        if (value === 'cold') return 'badge-cold';
-        return 'badge-neutral';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        return '-';
     }
 
-    if (value === 'closing') return 'badge-success';
-    if (value === 'batal') return 'badge-danger';
-    return 'badge-purple';
+    return parsed.toLocaleString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 
 export default function TeamMemberDetailPage({ memberId }) {
@@ -99,9 +98,16 @@ export default function TeamMemberDetailPage({ memberId }) {
                                         <span className={`badge ${member.isActive ? 'badge-success' : 'badge-danger'}`}>
                                             {member.isActive ? 'Active' : 'Inactive'}
                                         </span>
+                                        {member.isSuspended ? <span className="badge badge-danger">Suspended</span> : null}
+                                        {member.isSuspended ? <span className="badge badge-neutral">Layer {member.suspension?.penaltyLayer || '-'}</span> : null}
                                     </div>
                                     <p className="team-email">{member.email}</p>
                                     <p className="team-member-subtitle">{member.clientName || 'Tanpa client'}</p>
+                                    {member.isSuspended ? (
+                                        <p className="team-member-subtitle" style={{ color: '#fca5a5' }}>
+                                            Distribution queue diblok sampai {formatSuspensionUntil(member.suspension?.suspendedUntil)}
+                                        </p>
+                                    ) : null}
                                 </div>
                             </div>
                         </div>
@@ -123,6 +129,12 @@ export default function TeamMemberDetailPage({ memberId }) {
                                 <span className="team-detail-meta-label">Managed Sales</span>
                                 <strong>{member.managedSalesCount || 0}</strong>
                             </div>
+                            {member.isSuspended ? (
+                                <div className="team-detail-meta-item">
+                                    <span className="team-detail-meta-label">Suspend Until</span>
+                                    <strong>{formatSuspensionUntil(member.suspension?.suspendedUntil)}</strong>
+                                </div>
+                            ) : null}
                         </div>
 
                         <div className="team-member-stats team-detail-stats">
@@ -167,15 +179,21 @@ export default function TeamMemberDetailPage({ memberId }) {
                                                 <div className="team-avatar team-avatar-sm">
                                                     {String(sales.name || '?').charAt(0).toUpperCase()}
                                                 </div>
-                                                <div className="team-member-copy">
-                                                    <div className="team-member-title-row">
-                                                        <h4 className="team-name">{sales.name}</h4>
-                                                        <span className="badge badge-neutral">{sales.totalLeads || 0} Leads</span>
+                                                    <div className="team-member-copy">
+                                                        <div className="team-member-title-row">
+                                                            <h4 className="team-name">{sales.name}</h4>
+                                                            <span className="badge badge-neutral">{sales.totalLeads || 0} Leads</span>
+                                                            {sales.isSuspended ? <span className="badge badge-danger">Suspended</span> : null}
+                                                        </div>
+                                                        <p className="team-email">{sales.email}</p>
+                                                        <p className="team-member-subtitle">{sales.accepted || 0} accepted • {sales.appointments || 0} appointment</p>
+                                                        {sales.isSuspended ? (
+                                                            <p className="team-member-subtitle" style={{ color: '#fca5a5' }}>
+                                                                Suspended sampai {formatSuspensionUntil(sales.suspension?.suspendedUntil)}
+                                                            </p>
+                                                        ) : null}
                                                     </div>
-                                                    <p className="team-email">{sales.email}</p>
-                                                    <p className="team-member-subtitle">{sales.accepted || 0} accepted • {sales.appointments || 0} appointment</p>
                                                 </div>
-                                            </div>
                                             <span className="team-member-arrow">→</span>
                                         </button>
                                     </div>

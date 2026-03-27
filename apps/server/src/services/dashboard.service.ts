@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "../db/index";
-import { appointment, client, lead, user } from "../db/schema";
+import { appointment, cancelReason, client, lead, user } from "../db/schema";
 import { resolveAppointmentTag, toAppointmentDateTime } from "../utils/appointment";
 import type { QueryScope } from "../middleware/rbac";
 
@@ -8,6 +8,7 @@ type LeadRow = {
     id: string;
     name: string;
     phone: string;
+    clientId: string | null;
     source: string;
     assignedTo: string | null;
     assignedUserName: string | null;
@@ -58,9 +59,11 @@ const SALES_STATUS_META = [
 ] as const;
 
 const RESULT_STATUS_META = [
-    { key: "closing", label: "Closing" },
-    { key: "menunggu", label: "Menunggu" },
-    { key: "batal", label: "Batal" },
+    { key: "reserve", label: "Reserve" },
+    { key: "on_process", label: "On Process" },
+    { key: "full_book", label: "Full Book" },
+    { key: "akad", label: "Akad" },
+    { key: "cancel", label: "Cancel" },
 ] as const;
 
 const TRANSACTION_STATUS_META = [
@@ -112,9 +115,38 @@ const DATABASE_STATUS_LAYER_OPTIONS = [
 ] as const;
 
 const PIC_AGENT_EMAIL = "picagent@gmail.com";
+const LINE_CHART_TOP_SOURCE_LIMIT = 5;
+const LINE_CHART_GRANULARITY_OPTIONS = [
+    { key: "day", label: "Hari" },
+    { key: "week", label: "Minggu" },
+    { key: "month", label: "Bulan" },
+    { key: "year", label: "Tahun" },
+] as const;
+const LINE_CHART_DATASET_OPTIONS = [
+    { key: "source", label: "Data Sumber" },
+    { key: "l3", label: "Status L3" },
+    { key: "l4", label: "Status L4" },
+] as const;
+const LINE_CHART_L3_SERIES = [
+    { key: "sudah_survey", label: "Survey" },
+    { key: "mau_survey", label: "Mau Survey" },
+] as const;
+const LINE_CHART_L4_SERIES = [
+    { key: "akad", label: "Akad" },
+    { key: "full_book", label: "Full Book" },
+    { key: "reserve", label: "Reserve" },
+    { key: "on_process", label: "Process" },
+    { key: "cancel", label: "Cancel" },
+] as const;
 
 function toLowerTrimmed(value: string | null | undefined) {
     return String(value || "").trim().toLowerCase();
+}
+
+function humanizeKey(value: string | null | undefined) {
+    return String(value || "Lainnya")
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function resolveTransactionStatusKey(resultStatus: string | null | undefined) {
@@ -185,6 +217,139 @@ function incrementStatusCount(
     const normalizedStatus = String(rawStatus || "").trim().toLowerCase();
     const nextKey = layerMap.has(normalizedStatus) ? normalizedStatus : fallbackKey;
     layerMap.set(nextKey, (layerMap.get(nextKey) || 0) + 1);
+}
+
+function startOfWeek(date: Date) {
+    const next = new Date(date);
+    next.setHours(0, 0, 0, 0);
+    const offset = (next.getDay() + 6) % 7;
+    next.setDate(next.getDate() - offset);
+    return next;
+}
+
+function toPeriodStart(date: Date, granularity: string) {
+    const next = new Date(date);
+    next.setHours(0, 0, 0, 0);
+
+    if (granularity === "year") {
+        return new Date(next.getFullYear(), 0, 1);
+    }
+
+    if (granularity === "month") {
+        return new Date(next.getFullYear(), next.getMonth(), 1);
+    }
+
+    if (granularity === "week") {
+        return startOfWeek(next);
+    }
+
+    return next;
+}
+
+function addPeriod(date: Date, granularity: string) {
+    if (granularity === "year") {
+        return new Date(date.getFullYear() + 1, 0, 1);
+    }
+
+    if (granularity === "month") {
+        return new Date(date.getFullYear(), date.getMonth() + 1, 1);
+    }
+
+    if (granularity === "week") {
+        const next = new Date(date);
+        next.setDate(next.getDate() + 7);
+        return next;
+    }
+
+    const next = new Date(date);
+    next.setDate(next.getDate() + 1);
+    return next;
+}
+
+function formatPeriodKey(date: Date) {
+    return date.toISOString();
+}
+
+function formatLineChartPeriodLabel(date: Date, granularity: string) {
+    if (granularity === "year") {
+        return new Intl.DateTimeFormat("id-ID", {
+            year: "numeric",
+        }).format(date);
+    }
+
+    if (granularity === "month") {
+        return new Intl.DateTimeFormat("id-ID", {
+            month: "short",
+            year: "numeric",
+        }).format(date);
+    }
+
+    if (granularity === "week") {
+        const end = new Date(date);
+        end.setDate(end.getDate() + 6);
+        return `${new Intl.DateTimeFormat("id-ID", {
+            day: "numeric",
+            month: "short",
+        }).format(date)} - ${new Intl.DateTimeFormat("id-ID", {
+            day: "numeric",
+            month: "short",
+        }).format(end)}`;
+    }
+
+    return new Intl.DateTimeFormat("id-ID", {
+        day: "numeric",
+        month: "short",
+    }).format(date);
+}
+
+function buildLineChartPeriods(dates: Date[], granularity: string) {
+    const validDates = dates.filter((date) => !Number.isNaN(date.getTime()));
+    if (validDates.length === 0) {
+        return [];
+    }
+
+    let cursor = toPeriodStart(validDates[0], granularity);
+    let max = cursor;
+
+    for (const date of validDates) {
+        const periodStart = toPeriodStart(date, granularity);
+        if (periodStart.getTime() < cursor.getTime()) {
+            cursor = periodStart;
+        }
+        if (periodStart.getTime() > max.getTime()) {
+            max = periodStart;
+        }
+    }
+
+    const periods: Array<{ key: string; label: string; startAt: Date }> = [];
+    let nextCursor = new Date(cursor);
+    while (nextCursor.getTime() <= max.getTime()) {
+        periods.push({
+            key: formatPeriodKey(nextCursor),
+            label: formatLineChartPeriodLabel(nextCursor, granularity),
+            startAt: new Date(nextCursor),
+        });
+        nextCursor = addPeriod(nextCursor, granularity);
+    }
+
+    return periods;
+}
+
+function buildLineChartSeriesBucket(
+    periods: Array<{ key: string; label: string }>,
+    seriesEntries: Array<{ key: string; label: string }>
+) {
+    const rows = periods.map((period) => ({
+        key: period.key,
+        label: period.label,
+        values: Object.fromEntries(seriesEntries.map((series) => [series.key, 0])),
+    }));
+
+    return {
+        rows,
+        rowMap: new Map(rows.map((row) => [row.key, row])),
+        totals: new Map(seriesEntries.map((series) => [series.key, 0])),
+    };
 }
 
 function toDateStart(dateValue?: string) {
@@ -275,6 +440,7 @@ async function loadScopedLeadsAndAppointments(
             id: lead.id,
             name: lead.name,
             phone: lead.phone,
+            clientId: lead.clientId,
             source: lead.source,
             assignedTo: lead.assignedTo,
             assignedUserName: user.name,
@@ -331,6 +497,125 @@ async function loadScopedLeadsAndAppointments(
     return {
         leads: scopedLeads,
         appointments: scopedAppointments,
+    };
+}
+
+function buildLineChartData(
+    decoratedLeads: Array<LeadRow & { appointmentTag: string }>
+) {
+    const createdDates = decoratedLeads
+        .map((item) => new Date(item.createdAt))
+        .filter((date) => !Number.isNaN(date.getTime()));
+
+    const sourceTotals = new Map<string, number>();
+    for (const item of decoratedLeads) {
+        const sourceKey = item.source || "Lainnya";
+        sourceTotals.set(sourceKey, (sourceTotals.get(sourceKey) || 0) + 1);
+    }
+
+    const topSourceEntries = Array.from(sourceTotals.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, LINE_CHART_TOP_SOURCE_LIMIT);
+    const topSourceKeys = new Set(topSourceEntries.map(([key]) => key));
+    const otherSourceTotal = Array.from(sourceTotals.entries())
+        .filter(([key]) => !topSourceKeys.has(key))
+        .reduce((sum, [, count]) => sum + count, 0);
+
+    const sourceSeriesEntries = topSourceEntries.map(([key]) => ({
+        key,
+        label: key,
+    }));
+    if (otherSourceTotal > 0) {
+        sourceSeriesEntries.push({
+            key: "others",
+            label: "Others",
+        });
+    }
+
+    const lineChartData = Object.fromEntries(
+        LINE_CHART_GRANULARITY_OPTIONS.map((option) => [option.key, {}])
+    ) as Record<string, any>;
+
+    for (const granularity of LINE_CHART_GRANULARITY_OPTIONS) {
+        const periods = buildLineChartPeriods(createdDates, granularity.key);
+
+        const sourceBucket = buildLineChartSeriesBucket(periods, sourceSeriesEntries);
+        const l3Bucket = buildLineChartSeriesBucket(periods, [...LINE_CHART_L3_SERIES]);
+        const l4Bucket = buildLineChartSeriesBucket(periods, [...LINE_CHART_L4_SERIES]);
+
+        for (const item of decoratedLeads) {
+            const createdAt = new Date(item.createdAt);
+            if (Number.isNaN(createdAt.getTime())) {
+                continue;
+            }
+
+            const periodStart = toPeriodStart(createdAt, granularity.key);
+            const periodKey = formatPeriodKey(periodStart);
+
+            const sourceRow = sourceBucket.rowMap.get(periodKey);
+            if (sourceRow) {
+                const sourceKey = topSourceKeys.has(item.source || "Lainnya")
+                    ? item.source || "Lainnya"
+                    : sourceSeriesEntries.some((entry) => entry.key === "others")
+                        ? "others"
+                        : item.source || "Lainnya";
+                if (Object.prototype.hasOwnProperty.call(sourceRow.values, sourceKey)) {
+                    sourceRow.values[sourceKey] += 1;
+                    sourceBucket.totals.set(sourceKey, (sourceBucket.totals.get(sourceKey) || 0) + 1);
+                }
+            }
+
+            const l3Row = l3Bucket.rowMap.get(periodKey);
+            if (l3Row && (item.appointmentTag === "mau_survey" || item.appointmentTag === "sudah_survey")) {
+                l3Row.values[item.appointmentTag] += 1;
+                l3Bucket.totals.set(
+                    item.appointmentTag,
+                    (l3Bucket.totals.get(item.appointmentTag) || 0) + 1
+                );
+            }
+
+            const l4Key = resolveTransactionStatusKey(item.resultStatus);
+            const l4Row = l4Bucket.rowMap.get(periodKey);
+            if (l4Row && l4Key && Object.prototype.hasOwnProperty.call(l4Row.values, l4Key)) {
+                l4Row.values[l4Key] += 1;
+                l4Bucket.totals.set(l4Key, (l4Bucket.totals.get(l4Key) || 0) + 1);
+            }
+        }
+
+        lineChartData[granularity.key] = {
+            source: {
+                periods: sourceBucket.rows,
+                series: sourceSeriesEntries.map((series) => ({
+                    key: series.key,
+                    label: series.label,
+                    total: sourceBucket.totals.get(series.key) || 0,
+                })),
+            },
+            l3: {
+                periods: l3Bucket.rows,
+                series: LINE_CHART_L3_SERIES.map((series) => ({
+                    key: series.key,
+                    label: series.label,
+                    total: l3Bucket.totals.get(series.key) || 0,
+                })),
+            },
+            l4: {
+                periods: l4Bucket.rows,
+                series: LINE_CHART_L4_SERIES.map((series) => ({
+                    key: series.key,
+                    label: series.label,
+                    total: l4Bucket.totals.get(series.key) || 0,
+                })),
+            },
+        };
+    }
+
+    return {
+        defaultGranularity: "month",
+        defaultDataset: "l4",
+        granularityOptions: LINE_CHART_GRANULARITY_OPTIONS,
+        datasetOptions: LINE_CHART_DATASET_OPTIONS,
+        data: lineChartData,
     };
 }
 
@@ -609,8 +894,45 @@ export async function getHomeAnalytics(
     });
 
     const cancelledLeads = decoratedLeads.filter(
-        (item) => item.resultStatus === "batal" && item.rejectedReason
+        (item) => item.resultStatus === "cancel" && item.rejectedReason
     );
+    const cancelReasonClientIds = Array.from(
+        new Set(
+            cancelledLeads
+                .map((item) => item.clientId)
+                .filter((value): value is string => Boolean(value))
+        )
+    );
+    const cancelReasonCodes = Array.from(
+        new Set(
+            cancelledLeads
+                .map((item) => item.rejectedReason)
+                .filter((value): value is string => Boolean(value))
+        )
+    );
+    const cancelReasonLabelMap = new Map<string, string>();
+    if (cancelReasonClientIds.length > 0 && cancelReasonCodes.length > 0) {
+        const cancelReasonRows = await db
+            .select({
+                clientId: cancelReason.clientId,
+                code: cancelReason.code,
+                label: cancelReason.label,
+            })
+            .from(cancelReason)
+            .where(
+                and(
+                    inArray(cancelReason.clientId, cancelReasonClientIds),
+                    inArray(cancelReason.code, cancelReasonCodes)
+                )
+            );
+
+        for (const row of cancelReasonRows) {
+            if (!cancelReasonLabelMap.has(row.code)) {
+                cancelReasonLabelMap.set(row.code, row.label);
+            }
+        }
+    }
+
     const cancelReasonMap = new Map<string, number>();
     for (const item of cancelledLeads) {
         const reason = item.rejectedReason || "lainnya";
@@ -620,6 +942,7 @@ export async function getHomeAnalytics(
     const cancelReasonItems = Array.from(cancelReasonMap.entries())
         .map(([key, count]) => ({
             key,
+            label: cancelReasonLabelMap.get(key) || humanizeKey(key),
             count,
             percentage: toPercent(count, cancelledLeads.length),
         }))
@@ -1031,6 +1354,7 @@ export async function getHomeAnalytics(
         count,
         percentage: toPercent(count, totalLeads)
     })).sort((a, b) => b.count - a.count);
+    const lineChart = buildLineChartData(decoratedLeads);
 
     for (const team of teamList) {
         ensureDatabaseStatusScope(team.teamId);
@@ -1103,6 +1427,7 @@ export async function getHomeAnalytics(
         prospectRate: toPercent(totalPotensi, totalLeads),
         sourceBreakdown,
         domicileBreakdown: domicileBars,
+        cancelReasonBreakdown: cancelReasonItems,
         statusBreakdown: statusPieItems,
         scopeOptions: teamList.map((team) => ({
             key: team.teamId,
@@ -1152,6 +1477,7 @@ export async function getHomeAnalytics(
         holdLeads,
         transactionRecap,
         teamPerformance,
-        databaseControl
+        databaseControl,
+        lineChart,
     };
 }

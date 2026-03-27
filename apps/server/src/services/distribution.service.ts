@@ -14,6 +14,7 @@ import { sendWhatsAppText } from "./whatsapp-provider.service";
 import { getDistributionAckTimeoutMs } from "./system-settings.service";
 import { getActiveWhatsAppNumber } from "./whatsapp-identity.service";
 import { rotateQueueAfterAssignment } from "./sales.service";
+import { getActiveSalesSuspensionMap } from "./sales-suspension.service";
 
 type DbExecutor = typeof db;
 
@@ -58,7 +59,7 @@ async function getNextQueueEntry(
     clientId: string,
     currentQueueOrder: number
 ): Promise<QueueEntry | null> {
-    const [entry] = await executor
+    const rows = await executor
         .select({
             salesId: salesQueue.salesId,
             queueOrder: salesQueue.queueOrder,
@@ -77,9 +78,14 @@ async function getNextQueueEntry(
             )
         )
         .orderBy(asc(salesQueue.queueOrder))
-        .limit(1);
+        .limit(50);
 
-    return entry ?? null;
+    const suspensionMap = await getActiveSalesSuspensionMap(
+        rows.map((row) => row.salesId),
+        executor
+    );
+
+    return rows.find((row) => !suspensionMap.has(row.salesId)) ?? null;
 }
 
 async function logDistributionActivity(

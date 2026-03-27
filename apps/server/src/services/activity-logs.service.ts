@@ -28,6 +28,39 @@ function sortDescByTime(a: UnifiedActivityLog, b: UnifiedActivityLog) {
     return b.timestamp.getTime() - a.timestamp.getTime();
 }
 
+function normalizeActivitySource(source: string | null | undefined) {
+    const normalized = String(source || "").trim().toLowerCase();
+    if (!normalized) {
+        return "note";
+    }
+
+    return normalized;
+}
+
+function buildStatusHistoryMessage(row: {
+    oldStatus: string | null;
+    newStatus: string;
+    note: string | null;
+}) {
+    if (row.note) {
+        return row.note;
+    }
+
+    return `Status lead diubah dari ${row.oldStatus || "-"} ke ${row.newStatus}`;
+}
+
+function buildProgressHistoryMessage(row: {
+    oldProgress: string | null;
+    newProgress: string;
+    note: string | null;
+}) {
+    if (row.note) {
+        return row.note;
+    }
+
+    return `Progress lead diubah dari ${row.oldProgress || "-"} ke ${row.newProgress}`;
+}
+
 export async function getUnifiedActivityLogs(
     userId: string,
     role: string,
@@ -188,7 +221,7 @@ export async function getUnifiedActivityLogs(
     const normalized: UnifiedActivityLog[] = [
         ...activityRows.map((row) => ({
             id: `activity:${row.id}`,
-            source: "activity",
+            source: normalizeActivitySource(row.type),
             eventType: row.type || "note",
             message: row.note,
             leadId: row.leadId,
@@ -199,9 +232,12 @@ export async function getUnifiedActivityLogs(
         })),
         ...waRows.map((row) => ({
             id: `wa_message:${row.id}`,
-            source: "wa_message",
+            source: "whatsapp",
             eventType: row.direction,
-            message: `${row.fromWa} -> ${row.toWa}: ${row.body}`,
+            message:
+                row.direction === "inbound"
+                    ? `Pesan WhatsApp masuk dari ${row.fromWa}: ${row.body}`
+                    : `Pesan WhatsApp keluar ke ${row.toWa}: ${row.body}`,
             leadId: row.leadId || null,
             leadName: row.leadName || null,
             salesId: row.salesId || null,
@@ -210,9 +246,9 @@ export async function getUnifiedActivityLogs(
         })),
         ...attemptRows.map((row) => ({
             id: `distribution_attempt:${row.id}`,
-            source: "distribution_attempt",
+            source: "distribution",
             eventType: row.status,
-            message: `Queue #${row.queueOrder} status ${row.status}${row.closeReason ? ` (${row.closeReason})` : ""}`,
+            message: `Distribusi queue #${row.queueOrder} berstatus ${row.status}${row.closeReason ? ` (${row.closeReason})` : ""}`,
             leadId: row.leadId,
             leadName: row.leadName || null,
             salesId: row.salesId,
@@ -221,9 +257,9 @@ export async function getUnifiedActivityLogs(
         })),
         ...cycleRows.map((row) => ({
             id: `distribution_cycle:${row.id}`,
-            source: "distribution_cycle",
+            source: "distribution",
             eventType: row.status,
-            message: `Cycle status ${row.status}, queue ${row.currentQueueOrder}`,
+            message: `Siklus distribusi berstatus ${row.status}, queue saat ini ${row.currentQueueOrder}`,
             leadId: row.leadId,
             leadName: row.leadName || null,
             salesId: null,
@@ -234,7 +270,7 @@ export async function getUnifiedActivityLogs(
             id: `appointment:${row.id}`,
             source: "appointment",
             eventType: "created",
-            message: `Appointment ${row.date} ${row.time} @ ${row.location}${row.notes ? ` (${row.notes})` : ""}`,
+            message: `Appointment tercatat untuk ${row.date} ${row.time} di ${row.location}${row.notes ? ` (${row.notes})` : ""}`,
             leadId: row.leadId,
             leadName: row.leadName || null,
             salesId: row.salesId || null,
@@ -243,9 +279,9 @@ export async function getUnifiedActivityLogs(
         })),
         ...statusRows.map((row) => ({
             id: `lead_status_history:${row.id}`,
-            source: "lead_status_history",
+            source: "lead_status",
             eventType: "status_changed",
-            message: `Status ${row.oldStatus || "-"} -> ${row.newStatus}${row.note ? ` (${row.note})` : ""}`,
+            message: buildStatusHistoryMessage(row),
             leadId: row.leadId,
             leadName: row.leadName || null,
             salesId: row.salesId || null,
@@ -254,9 +290,9 @@ export async function getUnifiedActivityLogs(
         })),
         ...progressRows.map((row) => ({
             id: `lead_progress_history:${row.id}`,
-            source: "lead_progress_history",
+            source: "result_status",
             eventType: "progress_changed",
-            message: `Progress ${row.oldProgress || "-"} -> ${row.newProgress}${row.note ? ` (${row.note})` : ""}`,
+            message: buildProgressHistoryMessage(row),
             leadId: row.leadId,
             leadName: row.leadName || null,
             salesId: row.salesId || null,

@@ -9,6 +9,7 @@ export default function DistributionOrderPage() {
     const { user } = useAuth();
     const [queueRows, setQueueRows] = useState([]);
     const [availableSales, setAvailableSales] = useState([]);
+    const [blockedSales, setBlockedSales] = useState([]);
     const [queueLoading, setQueueLoading] = useState(true);
     const [queueSaving, setQueueSaving] = useState(false);
     const [queueMutating, setQueueMutating] = useState(false);
@@ -42,8 +43,10 @@ export default function DistributionOrderPage() {
     const applyQueueState = useCallback((payload) => {
         const normalizedQueue = normalizeQueueRows(payload?.queueRows);
         const normalizedAvailable = normalizeAvailableSales(payload?.availableSales);
+        const normalizedBlocked = normalizeAvailableSales(payload?.blockedSales);
         setQueueRows(normalizedQueue);
         setAvailableSales(normalizedAvailable);
+        setBlockedSales(normalizedBlocked);
         setQueueInitialSignature(buildQueueSignature(normalizedQueue));
         setSelectedSalesId((prev) => {
             if (!prev) {
@@ -181,6 +184,11 @@ export default function DistributionOrderPage() {
                 <p className="settings-help">
                     Urutan ini dipakai untuk distribusi lead otomatis. Sales yang berhasil claim lead akan dipindahkan ke urutan paling belakang.
                 </p>
+                {blockedSales.length > 0 ? (
+                    <div className="settings-help" style={{ marginTop: 10 }}>
+                        Sales yang sedang suspended tidak bisa ditambahkan ke queue sampai masa suspend berakhir.
+                    </div>
+                ) : null}
 
                 <div className="input-group" style={{ marginTop: 16 }}>
                     <label>Tambah Sales ke Queue</label>
@@ -223,6 +231,30 @@ export default function DistributionOrderPage() {
                         {queueMutating ? 'Menyimpan...' : 'Tambah ke Queue'}
                     </button>
                 </div>
+
+                {blockedSales.length > 0 ? (
+                    <div className="settings-queue-list" style={{ marginTop: 18 }}>
+                        {blockedSales.map((item) => (
+                            <div key={item.id} className="settings-queue-item" style={{ opacity: 0.84 }}>
+                                <div className="settings-queue-main">
+                                    <span className="settings-queue-order">!</span>
+                                    <div>
+                                        <div className="settings-queue-name">{item.name}</div>
+                                        <div className="settings-queue-meta">{item.email}</div>
+                                        {item.suspension?.suspendedUntil ? (
+                                            <div className="settings-queue-meta">
+                                                Suspended sampai {new Date(item.suspension.suspendedUntil).toLocaleString('id-ID')}
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                </div>
+                                <span className="badge badge-danger">
+                                    Layer {item.suspension?.penaltyLayer || '-'}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                ) : null}
             </div>
 
             <div className="card settings-card">

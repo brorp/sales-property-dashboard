@@ -172,6 +172,37 @@ function PieChartCard({ title, subtitle, total, items, emptyLabel = 'Belum ada d
     );
 }
 
+function RankedInsightPanel({ title, items, emptyLabel, renderLabel }) {
+    return (
+        <div className="chart-box">
+            <h4>{title}</h4>
+            <div className="section-team-list" style={{ gap: '12px' }}>
+                {items && items.length > 0 ? (
+                    items.map((item, index) => (
+                        <div key={`${title}-${index}`} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '0.85rem' }}>
+                                <span>{renderLabel(item)}</span>
+                                <strong>{formatCount(item.count)}{item.percentage !== undefined ? ` (${item.percentage}%)` : ''}</strong>
+                            </div>
+                            <div className="mini-progress-bar">
+                                <div
+                                    className="mini-progress-fill"
+                                    style={{
+                                        width: `${Math.max(6, Math.min(100, Number(item.percentage || 0)))}%`,
+                                        backgroundColor: 'var(--primary-light)',
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{emptyLabel}</span>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function DatabaseControlCenterSection({
     data,
     dateFilterControl = null,
@@ -277,47 +308,26 @@ export default function DatabaseControlCenterSection({
             </div>
 
             <div className="chart-container-row" style={{ marginTop: '24px' }}>
-                <div className="chart-box">
-                    <h4>Distribusi Sumber Data</h4>
-                    <div className="section-team-list" style={{ gap: '12px' }}>
-                        {data.sourceBreakdown && data.sourceBreakdown.length > 0 ? (
-                            data.sourceBreakdown.map((src, idx) => (
-                                <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                                        <span>{src.source}</span>
-                                        <strong>{src.count} ({src.percentage}%)</strong>
-                                    </div>
-                                    <div className="mini-progress-bar">
-                                        <div
-                                            className="mini-progress-fill"
-                                            style={{ width: `${src.percentage}%`, backgroundColor: 'var(--purple-light)' }}
-                                        />
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Belum ada data source</span>
-                        )}
-                    </div>
-                </div>
+                <RankedInsightPanel
+                    title="Top Domisili"
+                    items={data.domicileBreakdown?.slice(0, 10) || []}
+                    emptyLabel="Belum ada data domisili"
+                    renderLabel={(item) => item.city}
+                />
 
-                <div className="chart-box">
-                    <h4>Top Domisili</h4>
-                    <ul style={{ paddingLeft: '20px', margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.6' }}>
-                        {data.domicileBreakdown && data.domicileBreakdown.length > 0 ? (
-                            data.domicileBreakdown.slice(0, 10).map((dom, idx) => (
-                                <li key={idx}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <span>{dom.city}</span>
-                                        <strong style={{ color: 'var(--text-muted)' }}>{dom.count}</strong>
-                                    </div>
-                                </li>
-                            ))
-                        ) : (
-                            <span style={{ color: 'var(--text-muted)' }}>Belum ada data domisili</span>
-                        )}
-                    </ul>
-                </div>
+                <RankedInsightPanel
+                    title="Distribusi Sumber Data"
+                    items={data.sourceBreakdown || []}
+                    emptyLabel="Belum ada data source"
+                    renderLabel={(item) => item.source}
+                />
+
+                <RankedInsightPanel
+                    title="Alasan Cancel"
+                    items={data.cancelReasonBreakdown || []}
+                    emptyLabel="Belum ada data cancel"
+                    renderLabel={(item) => item.label || item.key}
+                />
             </div>
         </Accordion>
     );

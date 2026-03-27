@@ -3,6 +3,7 @@ import { db } from "../db/index";
 import { client, lead, user } from "../db/schema";
 import type { QueryScope } from "../middleware/rbac";
 import { countAppointmentsForSalesIds } from "./appointments.service";
+import { getActiveSalesSuspensionMap } from "./sales-suspension.service";
 
 function createEmptyStats() {
     return {
@@ -31,12 +32,15 @@ function buildStatsFromLeads(items: Array<{
 }>) {
     const totalLeads = items.length;
     const accepted = items.filter((item) => item.flowStatus === "accepted").length;
-    const closed = items.filter((item) => item.resultStatus === "closing").length;
+    const closed = items.filter(
+        (item) => item.resultStatus === "akad" || item.resultStatus === "full_book"
+    ).length;
     const hot = items.filter((item) => item.salesStatus === "hot").length;
     const pending = items.filter(
         (item) =>
             item.flowStatus === "open" ||
-            item.resultStatus === "menunggu" ||
+            item.resultStatus === "reserve" ||
+            item.resultStatus === "on_process" ||
             !item.resultStatus
     ).length;
 
@@ -237,9 +241,11 @@ function mergeStats(items: ReturnType<typeof createEmptyStats>[]) {
 function buildSalesMember(
     member: any,
     statsMap: Map<string, ReturnType<typeof createEmptyStats>>,
-    appointmentCountMap: Map<string, number>
+    appointmentCountMap: Map<string, number>,
+    suspensionMap: Map<string, any>
 ) {
     const stats = statsMap.get(member.id) || createEmptyStats();
+    const suspension = suspensionMap.get(member.id) || null;
 
     return {
         id: member.id,
@@ -252,6 +258,16 @@ function buildSalesMember(
         supervisorId: member.supervisorId,
         isActive: member.isActive,
         deactivatedAt: member.deactivatedAt || null,
+        isSuspended: Boolean(suspension),
+        suspension: suspension
+            ? {
+                penaltyLayer: suspension.penaltyLayer,
+                suspendedDays: suspension.suspendedDays,
+                suspendedFrom: suspension.suspendedFrom,
+                suspendedUntil: suspension.suspendedUntil,
+                ruleCode: suspension.ruleCode,
+            }
+            : null,
         ...stats,
         appointments: appointmentCountMap.get(member.id) || 0,
     };
@@ -261,10 +277,11 @@ function buildSupervisorMember(
     member: any,
     salesMembers: any[],
     statsMap: Map<string, ReturnType<typeof createEmptyStats>>,
-    appointmentCountMap: Map<string, number>
+    appointmentCountMap: Map<string, number>,
+    suspensionMap: Map<string, any>
 ) {
     const sales = salesMembers
-        .map((item) => buildSalesMember(item, statsMap, appointmentCountMap))
+        .map((item) => buildSalesMember(item, statsMap, appointmentCountMap, suspensionMap))
         .sort((a, b) => a.name.localeCompare(b.name));
 
     return {
@@ -276,6 +293,7 @@ function buildSupervisorMember(
         clientId: member.clientId,
         clientName: member.clientName,
         salesCount: sales.length,
+        suspendedSalesCount: sales.filter((item) => item.isSuspended).length,
         sales,
         ...mergeStats(sales.map((item) => ({
             totalLeads: item.totalLeads,
@@ -300,6 +318,7 @@ export async function getTeamHierarchy(scope?: QueryScope) {
         countAppointmentsForSalesIds(salesIds),
     ]);
     const salesStatsMap = buildStatsMap(leadRows);
+    const suspensionMap = await getActiveSalesSuspensionMap(salesIds);
 
     const groupMap = new Map<string, {
         id: string;
@@ -335,7 +354,8 @@ export async function getTeamHierarchy(scope?: QueryScope) {
                     supervisor,
                     salesMembers.filter((item) => item.supervisorId === supervisor.id),
                     salesStatsMap,
-                    appointmentCountMap
+                    appointmentCountMap,
+                    suspensionMap
                 )
             );
         }
@@ -347,7 +367,8 @@ export async function getTeamHierarchy(scope?: QueryScope) {
                     supervisor,
                     salesMembers.filter((item) => item.supervisorId === supervisor.id),
                     salesStatsMap,
-                    appointmentCountMap
+                    appointmentCountMap,
+                    suspensionMap
                 )
             );
         }
@@ -355,14 +376,14 @@ export async function getTeamHierarchy(scope?: QueryScope) {
         for (const sales of salesMembers.filter((item) => !item.supervisorId)) {
             const group = ensureGroup(sales.clientId, sales.clientName);
             group.unassignedSales.push(
-                buildSalesMember(sales, salesStatsMap, appointmentCountMap)
+                buildSalesMember(sales, salesStatsMap, appointmentCountMap, suspensionMap)
             );
         }
 
         for (const inactiveSales of inactiveSalesMembers) {
             const group = ensureGroup(inactiveSales.clientId, inactiveSales.clientName);
             group.inactiveSales.push(
-                buildSalesMember(inactiveSales, salesStatsMap, appointmentCountMap)
+                buildSalesMember(inactiveSales, salesStatsMap, appointmentCountMap, suspensionMap)
             );
         }
     }
@@ -398,6 +419,9 @@ export async function getTeamHierarchy(scope?: QueryScope) {
                     sales:
                         group.supervisors.reduce((sum, item) => sum + item.salesCount, 0) +
                         group.unassignedSales.length,
+                    suspendedSales:
+                        group.supervisors.reduce((sum, item) => sum + (item.suspendedSalesCount || 0), 0) +
+                        group.unassignedSales.filter((item) => item.isSuspended).length,
                     ...mergeStats([...supervisorStats, ...unassignedStats]),
                 },
             };
@@ -406,6 +430,7 @@ export async function getTeamHierarchy(scope?: QueryScope) {
 
     const supervisorCount = groups.reduce((sum, group) => sum + group.summary.supervisors, 0);
     const salesCount = groups.reduce((sum, group) => sum + group.summary.sales, 0);
+    const suspendedSalesCount = groups.reduce((sum, group) => sum + (group.summary.suspendedSales || 0), 0);
     const overallStats = mergeStats(
         groups.map((group) => ({
             totalLeads: group.summary.totalLeads,
@@ -423,6 +448,7 @@ export async function getTeamHierarchy(scope?: QueryScope) {
         summary: {
             supervisors: supervisorCount,
             sales: salesCount,
+            suspendedSales: suspendedSalesCount,
             ...overallStats,
         },
         groups,
@@ -591,6 +617,10 @@ export async function getTeamMemberDetail(memberId: string, scope?: QueryScope) 
     const appointmentCountMap = await countAppointmentsForSalesIds(
         member.role === "sales" ? [member.id] : managedSalesIds
     );
+    const suspensionMap = await getActiveSalesSuspensionMap(
+        member.role === "sales" ? [member.id] : managedSalesIds
+    );
+    const memberSuspension = member.role === "sales" ? (suspensionMap.get(member.id) || null) : null;
     const salesStatsMap = buildStatsMap(
         leadRows.map((item) => ({
             assignedTo: item.assignedTo,
@@ -634,21 +664,44 @@ export async function getTeamMemberDetail(memberId: string, scope?: QueryScope) 
             createdByUserId: member.createdByUserId,
             createdByName: member.createdByName,
             isActive: member.isActive,
+            isSuspended: Boolean(memberSuspension),
+            suspension: memberSuspension
+                ? {
+                    penaltyLayer: memberSuspension.penaltyLayer,
+                    suspendedDays: memberSuspension.suspendedDays,
+                    suspendedFrom: memberSuspension.suspendedFrom,
+                    suspendedUntil: memberSuspension.suspendedUntil,
+                    ruleCode: memberSuspension.ruleCode,
+                }
+                : null,
             createdAt: member.createdAt,
             updatedAt: member.updatedAt,
             managedSalesCount: managedSales.length,
             ...memberStats,
         },
-        managedSales: managedSales.map((item) => ({
-            id: item.id,
-            name: item.name,
-            email: item.email,
-            phone: item.phone,
-            role: item.role,
-            supervisorId: item.supervisorId,
-            ...((salesStatsMap.get(item.id) || createEmptyStats())),
-            appointments: appointmentCountMap.get(item.id) || 0,
-        })),
+        managedSales: managedSales.map((item) => {
+            const itemSuspension = suspensionMap.get(item.id) || null;
+            return {
+                id: item.id,
+                name: item.name,
+                email: item.email,
+                phone: item.phone,
+                role: item.role,
+                supervisorId: item.supervisorId,
+                isSuspended: Boolean(itemSuspension),
+                suspension: itemSuspension
+                    ? {
+                        penaltyLayer: itemSuspension.penaltyLayer,
+                        suspendedDays: itemSuspension.suspendedDays,
+                        suspendedFrom: itemSuspension.suspendedFrom,
+                        suspendedUntil: itemSuspension.suspendedUntil,
+                        ruleCode: itemSuspension.ruleCode,
+                    }
+                    : null,
+                ...((salesStatsMap.get(item.id) || createEmptyStats())),
+                appointments: appointmentCountMap.get(item.id) || 0,
+            };
+        }),
         leads: leadRows,
     };
 }

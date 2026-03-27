@@ -4,13 +4,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
-import { getRejectedReasonLabel, getSalesStatusLabel, getResultStatusLabel } from '../constants/crm';
+import { getRejectedReasonLabel, getSalesStatusLabel, getResultStatusLabel, getStatusBadgeClass } from '../constants/crm';
 import { apiRequest } from '../lib/api';
 import Header from '../components/Header';
 import { usePagePolling } from '../hooks/usePagePolling';
 import TransactionRecapSection from './dashboard-sections/TransactionRecapSection';
 import TeamPerformanceSection from './dashboard-sections/TeamPerformanceSection';
 import DatabaseControlCenterSection from './dashboard-sections/DatabaseControlCenterSection';
+import LineChartSection from './dashboard-sections/LineChartSection';
 
 const STATUS_COLOR_MAP = {
     hot: 'var(--hot)',
@@ -40,6 +41,7 @@ const DEFAULT_ANALYTICS = {
     transactionRecap: null,
     teamPerformance: null,
     databaseControl: null,
+    lineChart: null,
 };
 
 const DAY_LABELS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
@@ -238,6 +240,25 @@ function formatReminderDateTime(dateValue, timeValue) {
     }).format(parsed);
 }
 
+function formatSuspensionUntil(value) {
+    if (!value) {
+        return '-';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        return '-';
+    }
+
+    return new Intl.DateTimeFormat('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }).format(parsed);
+}
+
 function buildDashboardQuery(range) {
     const params = new URLSearchParams();
     if (range?.dateFrom) {
@@ -312,9 +333,9 @@ export default function DashboardPage() {
     const [holdActionMessage, setHoldActionMessage] = useState('');
     const [holdActionError, setHoldActionError] = useState('');
     const [filterOpenKey, setFilterOpenKey] = useState('');
-    const [appliedDateRange, setAppliedDateRange] = useState(EMPTY_DATE_RANGE);
-    const [draftDateRange, setDraftDateRange] = useState(EMPTY_DATE_RANGE);
-    const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
+    const [appliedDateRange, setAppliedDateRange] = useState(() => getPresetRange('last30'));
+    const [draftDateRange, setDraftDateRange] = useState(() => getPresetRange('last30'));
+    const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(parseDateInput(getPresetRange('last30').dateFrom) || new Date()));
 
     const showDateFilter = Boolean(user);
     const hasActiveDateFilter = Boolean(appliedDateRange.dateFrom || appliedDateRange.dateTo);
@@ -333,7 +354,9 @@ export default function DashboardPage() {
     }, [dashboardAnalytics, pageAnalytics]);
 
     const dashboardStats = useMemo(() => {
-        const closingCount = analytics.resultRecap.items.find((item) => item.key === 'closing')?.count || 0;
+        const closingCount =
+            (analytics.resultRecap.items.find((item) => item.key === 'full_book')?.count || 0) +
+            (analytics.resultRecap.items.find((item) => item.key === 'akad')?.count || 0);
 
         return {
             total: analytics.statusPie.total || analytics.surveyRatio.totalLeads || 0,
@@ -495,7 +518,7 @@ export default function DashboardPage() {
     };
 
     const handleClearDateFilter = async () => {
-        const nextRange = { ...EMPTY_DATE_RANGE };
+        const nextRange = getPresetRange('last30');
 
         setFilterLoading(true);
         setDashboardError('');
@@ -537,8 +560,9 @@ export default function DashboardPage() {
     useEffect(() => {
         if (!user) {
             setPageAnalytics(null);
-            setAppliedDateRange({ ...EMPTY_DATE_RANGE });
-            setDraftDateRange({ ...EMPTY_DATE_RANGE });
+            const nextRange = getPresetRange('last30');
+            setAppliedDateRange(nextRange);
+            setDraftDateRange(nextRange);
             setFilterOpenKey('');
         }
     }, [user]);
@@ -717,6 +741,24 @@ export default function DashboardPage() {
 
             {dashboardError ? <div className="settings-error">{dashboardError}</div> : null}
 
+            {user?.role === 'sales' && user?.isSuspended && user?.suspension ? (
+                <section className="dash-section">
+                    <div className="card" style={{ borderColor: 'rgba(248, 113, 113, 0.42)', background: 'rgba(127, 29, 29, 0.18)' }}>
+                        <div className="lead-row-top">
+                            <div className="lead-row-name">Akun Sedang Disuspend dari Distribution Queue</div>
+                            <span className="badge badge-danger">Layer {user.suspension?.penaltyLayer || '-'}</span>
+                        </div>
+                        <div className="lead-row-meta">
+                            <span>Anda tidak akan menerima distribusi lead baru selama masa suspend masih aktif.</span>
+                        </div>
+                        <div className="lead-row-meta">
+                            <span>Suspend sampai: {formatSuspensionUntil(user.suspension?.suspendedUntil)}</span>
+                            <span>Durasi: {user.suspension?.suspendedDays || 0} hari</span>
+                        </div>
+                    </div>
+                </section>
+            ) : null}
+
             {showRoleReminder && analytics.ongoingAppointments.length > 0 ? (
                 <section className="dash-section">
                     <h2 className="section-title">Reminder Mau Survey</h2>
@@ -729,7 +771,7 @@ export default function DashboardPage() {
                             >
                                 <div className="lead-row-top">
                                     <div className="lead-row-name">{item.leadName}</div>
-                                    <span className="badge badge-primary">Mau Survey</span>
+                                    <span className={`badge ${getStatusBadgeClass('appointment', 'mau_survey')}`}>Mau Survey</span>
                                 </div>
                                 <div className="lead-row-meta">
                                     <span>📱 {item.leadPhone}</span>
@@ -892,6 +934,7 @@ export default function DashboardPage() {
                 allowScopeFiltering={canUseTeamFilters}
                 scopeLabel={scopedDashboardLabel}
             />
+            <LineChartSection data={analytics.lineChart} />
         </div>
     );
 }

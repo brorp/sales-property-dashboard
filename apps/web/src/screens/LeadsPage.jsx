@@ -13,9 +13,12 @@ import {
     getFlowStatusLabel,
     getResultStatusLabel,
     getSalesStatusLabel,
+    getStatusBadgeClass,
     getTimeAgo,
 } from '../constants/crm';
 import Header from '../components/Header';
+import CustomerPipelineProgress from '../components/CustomerPipelineProgress';
+import PickerTriggerField from '../components/PickerTriggerField';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { apiRequest } from '../lib/api';
 import { readLeadTransferWorkbook } from '../lib/lead-transfer-workbook';
@@ -31,7 +34,7 @@ const EMPTY_DATE_RANGE = {
     dateFrom: '',
     dateTo: '',
 };
-const FIXED_LEAD_SOURCES = ['Online', 'Offline', 'Walk In', 'Agent'];
+const FIXED_LEAD_SOURCES = ['Online', 'Offline', 'Walk In', 'Agent', 'Old', 'Pribadi'];
 
 const IMPORT_REASON_LABELS = {
     missing_identifier: 'Row tidak punya leadId atau phone.',
@@ -342,6 +345,7 @@ export default function LeadsPage() {
     const [importSuccess, setImportSuccess] = useState('');
     const [exporting, setExporting] = useState(false);
     const [exportError, setExportError] = useState('');
+    const [exportAccessCode, setExportAccessCode] = useState('');
     const [exportFilters, setExportFilters] = useState({
         dateFrom: '',
         dateTo: '',
@@ -356,6 +360,7 @@ export default function LeadsPage() {
     const salesUsers = getSalesUsers();
     const leadSources = getLeadSources();
     const getSalesNameById = (salesId) => salesUsers.find((item) => item.id === salesId)?.name || 'Unassigned';
+    const canExportLeads = user?.role === 'root_admin' || user?.role === 'client_admin' || user?.role === 'admin';
     const hasActiveDateFilter = Boolean(appliedDateRange.dateFrom || appliedDateRange.dateTo);
     const draftStartDate = parseDateInput(draftDateRange.dateFrom);
     const draftEndDate = parseDateInput(draftDateRange.dateTo);
@@ -611,6 +616,7 @@ export default function LeadsPage() {
 
     const openExportModal = () => {
         setExportError('');
+        setExportAccessCode('');
         setExportFilters({
             dateFrom: '',
             dateTo: '',
@@ -646,14 +652,32 @@ export default function LeadsPage() {
     const handleExportLeads = async (event) => {
         event.preventDefault();
 
+        if (!canExportLeads) {
+            setExportError('Hanya admin yang bisa export leads.');
+            return;
+        }
+
         if (exportLeads.length === 0) {
             setExportError('Tidak ada data leads untuk filter export yang dipilih.');
+            return;
+        }
+
+        if (!exportAccessCode.trim()) {
+            setExportError('Access code export wajib diisi.');
             return;
         }
 
         setExporting(true);
         setExportError('');
         try {
+            await apiRequest('/api/leads/export/authorize', {
+                method: 'POST',
+                user,
+                body: {
+                    accessCode: exportAccessCode.trim(),
+                },
+            });
+
             const ExcelJS = await import('exceljs');
             const workbook = new ExcelJS.Workbook();
             workbook.creator = 'Property Lounge CRM';
@@ -714,6 +738,7 @@ export default function LeadsPage() {
             anchor.remove();
             window.URL.revokeObjectURL(url);
             setShowExportModal(false);
+            setExportAccessCode('');
         } catch (err) {
             setExportError(err instanceof Error ? err.message : 'Gagal export XLSX');
         } finally {
@@ -886,9 +911,11 @@ export default function LeadsPage() {
                         <button className="btn btn-sm btn-secondary" onClick={() => void handleRefresh()} disabled={refreshing}>
                             {refreshing ? 'Loading...' : 'Refresh'}
                         </button>
-                        <button className="btn btn-sm btn-primary" onClick={openExportModal}>
-                            Export
-                        </button>
+                        {canExportLeads ? (
+                            <button className="btn btn-sm btn-primary" onClick={openExportModal}>
+                                Export
+                            </button>
+                        ) : null}
                     </>
                 )}
             />
@@ -961,16 +988,10 @@ export default function LeadsPage() {
                     <div key={lead.id} className="card card-clickable leads-card" onClick={() => router.push(`/leads/${lead.id}`)}>
                         <div className="leads-card-header">
                             <div className="leads-card-info" style={{ flexWrap: 'wrap' }}>
-                                <span className={`badge ${
-                                    lead.flowStatus === 'accepted'
-                                        ? 'badge-success'
-                                        : lead.flowStatus === 'assigned'
-                                            ? 'badge-purple'
-                                            : 'badge-neutral'
-                                }`}>{getFlowStatusLabel(lead.flowStatus)}</span>
-                                {lead.salesStatus ? <span className="badge badge-neutral">{getSalesStatusLabel(lead.salesStatus)}</span> : null}
-                                {lead.resultStatus ? <span className="badge badge-neutral">{getResultStatusLabel(lead.resultStatus)}</span> : null}
-                                {lead.appointmentTag && lead.appointmentTag !== 'none' ? <span className="badge badge-warm">{getAppointmentTagLabel(lead.appointmentTag)}</span> : null}
+                                <span className={`badge ${getStatusBadgeClass('flow', lead.flowStatus)}`}>{getFlowStatusLabel(lead.flowStatus)}</span>
+                                {lead.salesStatus ? <span className={`badge ${getStatusBadgeClass('sales', lead.salesStatus)}`}>{getSalesStatusLabel(lead.salesStatus)}</span> : null}
+                                {lead.resultStatus ? <span className={`badge ${getStatusBadgeClass('result', lead.resultStatus)}`}>{getResultStatusLabel(lead.resultStatus)}</span> : null}
+                                {lead.appointmentTag && lead.appointmentTag !== 'none' ? <span className={`badge ${getStatusBadgeClass('appointment', lead.appointmentTag)}`}>{getAppointmentTagLabel(lead.appointmentTag)}</span> : null}
                                 <span className="leads-card-name">{lead.name}</span>
                             </div>
                             <span className="leads-card-time">{getTimeAgo(lead.createdAt)}</span>
@@ -980,6 +1001,16 @@ export default function LeadsPage() {
                             <span>📣 {lead.source}</span>
                             {lead.domicileCity ? <span>🏙️ {lead.domicileCity}</span> : null}
                         </div>
+                        {lead.customerPipelineTotalSteps > 0 ? (
+                            <div className="leads-card-pipeline">
+                                <span className="leads-card-pipeline-label">Customer Pipeline</span>
+                                <CustomerPipelineProgress
+                                    completed={lead.customerPipelineCompletedCount}
+                                    total={lead.customerPipelineTotalSteps}
+                                    compact
+                                />
+                            </div>
+                        ) : null}
                         {isAdmin ? <div className="leads-card-sales">Sales: {getSalesNameById(lead.assignedTo)}</div> : null}
                     </div>
                 ))}
@@ -1167,17 +1198,29 @@ export default function LeadsPage() {
                         <h2>Export Leads (XLSX)</h2>
                         <form onSubmit={handleExportLeads} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                             <div className="input-group">
+                                <label>Access Code Export</label>
+                                <input
+                                    type="password"
+                                    className="input-field"
+                                    value={exportAccessCode}
+                                    onChange={(event) => setExportAccessCode(event.target.value)}
+                                    placeholder="Masukkan access code export"
+                                    required
+                                />
+                            </div>
+
+                            <div className="input-group">
                                 <label>Tanggal Masuk (Dari - Sampai)</label>
                                 <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr' }}>
-                                    <input
+                                    <PickerTriggerField
                                         type="date"
-                                        className="input-field"
+                                        label="Dari"
                                         value={exportFilters.dateFrom}
                                         onChange={(e) => setExportFilters((prev) => ({ ...prev, dateFrom: e.target.value }))}
                                     />
-                                    <input
+                                    <PickerTriggerField
                                         type="date"
-                                        className="input-field"
+                                        label="Sampai"
                                         value={exportFilters.dateTo}
                                         onChange={(e) => setExportFilters((prev) => ({ ...prev, dateTo: e.target.value }))}
                                     />

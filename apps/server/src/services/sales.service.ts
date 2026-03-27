@@ -4,8 +4,12 @@ import { salesQueue, user } from "../db/schema";
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
 import { auth } from "../auth/index";
+import {
+    assertSalesNotSuspended,
+    getActiveSalesSuspensionMap,
+} from "./sales-suspension.service";
 
-type DbExecutor = typeof db;
+type DbExecutor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 type SalesQueryScope = {
     clientId?: string | null;
@@ -22,7 +26,7 @@ function queueLabelFromOrder(order: number) {
 }
 
 async function getActiveQueueRows(executor: DbExecutor, clientId: string) {
-    return executor
+    const rows = await executor
         .select({
             id: salesQueue.id,
             salesId: salesQueue.salesId,
@@ -40,6 +44,13 @@ async function getActiveQueueRows(executor: DbExecutor, clientId: string) {
             )
         )
         .orderBy(asc(salesQueue.queueOrder), asc(user.name));
+
+    const suspensionMap = await getActiveSalesSuspensionMap(
+        rows.map((row) => row.salesId),
+        executor
+    );
+
+    return rows.filter((row) => !suspensionMap.has(row.salesId));
 }
 
 async function getHighestQueueOrder(executor: DbExecutor, clientId: string) {
@@ -134,7 +145,7 @@ export async function getSalesUsers(scope: SalesQueryScope = {}) {
         conditions.push(eq(user.id, scope.salesId));
     }
 
-    return db
+    const rows = await db
         .select({
             id: user.id,
             name: user.name,
@@ -154,12 +165,31 @@ export async function getSalesUsers(scope: SalesQueryScope = {}) {
         )
         .where(and(...conditions))
         .orderBy(asc(salesQueue.queueOrder), asc(user.name));
+
+    const suspensionMap = await getActiveSalesSuspensionMap(rows.map((row) => row.id));
+
+    return rows.map((row) => {
+        const suspension = suspensionMap.get(row.id) || null;
+        return {
+            ...row,
+            isSuspended: Boolean(suspension),
+            suspension: suspension
+                ? {
+                    penaltyLayer: suspension.penaltyLayer,
+                    suspendedDays: suspension.suspendedDays,
+                    suspendedFrom: suspension.suspendedFrom,
+                    suspendedUntil: suspension.suspendedUntil,
+                    ruleCode: suspension.ruleCode,
+                }
+                : null,
+        };
+    });
 }
 
 export async function getDistributionQueue(clientId: string) {
     const rows = await getSalesUsers({ clientId });
     const queueRows = rows
-        .filter((row) => Number(row.queueOrder) > 0)
+        .filter((row) => Number(row.queueOrder) > 0 && !row.isSuspended)
         .sort((a, b) => {
             const aOrder = Number(a.queueOrder || 9999);
             const bOrder = Number(b.queueOrder || 9999);
@@ -169,12 +199,16 @@ export async function getDistributionQueue(clientId: string) {
             return String(a.name || "").localeCompare(String(b.name || ""));
         });
     const availableSales = rows
-        .filter((row) => !Number(row.queueOrder))
+        .filter((row) => !Number(row.queueOrder) && !row.isSuspended)
+        .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+    const blockedSales = rows
+        .filter((row) => row.isSuspended)
         .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
 
     return {
         queueRows,
         availableSales,
+        blockedSales,
     };
 }
 
@@ -185,6 +219,7 @@ export async function upsertSalesQueue(
     label: string
 ) {
     const now = new Date();
+    await assertSalesNotSuspended(salesId, db, now);
 
     const [existing] = await db
         .select({ id: salesQueue.id })
@@ -276,6 +311,8 @@ export async function addSalesToQueue(params: {
             throw new Error("CROSS_CLIENT_ASSIGNMENT_FORBIDDEN");
         }
 
+        await assertSalesNotSuspended(params.salesId, executor);
+
         const existingQueue = await getQueueRowBySalesId(executor, params.salesId);
         if (existingQueue?.isActive) {
             throw new Error("SALES_ALREADY_IN_QUEUE");
@@ -331,41 +368,65 @@ export async function addSalesToQueue(params: {
     return getDistributionQueue(params.clientId);
 }
 
+async function removeSalesFromQueueWithExecutor(
+    executor: DbExecutor,
+    params: {
+        clientId: string;
+        salesId: string;
+    }
+) {
+    const existingQueue = await getQueueRowBySalesId(executor, params.salesId);
+
+    if (!existingQueue || !existingQueue.isActive || existingQueue.clientId !== params.clientId) {
+        return false;
+    }
+
+    const nextInactiveOrder = (await getHighestQueueOrder(executor, params.clientId)) + 1;
+
+    await executor
+        .update(salesQueue)
+        .set({
+            isActive: false,
+            queueOrder: nextInactiveOrder,
+            updatedAt: new Date(),
+        })
+        .where(eq(salesQueue.id, existingQueue.id));
+
+    const remainingQueue = (await getActiveQueueRows(executor, params.clientId)).filter(
+        (row) => row.salesId !== params.salesId
+    );
+
+    await resequenceQueue(
+        executor,
+        params.clientId,
+        remainingQueue.map((row) => ({ id: row.id }))
+    );
+
+    return true;
+}
+
 export async function removeSalesFromQueue(params: {
     clientId: string;
     salesId: string;
 }) {
     await db.transaction(async (tx) => {
-        const executor = tx as unknown as DbExecutor;
-        const existingQueue = await getQueueRowBySalesId(executor, params.salesId);
-
-        if (!existingQueue || !existingQueue.isActive || existingQueue.clientId !== params.clientId) {
+        const removed = await removeSalesFromQueueWithExecutor(tx as unknown as DbExecutor, params);
+        if (!removed) {
             throw new Error("QUEUE_ITEM_NOT_FOUND");
         }
-
-        const nextInactiveOrder = (await getHighestQueueOrder(executor, params.clientId)) + 1;
-
-        await executor
-            .update(salesQueue)
-            .set({
-                isActive: false,
-                queueOrder: nextInactiveOrder,
-                updatedAt: new Date(),
-            })
-            .where(eq(salesQueue.id, existingQueue.id));
-
-        const remainingQueue = (await getActiveQueueRows(executor, params.clientId)).filter(
-            (row) => row.salesId !== params.salesId
-        );
-
-        await resequenceQueue(
-            executor,
-            params.clientId,
-            remainingQueue.map((row) => ({ id: row.id }))
-        );
     });
 
     return getDistributionQueue(params.clientId);
+}
+
+export async function removeSalesFromQueueBySuspension(
+    params: {
+        clientId: string;
+        salesId: string;
+    },
+    executor: DbExecutor = db
+) {
+    return removeSalesFromQueueWithExecutor(executor, params);
 }
 
 export async function rotateQueueAfterAssignment(

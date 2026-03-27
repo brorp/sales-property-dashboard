@@ -1,4 +1,4 @@
-export const FIXED_LEAD_SOURCE_OPTIONS = ["Online", "Offline", "Walk In", "Agent"] as const;
+export const FIXED_LEAD_SOURCE_OPTIONS = ["Online", "Offline", "Walk In", "Agent", "Old", "Pribadi"] as const;
 
 export type FixedLeadSource = (typeof FIXED_LEAD_SOURCE_OPTIONS)[number];
 

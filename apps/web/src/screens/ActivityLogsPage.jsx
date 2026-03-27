@@ -16,6 +16,12 @@ function formatLogTime(value) {
     });
 }
 
+function formatSourceLabel(value) {
+    return String(value || 'activity')
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 export default function ActivityLogsPage() {
     const { user } = useAuth();
     const [logs, setLogs] = useState([]);
@@ -113,7 +119,7 @@ export default function ActivityLogsPage() {
                     filtered.map((item) => (
                         <div key={item.id} className="card">
                             <div className="lead-row-top">
-                                <span className="badge badge-purple">{item.source}</span>
+                                <span className="badge badge-purple">{formatSourceLabel(item.source)}</span>
                                 <span className="lead-row-ago">{formatLogTime(item.timestamp)}</span>
                             </div>
                             <div className="lead-row-meta" style={{ marginTop: 6 }}>

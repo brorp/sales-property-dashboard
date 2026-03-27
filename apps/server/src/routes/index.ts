@@ -14,6 +14,8 @@ import settingsRoutes from "./settings.routes";
 import clientsRoutes from "./clients.routes";
 import unitsRoutes from "./units.routes";
 import leadSourcesRoutes from "./lead-sources.routes";
+import cancelReasonsRoutes from "./cancel-reasons.routes";
+import notificationsRoutes from "./notifications.routes";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -34,5 +36,7 @@ router.use("/settings", settingsRoutes);
 router.use("/clients", clientsRoutes);
 router.use("/units", unitsRoutes);
 router.use("/lead-sources", leadSourcesRoutes);
+router.use("/cancel-reasons", cancelReasonsRoutes);
+router.use("/notifications", notificationsRoutes);
 
 export default router;
