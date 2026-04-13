@@ -121,36 +121,14 @@ export function TenantProvider({ children }) {
                 return false;
             }
 
-            if (userLike.role === 'root_admin') {
-                return isMasterSite;
+            // In the multi-workspace architecture, each PM2 process has its
+            // own dedicated WA session. Root admins and client admins can
+            // always manage WhatsApp settings for the active workspace.
+            if (userLike.role === 'root_admin' || userLike.role === 'client_admin') {
+                return true;
             }
 
-            if (userLike.role !== 'client_admin') {
-                return false;
-            }
-
-            if (context.whatsapp?.mode !== 'shared_single_client') {
-                return isMasterSite || isClientSite;
-            }
-
-            if (!context.whatsapp?.activeClientSlug) {
-                return isMasterSite || isClientSite;
-            }
-
-            if (isMasterSite) {
-                return Boolean(
-                    userLike.clientSlug &&
-                    context.whatsapp?.activeClientSlug &&
-                    userLike.clientSlug === context.whatsapp.activeClientSlug
-                );
-            }
-
-            return Boolean(
-                currentTenantSlug &&
-                context.whatsapp?.activeClientSlug &&
-                currentTenantSlug === context.whatsapp.activeClientSlug &&
-                userLike.clientSlug === currentTenantSlug
-            );
+            return false;
         }
 
         return {

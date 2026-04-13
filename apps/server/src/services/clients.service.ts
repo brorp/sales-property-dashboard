@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, like } from "drizzle-orm";
 import { db } from "../db/index";
 import { client, user } from "../db/schema";
 import { generateId } from "../utils/id";
@@ -187,7 +187,25 @@ export async function resolvePublicAppContext(params?: {
         };
     }
 
-    const tenant = await getClientBySlug(tenantSlug);
+    let tenant = await getClientBySlug(tenantSlug);
+
+    // Prefix fallback: subdomain "widari" → matches "widari-residence"
+    // This handles multi-workspace domains where the subdomain is the
+    // company name but slugs are "company-workspace".
+    if (!tenant) {
+        const [prefixMatch] = await db
+            .select()
+            .from(client)
+            .where(
+                and(
+                    like(client.slug, `${tenantSlug}-%`),
+                    eq(client.isActive, true)
+                )
+            )
+            .limit(1);
+        tenant = prefixMatch || null;
+    }
+
     if (!tenant) {
         return {
             siteType: "master",
