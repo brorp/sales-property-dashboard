@@ -4,6 +4,8 @@ const DEFAULT_API_BASE = 'http://localhost:3001';
 export const AUTH_STORAGE_KEY = 'pl_user';
 export const AUTH_SESSION_TOKEN_KEY = 'pl_session_token';
 export const AUTH_INVALID_EVENT = 'property-lounge:auth-invalid';
+const MUTATION_IDEMPOTENCY_TTL_MS = 20_000;
+const mutationRequestCache = new Map();
 
 function joinHostAndPort(host, port) {
     if (!host) {
@@ -103,6 +105,69 @@ function getErrorMessage(text, status) {
     }
 
     return text;
+}
+
+function isMutationMethod(method) {
+    const normalized = String(method || 'GET').toUpperCase();
+    return normalized === 'POST' || normalized === 'PATCH' || normalized === 'PUT' || normalized === 'DELETE';
+}
+
+function stableSerialize(value) {
+    if (value === null) {
+        return 'null';
+    }
+
+    if (value === undefined) {
+        return 'undefined';
+    }
+
+    if (typeof value === 'string') {
+        return JSON.stringify(value);
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+        return String(value);
+    }
+
+    if (Array.isArray(value)) {
+        return `[${value.map((item) => stableSerialize(item)).join(',')}]`;
+    }
+
+    if (typeof value === 'object') {
+        const entries = Object.entries(value)
+            .filter(([, nestedValue]) => nestedValue !== undefined)
+            .sort(([a], [b]) => a.localeCompare(b));
+        return `{${entries
+            .map(([key, nestedValue]) => `${JSON.stringify(key)}:${stableSerialize(nestedValue)}`)
+            .join(',')}}`;
+    }
+
+    return JSON.stringify(String(value));
+}
+
+function generateIdempotencyKey() {
+    if (typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID) {
+        return globalThis.crypto.randomUUID();
+    }
+
+    return `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function buildMutationSignature(path, method, body) {
+    return `${String(method || 'GET').toUpperCase()}:${path}:${stableSerialize(body ?? null)}`;
+}
+
+function cleanupMutationCache(now) {
+    for (const [signature, entry] of mutationRequestCache.entries()) {
+        if (!entry) {
+            mutationRequestCache.delete(signature);
+            continue;
+        }
+
+        if (!entry.promise && Number(entry.expiresAt || 0) <= now) {
+            mutationRequestCache.delete(signature);
+        }
+    }
 }
 
 export function clearStoredAuthUser() {
@@ -253,29 +318,79 @@ export async function apiRequest(path, options = {}) {
         method = 'GET',
         body,
     } = options;
+    const upperMethod = String(method || 'GET').toUpperCase();
+    const isMutation = isMutationMethod(upperMethod);
+    const now = Date.now();
+    let mutationSignature = '';
+    let cacheEntry = null;
 
-    const headers = buildApiRequestHeaders(options);
+    if (isMutation) {
+        cleanupMutationCache(now);
+        mutationSignature = buildMutationSignature(path, upperMethod, body);
+        cacheEntry = mutationRequestCache.get(mutationSignature) || null;
+        if (cacheEntry?.promise) {
+            return cacheEntry.promise;
+        }
+    }
 
-    const res = await fetch(`${getApiBaseUrl()}${path}`, {
-        method,
-        headers,
-        credentials: 'include',
-        ...(body ? { body: JSON.stringify(body) } : {}),
+    const nextHeaders = { ...(options.extraHeaders || {}) };
+    if (isMutation) {
+        const activeKey =
+            cacheEntry?.idempotencyKey && Number(cacheEntry.expiresAt || 0) > now
+                ? cacheEntry.idempotencyKey
+                : generateIdempotencyKey();
+        nextHeaders['X-Idempotency-Key'] = activeKey;
+        cacheEntry = {
+            idempotencyKey: activeKey,
+            expiresAt: now + MUTATION_IDEMPOTENCY_TTL_MS,
+            promise: null,
+        };
+        mutationRequestCache.set(mutationSignature, cacheEntry);
+    }
+
+    const headers = buildApiRequestHeaders({
+        ...options,
+        extraHeaders: nextHeaders,
     });
 
-    if (!res.ok) {
-        const text = await res.text();
-        if (res.status === 401) {
-            notifyUnauthorized();
+    const requestPromise = (async () => {
+        const res = await fetch(`${getApiBaseUrl()}${path}`, {
+            method: upperMethod,
+            headers,
+            credentials: 'include',
+            ...(body ? { body: JSON.stringify(body) } : {}),
+        });
+
+        if (!res.ok) {
+            const text = await res.text();
+            if (res.status === 401) {
+                notifyUnauthorized();
+            }
+            throw new Error(getErrorMessage(text, res.status));
         }
-        throw new Error(getErrorMessage(text, res.status));
+
+        if (res.status === 204) {
+            return null;
+        }
+
+        return res.json();
+    })();
+
+    if (isMutation && mutationSignature) {
+        cacheEntry.promise = requestPromise;
     }
 
-    if (res.status === 204) {
-        return null;
+    try {
+        return await requestPromise;
+    } finally {
+        if (isMutation && mutationSignature) {
+            const latestEntry = mutationRequestCache.get(mutationSignature);
+            if (latestEntry) {
+                latestEntry.promise = null;
+                latestEntry.expiresAt = Date.now() + MUTATION_IDEMPOTENCY_TTL_MS;
+            }
+        }
     }
-
-    return res.json();
 }
 
 export async function publicApiRequest(path, options = {}) {

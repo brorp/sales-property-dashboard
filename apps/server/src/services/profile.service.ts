@@ -2,6 +2,7 @@ import { db } from "../db/index";
 import { client, user } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { getActiveSalesSuspension } from "./sales-suspension.service";
+import { normalizePhone } from "../utils/phone";
 
 export async function getProfile(userId: string) {
     const [userData] = await db
@@ -9,6 +10,7 @@ export async function getProfile(userId: string) {
             id: user.id,
             name: user.name,
             email: user.email,
+            phone: user.phone,
             role: user.role,
             clientId: user.clientId,
             clientSlug: client.slug,
@@ -60,6 +62,7 @@ function sanitizeOptionalText(value: unknown) {
 
 export async function updateProfile(
     userId: string,
+    actorRole: string,
     payload: {
         name?: string;
         phone?: string | null;
@@ -77,7 +80,10 @@ export async function updateProfile(
 
     const nextPhone = sanitizeOptionalText(payload.phone);
     if (nextPhone !== undefined) {
-        updates.phone = nextPhone;
+        if (actorRole === "sales") {
+            throw new Error("SALES_PROFILE_PHONE_READ_ONLY");
+        }
+        updates.phone = nextPhone ? normalizePhone(nextPhone) : null;
     }
 
     const nextImage = sanitizeOptionalText(payload.image);
@@ -93,11 +99,11 @@ export async function updateProfile(
             id: user.id,
             name: user.name,
             email: user.email,
+            phone: user.phone,
             role: user.role,
             clientId: user.clientId,
             supervisorId: user.supervisorId,
             image: user.image,
-            phone: user.phone,
             createdAt: user.createdAt,
             updatedAt: user.updatedAt,
         });

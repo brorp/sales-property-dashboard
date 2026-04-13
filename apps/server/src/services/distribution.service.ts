@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, lte, ne } from "drizzle-orm";
+import { and, asc, desc, eq, lte, ne } from "drizzle-orm";
 import { db } from "../db/index";
 import {
     activity,
@@ -13,7 +13,7 @@ import { generateId } from "../utils/id";
 import { sendWhatsAppText } from "./whatsapp-provider.service";
 import { getDistributionAckTimeoutMs } from "./system-settings.service";
 import { getActiveWhatsAppNumber } from "./whatsapp-identity.service";
-import { rotateQueueAfterAssignment } from "./sales.service";
+import { moveSalesToQueueEnd } from "./sales.service";
 import { getActiveSalesSuspensionMap } from "./sales-suspension.service";
 
 type DbExecutor = typeof db;
@@ -57,8 +57,17 @@ function buildClaimSuccessLeadMessage(params: {
 async function getNextQueueEntry(
     executor: DbExecutor,
     clientId: string,
-    currentQueueOrder: number
+    cycleId: string
 ): Promise<QueueEntry | null> {
+    const attemptedRows = await executor
+        .select({
+            salesId: distributionAttempt.salesId,
+        })
+        .from(distributionAttempt)
+        .where(eq(distributionAttempt.cycleId, cycleId))
+        .orderBy(asc(distributionAttempt.assignedAt), asc(distributionAttempt.queueOrder));
+
+    const attemptedSalesIds = new Set(attemptedRows.map((row) => row.salesId));
     const rows = await executor
         .select({
             salesId: salesQueue.salesId,
@@ -73,8 +82,7 @@ async function getNextQueueEntry(
                 eq(salesQueue.clientId, clientId),
                 eq(salesQueue.isActive, true),
                 eq(user.role, "sales"),
-                eq(user.isActive, true),
-                gt(salesQueue.queueOrder, currentQueueOrder)
+                eq(user.isActive, true)
             )
         )
         .orderBy(asc(salesQueue.queueOrder))
@@ -85,7 +93,12 @@ async function getNextQueueEntry(
         executor
     );
 
-    return rows.find((row) => !suspensionMap.has(row.salesId)) ?? null;
+    return (
+        rows.find(
+            (row) =>
+                !suspensionMap.has(row.salesId) && !attemptedSalesIds.has(row.salesId)
+        ) ?? null
+    );
 }
 
 async function logDistributionActivity(
@@ -107,8 +120,7 @@ async function assignNextQueue(
     executor: DbExecutor,
     cycleId: string,
     leadId: string,
-    clientId: string,
-    currentQueueOrder: number
+    clientId: string
 ) {
     const [cycle] = await executor
         .select({
@@ -122,7 +134,7 @@ async function assignNextQueue(
         return null;
     }
 
-    const next = await getNextQueueEntry(executor, clientId, currentQueueOrder);
+    const next = await getNextQueueEntry(executor, clientId, cycleId);
     const now = new Date();
 
     if (!next) {
@@ -131,7 +143,6 @@ async function assignNextQueue(
             .set({
                 status: "exhausted",
                 finishedAt: now,
-                currentQueueOrder,
             })
             .where(eq(distributionCycle.id, cycleId));
 
@@ -189,6 +200,12 @@ async function assignNextQueue(
         })
         .where(eq(lead.id, leadId));
 
+    const queueRolled = await moveSalesToQueueEnd(
+        next.salesId,
+        clientId,
+        executor
+    );
+
     const messageBody = buildClaimOfferMessage(ackTimeoutMinutes);
 
     const outboundResult = next.salesPhone
@@ -219,9 +236,18 @@ async function assignNextQueue(
     await logDistributionActivity(
         executor,
         leadId,
+        "note",
+        `Lead didistribusikan ke ${next.salesName} (urutan ${next.queueOrder}), tunggu ACK OK hingga ${ackDeadline.toISOString()}.`
+    );
+
+    if (queueRolled) {
+        await logDistributionActivity(
+            executor,
+            leadId,
             "note",
-            `Lead didistribusikan ke ${next.salesName} (urutan ${next.queueOrder}), tunggu ACK OK hingga ${ackDeadline.toISOString()}.`
+            `Urutan sesi berikutnya langsung dirotasi setelah offer dikirim ke ${next.salesName}.`
         );
+    }
 
     return attempt;
 }
@@ -274,7 +300,7 @@ export async function ensureActiveCycle(leadId: string) {
         })
         .returning();
 
-    await assignNextQueue(db, cycle.id, leadId, leadRow.clientId, 0);
+    await assignNextQueue(db, cycle.id, leadId, leadRow.clientId);
     const [freshCycle] = await db
         .select()
         .from(distributionCycle)
@@ -390,12 +416,6 @@ export async function handleSalesAck(
             })
             .where(eq(lead.id, leadId));
 
-        const queueRotated = await rotateQueueAfterAssignment(
-            salesId,
-            leadRow.clientId,
-            tx as unknown as DbExecutor
-        );
-
         await tx
             .update(distributionAttempt)
             .set({
@@ -417,15 +437,6 @@ export async function handleSalesAck(
             "note",
             `Lead di-claim sales ${salesId} dengan balasan OK.`
         );
-
-        if (queueRotated) {
-            await logDistributionActivity(
-                tx as unknown as DbExecutor,
-                leadId,
-                "note",
-                `Queue distribusi dirotasi: sales ${salesId} dipindah ke urutan terakhir setelah claim berhasil.`
-            );
-        }
     });
 
     const [leadInfo] = await db
@@ -517,8 +528,7 @@ async function timeoutAttemptAndRoll(attemptId: string) {
             tx as unknown as DbExecutor,
             attempt.cycleId,
             attempt.leadId,
-            leadRow.clientId,
-            attempt.queueOrder
+            leadRow.clientId
         );
     });
 }

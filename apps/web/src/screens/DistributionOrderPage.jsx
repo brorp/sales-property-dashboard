@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
+import { usePagePolling } from '../hooks/usePagePolling';
 
 export default function DistributionOrderPage() {
     const { user } = useAuth();
@@ -18,6 +19,11 @@ export default function DistributionOrderPage() {
     const [queueInitialSignature, setQueueInitialSignature] = useState('');
     const [selectedSalesId, setSelectedSalesId] = useState('');
     const [selectedInsertOrder, setSelectedInsertOrder] = useState('end');
+    const [queuePreview, setQueuePreview] = useState({
+        isRolledByActiveDistribution: false,
+        rolledSalesIds: [],
+        liveOffers: [],
+    });
 
     const normalizeQueueRows = useCallback((rows) => {
         return (Array.isArray(rows) ? rows : [])
@@ -44,9 +50,19 @@ export default function DistributionOrderPage() {
         const normalizedQueue = normalizeQueueRows(payload?.queueRows);
         const normalizedAvailable = normalizeAvailableSales(payload?.availableSales);
         const normalizedBlocked = normalizeAvailableSales(payload?.blockedSales);
+        const nextPreview = {
+            isRolledByActiveDistribution: Boolean(payload?.queuePreview?.isRolledByActiveDistribution),
+            rolledSalesIds: Array.isArray(payload?.queuePreview?.rolledSalesIds)
+                ? payload.queuePreview.rolledSalesIds
+                : [],
+            liveOffers: Array.isArray(payload?.queuePreview?.liveOffers)
+                ? payload.queuePreview.liveOffers
+                : [],
+        };
         setQueueRows(normalizedQueue);
         setAvailableSales(normalizedAvailable);
         setBlockedSales(normalizedBlocked);
+        setQueuePreview(nextPreview);
         setQueueInitialSignature(buildQueueSignature(normalizedQueue));
         setSelectedSalesId((prev) => {
             if (!prev) {
@@ -59,25 +75,42 @@ export default function DistributionOrderPage() {
         setSelectedInsertOrder('end');
     }, [buildQueueSignature, normalizeAvailableSales, normalizeQueueRows]);
 
-    const loadQueueRows = useCallback(async () => {
+    const loadQueueRows = useCallback(async ({ silent = false } = {}) => {
         if (!user) {
             return;
         }
-        setQueueLoading(true);
-        setQueueError('');
+        if (!silent) {
+            setQueueLoading(true);
+            setQueueError('');
+        }
         try {
             const data = await apiRequest('/api/sales/queue', { user });
             applyQueueState(data);
         } catch (err) {
-            setQueueError(err instanceof Error ? err.message : 'Failed loading sales queue');
+            if (!silent) {
+                setQueueError(err instanceof Error ? err.message : 'Failed loading sales queue');
+            }
         } finally {
-            setQueueLoading(false);
+            if (!silent) {
+                setQueueLoading(false);
+            }
         }
     }, [applyQueueState, user]);
 
     useEffect(() => {
         void loadQueueRows();
     }, [loadQueueRows]);
+
+    usePagePolling({
+        enabled: Boolean(user),
+        intervalMs: 3000,
+        run: async () => {
+            if (queueDirty || queueSaving || queueMutating) {
+                return;
+            }
+            await loadQueueRows({ silent: true });
+        },
+    });
 
     const moveQueueItem = (index, direction) => {
         setQueueRows((prev) => {
@@ -175,6 +208,27 @@ export default function DistributionOrderPage() {
     const insertOrderOptions = useMemo(() => {
         return Array.from({ length: queueRows.length + 1 }, (_, index) => index + 1);
     }, [queueRows.length]);
+    const queuePreviewMessage = useMemo(() => {
+        if (!queuePreview?.isRolledByActiveDistribution) {
+            return '';
+        }
+
+        const liveOffers = Array.isArray(queuePreview.liveOffers) ? queuePreview.liveOffers : [];
+        if (liveOffers.length === 0) {
+            return 'Urutan di bawah sudah diproyeksikan sebagai sesi distribusi berikutnya.';
+        }
+
+        const primaryOffer = liveOffers[0];
+        const deadlineLabel = primaryOffer?.ackDeadline
+            ? new Date(primaryOffer.ackDeadline).toLocaleTimeString('id-ID', {
+                hour: '2-digit',
+                minute: '2-digit',
+            })
+            : null;
+        const suffix = liveOffers.length > 1 ? ` dan ${liveOffers.length - 1} offer lain` : '';
+
+        return `Urutan di bawah sudah diproyeksikan ke sesi berikutnya. ${primaryOffer?.salesName || 'Sales aktif'} sedang menunggu balasan OK${primaryOffer?.leadName ? ` untuk ${primaryOffer.leadName}` : ''}${deadlineLabel ? ` sampai ${deadlineLabel}` : ''}${suffix}.`;
+    }, [queuePreview]);
 
     return (
         <div className="page-container">
@@ -182,8 +236,13 @@ export default function DistributionOrderPage() {
 
             <div className="card settings-card">
                 <p className="settings-help">
-                    Urutan ini dipakai untuk distribusi lead otomatis. Sales yang berhasil claim lead akan dipindahkan ke urutan paling belakang.
+                    Urutan ini dipakai untuk distribusi lead otomatis. Begitu bot mengirim offer ke sales, urutan sesi berikutnya langsung diproyeksikan secara realtime.
                 </p>
+                {queuePreviewMessage ? (
+                    <div className="settings-help" style={{ marginTop: 10 }}>
+                        {queuePreviewMessage}
+                    </div>
+                ) : null}
                 {blockedSales.length > 0 ? (
                     <div className="settings-help" style={{ marginTop: 10 }}>
                         Sales yang sedang suspended tidak bisa ditambahkan ke queue sampai masa suspend berakhir.

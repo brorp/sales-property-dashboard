@@ -26,7 +26,7 @@ router.patch("/me", async (req, res: Response, next: NextFunction) => {
         const { user } = req as unknown as AuthenticatedRequest;
         const { name, phone, image } = req.body ?? {};
 
-        const updated = await profileService.updateProfile(user.id, {
+        const updated = await profileService.updateProfile(user.id, user.role, {
             name: typeof name === "string" ? name : undefined,
             phone:
                 typeof phone === "string" || phone === null

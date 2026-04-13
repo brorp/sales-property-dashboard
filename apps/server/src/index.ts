@@ -22,6 +22,7 @@ import {
     registerGlobalProcessErrorHandlers,
 } from "./utils/logger";
 import { requestLogger } from "./middleware/request-logger";
+import { mutationIdempotency } from "./middleware/idempotency";
 import { errorHandler } from "./middleware/error-handler";
 
 const app: ReturnType<typeof express> = express();
@@ -43,6 +44,7 @@ app.use(
         limit: process.env.JSON_BODY_LIMIT || "20mb",
     })
 );
+app.use("/api", mutationIdempotency);
 
 app.use("/webhooks", webhooksRoutes);
 app.use("/api/whatsapp-admin", whatsappAdminRoutes);

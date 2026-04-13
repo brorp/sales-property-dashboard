@@ -62,6 +62,7 @@ const knownBadRequestCodes = new Set([
     "LEADS_EXPORT_ACCESS_CODE_REQUIRED",
     "LEADS_EXPORT_ACCESS_CODE_INVALID",
     "LEADS_EXPORT_ACCESS_CODE_NOT_CONFIGURED",
+    "SALES_PROFILE_PHONE_READ_ONLY",
 ]);
 
 const knownConflictCodes = new Set([

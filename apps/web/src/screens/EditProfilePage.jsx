@@ -16,6 +16,7 @@ export default function EditProfilePage() {
         email: '',
         phone: '',
     });
+    const phoneReadOnly = user?.role === 'sales';
 
     const loadProfile = useCallback(async () => {
         if (!user) {
@@ -28,14 +29,14 @@ export default function EditProfilePage() {
             setForm({
                 name: data?.name || user.name || '',
                 email: data?.email || user.email || '',
-                phone: data?.phone || '',
+                phone: data?.phone || user?.phone || '',
             });
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed loading profile');
             setForm({
                 name: user?.name || '',
                 email: user?.email || '',
-                phone: '',
+                phone: user?.phone || '',
             });
         } finally {
             setLoading(false);
@@ -62,12 +63,19 @@ export default function EditProfilePage() {
                 user,
                 body: {
                     name: form.name,
-                    phone: form.phone || null,
+                    ...(phoneReadOnly ? {} : { phone: form.phone || null }),
                 },
             });
             updateCurrentUser({
                 name: updated?.name || form.name,
+                phone: updated?.phone || form.phone || null,
             });
+            setForm((prev) => ({
+                ...prev,
+                name: updated?.name || prev.name,
+                email: updated?.email || prev.email,
+                phone: updated?.phone || prev.phone,
+            }));
             setSuccess('Profil berhasil diperbarui.');
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed updating profile');
@@ -110,9 +118,14 @@ export default function EditProfilePage() {
                         className="input-field"
                         value={form.phone}
                         onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
-                        disabled={loading || saving}
+                        disabled={loading || saving || phoneReadOnly}
                         placeholder="+6281234567890"
                     />
+                    {phoneReadOnly ? (
+                        <p className="settings-help" style={{ marginTop: 6 }}>
+                            Nomor WhatsApp dikelola oleh admin dan akan otomatis mengikuti perubahan terbaru.
+                        </p>
+                    ) : null}
                 </div>
 
                 {error ? <div className="settings-error">{error}</div> : null}

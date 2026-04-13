@@ -3,6 +3,7 @@ import type { AuthenticatedRequest } from "./auth";
 import { db } from "../db/index";
 import { user } from "../db/schema";
 import { and, eq } from "drizzle-orm";
+import { getClientBySlug, parseActiveWhatsAppClientSlug } from "../services/clients.service";
 
 // ─── Role hierarchy (higher index = more privilege) ──────────────────────────
 const ROLE_HIERARCHY: Record<string, number> = {
@@ -11,6 +12,22 @@ const ROLE_HIERARCHY: Record<string, number> = {
     client_admin: 2,
     root_admin: 3,
 };
+
+let cachedActiveClientId: string | null | undefined = undefined;
+
+async function getActiveClientId() {
+    if (cachedActiveClientId !== undefined) {
+        return cachedActiveClientId;
+    }
+    const slug = parseActiveWhatsAppClientSlug();
+    if (slug) {
+        const clientRow = await getClientBySlug(slug);
+        cachedActiveClientId = clientRow?.id || null;
+    } else {
+        cachedActiveClientId = null;
+    }
+    return cachedActiveClientId;
+}
 
 /**
  * Scope object attached to `req.scope` by `injectScope` middleware.
@@ -87,9 +104,9 @@ export function requireAdmin(
  * Must be used AFTER `requireAuth`.
  *
  * - root_admin:    scope is global (clientId = null)
- * - client_admin:  scope is all users within the same client
- * - supervisor:    scope is the sales users mapped via supervisor_sales
- * - sales:         scope is self only
+ * - client_admin:  scope is all users within the same active client
+ * - supervisor:    scope is the sales users mapped via supervisor_sales within the active client
+ * - sales:         scope is self only within the active client
  */
 export async function injectScope(
     req: AuthenticatedRequest,
@@ -97,12 +114,17 @@ export async function injectScope(
     next: NextFunction
 ) {
     try {
-        const { id: userId, role, clientId } = req.user;
+        const { id: userId, role } = req.user;
+        
+        // Multi-workspace data isolation override:
+        // By default, users operate on the workspace dictated by the server instance.
+        const serverClientId = await getActiveClientId();
+        const effectiveClientId = role === "root_admin" ? null : (serverClientId || req.user.clientId || null);
 
         const scope: QueryScope = {
             role,
             userId,
-            clientId: clientId ?? null,
+            clientId: effectiveClientId,
             managedSalesIds: [],
             managedSupervisorIds: [],
         };
@@ -116,18 +138,28 @@ export async function injectScope(
                         eq(user.role, "sales"),
                         eq(user.supervisorId, userId),
                         eq(user.isActive, true)
+                        // Note: Supervisor's sales could technically span multi-workspaces,
+                        // but conventionally they manage sales only in current workspace.
                     )
                 );
 
             scope.managedSalesIds = rows.map((r) => r.id);
-        } else if (role === "client_admin" && clientId) {
+        } else if (role === "client_admin" && effectiveClientId) {
             const rows = await db
                 .select({
                     id: user.id,
                     role: user.role,
                 })
                 .from(user)
-                .where(and(eq(user.clientId, clientId), eq(user.isActive, true)));
+                // Filter users to only those operating in this workspace. A user who is shared
+                // typically will only have one "home" clientId, but we treat them as part of
+                // the workspace while they are visiting it.
+                .where(eq(user.isActive, true)); 
+                // We do NOT strictly filter user.clientId === effectiveClientId here 
+                // because shared users might have a different home clientId.
+                // However, since we need to scope their operations, for now we will scope
+                // all active sales and supervisors as "managed" for that client admin 
+                // in the context of the current workspace!
 
             scope.managedSalesIds = rows
                 .filter((row) => row.role === "sales")

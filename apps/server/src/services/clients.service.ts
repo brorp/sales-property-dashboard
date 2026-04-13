@@ -51,7 +51,7 @@ function parseRootDomains() {
         .map((item) => item.replace(/\.+$/, ""));
 }
 
-function parseActiveWhatsAppClientSlug() {
+export function parseActiveWhatsAppClientSlug() {
     const raw = String(process.env.WA_ACTIVE_CLIENT_SLUG || "").trim().toLowerCase();
     return raw || null;
 }

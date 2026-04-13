@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db/index";
-import { salesQueue, user } from "../db/schema";
+import { distributionAttempt, distributionCycle, lead, salesQueue, user } from "../db/schema";
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
 import { auth } from "../auth/index";
@@ -8,6 +8,7 @@ import {
     assertSalesNotSuspended,
     getActiveSalesSuspensionMap,
 } from "./sales-suspension.service";
+import { projectNextSessionQueue } from "../utils/distribution-queue";
 
 type DbExecutor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -81,6 +82,69 @@ async function getQueueRowBySalesId(executor: DbExecutor, salesId: string) {
         .limit(1);
 
     return row || null;
+}
+
+async function getActiveDistributionQueuePreview(
+    executor: DbExecutor,
+    clientId: string,
+    queueRows: Array<any>
+) {
+    const attemptRows = await executor
+        .select({
+            salesId: distributionAttempt.salesId,
+            status: distributionAttempt.status,
+            assignedAt: distributionAttempt.assignedAt,
+            ackDeadline: distributionAttempt.ackDeadline,
+            queueOrder: distributionAttempt.queueOrder,
+            leadId: distributionAttempt.leadId,
+            leadName: lead.name,
+        })
+        .from(distributionAttempt)
+        .innerJoin(distributionCycle, eq(distributionAttempt.cycleId, distributionCycle.id))
+        .innerJoin(lead, eq(distributionAttempt.leadId, lead.id))
+        .where(
+            and(
+                eq(distributionCycle.status, "active"),
+                eq(lead.clientId, clientId),
+                inArray(distributionAttempt.status, ["waiting_ok", "timeout"])
+            )
+        )
+        .orderBy(asc(distributionAttempt.assignedAt), asc(distributionAttempt.queueOrder));
+
+    const previewRows = projectNextSessionQueue(
+        queueRows,
+        attemptRows.map((row) => row.salesId)
+    ).map((row, index) => ({
+        ...row,
+        queueOrder: index + 1,
+        queueLabel: queueLabelFromOrder(index + 1),
+    }));
+
+    const liveOfferRows = attemptRows.filter((row) => row.status === "waiting_ok");
+    const liveOfferBySalesId = new Map(
+        liveOfferRows.map((row) => [row.salesId, row])
+    );
+
+    return {
+        previewRows,
+        previewSalesIds: Array.from(new Set(attemptRows.map((row) => row.salesId))),
+        liveOffers: previewRows
+            .map((row) => {
+                const offer = liveOfferBySalesId.get(row.id);
+                if (!offer) {
+                    return null;
+                }
+                return {
+                    salesId: row.id,
+                    salesName: row.name,
+                    leadId: offer.leadId,
+                    leadName: offer.leadName || "-",
+                    assignedAt: offer.assignedAt,
+                    ackDeadline: offer.ackDeadline,
+                };
+            })
+            .filter(Boolean),
+    };
 }
 
 async function getSalesRow(executor: DbExecutor, salesId: string) {
@@ -188,7 +252,7 @@ export async function getSalesUsers(scope: SalesQueryScope = {}) {
 
 export async function getDistributionQueue(clientId: string) {
     const rows = await getSalesUsers({ clientId });
-    const queueRows = rows
+    const baseQueueRows = rows
         .filter((row) => Number(row.queueOrder) > 0 && !row.isSuspended)
         .sort((a, b) => {
             const aOrder = Number(a.queueOrder || 9999);
@@ -205,10 +269,21 @@ export async function getDistributionQueue(clientId: string) {
         .filter((row) => row.isSuspended)
         .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
 
+    const queuePreview = await getActiveDistributionQueuePreview(
+        db,
+        clientId,
+        baseQueueRows
+    );
+
     return {
-        queueRows,
+        queueRows: queuePreview.previewRows,
         availableSales,
         blockedSales,
+        queuePreview: {
+            isRolledByActiveDistribution: queuePreview.previewSalesIds.length > 0,
+            rolledSalesIds: queuePreview.previewSalesIds,
+            liveOffers: queuePreview.liveOffers,
+        },
     };
 }
 
@@ -429,8 +504,8 @@ export async function removeSalesFromQueueBySuspension(
     return removeSalesFromQueueWithExecutor(executor, params);
 }
 
-export async function rotateQueueAfterAssignment(
-    acceptedSalesId: string,
+export async function moveSalesToQueueEnd(
+    salesId: string,
     clientId: string,
     executor: DbExecutor = db
 ) {
@@ -439,7 +514,7 @@ export async function rotateQueueAfterAssignment(
         return false;
     }
 
-    const currentIndex = queueRows.findIndex((row) => row.salesId === acceptedSalesId);
+    const currentIndex = queueRows.findIndex((row) => row.salesId === salesId);
     if (currentIndex === -1 || currentIndex === queueRows.length - 1) {
         return false;
     }
@@ -457,6 +532,14 @@ export async function rotateQueueAfterAssignment(
     );
 
     return true;
+}
+
+export async function rotateQueueAfterAssignment(
+    acceptedSalesId: string,
+    clientId: string,
+    executor: DbExecutor = db
+) {
+    return moveSalesToQueueEnd(acceptedSalesId, clientId, executor);
 }
 
 export async function createSalesUser(data: {

@@ -377,12 +377,9 @@ export async function create(data: {
         if (!assignedSales || assignedSales.role !== "sales" || !assignedSales.isActive) {
             throw new Error("INVALID_ASSIGNED_SALES");
         }
-
-        if (resolvedClientId && assignedSales.clientId !== resolvedClientId) {
-            throw new Error("ASSIGNED_SALES_CLIENT_MISMATCH");
-        }
-
-        resolvedClientId = assignedSales.clientId || resolvedClientId;
+        
+        // Multi-workspace: Allow assigning cross-workspace since users are shared.
+        // The resolvedClientId remains the target workspace ID.
     }
 
     if (resolvedClientId && !normalizeFixedLeadSource(normalizedSource)) {
@@ -462,12 +459,8 @@ export async function assignLead(data: {
         .where(eq(user.id, data.salesId))
         .limit(1);
 
-    if (
-        !salesRow ||
-        salesRow.role !== "sales" ||
-        !salesRow.isActive ||
-        salesRow.clientId !== currentLead.clientId
-    ) {
+    // Multi-workspace: Remove salesRow.clientId !== currentLead.clientId
+    if (!salesRow || salesRow.role !== "sales" || !salesRow.isActive) {
         throw new Error("INVALID_ASSIGNED_SALES");
     }
 
