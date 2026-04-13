@@ -91,11 +91,17 @@ async function ensureClients() {
                 id: tenant.id,
                 name: tenant.name,
                 slug: tenant.slug,
+                apiPrefix: tenant.apiPrefix || "",
                 isActive: true,
                 createdAt: now,
                 updatedAt: now,
             });
             logger.info(`  ✅ created client ${tenant.name}`);
+        } else {
+            await db.update(client)
+                .set({ apiPrefix: tenant.apiPrefix || "", updatedAt: new Date() })
+                .where(eq(client.id, tenant.id));
+            logger.info(`  🔄 updated client ${tenant.name} apiPrefix`);
         }
     }
 }

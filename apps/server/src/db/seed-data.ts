@@ -16,6 +16,7 @@ export type SeedClient = {
     id: string;
     name: string;
     slug: string;
+    apiPrefix?: string;
     users: SeedUser[];
 };
 
@@ -58,9 +59,10 @@ export const ROOT_USER: SeedUser = {
 
 export const TENANTS: SeedClient[] = [
     {
-        id: "widari",
-        name: "Widari",
-        slug: "widari",
+        id: "wr-001",
+        name: "Widari Residence",
+        slug: "widari-residence",
+        apiPrefix: "",
         users: [
             {
                 key: "widari-admin",
@@ -150,14 +152,32 @@ export const TENANTS: SeedClient[] = [
             },
         ],
     },
+    {
+        id: "wv-001",
+        name: "Widari Village",
+        slug: "widari-village",
+        apiPrefix: "/wv",
+        users: [
+            {
+                key: "wv-admin",
+                name: "WV Admin",
+                email: "admin-wv@widari.propertylounge.id",
+                password: "admin123",
+                role: "client_admin",
+                phone: "+6281111111109",
+                createdByKey: "root",
+            }
+        ],
+    }
 ];
 
 export const TENANT_LEAD_SOURCE_OPTIONS: Record<string, string[]> = {
-    widari: ["Online", "Offline", "Walk In", "Agent", "Old", "Pribadi"],
+    "wr-001": ["Online", "Offline", "Walk In", "Agent", "Old", "Pribadi"],
+    "wv-001": ["Online", "Offline", "Walk In", "Agent"],
 };
 
 export const TENANT_CANCEL_REASONS: Record<string, SeedCancelReason[]> = {
-    widari: [
+    "wr-001": [
         { code: "harga", label: "Harga", sortOrder: 1 },
         { code: "lokasi", label: "Lokasi", sortOrder: 2 },
         { code: "kompetitor", label: "Pilih Kompetitor", sortOrder: 3 },
@@ -166,10 +186,12 @@ export const TENANT_CANCEL_REASONS: Record<string, SeedCancelReason[]> = {
         { code: "tidak_cocok", label: "Produk Tidak Cocok", sortOrder: 6 },
         { code: "lainnya", label: "Lainnya", sortOrder: 7 },
     ],
+    "wv-001": [],
 };
 
 export const TENANT_LEADS: Record<string, SeedLead[]> = {
-    widari: [],
+    "wr-001": [],
+    "wv-001": [],
 };
 
 export const ALL_SEED_USERS: SeedUser[] = [
