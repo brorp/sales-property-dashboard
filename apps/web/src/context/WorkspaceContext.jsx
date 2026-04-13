@@ -13,45 +13,53 @@ export function WorkspaceProvider({ children }) {
     const loadWorkspaces = useCallback(async () => {
         try {
             setLoading(true);
-            
-            // We use standard fetch here to avoid circular dependency and force hitting the base origin
-            const baseUrlInfo = new URL(window.location.href);
-            // In development, Next.js runs on port 3000, and standard proxy applies.
-            // When proxying to PM2, Nginx handles it.
-            // Instead of parsing `getApiBaseUrl` (which might append the prefix), we want the root domain.
-            
-            // Safe fallback to using relative path (Next.js proxy / API direct)
-            const protocol = window.location.protocol;
-            const host = window.location.host;
-            let baseUrl = `${protocol}//${host}`;
-            
-            // Special case for local dev: Use the Next.js local proxy
-            if (host.includes('localhost') || host.includes('127.0.0.1')) {
-                baseUrl = ''; // relative url handled by Next.js rewrites
-            }
 
-            const response = await fetch(`${baseUrl}/api/public/workspaces`);
+            // This MUST point at the backend server, not the Vercel frontend.
+            // We read the same env var the rest of the app uses, but we strip
+            // any workspace apiPrefix so we always hit the root backend URL.
+            let apiBaseUrl = '';
+
+            const explicitBase = process.env.NEXT_PUBLIC_API_BASE_URL;
+            if (explicitBase && String(explicitBase).trim()) {
+                apiBaseUrl = String(explicitBase).trim().replace(/\/$/, '');
+                // Upgrade http → https when page is served over https
+                if (
+                    typeof window !== 'undefined' &&
+                    window.location.protocol === 'https:' &&
+                    apiBaseUrl.startsWith('http://') &&
+                    !apiBaseUrl.startsWith('http://localhost') &&
+                    !apiBaseUrl.startsWith('http://127.0.0.1')
+                ) {
+                    apiBaseUrl = apiBaseUrl.replace(/^http:\/\//i, 'https://');
+                }
+            }
+            // localhost dev: use relative URL → Next.js rewrites forwards to port 3001
+            // (no explicit baseUrl needed)
+
+            const response = await fetch(`${apiBaseUrl}/api/public/workspaces`);
             if (response.ok) {
                 const data = await response.json();
                 setWorkspaces(data);
 
-                // Attempt to load from localStorage
+                // Restore previously selected workspace from localStorage
                 const saved = window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
                 let current = null;
                 if (saved) {
                     try {
                         const parsed = JSON.parse(saved);
-                        current = data.find((w) => w.slug === parsed.slug);
+                        current = data.find((w) => w.slug === parsed.slug) || null;
                     } catch (err) {}
                 }
 
-                // If not found in localStorage or no longer valid, default to the first one
+                // Default to first workspace when nothing is stored / saved is stale
                 if (!current && data.length > 0) {
                     current = data[0];
                     window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(current));
                 }
 
                 setActiveWorkspace(current);
+            } else {
+                console.error('Failed to load workspaces, status:', response.status);
             }
         } catch (error) {
             console.error('Failed to load workspaces:', error);
