@@ -6,7 +6,6 @@ import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
 
 const initialForm = {
-    projectType: '',
     unitName: '',
 };
 
@@ -40,13 +39,9 @@ export default function UnitsPage() {
     }, [loadUnits]);
 
     const sortedUnits = useMemo(() => {
-        return [...units].sort((a, b) => {
-            const byType = String(a?.projectType || '').localeCompare(String(b?.projectType || ''));
-            if (byType !== 0) {
-                return byType;
-            }
-            return String(a?.unitName || '').localeCompare(String(b?.unitName || ''));
-        });
+        return [...units].sort((a, b) =>
+            String(a?.unitName || '').localeCompare(String(b?.unitName || ''))
+        );
     }, [units]);
 
     const resetForm = () => {
@@ -93,7 +88,6 @@ export default function UnitsPage() {
     const handleEdit = (unit) => {
         setEditingId(unit.id);
         setForm({
-            projectType: unit.projectType || '',
             unitName: unit.unitName || '',
         });
         setError('');
@@ -137,17 +131,7 @@ export default function UnitsPage() {
             <div className="card settings-card">
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div className="input-group">
-                        <label>Project Type</label>
-                        <input
-                            className="input-field"
-                            value={form.projectType}
-                            onChange={(event) => setForm((prev) => ({ ...prev, projectType: event.target.value }))}
-                            placeholder="Contoh: Apartment, House, Commercial"
-                            required
-                        />
-                    </div>
-                    <div className="input-group">
-                        <label>Unit Name</label>
+                        <label>Tipe Unit</label>
                         <input
                             className="input-field"
                             value={form.unitName}
@@ -179,10 +163,9 @@ export default function UnitsPage() {
                         {sortedUnits.map((unit) => (
                             <div key={unit.id} className="settings-queue-item">
                                 <div className="settings-queue-main">
-                                    <span className="settings-queue-order">{String(unit.projectType || '?').charAt(0).toUpperCase()}</span>
+                                    <span className="settings-queue-order">{String(unit.unitName || '?').charAt(0).toUpperCase()}</span>
                                     <div>
                                         <div className="settings-queue-name">{unit.unitName}</div>
-                                        <div className="settings-queue-meta">{unit.projectType}</div>
                                     </div>
                                 </div>
                                 <div className="settings-queue-actions">
