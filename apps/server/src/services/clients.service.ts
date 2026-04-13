@@ -192,6 +192,7 @@ export async function resolvePublicAppContext(params?: {
     // Prefix fallback: subdomain "widari" → matches "widari-residence"
     // This handles multi-workspace domains where the subdomain is the
     // company name but slugs are "company-workspace".
+    // Sort by apiPrefix so default workspace (empty prefix) is picked first.
     if (!tenant) {
         const [prefixMatch] = await db
             .select()
@@ -202,6 +203,7 @@ export async function resolvePublicAppContext(params?: {
                     eq(client.isActive, true)
                 )
             )
+            .orderBy(asc(client.apiPrefix))
             .limit(1);
         tenant = prefixMatch || null;
     }
