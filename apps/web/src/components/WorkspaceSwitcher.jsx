@@ -38,7 +38,6 @@ export default function WorkspaceSwitcher() {
                 onClick={() => setIsOpen(!isOpen)}
             >
                 <div className="workspace-switcher-info">
-                    <span className="workspace-switcher-icon">🏢</span>
                     <span className="workspace-switcher-label">{activeWorkspace?.name || 'Pilih Workspace'}</span>
                 </div>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`workspace-switcher-chevron ${isOpen ? 'open' : ''}`}>
@@ -57,7 +56,6 @@ export default function WorkspaceSwitcher() {
                                 className={`workspace-switcher-item ${activeWorkspace?.slug === ws.slug ? 'active' : ''}`}
                                 onClick={() => handleSelect(ws.slug)}
                             >
-                                <span className="workspace-switcher-item-icon">🏢</span>
                                 <span className="workspace-switcher-item-label">{ws.name}</span>
                                 {activeWorkspace?.slug === ws.slug && (
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="workspace-switcher-check">

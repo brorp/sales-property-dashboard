@@ -49,7 +49,7 @@
 
 .workspace-switcher-dropdown {
     position: absolute;
-    bottom: calc(100% + 8px);
+    top: calc(100% + 8px);
     left: 0;
     width: 100%;
     background: rgba(26, 21, 40, 0.95);
@@ -58,15 +58,15 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--radius-md);
     padding: 6px;
-    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     z-index: 100;
-    animation: slideUp 0.2s ease-out;
+    animation: slideDown 0.2s ease-out;
 }
 
-@keyframes slideUp {
+@keyframes slideDown {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(-10px);
     }
     to {
         opacity: 1;
