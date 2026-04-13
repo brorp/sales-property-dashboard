@@ -24,7 +24,7 @@ const SHARED_WA_ARGS = [
 const SHARED_BASE = {
     cwd: __dirname,
     script: "dist/index.js",
-    node_args: "--import tsx",
+    node_args: "--import=tsx",
     instances: 1,
     exec_mode: "fork",
     autorestart: true,
