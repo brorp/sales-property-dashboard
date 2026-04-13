@@ -95,6 +95,23 @@ router.get("/app-context", async (req, res: ExpressResponse, next: NextFunction)
     }
 });
 
+router.get("/workspaces", async (req, res: ExpressResponse, next: NextFunction) => {
+    try {
+        const clients = await db.query.client.findMany({
+            where: (client, { eq }) => eq(client.isActive, true),
+            columns: {
+                slug: true,
+                name: true,
+                apiPrefix: true,
+            },
+            orderBy: (client, { asc }) => [asc(client.name)],
+        });
+        res.json(clients);
+    } catch (error) {
+        next(error);
+    }
+});
+
 router.post("/login", async (req, res: ExpressResponse, next: NextFunction) => {
     try {
         const { email, password, rememberMe } = req.body ?? {};

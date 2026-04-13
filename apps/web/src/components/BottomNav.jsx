@@ -13,6 +13,7 @@ import {
     markLogsSeenAt,
 } from '../lib/notification-seen';
 import { usePagePolling } from '../hooks/usePagePolling';
+import WorkspaceSwitcher from './WorkspaceSwitcher';
 
 function Icon({ name }) {
     const common = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
@@ -189,6 +190,7 @@ export default function BottomNav() {
     return (
         <nav className="bottom-nav">
             <div className="bottom-nav-brand">
+                <WorkspaceSwitcher />
                 <div className="bottom-nav-brand-title">{brandTitle}</div>
                 {brandSubtitle ? <div className="bottom-nav-brand-subtitle">{brandSubtitle}</div> : null}
             </div>

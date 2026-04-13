@@ -157,7 +157,11 @@ function notifyUnauthorized() {
     window.dispatchEvent(new CustomEvent(AUTH_INVALID_EVENT));
 }
 
+export const WORKSPACE_STORAGE_KEY = 'pl_workspace';
+
 export function getApiBaseUrl() {
+    let baseUrl = '';
+
     const explicitBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
     if (explicitBaseUrl && String(explicitBaseUrl).trim()) {
         const normalizedBaseUrl = String(explicitBaseUrl).replace(/\/$/, '');
@@ -169,31 +173,54 @@ export function getApiBaseUrl() {
             !normalizedBaseUrl.startsWith('http://localhost') &&
             !normalizedBaseUrl.startsWith('http://127.0.0.1')
         ) {
-            return normalizedBaseUrl.replace(/^http:\/\//i, 'https://');
+            baseUrl = normalizedBaseUrl.replace(/^http:\/\//i, 'https://');
+        } else {
+            baseUrl = normalizedBaseUrl;
         }
+    } else if (typeof window !== 'undefined' && 
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        // Use local Next.js proxy during development (see rewrites in next.config.mjs)
+        baseUrl = '';
+    } else {
+        const protocol = String(process.env.NEXT_PUBLIC_API_PROTOCOL || 'http').trim();
+        const derivedBaseUrl = deriveApiBaseFromRootDomain(protocol);
+        if (derivedBaseUrl) {
+            baseUrl = derivedBaseUrl.replace(/\/$/, '');
+        } else {
+            const host = process.env.NEXT_PUBLIC_API_HOST;
+            const port = process.env.NEXT_PUBLIC_API_PORT;
+            const hostWithPort = joinHostAndPort(host, port);
 
-        return normalizedBaseUrl;
+            if (!hostWithPort) {
+                baseUrl = DEFAULT_API_BASE;
+            } else if (/^https?:\/\//i.test(hostWithPort)) {
+                baseUrl = hostWithPort.replace(/\/$/, '');
+            } else {
+                baseUrl = `${protocol}://${hostWithPort}`.replace(/\/$/, '');
+            }
+        }
     }
 
-    const protocol = String(process.env.NEXT_PUBLIC_API_PROTOCOL || 'http').trim();
-    const derivedBaseUrl = deriveApiBaseFromRootDomain(protocol);
-    if (derivedBaseUrl) {
-        return derivedBaseUrl.replace(/\/$/, '');
+    // Append apiPrefix if active workspace is selected
+    if (typeof window !== 'undefined') {
+        try {
+            const saved = window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed && typeof parsed.apiPrefix === 'string') {
+                    // Ensure prefix starts with / or is empty, and doesn't end with /
+                    const prefix = parsed.apiPrefix.trim().replace(/\/+$/, '');
+                    if (prefix && prefix !== '/') {
+                        baseUrl += prefix.startsWith('/') ? prefix : `/${prefix}`;
+                    }
+                }
+            }
+        } catch (err) {
+            // ignore
+        }
     }
 
-    const host = process.env.NEXT_PUBLIC_API_HOST;
-    const port = process.env.NEXT_PUBLIC_API_PORT;
-    const hostWithPort = joinHostAndPort(host, port);
-
-    if (!hostWithPort) {
-        return DEFAULT_API_BASE;
-    }
-
-    if (/^https?:\/\//i.test(hostWithPort)) {
-        return hostWithPort.replace(/\/$/, '');
-    }
-
-    return `${protocol}://${hostWithPort}`.replace(/\/$/, '');
+    return baseUrl;
 }
 
 export function buildApiRequestHeaders(options = {}) {

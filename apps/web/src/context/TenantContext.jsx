@@ -111,20 +111,9 @@ export function TenantProvider({ children }) {
             if (!userLike) {
                 return false;
             }
-
-            if (isMasterSite) {
-                return true;
-            }
-
-            if (!currentTenantSlug) {
-                return false;
-            }
-
-            if (userLike.role === 'root_admin') {
-                return false;
-            }
-
-            return userLike.clientSlug === currentTenantSlug;
+            
+            // Opsi A: Semua user (termasuk sales) valid di semua workspace.
+            return true;
         }
 
         function canManageSharedWhatsApp(userLike) {

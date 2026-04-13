@@ -11,7 +11,7 @@ export default function LoginPage() {
     const [showPass, setShowPass] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const { login, user, availableLoginUsers } = useAuth();
+    const { login, user } = useAuth();
     const tenant = useTenant();
     const router = useRouter();
 
@@ -84,22 +84,6 @@ export default function LoginPage() {
                         {loading ? '⏳ Memproses...' : 'Submit'}
                     </button>
                 </form>
-                <div className="demo-accounts">
-                    <p className="demo-title">Click for Demo Accounts:</p>
-                    {tenant.isClientSite ? (
-                        <p className="login-site-note">
-                            Domain ini hanya menerima akun milik tenant <strong>{tenant.siteLabel}</strong>.
-                        </p>
-                    ) : null}
-                    <div className="demo-list">
-                        {availableLoginUsers.map((demoUser) => (
-                            <button key={demoUser.email} onClick={() => { setEmail(demoUser.email); setPassword(demoUser.password); }}>
-                                <span className="demo-role">{demoUser.role === 'root_admin' ? 'Root' : demoUser.role.replace('_', ' ')}</span>
-                                <span>{demoUser.email}</span>
-                            </button>
-                        ))}
-                    </div>
-                </div>
             </div>
         </div>
     );
