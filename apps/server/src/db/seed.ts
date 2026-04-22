@@ -13,6 +13,9 @@ import {
     cancelReason,
     client,
     customerPipelineFollowUp,
+    dailyTask,
+    dailyTaskPenalty,
+    dailyTaskPenaltySuspension,
     distributionAttempt,
     distributionCycle,
     lead,
@@ -55,6 +58,9 @@ async function resetOperationalData() {
         await tx.delete(leadReassignmentAudit);
         await tx.delete(leadPenalty);
         await tx.delete(salesDistributionSuspension);
+        await tx.delete(dailyTaskPenaltySuspension);
+        await tx.delete(dailyTaskPenalty);
+        await tx.delete(dailyTask);
         await tx.delete(customerPipelineFollowUp);
         await tx.delete(activity);
         await tx.delete(appointment);

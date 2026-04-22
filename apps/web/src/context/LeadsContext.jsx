@@ -42,7 +42,9 @@ function normalizeLead(input) {
     }
 
     const customerPipeline = Array.isArray(input.customerPipeline) ? input.customerPipeline : [];
-    const derivedPipelineCompletedCount = customerPipeline.filter((item) => item?.isChecked).length;
+    const derivedPipelineCompletedCount = customerPipeline.filter(
+        (item) => item?.isChecked || item?.status === 'done'
+    ).length;
     const derivedPipelineTotalSteps = customerPipeline.length;
 
     return {

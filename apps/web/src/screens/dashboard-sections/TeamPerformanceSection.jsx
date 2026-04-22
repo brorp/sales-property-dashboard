@@ -147,6 +147,7 @@ function buildScopeMetrics(scope, fallbackData) {
             totalSurvey: scope.survey || 0,
             totalMauSurvey: scope.mauSurvey || 0,
             totalHot: scope.hot || 0,
+            totalHotValidated: scope.hotValidated || 0,
             totalFullBook: scope.fullBook || 0,
             prospectRate: scope.prospectRate || 0,
             surveyRate: scope.surveyRate || 0,
@@ -164,6 +165,7 @@ function buildScopeMetrics(scope, fallbackData) {
         totalSurvey: fallbackData.totalSurvey || 0,
         totalMauSurvey: fallbackData.totalMauSurvey || 0,
         totalHot: fallbackData.totalHot || 0,
+        totalHotValidated: fallbackData.totalHotValidated || 0,
         totalFullBook: fallbackData.totalFullBook || 0,
         prospectRate: fallbackData.prospectRate || 0,
         surveyRate: fallbackData.surveyRate || 0,
@@ -197,6 +199,9 @@ function TeamPerformancePanel({ title, metrics, showSalesList }) {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
                 <MetricCard label="Hot" value={metrics.totalHot} accent="#f59e0b" helper="Lead dengan layer 2 status Hot." />
+                {metrics.totalHotValidated > 0 ? (
+                    <MetricCard label="HOT | Validated" value={metrics.totalHotValidated} accent="#22c55e" helper="Lead HOT yang sudah divalidasi supervisor." />
+                ) : null}
                 <MetricCard label="Mau Survey" value={metrics.totalMauSurvey} accent="var(--primary)" helper="Lead yang masih di tahap mau survey." />
                 <MetricCard label="Sudah Survey" value={metrics.totalSurvey} accent="var(--green)" helper="Lead yang appointment-nya sudah survey." />
                 <MetricCard label="Full Book" value={metrics.totalFullBook} accent="var(--purple)" helper="Lead yang sudah masuk status Full Book." />

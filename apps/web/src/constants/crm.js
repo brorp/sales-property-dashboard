@@ -28,7 +28,9 @@ export const RESULT_STATUSES = [
     { key: 'cancel', label: 'Cancel' },
 ];
 
-export const CUSTOMER_PIPELINE_STEPS = Array.from({ length: 5 }, (_, index) => ({
+export const DAILY_TASK_FOLLOWUP_MILESTONE_DAYS = [4, 8, 12];
+
+export const CUSTOMER_PIPELINE_STEPS = Array.from({ length: 3 }, (_, index) => ({
     stepNo: index + 1,
     label: `Follow Up ${index + 1}`,
 }));

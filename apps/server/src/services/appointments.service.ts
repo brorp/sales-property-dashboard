@@ -8,6 +8,7 @@ import {
 } from "../utils/appointment";
 import { generateId } from "../utils/id";
 import { getAppointmentStatusLabel } from "../utils/lead-workflow";
+import { syncLeadDailyTasksForLead } from "./daily-task.service";
 
 type DbExecutor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -157,6 +158,8 @@ export async function updateAppointment(params: {
         note,
         timestamp: new Date(),
     });
+
+    await syncLeadDailyTasksForLead(target.leadId);
 
     return {
         ...target,

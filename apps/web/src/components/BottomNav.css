@@ -100,6 +100,24 @@
     box-shadow: 0 0 0 3px rgba(18, 14, 32, 0.94);
 }
 
+.bottom-nav-count-badge {
+    position: absolute;
+    top: 8px;
+    right: calc(50% - 26px);
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #fb7185;
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 3px rgba(18, 14, 32, 0.94);
+}
+
 @media (min-width: 1024px) {
     .bottom-nav {
         top: 0;
@@ -211,6 +229,12 @@
     .bottom-nav-unread-dot {
         top: 14px;
         right: 14px;
+        box-shadow: 0 0 0 3px rgba(18, 14, 32, 0.98);
+    }
+
+    .bottom-nav-count-badge {
+        top: 10px;
+        right: 10px;
         box-shadow: 0 0 0 3px rgba(18, 14, 32, 0.98);
     }
 }

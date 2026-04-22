@@ -206,10 +206,7 @@ async function createCustomerPipelinePenalties() {
                 salesId,
                 clientId,
                 penaltyId: insertedPenalty.id,
-                ruleCode: CUSTOMER_PIPELINE_RULE_CODE,
-                penaltyLayer,
-                suspendedDays,
-                note: queueNote,
+                durationHours: suspendedDays * 24,
                 suspendedFrom: now,
             }, tx);
 

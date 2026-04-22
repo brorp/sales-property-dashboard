@@ -22,6 +22,7 @@ type LeadRow = {
     resultStatus: string | null;
     unitName: string | null;
     rejectedReason: string | null;
+    validated: boolean;
     progress: string;
     createdAt: Date;
     updatedAt: Date;
@@ -84,6 +85,7 @@ const DATABASE_STATUS_LAYER_META = {
     ],
     l2: [
         { key: "hot", label: "Hot" },
+        { key: "hot_validated", label: "Hot Validated" },
         { key: "warm", label: "Warm" },
         { key: "cold", label: "Cold" },
         { key: "no_response", label: "No Response" },
@@ -454,6 +456,7 @@ async function loadScopedLeadsAndAppointments(
             resultStatus: lead.resultStatus,
             unitName: lead.unitName,
             rejectedReason: lead.rejectedReason,
+            validated: lead.validated,
             progress: lead.progress,
             createdAt: lead.createdAt,
             updatedAt: lead.updatedAt,
@@ -1114,6 +1117,7 @@ export async function getHomeAnalytics(
     let totalBatal = 0;
     let totalMauSurvey = 0;
     let totalHot = 0;
+    let totalHotValidated = 0;
 
     const sourceCounts = new Map<string, number>();
     const picAgentComparisonMaps = new Map<
@@ -1296,6 +1300,9 @@ export async function getHomeAnalytics(
         if (isHot) {
             stats.hot += 1; sStats.hot += 1;
             totalHot += 1;
+            if (item.validated) {
+                totalHotValidated += 1;
+            }
         }
         if (isPotensi) {
             stats.potensi += 1; sStats.potensi += 1;
@@ -1409,6 +1416,7 @@ export async function getHomeAnalytics(
         totalSurvey: surveyedLeads,
         totalMauSurvey,
         totalHot,
+        totalHotValidated,
         totalFullBook,
         totalPotensi,
         totalBatal,

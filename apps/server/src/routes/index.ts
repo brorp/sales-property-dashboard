@@ -16,6 +16,10 @@ import unitsRoutes from "./units.routes";
 import leadSourcesRoutes from "./lead-sources.routes";
 import cancelReasonsRoutes from "./cancel-reasons.routes";
 import notificationsRoutes from "./notifications.routes";
+import dailyTasksRoutes from "./daily-tasks.routes";
+import penaltiesRoutes from "./penalties.routes";
+import uploadsRoutes from "./uploads.routes";
+import supervisorTasksRoutes from "./supervisor-tasks.routes";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -38,5 +42,9 @@ router.use("/units", unitsRoutes);
 router.use("/lead-sources", leadSourcesRoutes);
 router.use("/cancel-reasons", cancelReasonsRoutes);
 router.use("/notifications", notificationsRoutes);
+router.use("/daily-tasks", dailyTasksRoutes);
+router.use("/penalties", penaltiesRoutes);
+router.use("/uploads", uploadsRoutes);
+router.use("/supervisor-tasks", supervisorTasksRoutes);
 
 export default router;

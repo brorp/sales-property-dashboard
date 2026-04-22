@@ -174,7 +174,6 @@ export const lead = pgTable(
         layer2Status: text("layer2_status").notNull().default("prospecting"),
         rejectedReason: text("rejected_reason"),
         rejectedNote: text("rejected_note"),
-        validated: boolean("validated").notNull().default(false),
         progress: text("progress").notNull().default("pending"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),
@@ -398,6 +397,101 @@ export const salesDistributionSuspension = pgTable(
             table.status,
             table.suspendedUntil
         ),
+    })
+);
+
+export const dailyTask = pgTable(
+    "daily_task",
+    {
+        id: text("id").primaryKey(),
+        leadId: text("lead_id")
+            .notNull()
+            .references(() => lead.id, { onDelete: "cascade" }),
+        salesId: text("sales_id")
+            .notNull()
+            .references(() => user.id, { onDelete: "cascade" }),
+        clientId: text("client_id")
+            .notNull()
+            .references(() => client.id, { onDelete: "cascade" }),
+        taskType: text("task_type").notNull(),
+        followupStage: integer("followup_stage"),
+        eligibleAt: timestamp("eligible_at").notNull().defaultNow(),
+        dueAt: timestamp("due_at").notNull(),
+        completedAt: timestamp("completed_at"),
+        status: text("status").notNull().default("pending"),
+        screenshotUrl: text("screenshot_url"),
+        notes: text("notes"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        leadTaskUnique: uniqueIndex("daily_task_lead_task_unique").on(
+            table.leadId,
+            table.taskType,
+            table.followupStage
+        ),
+        salesIdx: index("daily_task_sales_id_idx").on(table.salesId),
+        statusIdx: index("daily_task_status_idx").on(table.status),
+    })
+);
+
+export const dailyTaskPenalty = pgTable(
+    "daily_task_penalty",
+    {
+        id: text("id").primaryKey(),
+        salesId: text("sales_id")
+            .notNull()
+            .references(() => user.id, { onDelete: "cascade" }),
+        clientId: text("client_id")
+            .notNull()
+            .references(() => client.id, { onDelete: "cascade" }),
+        taskId: text("task_id")
+            .notNull()
+            .references(() => dailyTask.id, { onDelete: "cascade" }),
+        penaltySequence: integer("penalty_sequence").notNull(),
+        blockedFrom: timestamp("blocked_from").notNull(),
+        blockedUntil: timestamp("blocked_until").notNull(),
+        durationHours: integer("duration_hours").notNull(),
+        spLevel: text("sp_level").notNull().default("none"),
+        status: text("status").notNull().default("active"),
+        compensatedBy: text("compensated_by").references(() => user.id, { onDelete: "set null" }),
+        compensatedAt: timestamp("compensated_at"),
+        compensationReason: text("compensation_reason"),
+        reason: text("reason").notNull(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        taskUnique: uniqueIndex("daily_task_penalty_task_unique").on(table.taskId),
+        salesIdx: index("daily_task_penalty_sales_id_idx").on(table.salesId),
+        statusIdx: index("daily_task_penalty_status_idx").on(table.status),
+    })
+);
+
+export const dailyTaskPenaltySuspension = pgTable(
+    "daily_task_penalty_suspension",
+    {
+        id: text("id").primaryKey(),
+        salesId: text("sales_id")
+            .notNull()
+            .references(() => user.id, { onDelete: "cascade" }),
+        clientId: text("client_id")
+            .notNull()
+            .references(() => client.id, { onDelete: "cascade" }),
+        penaltyId: text("penalty_id")
+            .notNull()
+            .references(() => dailyTaskPenalty.id, { onDelete: "cascade" }),
+        suspendedFrom: timestamp("suspended_from").notNull(),
+        suspendedUntil: timestamp("suspended_until").notNull(),
+        durationHours: integer("duration_hours").notNull(),
+        status: text("status").notNull().default("active"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        penaltyUnique: uniqueIndex("daily_task_penalty_susp_penalty_unique").on(table.penaltyId),
+        salesIdx: index("daily_task_penalty_susp_sales_id_idx").on(table.salesId),
+        statusIdx: index("daily_task_penalty_susp_status_idx").on(table.status),
     })
 );
 

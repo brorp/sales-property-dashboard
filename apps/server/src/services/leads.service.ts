@@ -3,7 +3,6 @@ import { db } from "../db/index";
 import {
     activity,
     appointment,
-    customerPipelineFollowUp,
     lead,
     projectUnit,
     user,
@@ -17,8 +16,8 @@ import {
 import { createGoogleCalendarEvent } from "./calendar.service";
 import { syncLeadAppointmentsSalesOwner } from "./appointments.service";
 import { normalizeFixedLeadSource } from "../constants/lead-sources";
-import * as customerPipelineService from "./customer-pipeline.service";
 import * as cancelReasonsService from "./cancel-reasons.service";
+import * as dailyTaskService from "./daily-task.service";
 import {
     getFlowStatusLabel,
     getResultStatusLabel,
@@ -258,34 +257,18 @@ export async function findAll(
     const acceptedLeadIds = rowsWithTag
         .filter((row) => row.flowStatus === "accepted")
         .map((row) => row.id);
-
-    const pipelineCountMap = new Map<string, number>();
-    if (acceptedLeadIds.length > 0) {
-        const pipelineRows = await db
-            .select({
-                leadId: customerPipelineFollowUp.leadId,
-                isChecked: customerPipelineFollowUp.isChecked,
-            })
-            .from(customerPipelineFollowUp)
-            .where(inArray(customerPipelineFollowUp.leadId, acceptedLeadIds));
-
-        for (const pipelineRow of pipelineRows) {
-            if (!pipelineRow.isChecked) {
-                continue;
-            }
-
-            pipelineCountMap.set(
-                pipelineRow.leadId,
-                (pipelineCountMap.get(pipelineRow.leadId) || 0) + 1
-            );
-        }
-    }
+    const pipelineProgressMap = await dailyTaskService.getLeadFollowUpProgressMap(acceptedLeadIds);
 
     const rowsWithPipeline = rowsWithTag.map((row) => ({
         ...row,
         customerPipelineCompletedCount:
-            row.flowStatus === "accepted" ? pipelineCountMap.get(row.id) || 0 : 0,
-        customerPipelineTotalSteps: row.flowStatus === "accepted" ? 5 : 0,
+            row.flowStatus === "accepted"
+                ? pipelineProgressMap.get(row.id)?.completedCount || 0
+                : 0,
+        customerPipelineTotalSteps:
+            row.flowStatus === "accepted"
+                ? pipelineProgressMap.get(row.id)?.totalSteps || 3
+                : 0,
     }));
     const requestedTag = mapAppointmentTagFilter(filters.appointmentTag);
     if (!requestedTag) {
@@ -302,8 +285,8 @@ export async function findById(id: string) {
     }
 
     const normalizedFlowStatus = normalizeFlowStatus(leadData.flowStatus, leadData.assignedTo);
-    if (normalizedFlowStatus === "accepted") {
-        await customerPipelineService.ensureCustomerPipelineRows(id);
+    if (normalizedFlowStatus === "accepted" || normalizedFlowStatus === "assigned") {
+        await dailyTaskService.syncLeadDailyTasksForLead(id);
     }
 
     const assignedUserPromise = leadData.assignedTo
@@ -319,7 +302,7 @@ export async function findById(id: string) {
             .limit(1)
         : Promise.resolve([]);
 
-    const [activities, appointments, assignedUser, customerPipeline] = await Promise.all([
+    const [activities, appointments, assignedUser, followUpProgress] = await Promise.all([
         db
             .select()
             .from(activity)
@@ -332,8 +315,12 @@ export async function findById(id: string) {
             .orderBy(desc(appointment.createdAt)),
         assignedUserPromise,
         normalizedFlowStatus === "accepted"
-            ? customerPipelineService.listCustomerPipelineSteps(id)
-            : Promise.resolve([]),
+            ? dailyTaskService.getLeadFollowUpProgress(id)
+            : Promise.resolve({
+                completedCount: 0,
+                totalSteps: 3,
+                stages: [],
+            }),
     ]);
 
     const latestAppointment = pickLatestAppointment(appointments);
@@ -345,7 +332,9 @@ export async function findById(id: string) {
         latestAppointment: latestAppointment || null,
         activities,
         appointments,
-        customerPipeline,
+        customerPipeline: followUpProgress.stages,
+        customerPipelineCompletedCount: followUpProgress.completedCount,
+        customerPipelineTotalSteps: followUpProgress.totalSteps,
         assignedUser: assignedUser[0] || null,
     };
 }
@@ -421,6 +410,15 @@ export async function create(data: {
         timestamp: now,
     });
 
+    if (assignedTo) {
+        await dailyTaskService.createNewLeadTaskForLead({
+            leadId: id,
+            salesId: assignedTo,
+            clientId: resolvedClientId,
+            assignedAt: now,
+        });
+    }
+
     return newLead;
 }
 
@@ -483,6 +481,13 @@ export async function assignLead(data: {
         timestamp: now,
     });
 
+    await dailyTaskService.createNewLeadTaskForLead({
+        leadId: data.leadId,
+        salesId: data.salesId,
+        clientId: currentLead.clientId || null,
+        assignedAt: now,
+    });
+
     await syncLeadAppointmentsSalesOwner({
         leadId: data.leadId,
         salesId: data.salesId,
@@ -535,8 +540,6 @@ export async function acceptLead(data: {
             })
             .where(eq(lead.id, data.leadId));
 
-        await customerPipelineService.ensureCustomerPipelineRows(data.leadId, tx);
-
         await tx.insert(activity).values({
             id: generateId(),
             leadId: data.leadId,
@@ -544,6 +547,8 @@ export async function acceptLead(data: {
             note: `Lead diterima oleh ${data.actorName}. Status L1 berubah dari ${getFlowStatusLabel(normalizedFlowStatus)} ke ${getFlowStatusLabel("accepted")}. Status L2 otomatis berubah menjadi ${getSalesStatusLabel("warm")}.`,
             timestamp: now,
         });
+
+        await dailyTaskService.syncLeadDailyTasksForLead(data.leadId, tx, now);
     });
 
     return findById(data.leadId);
@@ -576,26 +581,7 @@ export async function completeCustomerPipelineStep(params: {
     actorId: string;
     actorName: string;
 }) {
-    const [currentLead] = await db
-        .select({
-            id: lead.id,
-            flowStatus: lead.flowStatus,
-            assignedTo: lead.assignedTo,
-        })
-        .from(lead)
-        .where(eq(lead.id, params.leadId))
-        .limit(1);
-
-    if (!currentLead) {
-        throw new Error("LEAD_NOT_FOUND");
-    }
-
-    const normalizedFlowStatus = normalizeFlowStatus(currentLead.flowStatus, currentLead.assignedTo);
-    if (normalizedFlowStatus !== "accepted") {
-        throw new Error("CUSTOMER_PIPELINE_ONLY_AFTER_ACCEPTED");
-    }
-
-    return customerPipelineService.completeCustomerPipelineStep(params);
+    throw new Error("CUSTOMER_PIPELINE_MANUAL_DISABLED");
 }
 
 export async function addAppointment(
@@ -609,6 +595,18 @@ export async function addAppointment(
     }
 ) {
     const now = new Date();
+
+    // Guard: reject if there's already an active (mau_survey) appointment
+    const [existingActive] = await db
+        .select({ id: appointment.id })
+        .from(appointment)
+        .where(and(eq(appointment.leadId, leadId), eq(appointment.status, "mau_survey")))
+        .limit(1);
+
+    if (existingActive) {
+        throw new Error("Tidak dapat menambahkan karena sedang ada appointment berjalan");
+    }
+
     const [year, month, day] = data.date.split("-").map((v) => Number(v));
     const [hours, minutes] = data.time.split(":").map((v) => Number(v));
     const startAt = new Date(
@@ -688,6 +686,8 @@ export async function addAppointment(
                 timestamp: now,
             });
         }
+
+        await dailyTaskService.syncLeadDailyTasksForLead(leadId, tx, now);
     });
 
     return newAppointment;
@@ -1044,6 +1044,24 @@ export async function patchLead(input: LeadPatchInput) {
                         ? null
                         : updatedLead.assignedTo || null,
         });
+
+        const nextAssignedSalesId =
+            typeof updates.assignedTo === "string"
+                ? updates.assignedTo
+                : updates.assignedTo === null
+                    ? null
+                    : updatedLead.assignedTo || null;
+
+        if (nextAssignedSalesId) {
+            await dailyTaskService.createNewLeadTaskForLead({
+                leadId: input.id,
+                salesId: nextAssignedSalesId,
+                clientId: updatedLead.clientId || input.actorClientId || null,
+                assignedAt: now,
+            });
+        } else {
+            await dailyTaskService.invalidateDailyTasksForLead(input.id);
+        }
     }
 
     const explicitNote = sanitizeRequiredText(input.activityNote);
@@ -1063,6 +1081,8 @@ export async function patchLead(input: LeadPatchInput) {
             timestamp: now,
         });
     }
+
+    await dailyTaskService.syncLeadDailyTasksForLead(input.id);
 
     return updatedLead;
 }

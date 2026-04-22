@@ -1,6 +1,6 @@
 import { and, desc, eq, gt, inArray, lte } from "drizzle-orm";
 import { db } from "../db/index";
-import { salesDistributionSuspension } from "../db/schema";
+import { dailyTaskPenalty, dailyTaskPenaltySuspension } from "../db/schema";
 import { generateId } from "../utils/id";
 
 type DbExecutor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -9,10 +9,7 @@ type CreateSuspensionParams = {
     salesId: string;
     clientId?: string | null;
     penaltyId: string;
-    ruleCode: string;
-    penaltyLayer: number;
-    suspendedDays: number;
-    note?: string | null;
+    durationHours: number;
     suspendedFrom?: Date;
 };
 
@@ -21,15 +18,28 @@ export async function markExpiredSalesSuspensions(
     now: Date = new Date()
 ) {
     await executor
-        .update(salesDistributionSuspension)
+        .update(dailyTaskPenaltySuspension)
         .set({
-            status: "completed",
+            status: "expired",
             updatedAt: now,
         })
         .where(
             and(
-                eq(salesDistributionSuspension.status, "active"),
-                lte(salesDistributionSuspension.suspendedUntil, now)
+                eq(dailyTaskPenaltySuspension.status, "active"),
+                lte(dailyTaskPenaltySuspension.suspendedUntil, now)
+            )
+        );
+
+    await executor
+        .update(dailyTaskPenalty)
+        .set({
+            status: "expired",
+            updatedAt: now,
+        })
+        .where(
+            and(
+                eq(dailyTaskPenalty.status, "active"),
+                lte(dailyTaskPenalty.blockedUntil, now)
             )
         );
 }
@@ -46,16 +56,38 @@ export async function getActiveSalesSuspensionRows(
     await markExpiredSalesSuspensions(executor, now);
 
     return executor
-        .select()
-        .from(salesDistributionSuspension)
+        .select({
+            id: dailyTaskPenaltySuspension.id,
+            salesId: dailyTaskPenaltySuspension.salesId,
+            clientId: dailyTaskPenaltySuspension.clientId,
+            penaltyId: dailyTaskPenaltySuspension.penaltyId,
+            status: dailyTaskPenaltySuspension.status,
+            durationHours: dailyTaskPenaltySuspension.durationHours,
+            suspendedFrom: dailyTaskPenaltySuspension.suspendedFrom,
+            suspendedUntil: dailyTaskPenaltySuspension.suspendedUntil,
+            createdAt: dailyTaskPenaltySuspension.createdAt,
+            updatedAt: dailyTaskPenaltySuspension.updatedAt,
+            penaltySequence: dailyTaskPenalty.penaltySequence,
+            spLevel: dailyTaskPenalty.spLevel,
+            reason: dailyTaskPenalty.reason,
+            penaltyLayer: dailyTaskPenalty.penaltySequence,
+            suspendedDays: dailyTaskPenaltySuspension.durationHours,
+            ruleCode: dailyTaskPenalty.reason,
+        })
+        .from(dailyTaskPenaltySuspension)
+        .innerJoin(
+            dailyTaskPenalty,
+            eq(dailyTaskPenaltySuspension.penaltyId, dailyTaskPenalty.id)
+        )
         .where(
             and(
-                inArray(salesDistributionSuspension.salesId, salesIds),
-                eq(salesDistributionSuspension.status, "active"),
-                gt(salesDistributionSuspension.suspendedUntil, now)
+                inArray(dailyTaskPenaltySuspension.salesId, salesIds),
+                eq(dailyTaskPenaltySuspension.status, "active"),
+                eq(dailyTaskPenalty.status, "active"),
+                gt(dailyTaskPenaltySuspension.suspendedUntil, now)
             )
         )
-        .orderBy(desc(salesDistributionSuspension.suspendedUntil));
+        .orderBy(desc(dailyTaskPenaltySuspension.suspendedUntil));
 }
 
 export async function getActiveSalesSuspensionMap(
@@ -103,24 +135,22 @@ export async function createSalesSuspension(
     executor: DbExecutor = db
 ) {
     const suspendedFrom = params.suspendedFrom || new Date();
+    const durationHours = Math.max(1, Number(params.durationHours || 0));
     const suspendedUntil = new Date(
-        suspendedFrom.getTime() + Math.max(1, params.suspendedDays) * 24 * 60 * 60 * 1000
+        suspendedFrom.getTime() + durationHours * 60 * 60 * 1000
     );
 
     const [inserted] = await executor
-        .insert(salesDistributionSuspension)
+        .insert(dailyTaskPenaltySuspension)
         .values({
             id: generateId(),
             salesId: params.salesId,
             clientId: params.clientId || null,
             penaltyId: params.penaltyId,
-            ruleCode: params.ruleCode,
-            penaltyLayer: params.penaltyLayer,
-            suspendedDays: params.suspendedDays,
-            status: "active",
-            note: params.note || null,
             suspendedFrom,
             suspendedUntil,
+            durationHours,
+            status: "active",
             createdAt: suspendedFrom,
             updatedAt: suspendedFrom,
         })
@@ -130,8 +160,8 @@ export async function createSalesSuspension(
     if (!inserted) {
         const [existing] = await executor
             .select()
-            .from(salesDistributionSuspension)
-            .where(eq(salesDistributionSuspension.penaltyId, params.penaltyId))
+            .from(dailyTaskPenaltySuspension)
+            .where(eq(dailyTaskPenaltySuspension.penaltyId, params.penaltyId))
             .limit(1);
         return existing || null;
     }

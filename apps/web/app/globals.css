@@ -5,6 +5,8 @@
 @import '../src/screens/DashboardPage.css';
 @import '../src/screens/LeadsPage.css';
 @import '../src/screens/LeadDetailPage.css';
+@import '../src/screens/DailyTaskPage.css';
+@import '../src/screens/PenaltiesPage.css';
 @import '../src/screens/TeamPage.css';
 @import '../src/screens/TeamMemberDetailPage.css';
 @import '../src/screens/ProfilePage.css';

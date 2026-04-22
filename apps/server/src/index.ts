@@ -15,7 +15,7 @@ import webhooksRoutes from "./routes/webhooks.routes";
 import whatsappAdminRoutes from "./routes/whatsapp-admin.routes";
 import { startDistributionWorker } from "./worker/distribution.worker";
 import { startAppointmentReminderWorker } from "./worker/appointment-reminder.worker";
-import { startCustomerPipelinePenaltyWorker } from "./worker/customer-pipeline-penalty.worker";
+import { startDailyTaskWorker } from "./worker/daily-task.worker";
 import { startWhatsAppQrBridge } from "./services/whatsapp-qr.service";
 import {
     createComponentLogger,
@@ -79,7 +79,7 @@ app.listen(PORT, () => {
 
     startDistributionWorker();
     startAppointmentReminderWorker();
-    startCustomerPipelinePenaltyWorker();
+    startDailyTaskWorker();
     void startWhatsAppQrBridge();
     registerGlobalProcessErrorHandlers();
 });

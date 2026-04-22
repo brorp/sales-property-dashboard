@@ -131,7 +131,7 @@ export default function UnitsPage() {
             <div className="card settings-card">
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div className="input-group">
-                        <label>Tipe Unit</label>
+                        <label>Nama Unit</label>
                         <input
                             className="input-field"
                             value={form.unitName}

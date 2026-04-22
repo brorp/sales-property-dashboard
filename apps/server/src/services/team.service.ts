@@ -261,11 +261,14 @@ function buildSalesMember(
         isSuspended: Boolean(suspension),
         suspension: suspension
             ? {
-                penaltyLayer: suspension.penaltyLayer,
-                suspendedDays: suspension.suspendedDays,
+                penaltyLayer: suspension.penaltySequence,
+                penaltySequence: suspension.penaltySequence,
+                durationHours: suspension.durationHours,
+                suspendedDays: Math.max(1, Math.ceil(Number(suspension.durationHours || 0) / 24)),
                 suspendedFrom: suspension.suspendedFrom,
                 suspendedUntil: suspension.suspendedUntil,
-                ruleCode: suspension.ruleCode,
+                spLevel: suspension.spLevel,
+                reason: suspension.reason,
             }
             : null,
         ...stats,
@@ -667,11 +670,14 @@ export async function getTeamMemberDetail(memberId: string, scope?: QueryScope) 
             isSuspended: Boolean(memberSuspension),
             suspension: memberSuspension
                 ? {
-                    penaltyLayer: memberSuspension.penaltyLayer,
-                    suspendedDays: memberSuspension.suspendedDays,
+                    penaltyLayer: memberSuspension.penaltySequence,
+                    penaltySequence: memberSuspension.penaltySequence,
+                    durationHours: memberSuspension.durationHours,
+                    suspendedDays: Math.max(1, Math.ceil(Number(memberSuspension.durationHours || 0) / 24)),
                     suspendedFrom: memberSuspension.suspendedFrom,
                     suspendedUntil: memberSuspension.suspendedUntil,
-                    ruleCode: memberSuspension.ruleCode,
+                    spLevel: memberSuspension.spLevel,
+                    reason: memberSuspension.reason,
                 }
                 : null,
             createdAt: member.createdAt,
@@ -691,11 +697,14 @@ export async function getTeamMemberDetail(memberId: string, scope?: QueryScope) 
                 isSuspended: Boolean(itemSuspension),
                 suspension: itemSuspension
                     ? {
-                        penaltyLayer: itemSuspension.penaltyLayer,
-                        suspendedDays: itemSuspension.suspendedDays,
+                        penaltyLayer: itemSuspension.penaltySequence,
+                        penaltySequence: itemSuspension.penaltySequence,
+                        durationHours: itemSuspension.durationHours,
+                        suspendedDays: Math.max(1, Math.ceil(Number(itemSuspension.durationHours || 0) / 24)),
                         suspendedFrom: itemSuspension.suspendedFrom,
                         suspendedUntil: itemSuspension.suspendedUntil,
-                        ruleCode: itemSuspension.ruleCode,
+                        spLevel: itemSuspension.spLevel,
+                        reason: itemSuspension.reason,
                     }
                     : null,
                 ...((salesStatsMap.get(item.id) || createEmptyStats())),

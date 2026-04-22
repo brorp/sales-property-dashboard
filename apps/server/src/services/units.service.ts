@@ -34,13 +34,11 @@ export async function listUnits(clientId?: string | null) {
 
 export async function createUnit(params: {
     clientId: string;
-    projectType: string;
     unitName: string;
 }) {
-    const projectType = sanitizeRequiredText(params.projectType);
     const unitName = sanitizeRequiredText(params.unitName);
 
-    if (!projectType || !unitName) {
+    if (!unitName) {
         throw new Error("UNIT_FIELDS_REQUIRED");
     }
 
@@ -50,7 +48,7 @@ export async function createUnit(params: {
         .values({
             id: generateId(),
             clientId: params.clientId,
-            projectType,
+            projectType: "-",
             unitName,
             createdAt: now,
             updatedAt: now,
@@ -63,7 +61,6 @@ export async function createUnit(params: {
 export async function updateUnit(params: {
     id: string;
     clientId: string;
-    projectType?: string;
     unitName?: string;
 }) {
     const [existing] = await db
@@ -76,23 +73,18 @@ export async function updateUnit(params: {
         return null;
     }
 
-    const nextProjectType =
-        params.projectType !== undefined
-            ? sanitizeRequiredText(params.projectType)
-            : existing.projectType;
     const nextUnitName =
         params.unitName !== undefined
             ? sanitizeRequiredText(params.unitName)
             : existing.unitName;
 
-    if (!nextProjectType || !nextUnitName) {
+    if (!nextUnitName) {
         throw new Error("UNIT_FIELDS_REQUIRED");
     }
 
     const [updated] = await db
         .update(projectUnit)
         .set({
-            projectType: nextProjectType,
             unitName: nextUnitName,
             updatedAt: new Date(),
         })

@@ -6,6 +6,7 @@ import { useLeads } from '../context/LeadsContext';
 import {
     APPOINTMENT_TAGS,
     CUSTOMER_PIPELINE_STEPS,
+    DAILY_TASK_FOLLOWUP_MILESTONE_DAYS,
     RESULT_STATUSES,
     SALES_STATUSES,
     SALES_STATUS_COLD_OPEN_DAYS,
@@ -57,19 +58,40 @@ function isOlderThanDays(value, days) {
     return Date.now() - date.getTime() > days * 24 * 60 * 60 * 1000;
 }
 
+function addDays(value, days) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return null;
+    }
+
+    return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
 function buildCustomerPipelineRows(lead) {
     const sourceRows = Array.isArray(lead?.customerPipeline) ? lead.customerPipeline : [];
     const mapped = new Map(sourceRows.map((item) => [Number(item.stepNo), item]));
 
-    return CUSTOMER_PIPELINE_STEPS.map((step) => ({
-        ...step,
-        ...(mapped.get(step.stepNo) || {}),
-        note: mapped.get(step.stepNo)?.note || '',
-        isChecked: Boolean(mapped.get(step.stepNo)?.isChecked),
-        isLocked: Boolean(mapped.get(step.stepNo)?.isLocked),
-        checkedAt: mapped.get(step.stepNo)?.checkedAt || null,
-        checkedByName: mapped.get(step.stepNo)?.checkedByName || null,
-    }));
+    return CUSTOMER_PIPELINE_STEPS.map((step) => {
+        const source = mapped.get(step.stepNo) || null;
+        const eligibleAt =
+            source?.eligibleAt ||
+            addDays(lead?.acceptedAt, DAILY_TASK_FOLLOWUP_MILESTONE_DAYS[step.stepNo - 1]) ||
+            null;
+        const isUpcoming =
+            eligibleAt &&
+            new Date(eligibleAt).getTime() > Date.now() &&
+            !source;
+
+        return {
+            ...step,
+            ...(source || {}),
+            status: source?.status || (isUpcoming ? 'upcoming' : 'pending'),
+            eligibleAt,
+            dueAt: source?.dueAt || null,
+            completedAt: source?.completedAt || null,
+            screenshotUrl: source?.screenshotUrl || null,
+        };
+    });
 }
 
 export default function LeadDetailPage({ leadId }) {
@@ -79,7 +101,6 @@ export default function LeadDetailPage({ leadId }) {
         loadLeadById,
         updateLead,
         acceptLead,
-        completeCustomerPipelineStep,
         addAppointment,
         updateAppointment,
         cancelAppointment,
@@ -119,10 +140,7 @@ export default function LeadDetailPage({ leadId }) {
     const [unitsLoading, setUnitsLoading] = useState(false);
     const [cancelReasons, setCancelReasons] = useState([]);
     const [cancelReasonsLoading, setCancelReasonsLoading] = useState(false);
-    const [pipelineNotes, setPipelineNotes] = useState({});
-    const [openedPipelineStep, setOpenedPipelineStep] = useState(0);
     const [acceptingLead, setAcceptingLead] = useState(false);
-    const [completingStepNo, setCompletingStepNo] = useState(0);
 
     const lead = getLeadById(leadId);
     const salesUsers = getSalesUsers();
@@ -179,13 +197,6 @@ export default function LeadDetailPage({ leadId }) {
             rejectedReason: lead.rejectedReason || '',
             rejectedNote: lead.rejectedNote || '',
         });
-        setPipelineNotes(
-            buildCustomerPipelineRows(lead).reduce((acc, item) => ({
-                ...acc,
-                [item.stepNo]: item.note || '',
-            }), {})
-        );
-        setOpenedPipelineStep(0);
     }, [lead]);
 
     useEffect(() => {
@@ -349,31 +360,6 @@ export default function LeadDetailPage({ leadId }) {
             setRequestError(err instanceof Error ? err.message : 'Gagal menerima lead');
         } finally {
             setAcceptingLead(false);
-        }
-    };
-
-    const handleCompletePipelineStep = async (stepNo) => {
-        if (!canEditLead || !isAcceptedLead) {
-            return;
-        }
-
-        const nextNote = String(pipelineNotes[stepNo] || '').trim();
-        if (!nextNote) {
-            setRequestError('Catatan follow up wajib diisi sebelum checklist disimpan.');
-            return;
-        }
-
-        setCompletingStepNo(stepNo);
-        try {
-            setRequestError('');
-            setRequestSuccess('');
-            await completeCustomerPipelineStep(lead.id, stepNo, nextNote);
-            setOpenedPipelineStep(0);
-            setRequestSuccess(`Follow Up ${stepNo} berhasil diselesaikan.`);
-        } catch (err) {
-            setRequestError(err instanceof Error ? err.message : 'Gagal menyimpan follow up');
-        } finally {
-            setCompletingStepNo(0);
         }
     };
 
@@ -587,93 +573,68 @@ export default function LeadDetailPage({ leadId }) {
                         <div>
                             <h3 className="section-title" style={{ marginBottom: 4 }}>Customer Pipeline</h3>
                             <p className="settings-help" style={{ margin: 0 }}>
-                                Follow up customer pipeline baru aktif setelah lead diterima. Setiap step yang selesai akan otomatis terkunci permanen.
+                                Follow up sekarang digerakkan otomatis dari Daily Task. Progress di bawah akan terisi saat proof day 4, day 8, dan day 12 berhasil disubmit.
                             </p>
                         </div>
                         <CustomerPipelineProgress
-                            completed={customerPipelineRows.filter((item) => item.isChecked).length}
+                            completed={customerPipelineRows.filter((item) => item.status === 'done').length}
                             total={customerPipelineRows.length}
                         />
                     </div>
 
                     <div className="card detail-pipeline-card">
                         {customerPipelineRows.map((step) => (
-                            <div
-                                key={step.stepNo}
-                                className={`detail-pipeline-row ${step.isChecked ? 'is-completed' : ''} ${openedPipelineStep === step.stepNo ? 'is-open' : ''}`}
-                            >
+                            <div key={step.stepNo} className={`detail-pipeline-row ${step.status === 'done' ? 'is-completed' : ''}`}>
                                 <div className="detail-pipeline-row-top">
                                     <div className="detail-pipeline-row-main">
                                         <div className="detail-pipeline-badges">
-                                            <span className={`badge ${step.isChecked ? 'badge-success' : 'badge-neutral'}`}>
+                                            <span className={`badge ${step.status === 'done' ? 'badge-success' : step.status === 'overdue' ? 'badge-danger' : step.status === 'pending' ? 'badge-warm' : 'badge-neutral'}`}>
                                                 {step.label}
                                             </span>
-                                            {step.isLocked ? <span className="badge badge-purple">Locked</span> : null}
+                                            <span className={`badge ${step.status === 'done' ? 'badge-success' : step.status === 'overdue' ? 'badge-danger' : step.status === 'pending' ? 'badge-info' : 'badge-neutral'}`}>
+                                                {step.status === 'done'
+                                                    ? 'Done'
+                                                    : step.status === 'overdue'
+                                                        ? 'Overdue'
+                                                        : step.status === 'pending'
+                                                            ? 'Pending'
+                                                            : 'Upcoming'}
+                                            </span>
                                         </div>
                                         <div className="detail-pipeline-summary">
-                                            {step.note
-                                                ? step.note
-                                                : step.isChecked
-                                                    ? 'Tidak ada catatan tambahan'
-                                                    : 'Tambahkan catatan singkat sebelum follow up diselesaikan.'}
+                                            {step.status === 'done'
+                                                ? `Proof follow up sudah disubmit${step.completedAt ? ` pada ${formatExactDateTime(step.completedAt)}` : ''}.`
+                                                : step.status === 'overdue'
+                                                    ? `Milestone ini belum disubmit. Deadline ${formatExactDateTime(step.dueAt)}.`
+                                                    : step.status === 'pending'
+                                                        ? `Milestone aktif${step.dueAt ? ` dan perlu disubmit sebelum ${formatExactDateTime(step.dueAt)}` : ''}.`
+                                                        : `Milestone akan aktif ${formatExactDateTime(step.eligibleAt)}.`}
                                         </div>
-                                        {step.checkedAt ? (
+                                        {step.eligibleAt ? (
                                             <div className="detail-pipeline-meta">
-                                                <span>{formatExactDateTime(step.checkedAt)}</span>
-                                                <span>{step.checkedByName ? `oleh ${step.checkedByName}` : 'Locked'}</span>
+                                                <span>Target follow up: {formatExactDateTime(step.eligibleAt)}</span>
+                                                {step.dueAt ? <span>Deadline: {formatExactDateTime(step.dueAt)}</span> : null}
                                             </div>
                                         ) : null}
                                     </div>
 
                                     <div className="detail-pipeline-actions">
-                                        <button
-                                            type="button"
-                                            className="btn btn-sm btn-secondary"
-                                            onClick={() => setOpenedPipelineStep((prev) => (prev === step.stepNo ? 0 : step.stepNo))}
-                                        >
-                                            {openedPipelineStep === step.stepNo ? 'Tutup' : step.isChecked ? 'Lihat' : 'Isi'}
-                                        </button>
-                                        {!step.isChecked ? (
-                                            <button
-                                                type="button"
-                                                className="btn btn-sm btn-primary"
-                                                disabled={!canEditLead || completingStepNo === step.stepNo}
-                                                onClick={() => void handleCompletePipelineStep(step.stepNo)}
+                                        {step.screenshotUrl ? (
+                                            <a
+                                                className="btn btn-sm btn-secondary"
+                                                href={step.screenshotUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
                                             >
-                                                {completingStepNo === step.stepNo ? 'Menyimpan...' : 'Checklist'}
-                                            </button>
-                                        ) : null}
-                                    </div>
-                                </div>
-
-                                {openedPipelineStep === step.stepNo ? (
-                                    <div className="detail-pipeline-panel">
-                                        {step.isChecked ? (
-                                            <div className="detail-pipeline-readonly">
-                                                <div><strong>Catatan:</strong> {step.note || '-'}</div>
-                                                <div><strong>Checked at:</strong> {formatExactDateTime(step.checkedAt)}</div>
-                                                <div><strong>Checked by:</strong> {step.checkedByName || '-'}</div>
-                                            </div>
+                                                Lihat Proof
+                                            </a>
                                         ) : (
-                                            <div className="detail-pipeline-editor">
-                                                <textarea
-                                                    className="input-field detail-pipeline-note-input"
-                                                    rows={2}
-                                                    placeholder={`Catatan singkat untuk ${step.label}`}
-                                                    value={pipelineNotes[step.stepNo] || ''}
-                                                    onChange={(event) => setPipelineNotes((prev) => ({
-                                                        ...prev,
-                                                        [step.stepNo]: event.target.value,
-                                                    }))}
-                                                    disabled={!canEditLead}
-                                                />
-                                                <span className="settings-help" style={{ marginTop: 0 }}>
-                                                    Catatan wajib diisi sebelum step dikunci permanen.
-                                                </span>
-                                            </div>
+                                            <span className="settings-help" style={{ margin: 0 }}>
+                                                Submit lewat menu Daily Task
+                                            </span>
                                         )}
                                     </div>
-                                ) : null}
+                                </div>
                             </div>
                         ))}
                     </div>

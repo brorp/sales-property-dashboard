@@ -2,7 +2,7 @@
 
 export default function CustomerPipelineProgress({
     completed = 0,
-    total = 5,
+    total = 3,
     compact = false,
 }) {
     const safeTotal = Math.max(0, Number(total || 0));

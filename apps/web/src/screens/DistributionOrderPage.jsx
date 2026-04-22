@@ -245,7 +245,7 @@ export default function DistributionOrderPage() {
                 ) : null}
                 {blockedSales.length > 0 ? (
                     <div className="settings-help" style={{ marginTop: 10 }}>
-                        Sales yang sedang suspended tidak bisa ditambahkan ke queue sampai masa suspend berakhir.
+                        Sales yang sedang terkena penalty aktif tidak bisa ditambahkan ke queue sampai masa block berakhir.
                     </div>
                 ) : null}
 
@@ -302,14 +302,17 @@ export default function DistributionOrderPage() {
                                         <div className="settings-queue-meta">{item.email}</div>
                                         {item.suspension?.suspendedUntil ? (
                                             <div className="settings-queue-meta">
-                                                Suspended sampai {new Date(item.suspension.suspendedUntil).toLocaleString('id-ID')}
+                                                Penalty aktif sampai {new Date(item.suspension.suspendedUntil).toLocaleString('id-ID')}
+                                            </div>
+                                        ) : null}
+                                        {item.suspension?.spLevel && item.suspension.spLevel !== 'none' ? (
+                                            <div className="settings-queue-meta">
+                                                Surat peringatan: {String(item.suspension.spLevel).toUpperCase()}
                                             </div>
                                         ) : null}
                                     </div>
                                 </div>
-                                <span className="badge badge-danger">
-                                    Layer {item.suspension?.penaltyLayer || '-'}
-                                </span>
+                                <span className="badge badge-danger">Penalty #{item.suspension?.penaltySequence || item.suspension?.penaltyLayer || '-'}</span>
                             </div>
                         ))}
                     </div>

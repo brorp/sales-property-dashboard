@@ -5,15 +5,29 @@ import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import { useLeads } from '../context/LeadsContext';
 import { useAuth } from '../context/AuthContext';
-import { APPOINTMENT_TAGS, getAppointmentTagLabel, getStatusBadgeClass, toWaLink } from '../constants/crm';
+import { getAppointmentTagLabel, getStatusBadgeClass, toWaLink } from '../constants/crm';
 import { usePagePolling } from '../hooks/usePagePolling';
+
+const FILTER_OPTIONS = [
+    { key: 'active', label: 'Active' },
+    { key: 'mau_survey', label: 'Mau Survey' },
+    { key: 'sudah_survey', label: 'Sudah Survey' },
+    { key: 'dibatalkan', label: 'Dibatalkan' },
+    { key: 'all', label: 'Semua' },
+];
+
+function matchesTagFilter(item, tagFilter) {
+    if (tagFilter === 'all') return true;
+    if (tagFilter === 'active') return item.appointmentTag === 'mau_survey' || item.appointmentTag === 'sudah_survey';
+    return item.appointmentTag === tagFilter;
+}
 
 export default function AppointmentsPage() {
     const { user, isAdmin } = useAuth();
     const { appointments, refreshAppointments, getSalesUsers } = useLeads();
     const router = useRouter();
     const [search, setSearch] = useState('');
-    const [tagFilter, setTagFilter] = useState('all');
+    const [tagFilter, setTagFilter] = useState('active');
     const [salesFilter, setSalesFilter] = useState('all');
     const salesUsers = getSalesUsers();
     const canFilterBySales = user?.role === 'root_admin' || user?.role === 'client_admin' || user?.role === 'supervisor';
@@ -29,7 +43,7 @@ export default function AppointmentsPage() {
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
         return appointments.filter((item) => {
-            if (tagFilter !== 'all' && item.appointmentTag !== tagFilter) {
+            if (!matchesTagFilter(item, tagFilter)) {
                 return false;
             }
 
@@ -72,19 +86,13 @@ export default function AppointmentsPage() {
             </div>
 
             <div className="filter-pills" style={{ marginBottom: 12 }}>
-                <button
-                    className={`filter-pill ${tagFilter === 'all' ? 'active' : ''}`}
-                    onClick={() => setTagFilter('all')}
-                >
-                    Semua
-                </button>
-                {APPOINTMENT_TAGS.map((tag) => (
+                {FILTER_OPTIONS.map((opt) => (
                     <button
-                        key={tag.key}
-                        className={`filter-pill ${tagFilter === tag.key ? 'active' : ''}`}
-                        onClick={() => setTagFilter(tag.key)}
+                        key={opt.key}
+                        className={`filter-pill ${tagFilter === opt.key ? 'active' : ''}`}
+                        onClick={() => setTagFilter(opt.key)}
                     >
-                        {tag.label}
+                        {opt.label}
                     </button>
                 ))}
             </div>

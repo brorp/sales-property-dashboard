@@ -1212,18 +1212,24 @@ export default function LeadsPage() {
                             <div className="input-group">
                                 <label>Tanggal Masuk (Dari - Sampai)</label>
                                 <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr' }}>
-                                    <PickerTriggerField
-                                        type="date"
-                                        label="Dari"
-                                        value={exportFilters.dateFrom}
-                                        onChange={(e) => setExportFilters((prev) => ({ ...prev, dateFrom: e.target.value }))}
-                                    />
-                                    <PickerTriggerField
-                                        type="date"
-                                        label="Sampai"
-                                        value={exportFilters.dateTo}
-                                        onChange={(e) => setExportFilters((prev) => ({ ...prev, dateTo: e.target.value }))}
-                                    />
+                                    <div className="input-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Dari</label>
+                                        <input
+                                            type="date"
+                                            className="input-field"
+                                            value={exportFilters.dateFrom}
+                                            onChange={(e) => setExportFilters((prev) => ({ ...prev, dateFrom: e.target.value }))}
+                                        />
+                                    </div>
+                                    <div className="input-group" style={{ margin: 0 }}>
+                                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Sampai</label>
+                                        <input
+                                            type="date"
+                                            className="input-field"
+                                            value={exportFilters.dateTo}
+                                            onChange={(e) => setExportFilters((prev) => ({ ...prev, dateTo: e.target.value }))}
+                                        />
+                                    </div>
                                 </div>
                             </div>
 

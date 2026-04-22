@@ -15,35 +15,44 @@ const MANAGER_ROLES = new Set(['admin', 'root_admin', 'client_admin', 'superviso
 
 const LOGIN_USERS = [
     {
-        id: 'seed-client-admin',
-        name: 'Widari Admin',
-        email: 'admin@widari.propertylounge.id',
+        id: 'seed-client-admin-wr',
+        name: 'Widari Residence Admin',
+        email: 'admin@widariresidence.co.id',
         password: 'admin123',
         role: 'client_admin',
-        clientSlug: 'widari',
+        clientSlug: 'widari-residence',
     },
     {
-        id: 'seed-supervisor-aldi',
-        name: 'Aldi',
-        email: 'aldi@widari.propertylounge.id',
-        password: 'admin123',
+        id: 'seed-supervisor-aldi-wr',
+        name: 'Spv Aldi',
+        email: 'aliashadi@widariresidence.co.id',
+        password: 'supervisor123',
         role: 'supervisor',
-        clientSlug: 'widari',
+        clientSlug: 'widari-residence',
     },
     {
-        id: 'seed-sales-steven',
-        name: 'Steven',
-        email: 'steven@widari.propertylounge.id',
+        id: 'seed-sales-mila-wr',
+        name: 'Mila',
+        email: 'mila@widariresidence.co.id',
         password: 'sales123',
         role: 'sales',
-        clientSlug: 'widari',
+        clientSlug: 'widari-residence',
+    },
+    {
+        id: 'seed-client-admin-wv',
+        name: 'WV Admin',
+        email: 'admin-wv@widari.propertylounge.id',
+        password: 'admin123',
+        role: 'client_admin',
+        clientSlug: 'widari-village',
     },
 ];
 
 const DEMO_LOGIN_USER_EMAILS = new Set([
-    'admin@widari.propertylounge.id',
-    'aldi@widari.propertylounge.id',
-    'steven@widari.propertylounge.id',
+    'admin@widariresidence.co.id',
+    'aliashadi@widariresidence.co.id',
+    'mila@widariresidence.co.id',
+    'admin-wv@widari.propertylounge.id',
 ]);
 
 const AuthContext = createContext(null);

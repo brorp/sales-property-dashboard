@@ -239,11 +239,14 @@ export async function getSalesUsers(scope: SalesQueryScope = {}) {
             isSuspended: Boolean(suspension),
             suspension: suspension
                 ? {
-                    penaltyLayer: suspension.penaltyLayer,
-                    suspendedDays: suspension.suspendedDays,
+                    penaltyLayer: suspension.penaltySequence,
+                    penaltySequence: suspension.penaltySequence,
+                    durationHours: suspension.durationHours,
+                    suspendedDays: Math.max(1, Math.ceil(Number(suspension.durationHours || 0) / 24)),
                     suspendedFrom: suspension.suspendedFrom,
                     suspendedUntil: suspension.suspendedUntil,
-                    ruleCode: suspension.ruleCode,
+                    spLevel: suspension.spLevel,
+                    reason: suspension.reason,
                 }
                 : null,
         };
