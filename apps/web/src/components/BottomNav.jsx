@@ -255,12 +255,25 @@ export default function BottomNav() {
     const hasUnreadLeads = hasUnreadSince(summary.latestLeadAt, seenState.leads);
     const hasUnreadLogs = hasUnreadSince(summary.latestLogAt, seenState.logs);
 
+    const isWR = clientName?.toLowerCase().includes('residence');
+    const isWV = clientName?.toLowerCase().includes('village');
+    
+    const logoUrl = isWR 
+        ? 'https://ik.imagekit.io/plcrm/property-lounge/asset/logo-wr.png'
+        : isWV 
+            ? 'https://ik.imagekit.io/plcrm/property-lounge/asset/logo-wv.png'
+            : null;
+
     return (
         <nav className="bottom-nav">
             <div className="bottom-nav-brand">
                 <WorkspaceSwitcher />
-                <div className="bottom-nav-brand-title">{brandTitle}</div>
-                {brandSubtitle ? <div className="bottom-nav-brand-subtitle">{brandSubtitle}</div> : null}
+                {logoUrl ? (
+                    <img src={logoUrl} alt={clientName} style={{ height: '32px', objectFit: 'contain', marginTop: '4px' }} />
+                ) : (
+                    <div className="bottom-nav-brand-title">{brandTitle}</div>
+                )}
+                {brandSubtitle && !logoUrl ? <div className="bottom-nav-brand-subtitle">{brandSubtitle}</div> : null}
             </div>
 
             <div className="bottom-nav-inner">

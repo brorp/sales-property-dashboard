@@ -55,9 +55,10 @@ export default function LoginPage() {
                     </div>
                     <div className="login-logo-mark">
                         <img
-                            src="/property-lounge-logo-2.png"
-                            alt="Property Lounge"
+                            src="/logo-wr.png"
+                            alt="Widari Residence"
                             className="login-logo-image"
+                            style={{ width: '100%', maxHeight: '64px', objectFit: 'contain' }}
                         />
                     </div>
                     {/* <h1>{siteTitle}</h1> */}
