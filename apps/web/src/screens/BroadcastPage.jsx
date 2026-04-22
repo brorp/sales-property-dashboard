@@ -32,7 +32,7 @@ export default function BroadcastPage() {
         dateFrom: '',
         dateTo: '',
         message: '',
-        intervalMinutes: 2,
+        intervalSeconds: 8,
         mediaDataUrl: '',
         mediaName: '',
     });
@@ -59,7 +59,7 @@ export default function BroadcastPage() {
             ...(includeContent ? {
                 message: broadcastForm.message,
                 mediaDataUrl: broadcastForm.mediaDataUrl || undefined,
-                intervalMinutes: Number(broadcastForm.intervalMinutes),
+                intervalSeconds: Number(broadcastForm.intervalSeconds),
             } : {}),
         };
     }, [activeClientId, broadcastForm, user]);
@@ -346,15 +346,18 @@ export default function BroadcastPage() {
                 </div>
 
                 <div className="input-group">
-                    <label>Interval Kirim (menit)</label>
+                    <label>Interval Kirim (detik)</label>
                     <input
                         type="number"
-                        min={1}
+                        min={8}
                         step={1}
                         className="input-field"
-                        value={broadcastForm.intervalMinutes}
-                        onChange={(event) => setBroadcastForm((prev) => ({ ...prev, intervalMinutes: Number(event.target.value || 1) }))}
+                        value={broadcastForm.intervalSeconds}
+                        onChange={(event) => setBroadcastForm((prev) => ({ ...prev, intervalSeconds: Number(event.target.value || 8) }))}
                     />
+                    <span className="leads-result-count">
+                        Minimum 8 detik. Server juga menambahkan jeda acak kecil untuk mengurangi pola kirim yang terlalu bot-like.
+                    </span>
                 </div>
 
                 <div className="broadcast-estimate-card">

@@ -11,6 +11,9 @@ type SendResult = {
     error?: string;
 };
 
+let outboundSendChain: Promise<void> = Promise.resolve();
+let lastOutboundSentAt = 0;
+
 function toWhatsAppRecipient(input: string) {
     const normalized = normalizePhone(input);
     return normalized.replace(/[^\d]/g, "");
@@ -25,11 +28,86 @@ function previewBody(body: string) {
     return trimmed.length > 120 ? `${trimmed.slice(0, 117)}...` : trimmed;
 }
 
+function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parsePositiveIntEnv(raw: string | undefined, fallback: number) {
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        return fallback;
+    }
+    return Math.floor(parsed);
+}
+
+function getOutboundThrottleConfig(provider: string) {
+    if (provider === "dummy") {
+        return {
+            minDelayMs: 0,
+            jitterMs: 0,
+        };
+    }
+
+    return {
+        minDelayMs: parsePositiveIntEnv(process.env.WA_OUTBOUND_MIN_DELAY_MS, 8_000),
+        jitterMs: parsePositiveIntEnv(process.env.WA_OUTBOUND_RANDOM_JITTER_MS, 4_000),
+    };
+}
+
+async function runWithOutboundThrottle<T>(
+    provider: string,
+    meta: { to: string; kind: "text" | "media" },
+    task: () => Promise<T>
+) {
+    const { minDelayMs, jitterMs } = getOutboundThrottleConfig(provider);
+
+    if (minDelayMs <= 0 && jitterMs <= 0) {
+        return task();
+    }
+
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+        release = resolve;
+    });
+    const previous = outboundSendChain;
+    outboundSendChain = previous.finally(() => gate);
+
+    await previous;
+
+    try {
+        const now = Date.now();
+        const earliestNextSendAt = lastOutboundSentAt + minDelayMs;
+        const baseWaitMs = Math.max(0, earliestNextSendAt - now);
+        const jitterWaitMs = jitterMs > 0 ? Math.floor(Math.random() * (jitterMs + 1)) : 0;
+        const totalWaitMs = baseWaitMs + jitterWaitMs;
+
+        if (totalWaitMs > 0) {
+            waProviderLogger.info("Applying WhatsApp outbound throttle", {
+                provider,
+                to: meta.to,
+                kind: meta.kind,
+                waitMs: totalWaitMs,
+                minDelayMs,
+                jitterMs,
+            });
+            await sleep(totalWaitMs);
+        }
+
+        const result = await task();
+        lastOutboundSentAt = Date.now();
+        return result;
+    } finally {
+        release();
+    }
+}
+
 export async function sendWhatsAppText(to: string, body: string): Promise<SendResult> {
     const provider = (process.env.WA_PROVIDER || "dummy").toLowerCase();
 
     if (provider === "qr_local") {
-        return sendWhatsAppQrText(to, body);
+        return runWithOutboundThrottle(provider, { to, kind: "text" }, () =>
+            sendWhatsAppQrText(to, body)
+        );
     }
 
     if (provider !== "cloud_api") {
@@ -56,23 +134,28 @@ export async function sendWhatsAppText(to: string, body: string): Promise<SendRe
     const url = `https://graph.facebook.com/${version}/${phoneNumberId}/messages`;
 
     try {
-        const response = await fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-                messaging_product: "whatsapp",
-                recipient_type: "individual",
-                to: recipient,
-                type: "text",
-                text: {
-                    preview_url: false,
-                    body,
-                },
-            }),
-        });
+        const response = await runWithOutboundThrottle(
+            provider,
+            { to, kind: "text" },
+            () =>
+                fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        messaging_product: "whatsapp",
+                        recipient_type: "individual",
+                        to: recipient,
+                        type: "text",
+                        text: {
+                            preview_url: false,
+                            body,
+                        },
+                    }),
+                })
+        );
 
         const data = (await response.json()) as any;
         if (!response.ok) {
@@ -107,7 +190,9 @@ export async function sendWhatsAppMedia(params: {
     const provider = (process.env.WA_PROVIDER || "dummy").toLowerCase();
 
     if (provider === "qr_local") {
-        return sendWhatsAppQrMedia(params);
+        return runWithOutboundThrottle(provider, { to: params.to, kind: "media" }, () =>
+            sendWhatsAppQrMedia(params)
+        );
     }
 
     if (provider !== "cloud_api") {

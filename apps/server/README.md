@@ -29,13 +29,18 @@ Default `.env` untuk development sudah include:
 3. `DISTRIBUTION_POLL_MS=15000`
 4. `GOOGLE_CALENDAR_MOCK=true` (appointment buat mock event id)
 5. `WA_PROVIDER=dummy` (`dummy`, `qr_local`, atau `cloud_api`)
-6. `WA_QR_AUTH_PATH=.wa-qr-auth` (dipakai kalau `WA_PROVIDER=qr_local`)
-7. `WA_CLOUD_API_TOKEN=` (wajib kalau `WA_PROVIDER=cloud_api`)
-8. `WA_CLOUD_PHONE_NUMBER_ID=` (wajib kalau `WA_PROVIDER=cloud_api`)
-9. `WA_CLOUD_API_VERSION=v21.0`
-10. `ADMIN_WHATSAPP_TOKEN=` (opsional, isi untuk mengunci endpoint admin WhatsApp)
-11. `CORS_ORIGINS=` (opsional, bisa isi banyak origin dipisah koma)
-12. `CORS_ALLOW_VERCEL_PREVIEW=false` (set `true` jika ingin allow seluruh subdomain `*.vercel.app`)
+6. `WA_QR_AUTH_PATH=.wa-qr-auth-local` (dipakai kalau `WA_PROVIDER=qr_local`, wajib unik per workspace)
+7. `WA_WEBJS_CLIENT_ID=wa-local` (wajib unik per workspace)
+8. `BROADCAST_MIN_INTERVAL_SECONDS=8`
+9. `BROADCAST_RANDOM_JITTER_SECONDS=4`
+10. `WA_OUTBOUND_MIN_DELAY_MS=8000`
+11. `WA_OUTBOUND_RANDOM_JITTER_MS=4000`
+12. `WA_CLOUD_API_TOKEN=` (wajib kalau `WA_PROVIDER=cloud_api`)
+13. `WA_CLOUD_PHONE_NUMBER_ID=` (wajib kalau `WA_PROVIDER=cloud_api`)
+14. `WA_CLOUD_API_VERSION=v21.0`
+15. `ADMIN_WHATSAPP_TOKEN=` (opsional, isi untuk mengunci endpoint admin WhatsApp)
+16. `CORS_ORIGINS=` (opsional, bisa isi banyak origin dipisah koma)
+17. `CORS_ALLOW_VERCEL_PREVIEW=false` (set `true` jika ingin allow seluruh subdomain `*.vercel.app`)
 
 ## 2) Akses Database
 
@@ -89,8 +94,13 @@ Di `apps/server/.env`:
 
 ```env
 WA_PROVIDER=qr_local
-WA_QR_AUTH_PATH=.wa-qr-auth
+WA_QR_AUTH_PATH=.wa-qr-auth-wr
+WA_WEBJS_CLIENT_ID=wa-wr
 WA_PAIRING_PHONE=62812xxxxxxx
+BROADCAST_MIN_INTERVAL_SECONDS=8
+BROADCAST_RANDOM_JITTER_SECONDS=4
+WA_OUTBOUND_MIN_DELAY_MS=8000
+WA_OUTBOUND_RANDOM_JITTER_MS=4000
 ```
 
 ### Jalankan server dan scan QR

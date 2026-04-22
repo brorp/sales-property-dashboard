@@ -17,7 +17,8 @@ export interface StartBroadcastInput {
     dateTo?: string;
     message?: string;
     mediaDataUrl?: string;
-    intervalMinutes: number;
+    intervalSeconds?: number;
+    intervalMinutes?: number;
 }
 
 type BroadcastTarget = {
@@ -42,7 +43,7 @@ type BroadcastJobState = {
         dateFrom: string | null;
         dateTo: string | null;
     };
-    intervalMinutes: number;
+    intervalSeconds: number;
     message: string;
     hasMedia: boolean;
     mediaMimeType: string | null;
@@ -76,6 +77,12 @@ type BroadcastJobRuntime = {
 const SALES_STATUS_ALLOWED = new Set(["hot", "warm", "cold", "error", "no_response", "skip"]);
 const BROADCAST_MAX_RETRY_ATTEMPTS = Number(
     process.env.BROADCAST_MAX_RETRY_ATTEMPTS || "5"
+);
+const BROADCAST_MIN_INTERVAL_SECONDS = Number(
+    process.env.BROADCAST_MIN_INTERVAL_SECONDS || "8"
+);
+const BROADCAST_RANDOM_JITTER_SECONDS = Number(
+    process.env.BROADCAST_RANDOM_JITTER_SECONDS || "4"
 );
 
 const currentJobs = new Map<string, BroadcastJobRuntime>();
@@ -155,12 +162,44 @@ function sanitizeAppointmentTag(value: unknown): AppointmentTagFilter {
     return "all";
 }
 
-function sanitizeIntervalMinutes(value: unknown) {
-    const parsed = Number(value);
+function getBroadcastMinIntervalSeconds() {
+    const parsed = Number(BROADCAST_MIN_INTERVAL_SECONDS);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return 8;
+    }
+    return Math.floor(parsed);
+}
+
+function getBroadcastRandomJitterMs() {
+    const parsed = Number(BROADCAST_RANDOM_JITTER_SECONDS);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        return 0;
+    }
+    return Math.floor(parsed * 1000);
+}
+
+function sanitizeIntervalSeconds(value: unknown, fallbackMinutes?: unknown) {
+    let parsed = Number(value);
+
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+        const parsedMinutes = Number(fallbackMinutes);
+        if (Number.isFinite(parsedMinutes) && parsedMinutes > 0) {
+            parsed = parsedMinutes * 60;
+        }
+    }
+
     if (!Number.isFinite(parsed) || parsed <= 0) {
         throw new Error("BROADCAST_INTERVAL_INVALID");
     }
-    return parsed;
+
+    return Math.max(Math.ceil(parsed), getBroadcastMinIntervalSeconds());
+}
+
+function resolveNextBroadcastDelayMs(intervalSeconds: number) {
+    const baseDelayMs = Math.max(1, intervalSeconds * 1000);
+    const jitterMs = getBroadcastRandomJitterMs();
+    const randomJitterMs = jitterMs > 0 ? Math.floor(Math.random() * (jitterMs + 1)) : 0;
+    return baseDelayMs + randomJitterMs;
 }
 
 function getBroadcastMaxRetryAttempts() {
@@ -442,7 +481,7 @@ async function processNextBroadcast(scopeKey: string) {
         return;
     }
 
-    const nextDelayMs = Math.max(1, state.intervalMinutes * 60 * 1000);
+    const nextDelayMs = resolveNextBroadcastDelayMs(state.intervalSeconds);
     scheduleNextBroadcast(scopeKey, nextDelayMs);
 }
 
@@ -489,7 +528,10 @@ export async function startBroadcast(
     }
 
     const filters = resolveBroadcastFilters(input);
-    const intervalMinutes = sanitizeIntervalMinutes(input.intervalMinutes);
+    const intervalSeconds = sanitizeIntervalSeconds(
+        input.intervalSeconds,
+        input.intervalMinutes
+    );
     const message = String(input.message || "").trim();
     const maxRetries = getBroadcastMaxRetryAttempts();
 
@@ -534,7 +576,7 @@ export async function startBroadcast(
             dateFrom: filters.rawDateFrom,
             dateTo: filters.rawDateTo,
         },
-        intervalMinutes,
+        intervalSeconds,
         message,
         hasMedia: Boolean(mediaBuffer),
         mediaMimeType,
@@ -559,7 +601,7 @@ export async function startBroadcast(
         mediaFileName,
     });
 
-    scheduleNextBroadcast(scopeKey, 0);
+    scheduleNextBroadcast(scopeKey, resolveNextBroadcastDelayMs(state.intervalSeconds));
 
     return buildStateForResponse(state);
 }

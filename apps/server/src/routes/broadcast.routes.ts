@@ -66,6 +66,7 @@ router.post("/start", requireMinRole("client_admin") as any, async (req, res: Re
             dateTo,
             message,
             mediaDataUrl,
+            intervalSeconds,
             intervalMinutes,
             clientId,
         } = req.body ?? {};
@@ -85,6 +86,7 @@ router.post("/start", requireMinRole("client_admin") as any, async (req, res: Re
                 dateTo,
                 message,
                 mediaDataUrl,
+                intervalSeconds,
                 intervalMinutes,
             },
             user.id,

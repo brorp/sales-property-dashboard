@@ -49,7 +49,6 @@ router.post("/", requireMinRole("client_admin") as any, async (req, res: Respons
 
         const created = await unitsService.createUnit({
             clientId,
-            projectType: req.body?.projectType,
             unitName: req.body?.unitName,
         });
         res.status(201).json(created);
@@ -71,7 +70,6 @@ router.patch("/:id", requireMinRole("client_admin") as any, async (req, res: Res
         const updated = await unitsService.updateUnit({
             id: req.params.id,
             clientId,
-            projectType: req.body?.projectType,
             unitName: req.body?.unitName,
         });
 

@@ -34,6 +34,10 @@ const SHARED_BASE = {
     env: {
         NODE_ENV: "production",
         WA_PROVIDER: "qr_local",
+        BROADCAST_MIN_INTERVAL_SECONDS: "8",
+        BROADCAST_RANDOM_JITTER_SECONDS: "4",
+        WA_OUTBOUND_MIN_DELAY_MS: "8000",
+        WA_OUTBOUND_RANDOM_JITTER_MS: "4000",
         WA_WEBJS_HEADLESS: "true",
         WA_WEBJS_EXECUTABLE_PATH: "/usr/bin/google-chrome-stable",
         WA_WEBJS_PUPPETEER_ARGS: SHARED_WA_ARGS,

@@ -97,17 +97,61 @@ function currentProvider() {
     return (process.env.WA_PROVIDER || "dummy").toLowerCase();
 }
 
+function currentSessionScopeSlug() {
+    const raw = String(process.env.WA_ACTIVE_CLIENT_SLUG || "").trim().toLowerCase();
+    if (!raw) {
+        return null;
+    }
+
+    const sanitized = raw.replace(/[^a-z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+    return sanitized || null;
+}
+
 function currentAuthPath() {
-    return process.env.WA_QR_AUTH_PATH || ".wa-qr-auth";
+    const explicit = String(process.env.WA_QR_AUTH_PATH || "").trim();
+    if (explicit) {
+        return explicit;
+    }
+
+    const scopedSlug = currentSessionScopeSlug();
+    if (scopedSlug) {
+        return `.wa-qr-auth-${scopedSlug}`;
+    }
+
+    return ".wa-qr-auth";
 }
 
 function currentWebJsClientId() {
-    return process.env.WA_WEBJS_CLIENT_ID || "property-lounge";
+    const explicit = String(process.env.WA_WEBJS_CLIENT_ID || "").trim();
+    if (explicit) {
+        return explicit;
+    }
+
+    const scopedSlug = currentSessionScopeSlug();
+    if (scopedSlug) {
+        return `wa-${scopedSlug}`;
+    }
+
+    return "property-lounge";
 }
 
 function currentActiveClientSlug() {
     const raw = String(process.env.WA_ACTIVE_CLIENT_SLUG || "").trim().toLowerCase();
     return raw || null;
+}
+
+function describeSessionIsolation() {
+    const explicitAuthPath = String(process.env.WA_QR_AUTH_PATH || "").trim();
+    const explicitClientId = String(process.env.WA_WEBJS_CLIENT_ID || "").trim();
+    const scopedSlug = currentSessionScopeSlug();
+
+    return {
+        authPath: currentAuthPath(),
+        clientId: currentWebJsClientId(),
+        scopeSlug: scopedSlug,
+        authPathSource: explicitAuthPath ? "explicit" : scopedSlug ? "derived_from_slug" : "default",
+        clientIdSource: explicitClientId ? "explicit" : scopedSlug ? "derived_from_slug" : "default",
+    };
 }
 
 function isQrDebugEnabled() {
@@ -1143,6 +1187,7 @@ export async function startWhatsAppQrBridge() {
         }
 
         const authPath = currentAuthPath();
+        const sessionIsolation = describeSessionIsolation();
         const puppeteerOptions: Record<string, unknown> = {
             headless: currentWebJsHeadless(),
             args: currentWebJsPuppeteerArgs(),
@@ -1176,6 +1221,9 @@ export async function startWhatsAppQrBridge() {
         waQrLogger.info("Starting WhatsApp QR bridge", {
             authPath,
             clientId: currentWebJsClientId(),
+            authPathSource: sessionIsolation.authPathSource,
+            clientIdSource: sessionIsolation.clientIdSource,
+            scopeSlug: sessionIsolation.scopeSlug,
             headless: currentWebJsHeadless(),
             executablePath: chromeExecutable || null,
             userAgent: userAgent || null,
