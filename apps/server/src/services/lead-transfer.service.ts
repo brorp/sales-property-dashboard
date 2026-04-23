@@ -238,10 +238,6 @@ async function getManagedSalesRow(salesId: string, actor: AdminActor, requireAct
         conditions.push(eq(user.isActive, true));
     }
 
-    if (actor.actorRole === "client_admin") {
-        conditions.push(eq(user.clientId, actor.actorClientId || "__no_client__"));
-    }
-
     const [row] = await db
         .select({
             id: user.id,

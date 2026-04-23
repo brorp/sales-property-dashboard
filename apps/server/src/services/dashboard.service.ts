@@ -687,7 +687,7 @@ async function buildHierarchySummary(userId: string, role: string, scope?: Query
                     supervisorId: user.supervisorId,
                 })
                 .from(user)
-                .where(and(eq(user.clientId, scope.clientId), eq(user.isActive, true))),
+                .where(eq(user.isActive, true)),
         ]);
 
         const supervisors = tenantUsers.filter((item) => item.role === "supervisor");
@@ -964,9 +964,7 @@ export async function getHomeAnalytics(
     if (isManagerRole) {
         // Build scoped sales user list
         let salesCondition: any = eq(user.role, "sales");
-        if (role === "client_admin" && scope?.clientId) {
-            salesCondition = and(eq(user.role, "sales"), eq(user.clientId, scope.clientId));
-        } else if (role === "supervisor" && scope?.managedSalesIds && scope.managedSalesIds.length > 0) {
+        if (role === "supervisor" && scope?.managedSalesIds && scope.managedSalesIds.length > 0) {
             salesCondition = inArray(user.id, scope.managedSalesIds);
         }
 
@@ -1016,9 +1014,7 @@ export async function getHomeAnalytics(
 
     // --- NEW AGGREGATIONS FOR V2 DASHBOARD ---
     let userConditions: any = eq(user.isActive, true);
-    if (role === "client_admin" && scope?.clientId) {
-        userConditions = and(userConditions, eq(user.clientId, scope.clientId));
-    } else if (role === "supervisor") {
+    if (role === "supervisor") {
         userConditions = and(userConditions, inArray(user.id, [userId, ...(scope?.managedSalesIds || [])]));
     } else if (role === "sales") {
         userConditions = and(userConditions, eq(user.id, userId));
@@ -1054,6 +1050,7 @@ export async function getHomeAnalytics(
                     survey: 0,
                     mauSurvey: 0,
                     hot: 0,
+                    hotValidated: 0,
                     potensi: 0,
                     batal: 0,
                     cancelReasons: {} as Record<string, number>,
@@ -1083,6 +1080,7 @@ export async function getHomeAnalytics(
                     survey: 0,
                     mauSurvey: 0,
                     hot: 0,
+                    hotValidated: 0,
                     potensi: 0,
                     batal: 0,
                     cancelReasons: {} as Record<string, number>,
@@ -1105,6 +1103,7 @@ export async function getHomeAnalytics(
                 survey: 0,
                 mauSurvey: 0,
                 hot: 0,
+                hotValidated: 0,
                 potensi: 0,
                 batal: 0,
             });
@@ -1174,6 +1173,7 @@ export async function getHomeAnalytics(
                 survey: 0,
                 mauSurvey: 0,
                 hot: 0,
+                hotValidated: 0,
                 potensi: 0,
                 batal: 0,
                 cancelReasons: {} as Record<string, number>,
@@ -1198,6 +1198,7 @@ export async function getHomeAnalytics(
                 survey: 0,
                 mauSurvey: 0,
                 hot: 0,
+                hotValidated: 0,
                 potensi: 0,
                 batal: 0,
                 conversionRate: 0
@@ -1301,6 +1302,7 @@ export async function getHomeAnalytics(
             stats.hot += 1; sStats.hot += 1;
             totalHot += 1;
             if (item.validated) {
+                stats.hotValidated += 1; sStats.hotValidated += 1;
                 totalHotValidated += 1;
             }
         }
@@ -1346,6 +1348,7 @@ export async function getHomeAnalytics(
             survey: t.survey,
             mauSurvey: t.mauSurvey,
             hot: t.hot,
+            hotValidated: t.hotValidated,
             potensi: t.potensi,
             cancelReasons: t.cancelReasons,
             prospectRate: toPercent((t.hot || 0) + (t.mauSurvey || 0), t.prospek),

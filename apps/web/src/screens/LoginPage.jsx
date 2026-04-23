@@ -17,7 +17,13 @@ export default function LoginPage() {
 
     useEffect(() => {
         if (user) {
-            router.replace('/');
+            if (user.role === 'sales') {
+                router.replace('/daily-tasks');
+            } else if (user.role === 'supervisor') {
+                router.replace('/supervisor-tasks');
+            } else {
+                router.replace('/');
+            }
         }
     }, [user, router]);
 
@@ -35,7 +41,13 @@ export default function LoginPage() {
         try {
             const result = await login(email, password);
             if (result.success) {
-                router.replace('/');
+                if (result.user?.role === 'sales') {
+                    router.replace('/daily-tasks');
+                } else if (result.user?.role === 'supervisor') {
+                    router.replace('/supervisor-tasks');
+                } else {
+                    router.replace('/');
+                }
             } else {
                 setError(result.error);
             }
@@ -58,7 +70,7 @@ export default function LoginPage() {
                             src="/logo-wr.png"
                             alt="Widari Residence"
                             className="login-logo-image"
-                            style={{ width: '100%', maxHeight: '64px', objectFit: 'contain' }}
+                            style={{ width: '100%', maxHeight: '320px', objectFit: 'contain', margin: '0 auto', display: 'block' }}
                         />
                     </div>
                     {/* <h1>{siteTitle}</h1> */}

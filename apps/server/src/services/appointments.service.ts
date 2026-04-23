@@ -180,9 +180,21 @@ export async function cancelAppointment(params: {
     });
 }
 
-export async function countAppointmentsForSalesIds(salesIds: string[]) {
+export async function countAppointmentsForSalesIds(
+    salesIds: string[],
+    clientId?: string | null
+) {
     if (salesIds.length === 0) {
         return new Map<string, number>();
+    }
+
+    const conditions = [
+        inArray(appointment.salesId, salesIds),
+        inArray(appointment.status, ["mau_survey", "sudah_survey"]),
+    ];
+
+    if (clientId) {
+        conditions.push(eq(lead.clientId, clientId));
     }
 
     const rows = await db
@@ -190,11 +202,9 @@ export async function countAppointmentsForSalesIds(salesIds: string[]) {
             salesId: appointment.salesId,
         })
         .from(appointment)
+        .innerJoin(lead, eq(appointment.leadId, lead.id))
         .where(
-            and(
-                inArray(appointment.salesId, salesIds),
-                inArray(appointment.status, ["mau_survey", "sudah_survey"])
-            )
+            and(...conditions)
         );
 
     const map = new Map<string, number>();

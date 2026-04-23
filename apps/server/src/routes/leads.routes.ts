@@ -7,17 +7,18 @@ import { user as userTable } from "../db/schema";
 import { eq } from "drizzle-orm";
 import * as leadsService from "../services/leads.service";
 import * as leadTransferService from "../services/lead-transfer.service";
+import { getWorkspaceClientId, resolveClientIdFromWorkspace } from "../utils/request-client";
 
 const router: ReturnType<typeof Router> = Router();
 
 function canViewLeadByUser(
     lead: { clientId?: string | null; assignedTo?: string | null } | null,
     reqUser: { id: string; role: string; clientId?: string | null },
-    scope?: { managedSalesIds?: string[] }
+    scope?: { clientId?: string | null; managedSalesIds?: string[] }
 ) {
     if (!lead) return false;
     if (reqUser.role === "root_admin") return true;
-    if (reqUser.role === "client_admin") return lead.clientId === (reqUser.clientId || null);
+    if (reqUser.role === "client_admin") return lead.clientId === (scope?.clientId || null);
     if (reqUser.role === "supervisor") {
         if (scope?.managedSalesIds?.includes(lead.assignedTo || "")) return true;
         return false;
@@ -28,14 +29,14 @@ function canViewLeadByUser(
 function canEditLeadByUser(
     lead: { clientId?: string | null; assignedTo?: string | null } | null,
     reqUser: { id: string; role: string; clientId?: string | null },
-    scope?: { managedSalesIds?: string[] }
+    scope?: { clientId?: string | null; managedSalesIds?: string[] }
 ) {
     if (!lead) return false;
     if (reqUser.role === "root_admin") {
         return !lead.assignedTo;
     }
     if (reqUser.role === "client_admin") {
-        return lead.clientId === (reqUser.clientId || null) && !lead.assignedTo;
+        return lead.clientId === (scope?.clientId || null) && !lead.assignedTo;
     }
     if (reqUser.role === "supervisor") {
         if (scope?.managedSalesIds?.includes(lead.assignedTo || "")) return true;
@@ -102,7 +103,7 @@ router.post("/import-reassign/preview", requireRole("root_admin", "client_admin"
             {
                 actorId: user.id,
                 actorRole: user.role,
-                actorClientId: user.clientId || null,
+                actorClientId: getWorkspaceClientId(req as unknown as AuthenticatedRequest),
             }
         );
 
@@ -133,7 +134,7 @@ router.post("/import-reassign/commit", requireRole("root_admin", "client_admin")
             actor: {
                 actorId: user.id,
                 actorRole: user.role,
-                actorClientId: user.clientId || null,
+                actorClientId: getWorkspaceClientId(req as unknown as AuthenticatedRequest),
             },
         });
 
@@ -270,11 +271,15 @@ router.post("/", async (req, res: Response, next: NextFunction) => {
                 return;
             }
 
-            if (user.role === "client_admin" && salesRow.clientId !== user.clientId) {
-                res.status(403).json({ error: "FORBIDDEN_ASSIGN", message: "Sales harus berada di client yang sama" });
-                return;
-            }
+        }
 
+        const targetClientId = resolveClientIdFromWorkspace(
+            req as unknown as AuthenticatedRequest
+        );
+
+        if (!targetClientId) {
+            res.status(400).json({ error: "VALIDATION_ERROR", message: "Workspace aktif tidak ditemukan" });
+            return;
         }
 
         const created = await leadsService.create({
@@ -287,7 +292,7 @@ router.post("/", async (req, res: Response, next: NextFunction) => {
                     : user.role === "sales"
                         ? user.id
                         : null,
-            clientId: user.clientId || null,
+            clientId: targetClientId,
         });
         res.status(201).json(created);
     } catch (error) {
@@ -333,7 +338,7 @@ router.patch("/:id", async (req, res: Response, next: NextFunction) => {
             id: req.params.id,
             actorId: user.id,
             actorRole: user.role,
-            actorClientId: user.clientId || null,
+            actorClientId: getWorkspaceClientId(req as unknown as AuthenticatedRequest),
             managedSalesIds: scope?.managedSalesIds || [],
             name,
             domicileCity,
@@ -392,17 +397,14 @@ router.post("/:id/assign", requireMinRole("supervisor") as any, async (req, res:
             return;
         }
 
-        if (salesRow.clientId !== lead.clientId) {
-            res.status(400).json({ error: "INVALID_ASSIGNED_SALES", message: "salesId harus berada di client yang sama" });
-            return;
-        }
+        const workspaceClientId = getWorkspaceClientId(req as unknown as AuthenticatedRequest);
 
-        if (user.role === "client_admin" && lead.clientId !== user.clientId) {
+        if (user.role === "client_admin" && lead.clientId !== workspaceClientId) {
             res.status(403).json({ error: "FORBIDDEN_ASSIGN", message: "Lead berada di luar client Anda" });
             return;
         }
 
-        if (user.role === "supervisor" && lead.clientId !== user.clientId) {
+        if (user.role === "supervisor" && lead.clientId !== workspaceClientId) {
             res.status(403).json({ error: "FORBIDDEN_ASSIGN", message: "Lead berada di luar client supervisor ini" });
             return;
         }

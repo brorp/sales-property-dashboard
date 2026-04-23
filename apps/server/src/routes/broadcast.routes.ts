@@ -3,18 +3,14 @@ import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireMinRole } from "../middleware/rbac";
 import * as broadcastService from "../services/broadcast.service";
+import { resolveClientIdFromWorkspace } from "../utils/request-client";
 
 const router: ReturnType<typeof Router> = Router();
 
 router.get("/status", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
-        const clientId =
-            user.role === "root_admin"
-                ? typeof req.query.clientId === "string"
-                    ? req.query.clientId
-                    : null
-                : user.clientId || null;
+        const requestUser = req as unknown as AuthenticatedRequest;
+        const clientId = resolveClientIdFromWorkspace(requestUser, req.query.clientId);
 
         res.json(broadcastService.getBroadcastStatus(clientId));
     } catch (error) {
@@ -24,7 +20,7 @@ router.get("/status", requireMinRole("client_admin") as any, async (req, res: Re
 
 router.post("/estimate", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
+        const requestUser = req as unknown as AuthenticatedRequest;
         const {
             salesStatuses,
             appointmentTag,
@@ -33,12 +29,7 @@ router.post("/estimate", requireMinRole("client_admin") as any, async (req, res:
             clientId,
         } = req.body ?? {};
 
-        const targetClientId =
-            user.role === "root_admin"
-                ? typeof clientId === "string" && clientId.trim()
-                    ? clientId
-                    : null
-                : user.clientId || null;
+        const targetClientId = resolveClientIdFromWorkspace(requestUser, clientId);
 
         const result = await broadcastService.estimateBroadcast(
             {
@@ -58,7 +49,8 @@ router.post("/estimate", requireMinRole("client_admin") as any, async (req, res:
 
 router.post("/start", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
+        const requestUser = req as unknown as AuthenticatedRequest;
+        const { user } = requestUser;
         const {
             salesStatuses,
             appointmentTag,
@@ -71,12 +63,7 @@ router.post("/start", requireMinRole("client_admin") as any, async (req, res: Re
             clientId,
         } = req.body ?? {};
 
-        const targetClientId =
-            user.role === "root_admin"
-                ? typeof clientId === "string" && clientId.trim()
-                    ? clientId
-                    : null
-                : user.clientId || null;
+        const targetClientId = resolveClientIdFromWorkspace(requestUser, clientId);
 
         const result = await broadcastService.startBroadcast(
             {
@@ -101,13 +88,8 @@ router.post("/start", requireMinRole("client_admin") as any, async (req, res: Re
 
 router.post("/stop", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
-        const clientId =
-            user.role === "root_admin"
-                ? typeof req.body?.clientId === "string" && req.body.clientId.trim()
-                    ? req.body.clientId
-                    : null
-                : user.clientId || null;
+        const requestUser = req as unknown as AuthenticatedRequest;
+        const clientId = resolveClientIdFromWorkspace(requestUser, req.body?.clientId);
 
         const result = broadcastService.stopBroadcast(clientId);
         res.json(result);

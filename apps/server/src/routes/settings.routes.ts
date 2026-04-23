@@ -6,18 +6,14 @@ import {
     getSystemSettings,
     updateSystemSettings,
 } from "../services/system-settings.service";
+import { resolveClientIdFromWorkspace } from "../utils/request-client";
 
 const router: ReturnType<typeof Router> = Router();
 
 router.get("/system", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
-        const clientId =
-            user.role === "root_admin"
-                ? typeof req.query.clientId === "string"
-                    ? req.query.clientId
-                    : null
-                : user.clientId || null;
+        const requestUser = req as unknown as AuthenticatedRequest;
+        const clientId = resolveClientIdFromWorkspace(requestUser, req.query.clientId);
 
         const settings = await getSystemSettings(clientId);
         res.json(settings);
@@ -28,7 +24,7 @@ router.get("/system", requireMinRole("client_admin") as any, async (req, res: Re
 
 router.patch("/system", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
+        const requestUser = req as unknown as AuthenticatedRequest;
         const {
             distributionAckTimeoutMinutes,
             operationalStart,
@@ -38,12 +34,7 @@ router.patch("/system", requireMinRole("client_admin") as any, async (req, res: 
             clientId,
         } = req.body ?? {};
 
-        const targetClientId =
-            user.role === "root_admin"
-                ? typeof clientId === "string" && clientId.trim()
-                    ? clientId
-                    : null
-                : user.clientId || null;
+        const targetClientId = resolveClientIdFromWorkspace(requestUser, clientId);
 
         const updated = await updateSystemSettings({
             distributionAckTimeoutMinutes:

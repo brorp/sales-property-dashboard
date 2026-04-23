@@ -9,17 +9,18 @@ import {
     stopAllActiveDistributions,
 } from "../services/distribution.service";
 import * as leadsService from "../services/leads.service";
+import { resolveClientIdFromWorkspace } from "../utils/request-client";
 
 const router: ReturnType<typeof Router> = Router();
 
 function canAccessLead(
     lead: { clientId?: string | null; assignedTo?: string | null } | null,
     reqUser: { id: string; role: string; clientId?: string | null },
-    scope?: { managedSalesIds?: string[] }
+    scope?: { clientId?: string | null; managedSalesIds?: string[] }
 ) {
     if (!lead) return false;
     if (reqUser.role === "root_admin") return true;
-    if (reqUser.role === "client_admin") return lead.clientId === (reqUser.clientId || null);
+    if (reqUser.role === "client_admin") return lead.clientId === (scope?.clientId || null);
     if (reqUser.role === "supervisor") {
         return Boolean(lead.assignedTo && scope?.managedSalesIds?.includes(lead.assignedTo));
     }
@@ -57,13 +58,8 @@ router.post("/run-timeouts", requireRole("root_admin") as any, async (_req, res:
 
 router.post("/stop-all", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
-        const targetClientId =
-            user.role === "root_admin"
-                ? typeof req.body?.clientId === "string" && req.body.clientId.trim()
-                    ? req.body.clientId
-                    : null
-                : user.clientId || null;
+        const requestUser = req as unknown as AuthenticatedRequest;
+        const targetClientId = resolveClientIdFromWorkspace(requestUser, req.body?.clientId);
         const result = await stopAllActiveDistributions(targetClientId);
         res.json(result);
     } catch (error) {
@@ -73,8 +69,8 @@ router.post("/stop-all", requireMinRole("client_admin") as any, async (req, res:
 
 router.post("/leads/:leadId/start", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
-        const targetClientId = user.role === "root_admin" ? null : user.clientId || null;
+        const requestUser = req as unknown as AuthenticatedRequest;
+        const targetClientId = resolveClientIdFromWorkspace(requestUser);
         const result = await startDistributionForHeldLead(req.params.leadId, targetClientId);
         res.json(result);
     } catch (error) {

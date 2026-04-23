@@ -190,7 +190,12 @@ export async function findAll(
     }
 
     if (filters.salesStatus && filters.salesStatus !== "all") {
-        conditions.push(eq(lead.salesStatus, filters.salesStatus));
+        if (filters.salesStatus === "hot_validated") {
+            conditions.push(eq(lead.salesStatus, "hot"));
+            conditions.push(eq(lead.validated, true));
+        } else {
+            conditions.push(eq(lead.salesStatus, filters.salesStatus));
+        }
     }
 
     if (filters.resultStatus && filters.resultStatus !== "all") {
@@ -232,6 +237,7 @@ export async function findAll(
             interestProjectType: lead.interestProjectType,
             interestUnitName: lead.interestUnitName,
             resultStatus: lead.resultStatus,
+            validated: lead.validated,
             unitName: lead.unitName,
             unitDetail: lead.unitDetail,
             paymentMethod: lead.paymentMethod,
@@ -787,21 +793,8 @@ export async function patchLead(input: LeadPatchInput) {
                     .where(eq(user.id, nextAssignedTo))
                     .limit(1);
 
-                if (
-                    !nextSales ||
-                    nextSales.role !== "sales" ||
-                    !nextSales.isActive ||
-                    nextSales.clientId !== currentLead.clientId
-                ) {
+                if (!nextSales || nextSales.role !== "sales" || !nextSales.isActive) {
                     throw new Error("INVALID_ASSIGNED_SALES");
-                }
-
-                if (
-                    input.actorRole === "client_admin" &&
-                    input.actorClientId &&
-                    nextSales.clientId !== input.actorClientId
-                ) {
-                    throw new Error("FORBIDDEN_ASSIGN");
                 }
 
                 if (

@@ -442,7 +442,10 @@ export const salesQueue = pgTable(
         updatedAt: timestamp("updated_at").notNull().defaultNow(),
     },
     (table) => ({
-        salesUnique: uniqueIndex("sales_queue_sales_id_unique").on(table.salesId),
+        salesUnique: uniqueIndex("sales_queue_client_sales_unique").on(
+            table.clientId,
+            table.salesId
+        ),
         orderUnique: uniqueIndex("sales_queue_client_order_unique").on(
             table.clientId,
             table.queueOrder

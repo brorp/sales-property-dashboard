@@ -51,6 +51,7 @@ function normalizeLead(input) {
         ...input,
         flowStatus: input.flowStatus || 'open',
         salesStatus: input.salesStatus || null,
+        validated: Boolean(input.validated),
         domicileCity: input.domicileCity || null,
         interestUnitId: input.interestUnitId || null,
         interestProjectType: input.interestProjectType || null,

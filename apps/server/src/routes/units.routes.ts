@@ -3,24 +3,14 @@ import type { NextFunction, Response } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireMinRole } from "../middleware/rbac";
 import * as unitsService from "../services/units.service";
+import { resolveClientIdFromWorkspace } from "../utils/request-client";
 
 const router: ReturnType<typeof Router> = Router();
-
-function resolveClientIdFromRequest(
-    req: AuthenticatedRequest,
-    rawClientId: unknown
-) {
-    if (req.user.role === "root_admin") {
-        return typeof rawClientId === "string" && rawClientId.trim() ? rawClientId : null;
-    }
-
-    return req.user.clientId || null;
-}
 
 router.get("/", async (req, res: Response, next: NextFunction) => {
     try {
         const requestUser = req as unknown as AuthenticatedRequest;
-        const clientId = resolveClientIdFromRequest(
+        const clientId = resolveClientIdFromWorkspace(
             requestUser,
             req.query.clientId
         );
@@ -40,7 +30,7 @@ router.get("/", async (req, res: Response, next: NextFunction) => {
 router.post("/", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
         const requestUser = req as unknown as AuthenticatedRequest;
-        const clientId = resolveClientIdFromRequest(requestUser, req.body?.clientId);
+        const clientId = resolveClientIdFromWorkspace(requestUser, req.body?.clientId);
 
         if (!clientId) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "clientId tidak ditemukan untuk user ini" });
@@ -60,7 +50,7 @@ router.post("/", requireMinRole("client_admin") as any, async (req, res: Respons
 router.patch("/:id", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
         const requestUser = req as unknown as AuthenticatedRequest;
-        const clientId = resolveClientIdFromRequest(requestUser, req.body?.clientId);
+        const clientId = resolveClientIdFromWorkspace(requestUser, req.body?.clientId);
 
         if (!clientId) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "clientId tidak ditemukan untuk user ini" });
@@ -87,7 +77,7 @@ router.patch("/:id", requireMinRole("client_admin") as any, async (req, res: Res
 router.delete("/:id", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
         const requestUser = req as unknown as AuthenticatedRequest;
-        const clientId = resolveClientIdFromRequest(requestUser, req.query.clientId);
+        const clientId = resolveClientIdFromWorkspace(requestUser, req.query.clientId);
 
         if (!clientId) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "clientId tidak ditemukan untuk user ini" });

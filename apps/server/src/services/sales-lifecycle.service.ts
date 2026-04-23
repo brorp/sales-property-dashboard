@@ -23,10 +23,6 @@ function queueLabelFromOrder(order: number) {
 function getManagedSalesWhereClause(salesId: string, actor: ActorScope) {
     const conditions = [eq(user.id, salesId), eq(user.role, "sales")];
 
-    if (actor.actorRole === "client_admin") {
-        conditions.push(eq(user.clientId, actor.actorClientId || "__no_client__"));
-    }
-
     return and(...conditions);
 }
 
@@ -115,73 +111,91 @@ async function resequenceActiveQueue(executor: DbLike, clientId: string) {
     }
 }
 
-async function deactivateQueueMembership(executor: DbLike, clientId: string, salesId: string) {
-    const [existingQueue] = await executor
+async function getQueueRowsBySalesId(executor: DbLike, salesId: string) {
+    return executor
         .select({
             id: salesQueue.id,
             clientId: salesQueue.clientId,
             isActive: salesQueue.isActive,
         })
         .from(salesQueue)
-        .where(eq(salesQueue.salesId, salesId))
-        .limit(1);
+        .where(eq(salesQueue.salesId, salesId));
+}
 
-    if (!existingQueue || !existingQueue.isActive || existingQueue.clientId !== clientId) {
+async function deactivateQueueMemberships(executor: DbLike, salesId: string) {
+    const queueRows = await getQueueRowsBySalesId(executor, salesId);
+    const activeRows = queueRows.filter((row) => row.isActive && row.clientId);
+
+    if (activeRows.length === 0) {
         return false;
     }
 
-    const nextInactiveOrder = (await getHighestQueueOrder(executor, clientId)) + 1;
+    const touchedClientIds = new Set<string>();
 
-    await executor
-        .update(salesQueue)
-        .set({
-            isActive: false,
-            queueOrder: nextInactiveOrder,
-            updatedAt: new Date(),
-        })
-        .where(eq(salesQueue.id, existingQueue.id));
+    for (const queueRow of activeRows) {
+        const clientId = queueRow.clientId!;
+        const nextInactiveOrder = (await getHighestQueueOrder(executor, clientId)) + 1;
 
-    await resequenceActiveQueue(executor, clientId);
+        await executor
+            .update(salesQueue)
+            .set({
+                isActive: false,
+                queueOrder: nextInactiveOrder,
+                updatedAt: new Date(),
+            })
+            .where(eq(salesQueue.id, queueRow.id));
+
+        touchedClientIds.add(clientId);
+    }
+
+    for (const clientId of touchedClientIds) {
+        await resequenceActiveQueue(executor, clientId);
+    }
+
     return true;
 }
 
-async function activateQueueMembership(executor: DbLike, clientId: string, salesId: string) {
-    const [existingQueue] = await executor
-        .select({
-            id: salesQueue.id,
-            isActive: salesQueue.isActive,
-        })
-        .from(salesQueue)
-        .where(eq(salesQueue.salesId, salesId))
-        .limit(1);
-
+async function activateQueueMemberships(executor: DbLike, salesId: string, fallbackClientId: string) {
+    const queueRows = await getQueueRowsBySalesId(executor, salesId);
+    const inactiveRows = queueRows.filter((row) => !row.isActive && row.clientId);
     const now = new Date();
-    const nextOrder = (await getHighestQueueOrder(executor, clientId)) + 1;
 
-    if (!existingQueue) {
+    if (inactiveRows.length === 0) {
+        const nextOrder = (await getHighestQueueOrder(executor, fallbackClientId)) + 1;
         await executor.insert(salesQueue).values({
             id: generateId(),
             salesId,
-            clientId,
+            clientId: fallbackClientId,
             queueOrder: nextOrder,
             label: queueLabelFromOrder(nextOrder),
             isActive: true,
             createdAt: now,
             updatedAt: now,
         });
-    } else if (!existingQueue.isActive) {
+        await resequenceActiveQueue(executor, fallbackClientId);
+        return true;
+    }
+
+    const touchedClientIds = new Set<string>();
+    for (const queueRow of inactiveRows) {
+        const clientId = queueRow.clientId!;
+        const nextOrder = (await getHighestQueueOrder(executor, clientId)) + 1;
         await executor
             .update(salesQueue)
             .set({
-                clientId,
                 isActive: true,
                 queueOrder: nextOrder,
+                label: queueLabelFromOrder(nextOrder),
                 updatedAt: now,
             })
-            .where(eq(salesQueue.id, existingQueue.id));
+            .where(eq(salesQueue.id, queueRow.id));
+        touchedClientIds.add(clientId);
     }
 
-    await resequenceActiveQueue(executor, clientId);
+    for (const clientId of touchedClientIds) {
+        await resequenceActiveQueue(executor, clientId);
+    }
+
     return true;
 }
 
@@ -224,7 +238,7 @@ export async function deactivateSalesUser(salesId: string, actor: ActorScope) {
     }
 
     return db.transaction(async (tx) => {
-        await deactivateQueueMembership(tx, salesRow.clientId!, salesRow.id);
+        await deactivateQueueMemberships(tx, salesRow.id);
         await tx.delete(session).where(eq(session.userId, salesRow.id));
 
         const [updated] = await tx
@@ -294,7 +308,7 @@ export async function reactivateSalesUser(salesId: string, actor: ActorScope) {
             throw new Error("SALES_NOT_FOUND");
         }
 
-        await activateQueueMembership(tx, salesRow.clientId!, salesRow.id);
+        await activateQueueMemberships(tx, salesRow.id, salesRow.clientId!);
         return mapSalesUserResponse(updated);
     });
 }

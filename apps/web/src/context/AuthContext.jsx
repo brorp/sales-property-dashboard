@@ -352,7 +352,7 @@ export function AuthProvider({ children }) {
 
                 setUser(currentUser);
                 persistUser(currentUser);
-                return { success: true };
+                return { success: true, user: currentUser };
             }
 
             persistAuthSessionToken(null);
@@ -404,7 +404,7 @@ export function AuthProvider({ children }) {
         persistAuthSessionToken(null);
         setUser(restoredUser);
         persistUser(restoredUser);
-        return { success: true };
+        return { success: true, user: restoredUser };
     };
 
     const logout = () => {

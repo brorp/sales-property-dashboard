@@ -3,20 +3,21 @@ import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import * as appointmentsService from "../services/appointments.service";
 import * as leadsService from "../services/leads.service";
+import { getWorkspaceClientId } from "../utils/request-client";
 
 const router: ReturnType<typeof Router> = Router();
 
 function canEditLeadByUser(
     lead: { clientId?: string | null; assignedTo?: string | null } | null,
     reqUser: { id: string; role: string; clientId?: string | null },
-    scope?: { managedSalesIds?: string[] }
+    scope?: { clientId?: string | null; managedSalesIds?: string[] }
 ) {
     if (!lead) return false;
     if (reqUser.role === "root_admin") {
         return !lead.assignedTo;
     }
     if (reqUser.role === "client_admin") {
-        return lead.clientId === (reqUser.clientId || null) && !lead.assignedTo;
+        return lead.clientId === (scope?.clientId || null) && !lead.assignedTo;
     }
     if (reqUser.role === "supervisor") {
         return Boolean(scope?.managedSalesIds?.includes(lead.assignedTo || ""));
@@ -42,6 +43,7 @@ router.get("/", async (req, res: Response, next: NextFunction) => {
 router.patch("/:id", async (req, res: Response, next: NextFunction) => {
     try {
         const { user, scope } = req as unknown as AuthenticatedRequest;
+        const workspaceClientId = getWorkspaceClientId(req as unknown as AuthenticatedRequest);
         const existing = await appointmentsService.getAppointmentById(req.params.id);
 
         if (!existing) {
@@ -50,6 +52,13 @@ router.patch("/:id", async (req, res: Response, next: NextFunction) => {
         }
 
         const lead = await leadsService.findById(existing.leadId);
+        if (user.role === "client_admin" && lead?.clientId !== workspaceClientId) {
+            res.status(403).json({
+                error: "FORBIDDEN_LEAD_EDIT",
+                message: "Anda tidak memiliki akses mengubah appointment ini",
+            });
+            return;
+        }
         if (!canEditLeadByUser(lead, user, scope)) {
             res.status(403).json({
                 error: "FORBIDDEN_LEAD_EDIT",
@@ -77,6 +86,7 @@ router.patch("/:id", async (req, res: Response, next: NextFunction) => {
 router.post("/:id/cancel", async (req, res: Response, next: NextFunction) => {
     try {
         const { user, scope } = req as unknown as AuthenticatedRequest;
+        const workspaceClientId = getWorkspaceClientId(req as unknown as AuthenticatedRequest);
         const existing = await appointmentsService.getAppointmentById(req.params.id);
 
         if (!existing) {
@@ -85,6 +95,13 @@ router.post("/:id/cancel", async (req, res: Response, next: NextFunction) => {
         }
 
         const lead = await leadsService.findById(existing.leadId);
+        if (user.role === "client_admin" && lead?.clientId !== workspaceClientId) {
+            res.status(403).json({
+                error: "FORBIDDEN_LEAD_EDIT",
+                message: "Anda tidak memiliki akses membatalkan appointment ini",
+            });
+            return;
+        }
         if (!canEditLeadByUser(lead, user, scope)) {
             res.status(403).json({
                 error: "FORBIDDEN_LEAD_EDIT",

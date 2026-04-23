@@ -8,6 +8,7 @@ import Header from '../components/Header';
 import { apiRequest } from '../lib/api';
 import { downloadLeadTransferWorkbook } from '../lib/lead-transfer-workbook';
 import { usePagePolling } from '../hooks/usePagePolling';
+import { useTenant } from '../context/TenantContext';
 
 const initialForm = {
     name: '',
@@ -131,6 +132,7 @@ function MemberButton({ member, subtitle, metaBadge, onClick, compact = false, i
 export default function TeamPage() {
     const { isAdmin, user, getRoleLabel } = useAuth();
     const { teamStats, refreshTeamStats, createSalesUser } = useLeads();
+    const { tenant } = useTenant();
     const router = useRouter();
     const [refreshing, setRefreshing] = useState(false);
     const [createModal, setCreateModal] = useState(null);
@@ -186,6 +188,7 @@ export default function TeamPage() {
         suspendedSales: 0,
     };
     const activeClientId =
+        tenant?.id ||
         (user?.role === 'client_admin' ? user?.clientId : null) ||
         groups[0]?.clientId ||
         null;

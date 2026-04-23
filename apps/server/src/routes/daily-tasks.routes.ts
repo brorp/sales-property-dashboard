@@ -3,15 +3,17 @@ import type { NextFunction, Response } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireRole } from "../middleware/rbac";
 import * as dailyTaskService from "../services/daily-task.service";
+import { getWorkspaceClientId } from "../utils/request-client";
 
 const router: ReturnType<typeof Router> = Router();
 
 router.get("/", requireRole("sales") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
+        const requestUser = req as unknown as AuthenticatedRequest;
+        const { user } = requestUser;
         const data = await dailyTaskService.getDailyTasksForSales(
             user.id,
-            user.clientId || null
+            getWorkspaceClientId(requestUser)
         );
         res.json(data);
     } catch (error) {
@@ -21,10 +23,11 @@ router.get("/", requireRole("sales") as any, async (req, res: Response, next: Ne
 
 router.get("/counts", requireRole("sales") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
+        const requestUser = req as unknown as AuthenticatedRequest;
+        const { user } = requestUser;
         const counts = await dailyTaskService.getDailyTaskCounts(
             user.id,
-            user.clientId || null
+            getWorkspaceClientId(requestUser)
         );
         res.json(counts);
     } catch (error) {

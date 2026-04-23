@@ -82,12 +82,8 @@ function getRoleLabel(role?: string) {
 function getVisibleMemberCondition(scope?: QueryScope) {
     const baseConditions = [eq(user.isActive, true)];
 
-    if (!scope || scope.role === "root_admin") {
+    if (!scope || scope.role === "root_admin" || scope.role === "client_admin") {
         return andAll(baseConditions);
-    }
-
-    if (scope.role === "client_admin" && scope.clientId) {
-        return andAll([...baseConditions, eq(user.clientId, scope.clientId)]);
     }
 
     if (scope.role === "supervisor") {
@@ -101,12 +97,8 @@ function getVisibleMemberCondition(scope?: QueryScope) {
 function getInactiveSalesCondition(scope?: QueryScope) {
     const baseConditions = [eq(user.role, "sales"), eq(user.isActive, false)];
 
-    if (!scope || scope.role === "root_admin") {
+    if (!scope || scope.role === "root_admin" || scope.role === "client_admin") {
         return andAll(baseConditions);
-    }
-
-    if (scope.role === "client_admin" && scope.clientId) {
-        return andAll([...baseConditions, eq(user.clientId, scope.clientId)]);
     }
 
     return andAll([...baseConditions, eq(user.id, "__none__")]);
@@ -166,9 +158,18 @@ async function loadInactiveSalesMembers(scope?: QueryScope) {
         .orderBy(asc(client.name), asc(user.name));
 }
 
-async function loadLeadsForSalesIds(salesIds: string[]) {
+async function loadLeadsForSalesIds(
+    salesIds: string[],
+    clientId?: string | null
+) {
     if (salesIds.length === 0) {
         return [];
+    }
+
+    const conditions = [inArray(lead.assignedTo, salesIds)];
+
+    if (clientId) {
+        conditions.push(eq(lead.clientId, clientId));
     }
 
     return db
@@ -180,7 +181,7 @@ async function loadLeadsForSalesIds(salesIds: string[]) {
             resultStatus: lead.resultStatus,
         })
         .from(lead)
-        .where(inArray(lead.assignedTo, salesIds));
+        .where(and(...conditions));
 }
 
 function buildStatsMap(
@@ -317,8 +318,8 @@ export async function getTeamHierarchy(scope?: QueryScope) {
     const supervisors = members.filter((item) => item.role === "supervisor");
     const salesIds = [...salesMembers, ...inactiveSalesMembers].map((item) => item.id);
     const [leadRows, appointmentCountMap] = await Promise.all([
-        loadLeadsForSalesIds(salesIds),
-        countAppointmentsForSalesIds(salesIds),
+        loadLeadsForSalesIds(salesIds, scope?.clientId),
+        countAppointmentsForSalesIds(salesIds, scope?.clientId),
     ]);
     const salesStatsMap = buildStatsMap(leadRows);
     const suspensionMap = await getActiveSalesSuspensionMap(salesIds);
@@ -536,7 +537,13 @@ async function loadManagedSales(supervisorId: string) {
         .orderBy(asc(user.name));
 }
 
-async function loadMemberLeadDetails(member: any, managedSalesIds: string[]) {
+async function loadMemberLeadDetails(
+    member: any,
+    managedSalesIds: string[],
+    scope?: QueryScope
+) {
+    const workspaceConditions = scope?.clientId ? [eq(lead.clientId, scope.clientId)] : [];
+
     if (member.role === "sales") {
         return db
             .select({
@@ -554,7 +561,7 @@ async function loadMemberLeadDetails(member: any, managedSalesIds: string[]) {
             })
             .from(lead)
             .leftJoin(user, eq(lead.assignedTo, user.id))
-            .where(eq(lead.assignedTo, member.id))
+            .where(and(eq(lead.assignedTo, member.id), ...workspaceConditions))
             .orderBy(desc(lead.createdAt));
     }
 
@@ -579,11 +586,11 @@ async function loadMemberLeadDetails(member: any, managedSalesIds: string[]) {
             })
             .from(lead)
             .leftJoin(user, eq(lead.assignedTo, user.id))
-            .where(inArray(lead.assignedTo, managedSalesIds))
+            .where(and(inArray(lead.assignedTo, managedSalesIds), ...workspaceConditions))
             .orderBy(desc(lead.createdAt));
     }
 
-    if (member.role === "client_admin" && member.clientId) {
+    if (member.role === "client_admin" && scope?.clientId) {
         return db
             .select({
                 id: lead.id,
@@ -600,7 +607,7 @@ async function loadMemberLeadDetails(member: any, managedSalesIds: string[]) {
             })
             .from(lead)
             .leftJoin(user, eq(lead.assignedTo, user.id))
-            .where(eq(lead.clientId, member.clientId))
+            .where(eq(lead.clientId, scope.clientId))
             .orderBy(desc(lead.createdAt));
     }
 
@@ -616,9 +623,10 @@ export async function getTeamMemberDetail(memberId: string, scope?: QueryScope) 
     const managedSales =
         member.role === "supervisor" ? await loadManagedSales(member.id) : [];
     const managedSalesIds = managedSales.map((item) => item.id);
-    const leadRows = await loadMemberLeadDetails(member, managedSalesIds);
+    const leadRows = await loadMemberLeadDetails(member, managedSalesIds, scope);
     const appointmentCountMap = await countAppointmentsForSalesIds(
-        member.role === "sales" ? [member.id] : managedSalesIds
+        member.role === "sales" ? [member.id] : managedSalesIds,
+        scope?.clientId
     );
     const suspensionMap = await getActiveSalesSuspensionMap(
         member.role === "sales" ? [member.id] : managedSalesIds

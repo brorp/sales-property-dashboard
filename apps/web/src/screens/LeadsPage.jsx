@@ -35,6 +35,9 @@ const EMPTY_DATE_RANGE = {
     dateTo: '',
 };
 const FIXED_LEAD_SOURCES = ['Online', 'Offline', 'Walk In', 'Agent', 'Old', 'Pribadi'];
+const SPECIAL_SALES_STATUS_FILTERS = [
+    { key: 'hot_validated', label: 'HOT | Validated' },
+];
 
 const IMPORT_REASON_LABELS = {
     missing_identifier: 'Row tidak punya leadId atau phone.',
@@ -228,12 +231,20 @@ function matchesMultiValueFilter(selectedValues, actualValue, fallbackValue = ''
     return selectedValues.includes(actualValue ?? fallbackValue);
 }
 
+function isHotValidatedLead(lead) {
+    return lead?.salesStatus === 'hot' && Boolean(lead?.validated);
+}
+
 function matchesLeadFilters(lead, filters) {
     if (filters.flowStatus !== 'all' && lead.flowStatus !== filters.flowStatus) {
         return false;
     }
 
-    if (filters.salesStatus !== 'all' && lead.salesStatus !== filters.salesStatus) {
+    if (filters.salesStatus === 'hot_validated') {
+        if (!isHotValidatedLead(lead)) {
+            return false;
+        }
+    } else if (filters.salesStatus !== 'all' && lead.salesStatus !== filters.salesStatus) {
         return false;
     }
 
@@ -253,6 +264,10 @@ function matchesLeadFilters(lead, filters) {
 }
 
 function matchesLeadExportFilters(lead, filters) {
+    if (filters.hotValidatedOnly && !isHotValidatedLead(lead)) {
+        return false;
+    }
+
     if (!matchesMultiValueFilter(filters.flowStatuses, lead.flowStatus)) {
         return false;
     }
@@ -351,6 +366,7 @@ export default function LeadsPage() {
         dateTo: '',
         flowStatuses: [],
         salesStatuses: [],
+        hotValidatedOnly: false,
         appointmentTags: [],
         resultStatuses: [],
         salesIds: [],
@@ -621,7 +637,8 @@ export default function LeadsPage() {
             dateFrom: '',
             dateTo: '',
             flowStatuses: toInitialExportSelection(flowFilter),
-            salesStatuses: toInitialExportSelection(salesStatusFilter),
+            salesStatuses: salesStatusFilter === 'hot_validated' ? ['hot'] : toInitialExportSelection(salesStatusFilter),
+            hotValidatedOnly: salesStatusFilter === 'hot_validated',
             appointmentTags: toInitialExportSelection(appointmentFilter),
             resultStatuses: toInitialExportSelection(resultFilter),
             salesIds: toInitialExportSelection(salesFilter),
@@ -710,7 +727,11 @@ export default function LeadsPage() {
                     phone: lead.phone || '-',
                     source: lead.source || '-',
                     flowStatus: getFlowStatusLabel(lead.flowStatus),
-                    salesStatus: lead.salesStatus ? getSalesStatusLabel(lead.salesStatus) : '-',
+                    salesStatus: isHotValidatedLead(lead)
+                        ? 'HOT | Validated'
+                        : lead.salesStatus
+                            ? getSalesStatusLabel(lead.salesStatus)
+                            : '-',
                     appointmentTag: lead.appointmentTag && lead.appointmentTag !== 'none'
                         ? getAppointmentTagLabel(lead.appointmentTag)
                         : '-',
@@ -937,6 +958,9 @@ export default function LeadsPage() {
 
             <div className="filter-pills" style={{ marginBottom: 8 }}>
                 <button className={`filter-pill ${salesStatusFilter === 'all' ? 'active' : ''}`} onClick={() => setSalesStatusFilter('all')}>Sales Status: All</button>
+                {SPECIAL_SALES_STATUS_FILTERS.map((item) => (
+                    <button key={item.key} className={`filter-pill ${salesStatusFilter === item.key ? 'active' : ''}`} onClick={() => setSalesStatusFilter(item.key)}>{item.label}</button>
+                ))}
                 {SALES_STATUSES.map((item) => (
                     <button key={item.key} className={`filter-pill ${salesStatusFilter === item.key ? 'active' : ''}`} onClick={() => setSalesStatusFilter(item.key)}>{item.label}</button>
                 ))}
@@ -989,7 +1013,11 @@ export default function LeadsPage() {
                         <div className="leads-card-header">
                             <div className="leads-card-info" style={{ flexWrap: 'wrap' }}>
                                 <span className={`badge ${getStatusBadgeClass('flow', lead.flowStatus)}`}>{getFlowStatusLabel(lead.flowStatus)}</span>
-                                {lead.salesStatus ? <span className={`badge ${getStatusBadgeClass('sales', lead.salesStatus)}`}>{getSalesStatusLabel(lead.salesStatus)}</span> : null}
+                                {isHotValidatedLead(lead) ? (
+                                    <span className="badge badge-success">HOT | Validated</span>
+                                ) : lead.salesStatus ? (
+                                    <span className={`badge ${getStatusBadgeClass('sales', lead.salesStatus)}`}>{getSalesStatusLabel(lead.salesStatus)}</span>
+                                ) : null}
                                 {lead.resultStatus ? <span className={`badge ${getStatusBadgeClass('result', lead.resultStatus)}`}>{getResultStatusLabel(lead.resultStatus)}</span> : null}
                                 {lead.appointmentTag && lead.appointmentTag !== 'none' ? <span className={`badge ${getStatusBadgeClass('appointment', lead.appointmentTag)}`}>{getAppointmentTagLabel(lead.appointmentTag)}</span> : null}
                                 <span className="leads-card-name">{lead.name}</span>
@@ -1260,12 +1288,38 @@ export default function LeadsPage() {
                             <div className="input-group">
                                 <label>Sales Status</label>
                                 <div className="export-filter-actions">
-                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('salesStatuses', [])}>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-secondary"
+                                        onClick={() => {
+                                            setExportFilters((prev) => ({ ...prev, hotValidatedOnly: false }));
+                                            setExportSelectionGroup('salesStatuses', []);
+                                        }}
+                                    >
                                         Semua
                                     </button>
-                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('salesStatuses', ['unfilled', ...SALES_STATUSES.map((item) => item.key)])}>
+                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => {
+                                        setExportFilters((prev) => ({ ...prev, hotValidatedOnly: false }));
+                                        setExportSelectionGroup('salesStatuses', ['unfilled', ...SALES_STATUSES.map((item) => item.key)]);
+                                    }}>
                                         Pilih Semua
                                     </button>
+                                </div>
+                                <div className="export-checklist" style={{ marginBottom: 10 }}>
+                                    <label className="export-checklist-item">
+                                        <input
+                                            type="checkbox"
+                                            checked={Boolean(exportFilters.hotValidatedOnly)}
+                                            onChange={(event) => setExportFilters((prev) => ({
+                                                ...prev,
+                                                hotValidatedOnly: event.target.checked,
+                                                salesStatuses: event.target.checked
+                                                    ? Array.from(new Set(['hot', ...prev.salesStatuses.filter((item) => item !== 'unfilled')]))
+                                                    : prev.salesStatuses,
+                                            }))}
+                                        />
+                                        <span>Hanya HOT | Validated</span>
+                                    </label>
                                 </div>
                                 <div className="export-checklist">
                                     <label className="export-checklist-item">

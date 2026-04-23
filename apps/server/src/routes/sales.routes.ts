@@ -5,14 +5,16 @@ import { requireMinRole, requireRole } from "../middleware/rbac";
 import * as salesService from "../services/sales.service";
 import * as salesLifecycleService from "../services/sales-lifecycle.service";
 import * as leadTransferService from "../services/lead-transfer.service";
+import { getWorkspaceClientId, resolveClientIdFromWorkspace } from "../utils/request-client";
 
 const router: ReturnType<typeof Router> = Router();
 
 router.get("/", async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
+        const requestUser = req as unknown as AuthenticatedRequest;
+        const { user } = requestUser;
         const rows = await salesService.getSalesUsers({
-            clientId: user.role === "root_admin" ? null : user.clientId,
+            clientId: resolveClientIdFromWorkspace(requestUser, req.query.clientId),
             supervisorId: user.role === "supervisor" ? user.id : null,
             salesId: user.role === "sales" ? user.id : null,
         });
@@ -41,10 +43,10 @@ router.post("/", requireMinRole("supervisor") as any, async (req, res: Response,
             return;
         }
 
-        const targetClientId =
-            user.role === "root_admin"
-                ? clientId
-                : user.clientId;
+        const targetClientId = resolveClientIdFromWorkspace(
+            req as unknown as AuthenticatedRequest,
+            clientId
+        );
 
         if (!targetClientId) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "clientId wajib diisi" });
@@ -79,7 +81,7 @@ router.post("/:id/leads/export", requireRole("root_admin", "client_admin") as an
         const exported = await leadTransferService.exportSalesLeadsWorkbookData(req.params.id, {
             actorId: user.id,
             actorRole: user.role,
-            actorClientId: user.clientId || null,
+            actorClientId: getWorkspaceClientId(req as unknown as AuthenticatedRequest),
         }, req.body?.accessCode);
         res.json(exported);
     } catch (error) {
@@ -93,7 +95,7 @@ router.post("/:id/deactivate", requireRole("root_admin", "client_admin") as any,
         const updated = await salesLifecycleService.deactivateSalesUser(req.params.id, {
             actorId: user.id,
             actorRole: user.role,
-            actorClientId: user.clientId || null,
+            actorClientId: getWorkspaceClientId(req as unknown as AuthenticatedRequest),
         });
         res.json(updated);
     } catch (error) {
@@ -107,7 +109,7 @@ router.post("/:id/reactivate", requireRole("root_admin", "client_admin") as any,
         const updated = await salesLifecycleService.reactivateSalesUser(req.params.id, {
             actorId: user.id,
             actorRole: user.role,
-            actorClientId: user.clientId || null,
+            actorClientId: getWorkspaceClientId(req as unknown as AuthenticatedRequest),
         });
         res.json(updated);
     } catch (error) {
@@ -118,12 +120,10 @@ router.post("/:id/reactivate", requireRole("root_admin", "client_admin") as any,
 router.get("/queue", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
-        const targetClientId =
-            user.role === "root_admin"
-                ? typeof req.query.clientId === "string" && req.query.clientId.trim()
-                    ? req.query.clientId
-                    : null
-                : user.clientId;
+        const targetClientId = resolveClientIdFromWorkspace(
+            req as unknown as AuthenticatedRequest,
+            req.query.clientId
+        );
 
         if (!targetClientId) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "clientId tidak ditemukan untuk user ini" });
@@ -146,12 +146,10 @@ router.post("/queue", requireMinRole("client_admin") as any, async (req, res: Re
             return;
         }
 
-        const targetClientId =
-            user.role === "root_admin"
-                ? typeof clientId === "string" && clientId.trim()
-                    ? clientId
-                    : null
-                : user.clientId;
+        const targetClientId = resolveClientIdFromWorkspace(
+            req as unknown as AuthenticatedRequest,
+            clientId
+        );
 
         if (!targetClientId) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "clientId tidak ditemukan untuk user ini" });
@@ -183,7 +181,10 @@ router.patch("/queue/reorder", requireMinRole("client_admin") as any, async (req
             return;
         }
 
-        const targetClientId = user.role === "root_admin" ? clientId : user.clientId;
+        const targetClientId = resolveClientIdFromWorkspace(
+            req as unknown as AuthenticatedRequest,
+            clientId
+        );
 
         if (!targetClientId) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "clientId tidak ditemukan untuk user ini" });
@@ -200,12 +201,10 @@ router.patch("/queue/reorder", requireMinRole("client_admin") as any, async (req
 router.delete("/queue/:salesId", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
-        const targetClientId =
-            user.role === "root_admin"
-                ? typeof req.query.clientId === "string" && req.query.clientId.trim()
-                    ? req.query.clientId
-                    : null
-                : user.clientId;
+        const targetClientId = resolveClientIdFromWorkspace(
+            req as unknown as AuthenticatedRequest,
+            req.query.clientId
+        );
 
         if (!targetClientId) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "clientId tidak ditemukan untuk user ini" });
@@ -231,7 +230,10 @@ router.patch("/:id/queue", requireMinRole("client_admin") as any, async (req, re
             return;
         }
 
-        const targetClientId = user.role === "root_admin" ? clientId : user.clientId;
+        const targetClientId = resolveClientIdFromWorkspace(
+            req as unknown as AuthenticatedRequest,
+            clientId
+        );
 
         if (!targetClientId) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "clientId tidak ditemukan untuk user ini" });
@@ -260,7 +262,10 @@ router.patch("/supervisor/assign", requireMinRole("supervisor") as any, async (r
             return;
         }
 
-        const targetClientId = user.role === "root_admin" ? clientId : user.clientId;
+        const targetClientId = resolveClientIdFromWorkspace(
+            req as unknown as AuthenticatedRequest,
+            clientId
+        );
 
         if (!targetClientId) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "clientId tidak ditemukan untuk user ini" });

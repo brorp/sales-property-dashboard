@@ -49,7 +49,7 @@ const DAY_LABELS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 const QUICK_RANGES = [
     { key: 'today', label: 'Hari Ini' },
     { key: 'last7', label: '7 Hari' },
-    { key: 'last30', label: '30 Hari' },
+    { key: 'next30', label: '30 Hari Kedepan' },
     { key: 'thisMonth', label: 'Bulan Ini' },
 ];
 
@@ -289,12 +289,12 @@ function getPresetRange(key) {
         };
     }
 
-    if (key === 'last30') {
-        const start = new Date(today);
-        start.setDate(today.getDate() - 29);
+    if (key === 'next30') {
+        const end = new Date(today);
+        end.setDate(today.getDate() + 29);
         return {
-            dateFrom: formatDateInput(start),
-            dateTo: end,
+            dateFrom: formatDateInput(today),
+            dateTo: formatDateInput(end),
         };
     }
 
@@ -333,9 +333,9 @@ export default function DashboardPage() {
     const [holdActionMessage, setHoldActionMessage] = useState('');
     const [holdActionError, setHoldActionError] = useState('');
     const [filterOpenKey, setFilterOpenKey] = useState('');
-    const [appliedDateRange, setAppliedDateRange] = useState(() => getPresetRange('last30'));
-    const [draftDateRange, setDraftDateRange] = useState(() => getPresetRange('last30'));
-    const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(parseDateInput(getPresetRange('last30').dateFrom) || new Date()));
+    const [appliedDateRange, setAppliedDateRange] = useState(() => getPresetRange('next30'));
+    const [draftDateRange, setDraftDateRange] = useState(() => getPresetRange('next30'));
+    const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(parseDateInput(getPresetRange('next30').dateFrom) || new Date()));
 
     const showDateFilter = Boolean(user);
     const hasActiveDateFilter = Boolean(appliedDateRange.dateFrom || appliedDateRange.dateTo);
@@ -560,7 +560,7 @@ export default function DashboardPage() {
     useEffect(() => {
         if (!user) {
             setPageAnalytics(null);
-            const nextRange = getPresetRange('last30');
+            const nextRange = getPresetRange('next30');
             setAppliedDateRange(nextRange);
             setDraftDateRange(nextRange);
             setFilterOpenKey('');

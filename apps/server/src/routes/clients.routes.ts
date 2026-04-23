@@ -7,7 +7,7 @@ import { auth } from "../auth/index";
 import { ensureCredentialAccount } from "../auth/credential-account";
 import { db } from "../db/index";
 import { user } from "../db/schema";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { normalizePhone } from "../utils/phone";
 
 const router: ReturnType<typeof Router> = Router();
@@ -69,14 +69,6 @@ router.get("/:id", requireRole("root_admin") as any, async (req, res: Response, 
 
 router.get("/:id/users", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user: reqUser } = req as unknown as AuthenticatedRequest;
-
-        // client_admin can only see their own client
-        if (reqUser.role === "client_admin" && reqUser.clientId !== req.params.id) {
-            res.status(403).json({ error: "FORBIDDEN", message: "Anda hanya bisa melihat user di client Anda sendiri" });
-            return;
-        }
-
         const users = await clientsService.getClientUsers(req.params.id);
         res.json(users);
     } catch (error) {
@@ -88,11 +80,6 @@ router.post("/:id/users", requireRole("root_admin", "client_admin") as any, asyn
     try {
         const { user: reqUser } = req as unknown as AuthenticatedRequest;
         const clientId = req.params.id;
-
-        if (reqUser.role === "client_admin" && reqUser.clientId !== clientId) {
-            res.status(403).json({ error: "FORBIDDEN", message: "Anda hanya bisa menambah user di client Anda sendiri" });
-            return;
-        }
 
         const { name, email, password, role, phone, supervisorId } = req.body ?? {};
         if (!name || !email || !password || !role) {
@@ -121,7 +108,7 @@ router.post("/:id/users", requireRole("root_admin", "client_admin") as any, asyn
                 .where(eq(user.id, supervisorId))
                 .limit(1);
 
-            if (!supervisorRow || supervisorRow.role !== "supervisor" || supervisorRow.clientId !== clientId) {
+            if (!supervisorRow || supervisorRow.role !== "supervisor") {
                 res.status(400).json({ error: "INVALID_SUPERVISOR", message: "supervisorId tidak valid untuk client ini" });
                 return;
             }
@@ -183,13 +170,7 @@ router.post("/:id/users", requireRole("root_admin", "client_admin") as any, asyn
 
 router.patch("/:id/users/:userId", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user: reqUser } = req as unknown as AuthenticatedRequest;
         const clientId = req.params.id;
-
-        if (reqUser.role === "client_admin" && reqUser.clientId !== clientId) {
-            res.status(403).json({ error: "FORBIDDEN", message: "Anda hanya bisa mengubah user di client Anda sendiri" });
-            return;
-        }
 
         const [targetUser] = await db
             .select({
@@ -201,7 +182,7 @@ router.patch("/:id/users/:userId", requireRole("root_admin", "client_admin") as 
             .where(eq(user.id, req.params.userId))
             .limit(1);
 
-        if (!targetUser || targetUser.clientId !== clientId) {
+        if (!targetUser) {
             res.status(404).json({ error: "NOT_FOUND", message: "User tidak ditemukan" });
             return;
         }
@@ -252,7 +233,7 @@ router.patch("/:id/users/:userId", requireRole("root_admin", "client_admin") as 
                     .where(eq(user.id, supervisorId))
                     .limit(1);
 
-                if (!supervisorRow || supervisorRow.role !== "supervisor" || supervisorRow.clientId !== clientId) {
+                if (!supervisorRow || supervisorRow.role !== "supervisor") {
                     res.status(400).json({ error: "INVALID_SUPERVISOR", message: "supervisorId tidak valid untuk client ini" });
                     return;
                 }
@@ -288,21 +269,13 @@ router.patch("/:id/users/:userId", requireRole("root_admin", "client_admin") as 
 
 router.delete("/:id/users/:userId", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user: reqUser } = req as unknown as AuthenticatedRequest;
-        const clientId = req.params.id;
-
-        if (reqUser.role === "client_admin" && reqUser.clientId !== clientId) {
-            res.status(403).json({ error: "FORBIDDEN", message: "Anda hanya bisa menonaktifkan user di client Anda sendiri" });
-            return;
-        }
-
         const [updated] = await db
             .update(user)
             .set({
                 isActive: false,
                 updatedAt: new Date(),
             })
-            .where(and(eq(user.id, req.params.userId), eq(user.clientId, clientId)))
+            .where(eq(user.id, req.params.userId))
             .returning({
                 id: user.id,
                 isActive: user.isActive,
@@ -323,12 +296,6 @@ router.delete("/:id/users/:userId", requireRole("root_admin", "client_admin") as
 
 router.get("/:id/supervisor-sales", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user: reqUser } = req as unknown as AuthenticatedRequest;
-        if (reqUser.role === "client_admin" && reqUser.clientId !== req.params.id) {
-            res.status(403).json({ error: "FORBIDDEN", message: "Akses ditolak" });
-            return;
-        }
-
         const links = await clientsService.getSupervisorSalesMapping(req.params.id);
         res.json(links);
     } catch (error) {
@@ -338,12 +305,6 @@ router.get("/:id/supervisor-sales", requireRole("root_admin", "client_admin") as
 
 router.post("/:id/supervisor-sales", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user: reqUser } = req as unknown as AuthenticatedRequest;
-        if (reqUser.role === "client_admin" && reqUser.clientId !== req.params.id) {
-            res.status(403).json({ error: "FORBIDDEN", message: "Akses ditolak" });
-            return;
-        }
-
         const { supervisorId, salesId } = req.body ?? {};
         if (!supervisorId || !salesId) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "supervisorId dan salesId wajib diisi" });
@@ -363,12 +324,6 @@ router.post("/:id/supervisor-sales", requireRole("root_admin", "client_admin") a
 
 router.delete("/:id/supervisor-sales", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user: reqUser } = req as unknown as AuthenticatedRequest;
-        if (reqUser.role === "client_admin" && reqUser.clientId !== req.params.id) {
-            res.status(403).json({ error: "FORBIDDEN", message: "Akses ditolak" });
-            return;
-        }
-
         const { supervisorId, salesId } = req.body ?? {};
         if (!supervisorId || !salesId) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "supervisorId dan salesId wajib diisi" });

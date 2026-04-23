@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../db/index";
 import { distributionAttempt, distributionCycle, lead, salesQueue, user } from "../db/schema";
 import { generateId } from "../utils/id";
@@ -67,7 +67,11 @@ async function getHighestQueueOrder(executor: DbExecutor, clientId: string) {
     return Number(row?.queueOrder || 0);
 }
 
-async function getQueueRowBySalesId(executor: DbExecutor, salesId: string) {
+async function getQueueRowBySalesId(
+    executor: DbExecutor,
+    salesId: string,
+    clientId: string
+) {
     const [row] = await executor
         .select({
             id: salesQueue.id,
@@ -78,7 +82,7 @@ async function getQueueRowBySalesId(executor: DbExecutor, salesId: string) {
             isActive: salesQueue.isActive,
         })
         .from(salesQueue)
-        .where(eq(salesQueue.salesId, salesId))
+        .where(and(eq(salesQueue.salesId, salesId), eq(salesQueue.clientId, clientId)))
         .limit(1);
 
     return row || null;
@@ -199,9 +203,6 @@ async function resequenceQueue(
 
 export async function getSalesUsers(scope: SalesQueryScope = {}) {
     const conditions: any[] = [eq(user.role, "sales"), eq(user.isActive, true)];
-    if (scope.clientId) {
-        conditions.push(eq(user.clientId, scope.clientId));
-    }
     if (scope.supervisorId) {
         conditions.push(eq(user.supervisorId, scope.supervisorId));
     }
@@ -209,26 +210,47 @@ export async function getSalesUsers(scope: SalesQueryScope = {}) {
         conditions.push(eq(user.id, scope.salesId));
     }
 
-    const rows = await db
-        .select({
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            phone: user.phone,
-            role: user.role,
-            clientId: user.clientId,
-            supervisorId: user.supervisorId,
-            isActive: user.isActive,
-            queueOrder: salesQueue.queueOrder,
-            queueLabel: salesQueue.label,
-        })
-        .from(user)
-        .leftJoin(
-            salesQueue,
-            and(eq(salesQueue.salesId, user.id), eq(salesQueue.isActive, true))
-        )
-        .where(and(...conditions))
-        .orderBy(asc(salesQueue.queueOrder), asc(user.name));
+    const rows = scope.clientId
+        ? await db
+            .select({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                role: user.role,
+                clientId: user.clientId,
+                supervisorId: user.supervisorId,
+                isActive: user.isActive,
+                queueOrder: salesQueue.queueOrder,
+                queueLabel: salesQueue.label,
+            })
+            .from(user)
+            .leftJoin(
+                salesQueue,
+                and(
+                    eq(salesQueue.salesId, user.id),
+                    eq(salesQueue.isActive, true),
+                    eq(salesQueue.clientId, scope.clientId)
+                )
+            )
+            .where(and(...conditions))
+            .orderBy(asc(salesQueue.queueOrder), asc(user.name))
+        : await db
+            .select({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                phone: user.phone,
+                role: user.role,
+                clientId: user.clientId,
+                supervisorId: user.supervisorId,
+                isActive: user.isActive,
+                queueOrder: sql<number | null>`null`,
+                queueLabel: sql<string | null>`null`,
+            })
+            .from(user)
+            .where(and(...conditions))
+            .orderBy(asc(user.name));
 
     const suspensionMap = await getActiveSalesSuspensionMap(rows.map((row) => row.id));
 
@@ -236,6 +258,8 @@ export async function getSalesUsers(scope: SalesQueryScope = {}) {
         const suspension = suspensionMap.get(row.id) || null;
         return {
             ...row,
+            queueOrder: scope.clientId ? row.queueOrder : null,
+            queueLabel: scope.clientId ? row.queueLabel : null,
             isSuspended: Boolean(suspension),
             suspension: suspension
                 ? {
@@ -302,7 +326,7 @@ export async function upsertSalesQueue(
     const [existing] = await db
         .select({ id: salesQueue.id })
         .from(salesQueue)
-        .where(eq(salesQueue.salesId, salesId))
+        .where(and(eq(salesQueue.salesId, salesId), eq(salesQueue.clientId, clientId)))
         .limit(1);
 
     if (!existing) {
@@ -385,13 +409,13 @@ export async function addSalesToQueue(params: {
             throw new Error("INVALID_ASSIGNED_SALES");
         }
 
-        if (salesRow.clientId !== params.clientId) {
-            throw new Error("CROSS_CLIENT_ASSIGNMENT_FORBIDDEN");
-        }
-
         await assertSalesNotSuspended(params.salesId, executor);
 
-        const existingQueue = await getQueueRowBySalesId(executor, params.salesId);
+        const existingQueue = await getQueueRowBySalesId(
+            executor,
+            params.salesId,
+            params.clientId
+        );
         if (existingQueue?.isActive) {
             throw new Error("SALES_ALREADY_IN_QUEUE");
         }
@@ -453,7 +477,11 @@ async function removeSalesFromQueueWithExecutor(
         salesId: string;
     }
 ) {
-    const existingQueue = await getQueueRowBySalesId(executor, params.salesId);
+    const existingQueue = await getQueueRowBySalesId(
+        executor,
+        params.salesId,
+        params.clientId
+    );
 
     if (!existingQueue || !existingQueue.isActive || existingQueue.clientId !== params.clientId) {
         return false;
@@ -584,9 +612,6 @@ export async function createSalesUser(data: {
             throw new Error("INVALID_SUPERVISOR");
         }
 
-        if (supervisorRow.clientId !== data.clientId) {
-            throw new Error("CROSS_CLIENT_ASSIGNMENT_FORBIDDEN");
-        }
     }
 
     let createdUserId: string | null = null;
@@ -691,9 +716,6 @@ export async function assignSalesSupervisor(params: {
             throw new Error("INVALID_SUPERVISOR");
         }
 
-        if (supervisorRow.clientId !== params.clientId) {
-            throw new Error("CROSS_CLIENT_ASSIGNMENT_FORBIDDEN");
-        }
     }
 
     const updated = await db
@@ -705,8 +727,7 @@ export async function assignSalesSupervisor(params: {
         .where(
             and(
                 inArray(user.id, salesIds),
-                eq(user.role, "sales"),
-                eq(user.clientId, params.clientId)
+                eq(user.role, "sales")
             )
         )
         .returning({

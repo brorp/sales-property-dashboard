@@ -300,7 +300,7 @@ export async function getSupervisorSalesMapping(clientId: string) {
             supervisorId: user.supervisorId,
         })
         .from(user)
-        .where(and(eq(user.clientId, clientId), eq(user.role, "sales")));
+        .where(eq(user.role, "sales"));
 
     return salesRows
         .filter((row) => Boolean(row.supervisorId))
@@ -347,13 +347,6 @@ export async function assignSalesSupervisor(params: {
         throw new Error("INVALID_ROLE_RELATION");
     }
 
-    if (
-        supervisorRow.clientId !== params.clientId ||
-        salesRow.clientId !== params.clientId
-    ) {
-        throw new Error("CROSS_CLIENT_ASSIGNMENT_FORBIDDEN");
-    }
-
     const [updated] = await db
         .update(user)
         .set({
@@ -385,7 +378,7 @@ export async function removeSupervisorSalesLink(params: {
         .where(eq(user.id, params.salesId))
         .limit(1);
 
-    if (!salesRow || salesRow.role !== "sales" || salesRow.clientId !== params.clientId) {
+    if (!salesRow || salesRow.role !== "sales") {
         return false;
     }
 

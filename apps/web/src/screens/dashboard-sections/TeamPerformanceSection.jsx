@@ -10,6 +10,10 @@ function formatPercent(value) {
     return `${Number(value || 0).toFixed(1)}%`;
 }
 
+function formatHotValidatedValue(hot, hotValidated) {
+    return `${formatCount(hot)} | ${formatCount(hotValidated)}`;
+}
+
 function getPillButtonStyle(active) {
     return {
         cursor: 'pointer',
@@ -36,7 +40,7 @@ function getTeamDisplayLabel(team) {
     return team.teamName;
 }
 
-function MetricCard({ label, value, accent = 'var(--text-primary)', helper }) {
+function MetricCard({ label, value, accent = 'var(--text-primary)', helper, displayValue = null }) {
     return (
         <div
             style={{
@@ -53,7 +57,7 @@ function MetricCard({ label, value, accent = 'var(--text-primary)', helper }) {
             <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 {label}
             </span>
-            <strong style={{ fontSize: '2rem', lineHeight: 1, color: accent }}>{formatCount(value)}</strong>
+            <strong style={{ fontSize: '2rem', lineHeight: 1, color: accent }}>{displayValue ?? formatCount(value)}</strong>
             {helper ? (
                 <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>{helper}</span>
             ) : null}
@@ -107,8 +111,8 @@ function SalesRow({ sales }) {
                     </span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Hot</span>
-                    <strong style={{ color: '#f59e0b' }}>{formatCount(sales.hot || 0)}</strong>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Hot | Val</span>
+                    <strong style={{ color: '#f59e0b' }}>{formatHotValidatedValue(sales.hot || 0, sales.hotValidated || 0)}</strong>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Mau</span>
@@ -198,10 +202,13 @@ function TeamPerformancePanel({ title, metrics, showSalesList }) {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-                <MetricCard label="Hot" value={metrics.totalHot} accent="#f59e0b" helper="Lead dengan layer 2 status Hot." />
-                {metrics.totalHotValidated > 0 ? (
-                    <MetricCard label="HOT | Validated" value={metrics.totalHotValidated} accent="#22c55e" helper="Lead HOT yang sudah divalidasi supervisor." />
-                ) : null}
+                <MetricCard
+                    label="HOT | Validated"
+                    value={metrics.totalHot}
+                    displayValue={formatHotValidatedValue(metrics.totalHot, metrics.totalHotValidated)}
+                    accent="#f59e0b"
+                    helper="Format count: HOT | HOT yang sudah divalidasi supervisor."
+                />
                 <MetricCard label="Mau Survey" value={metrics.totalMauSurvey} accent="var(--primary)" helper="Lead yang masih di tahap mau survey." />
                 <MetricCard label="Sudah Survey" value={metrics.totalSurvey} accent="var(--green)" helper="Lead yang appointment-nya sudah survey." />
                 <MetricCard label="Full Book" value={metrics.totalFullBook} accent="var(--purple)" helper="Lead yang sudah masuk status Full Book." />

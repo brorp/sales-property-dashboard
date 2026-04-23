@@ -14,6 +14,7 @@ import {
 } from '../lib/notification-seen';
 import { usePagePolling } from '../hooks/usePagePolling';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
+import { useWorkspace } from '../context/WorkspaceContext';
 
 function Icon({ name }) {
     const common = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
@@ -238,7 +239,8 @@ export default function BottomNav() {
                 ? SUPERVISOR_TABS
                 : ADMIN_TABS;
     const isActive = (key) => key === '/' ? pathname === '/' : pathname.startsWith(key);
-    const clientName = tenant.tenant?.name || formatClientNameFromSlug(user?.clientSlug);
+    
+    const clientName = activeWorkspace?.name || tenant.tenant?.name || formatClientNameFromSlug(user?.clientSlug);
     const isTenantWorkspace = user?.role !== 'root_admin' && Boolean(clientName);
     const brandTitle =
         isTenantWorkspace
@@ -269,7 +271,7 @@ export default function BottomNav() {
             <div className="bottom-nav-brand">
                 <WorkspaceSwitcher />
                 {logoUrl ? (
-                    <img src={logoUrl} alt={clientName} style={{ height: '32px', objectFit: 'contain', marginTop: '4px' }} />
+                    <img src={logoUrl} alt={clientName} style={{ height: '160px', width: '100%', objectFit: 'contain', margin: '0 auto', display: 'block' }} />
                 ) : (
                     <div className="bottom-nav-brand-title">{brandTitle}</div>
                 )}
