@@ -149,6 +149,7 @@ function formatClientNameFromSlug(slug) {
 export default function BottomNav() {
     const { user, isAdmin, logout } = useAuth();
     const tenant = useTenant();
+    const { activeWorkspace } = useWorkspace();
     const pathname = usePathname();
     const router = useRouter();
     const [summary, setSummary] = useState({ latestLeadAt: null, latestLogAt: null });
