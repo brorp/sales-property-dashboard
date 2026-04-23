@@ -96,7 +96,7 @@ export default function LineChartSection({ data }) {
     return (
         <Accordion
             title="Line Chart"
-            summary={`Tren ${datasetLabel.toLowerCase()} per ${granularityLabel.toLowerCase()}`}
+            summary={`Tren Data`}
             defaultExpanded={false}
         >
             <div className="line-chart-shell">

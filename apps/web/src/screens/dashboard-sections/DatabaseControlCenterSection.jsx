@@ -216,7 +216,7 @@ export default function DatabaseControlCenterSection({
 
     const topSource = data.sourceBreakdown?.[0]?.source || '-';
     const topDomicile = data.domicileBreakdown?.[0]?.city || '-';
-    const summary = `${data.totalData || 0} total data • top source ${topSource} • top domicile ${topDomicile}`;
+    const summary = `${data.totalData || 0} Total Data`;
     const scopeOptions = data.scopeOptions || [];
     const layerOptions = data.statusLayerOptions || DEFAULT_STATUS_LAYER_OPTIONS;
     const effectiveScopeKey = allowScopeFiltering ? selectedScope : 'all';

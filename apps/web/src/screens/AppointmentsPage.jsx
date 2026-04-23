@@ -12,7 +12,6 @@ const FILTER_OPTIONS = [
     { key: 'active', label: 'Active' },
     { key: 'mau_survey', label: 'Mau Survey' },
     { key: 'sudah_survey', label: 'Sudah Survey' },
-    { key: 'dibatalkan', label: 'Dibatalkan' },
     { key: 'all', label: 'Semua' },
 ];
 
