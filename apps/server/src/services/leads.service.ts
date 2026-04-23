@@ -169,20 +169,23 @@ export async function findAll(
     // ─── Role-based data scoping ─────────────────────────────────────
     if (role === "root_admin") {
         // root_admin: no lead scoping (sees everything)
-    } else if (role === "client_admin") {
-        // client_admin: only leads in their client
+    } else {
         if (scope?.clientId) {
             conditions.push(eq(lead.clientId, scope.clientId));
         }
-    } else if (role === "supervisor") {
-        if (scope?.managedSalesIds && scope.managedSalesIds.length > 0) {
-            conditions.push(inArray(lead.assignedTo, scope.managedSalesIds));
+
+        if (role === "client_admin") {
+            // client_admin: all operational data inside active workspace
+        } else if (role === "supervisor") {
+            if (scope?.managedSalesIds && scope.managedSalesIds.length > 0) {
+                conditions.push(inArray(lead.assignedTo, scope.managedSalesIds));
+            } else {
+                conditions.push(eq(lead.assignedTo, "__none__"));
+            }
         } else {
-            conditions.push(eq(lead.assignedTo, "__none__"));
+            // sales: only own leads inside active workspace
+            conditions.push(eq(lead.assignedTo, userId));
         }
-    } else {
-        // sales: only own leads
-        conditions.push(eq(lead.assignedTo, userId));
     }
 
     if (filters.flowStatus && filters.flowStatus !== "all") {

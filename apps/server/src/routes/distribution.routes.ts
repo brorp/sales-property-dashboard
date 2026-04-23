@@ -20,7 +20,8 @@ function canAccessLead(
 ) {
     if (!lead) return false;
     if (reqUser.role === "root_admin") return true;
-    if (reqUser.role === "client_admin") return lead.clientId === (scope?.clientId || null);
+    if (scope?.clientId && lead.clientId !== scope.clientId) return false;
+    if (reqUser.role === "client_admin") return true;
     if (reqUser.role === "supervisor") {
         return Boolean(lead.assignedTo && scope?.managedSalesIds?.includes(lead.assignedTo));
     }

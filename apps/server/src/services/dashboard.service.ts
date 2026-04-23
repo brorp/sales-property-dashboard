@@ -419,12 +419,24 @@ async function loadScopedLeadsAndAppointments(
 
     if (role === "root_admin") {
         // no filter
-    } else if (role === "client_admin" && scope?.clientId) {
-        conditions.push(eq(lead.clientId, scope.clientId));
-    } else if (role === "supervisor" && scope?.managedSalesIds && scope.managedSalesIds.length > 0) {
-        conditions.push(inArray(lead.assignedTo, scope.managedSalesIds));
     } else {
-        conditions.push(eq(lead.assignedTo, userId));
+        if (scope?.clientId) {
+            conditions.push(eq(lead.clientId, scope.clientId));
+        }
+
+        if (role === "client_admin") {
+            // workspace-scoped only
+        } else if (
+            role === "supervisor" &&
+            scope?.managedSalesIds &&
+            scope.managedSalesIds.length > 0
+        ) {
+            conditions.push(inArray(lead.assignedTo, scope.managedSalesIds));
+        } else if (role === "supervisor") {
+            conditions.push(eq(lead.assignedTo, "__none__"));
+        } else {
+            conditions.push(eq(lead.assignedTo, userId));
+        }
     }
 
     const normalizedDateRange = normalizeDateRange(filters);

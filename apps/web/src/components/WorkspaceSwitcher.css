@@ -4,6 +4,14 @@
     margin-bottom: 12px;
 }
 
+.workspace-switcher--desktop {
+    display: none;
+}
+
+.workspace-switcher--mobile {
+    margin-bottom: 16px;
+}
+
 .workspace-switcher-btn {
     width: 100%;
     display: flex;
@@ -24,8 +32,17 @@
 
 .workspace-switcher-info {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.workspace-switcher-caption {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
 }
 
 .workspace-switcher-icon {
@@ -61,6 +78,10 @@
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     z-index: 100;
     animation: slideDown 0.2s ease-out;
+}
+
+.workspace-switcher-layer {
+    position: relative;
 }
 
 @keyframes slideDown {
@@ -125,4 +146,61 @@
 
 .workspace-switcher-check {
     color: var(--accent);
+}
+
+.workspace-switcher-backdrop {
+    display: none;
+}
+
+@media (max-width: 1023px) {
+    .workspace-switcher--mobile {
+        display: block;
+    }
+
+    .workspace-switcher--desktop {
+        display: none;
+    }
+
+    .workspace-switcher--mobile .workspace-switcher-btn {
+        min-height: 52px;
+    }
+
+    .workspace-switcher--mobile .workspace-switcher-layer--sheet {
+        position: fixed;
+        inset: 0;
+        z-index: 120;
+    }
+
+    .workspace-switcher--mobile .workspace-switcher-backdrop {
+        display: block;
+        position: absolute;
+        inset: 0;
+        border: none;
+        background: rgba(10, 8, 21, 0.66);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+    }
+
+    .workspace-switcher--mobile .workspace-switcher-dropdown {
+        position: absolute;
+        top: auto;
+        left: 12px;
+        right: 12px;
+        bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+        width: auto;
+        border-radius: 20px;
+        padding: 10px;
+        animation: none;
+        box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+    }
+}
+
+@media (min-width: 1024px) {
+    .workspace-switcher--desktop {
+        display: block;
+    }
+
+    .workspace-switcher--mobile {
+        display: none;
+    }
 }

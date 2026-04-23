@@ -1,4 +1,4 @@
-import { desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db/index";
 import {
     activity,
@@ -87,7 +87,12 @@ export async function getUnifiedActivityLogs(
             const rows = await db
                 .select({ id: lead.id })
                 .from(lead)
-                .where(inArray(lead.assignedTo, scope.managedSalesIds));
+                .where(
+                    and(
+                        scope?.clientId ? eq(lead.clientId, scope.clientId) : undefined,
+                        inArray(lead.assignedTo, scope.managedSalesIds)
+                    )
+                );
             accessibleLeadIds = rows.map((row) => row.id);
         } else {
             accessibleLeadIds = [];
@@ -96,7 +101,12 @@ export async function getUnifiedActivityLogs(
         const rows = await db
             .select({ id: lead.id })
             .from(lead)
-            .where(eq(lead.assignedTo, userId));
+            .where(
+                and(
+                    scope?.clientId ? eq(lead.clientId, scope.clientId) : undefined,
+                    eq(lead.assignedTo, userId)
+                )
+            );
         accessibleLeadIds = rows.map((row) => row.id);
     }
 

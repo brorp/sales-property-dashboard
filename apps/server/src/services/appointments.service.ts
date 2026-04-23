@@ -17,22 +17,31 @@ function buildScopeCondition(
     role: string,
     scope?: { clientId?: string | null; managedSalesIds?: string[] }
 ) {
+    const conditions: Array<any> = [];
+
     if (role === "root_admin") {
         return undefined;
     }
 
-    if (role === "client_admin" && scope?.clientId) {
-        return eq(lead.clientId, scope.clientId);
+    if (scope?.clientId) {
+        conditions.push(eq(lead.clientId, scope.clientId));
+    }
+
+    if (role === "client_admin") {
+        return conditions.length > 0 ? and(...conditions) : undefined;
     }
 
     if (role === "supervisor") {
         if (scope?.managedSalesIds?.length) {
-            return inArray(lead.assignedTo, scope.managedSalesIds);
+            conditions.push(inArray(lead.assignedTo, scope.managedSalesIds));
+            return and(...conditions);
         }
-        return eq(lead.assignedTo, "__none__");
+        conditions.push(eq(lead.assignedTo, "__none__"));
+        return and(...conditions);
     }
 
-    return or(eq(appointment.salesId, userId), eq(lead.assignedTo, userId));
+    conditions.push(or(eq(appointment.salesId, userId), eq(lead.assignedTo, userId)));
+    return and(...conditions);
 }
 
 export async function listAppointments(

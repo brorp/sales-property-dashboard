@@ -13,11 +13,14 @@ function canEditLeadByUser(
     scope?: { clientId?: string | null; managedSalesIds?: string[] }
 ) {
     if (!lead) return false;
+    if (scope?.clientId && reqUser.role !== "root_admin" && lead.clientId !== scope.clientId) {
+        return false;
+    }
     if (reqUser.role === "root_admin") {
         return !lead.assignedTo;
     }
     if (reqUser.role === "client_admin") {
-        return lead.clientId === (scope?.clientId || null) && !lead.assignedTo;
+        return !lead.assignedTo;
     }
     if (reqUser.role === "supervisor") {
         return Boolean(scope?.managedSalesIds?.includes(lead.assignedTo || ""));

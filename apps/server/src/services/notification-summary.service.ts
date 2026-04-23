@@ -13,18 +13,27 @@ function buildLeadScopeCondition(
         return undefined;
     }
 
-    if (role === "client_admin" && scope?.clientId) {
-        return eq(lead.clientId, scope.clientId);
+    const conditions: Array<any> = [];
+
+    if (scope?.clientId) {
+        conditions.push(eq(lead.clientId, scope.clientId));
+    }
+
+    if (role === "client_admin") {
+        return conditions.length > 0 ? and(...conditions) : undefined;
     }
 
     if (role === "supervisor") {
         if (scope?.managedSalesIds?.length) {
-            return inArray(lead.assignedTo, scope.managedSalesIds);
+            conditions.push(inArray(lead.assignedTo, scope.managedSalesIds));
+            return and(...conditions);
         }
-        return eq(lead.assignedTo, "__none__");
+        conditions.push(eq(lead.assignedTo, "__none__"));
+        return and(...conditions);
     }
 
-    return eq(lead.assignedTo, userId);
+    conditions.push(eq(lead.assignedTo, userId));
+    return and(...conditions);
 }
 
 export async function getNotificationSummary(

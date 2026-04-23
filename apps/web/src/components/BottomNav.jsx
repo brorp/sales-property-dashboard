@@ -270,7 +270,7 @@ export default function BottomNav() {
     return (
         <nav className="bottom-nav">
             <div className="bottom-nav-brand">
-                <WorkspaceSwitcher />
+                <WorkspaceSwitcher variant="desktop" />
                 {logoUrl ? (
                     <img src={logoUrl} alt={clientName} style={{ height: '160px', width: '100%', objectFit: 'contain', margin: '0 auto', display: 'block' }} />
                 ) : (

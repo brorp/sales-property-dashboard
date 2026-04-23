@@ -15,6 +15,7 @@ import { getDistributionAckTimeoutMs } from "./system-settings.service";
 import { getActiveWhatsAppNumber } from "./whatsapp-identity.service";
 import { moveSalesToQueueEnd } from "./sales.service";
 import { getActiveSalesSuspensionMap } from "./sales-suspension.service";
+import { createNewLeadTaskForLead } from "./daily-task.service";
 
 type DbExecutor = typeof db;
 
@@ -415,6 +416,14 @@ export async function handleSalesAck(
                 updatedAt: now,
             })
             .where(eq(lead.id, leadId));
+
+        await createNewLeadTaskForLead({
+            leadId,
+            salesId,
+            clientId: leadRow.clientId,
+            assignedAt: now,
+            executor: tx as unknown as DbExecutor,
+        });
 
         await tx
             .update(distributionAttempt)

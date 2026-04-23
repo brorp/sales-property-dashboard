@@ -18,7 +18,8 @@ function canViewLeadByUser(
 ) {
     if (!lead) return false;
     if (reqUser.role === "root_admin") return true;
-    if (reqUser.role === "client_admin") return lead.clientId === (scope?.clientId || null);
+    if (scope?.clientId && lead.clientId !== scope.clientId) return false;
+    if (reqUser.role === "client_admin") return true;
     if (reqUser.role === "supervisor") {
         if (scope?.managedSalesIds?.includes(lead.assignedTo || "")) return true;
         return false;
@@ -32,11 +33,14 @@ function canEditLeadByUser(
     scope?: { clientId?: string | null; managedSalesIds?: string[] }
 ) {
     if (!lead) return false;
+    if (scope?.clientId && reqUser.role !== "root_admin" && lead.clientId !== scope.clientId) {
+        return false;
+    }
     if (reqUser.role === "root_admin") {
         return !lead.assignedTo;
     }
     if (reqUser.role === "client_admin") {
-        return lead.clientId === (scope?.clientId || null) && !lead.assignedTo;
+        return !lead.assignedTo;
     }
     if (reqUser.role === "supervisor") {
         if (scope?.managedSalesIds?.includes(lead.assignedTo || "")) return true;

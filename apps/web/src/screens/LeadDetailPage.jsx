@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
 import {
@@ -100,12 +101,12 @@ export default function LeadDetailPage({ leadId }) {
         getLeadById,
         loadLeadById,
         updateLead,
-        acceptLead,
         addAppointment,
         updateAppointment,
         cancelAppointment,
         getSalesUsers,
     } = useLeads();
+    const router = useRouter();
 
     const [showAppt, setShowAppt] = useState(false);
     const [showNote, setShowNote] = useState(false);
@@ -140,8 +141,6 @@ export default function LeadDetailPage({ leadId }) {
     const [unitsLoading, setUnitsLoading] = useState(false);
     const [cancelReasons, setCancelReasons] = useState([]);
     const [cancelReasonsLoading, setCancelReasonsLoading] = useState(false);
-    const [acceptingLead, setAcceptingLead] = useState(false);
-
     const lead = getLeadById(leadId);
     const salesUsers = getSalesUsers();
 
@@ -283,7 +282,7 @@ export default function LeadDetailPage({ leadId }) {
     }, [isAdmin, lead?.assignedTo]);
 
     const isAcceptedLead = effectiveFlowStatus === 'accepted';
-    const canAcceptCurrentLead = canEditLead && effectiveFlowStatus === 'assigned';
+    const needsNewLeadTaskAcceptance = canEditLead && effectiveFlowStatus === 'assigned';
     const isLockedByAkad = lead?.resultStatus === 'akad';
     const appointmentTag = lead?.appointmentTag || 'none';
     const canUpdateLayer2 = isAcceptedLead && !isLockedByAkad;
@@ -342,24 +341,6 @@ export default function LeadDetailPage({ leadId }) {
             setRequestError(err instanceof Error ? err.message : 'Failed loading lead');
         } finally {
             setRefreshing(false);
-        }
-    };
-
-    const handleAcceptLead = async () => {
-        if (!canAcceptCurrentLead) {
-            return;
-        }
-
-        setAcceptingLead(true);
-        try {
-            setRequestError('');
-            setRequestSuccess('');
-            await acceptLead(lead.id);
-            setRequestSuccess('Lead berhasil diterima. Status L1 menjadi Accepted dan L2 otomatis Warm.');
-        } catch (err) {
-            setRequestError(err instanceof Error ? err.message : 'Gagal menerima lead');
-        } finally {
-            setAcceptingLead(false);
         }
     };
 
@@ -557,10 +538,19 @@ export default function LeadDetailPage({ leadId }) {
                 ) : null}
                 {requestError ? <div className="settings-error">{requestError}</div> : null}
                 {requestSuccess ? <div className="settings-success">{requestSuccess}</div> : null}
-                {canAcceptCurrentLead ? (
-                    <button className="btn btn-primary btn-full" style={{ marginTop: 12 }} onClick={() => void handleAcceptLead()} disabled={acceptingLead}>
-                        {acceptingLead ? 'Menerima lead...' : 'Accept Lead'}
-                    </button>
+                {needsNewLeadTaskAcceptance ? (
+                    <div className="detail-pending-task-note">
+                        <div className="settings-help" style={{ margin: '12px 0 0' }}>
+                            Lead ini harus diterima lewat <strong>Tasks &gt; New Leads</strong>. Submit screenshot proof dan status L2 di sana untuk mengubah status lead menjadi Accepted.
+                        </div>
+                        <button
+                            className="btn btn-primary btn-full"
+                            style={{ marginTop: 12 }}
+                            onClick={() => router.push('/daily-tasks')}
+                        >
+                            Buka Daily Task
+                        </button>
+                    </div>
                 ) : null}
                 <a href={toWaLink(lead.phone)} target="_blank" rel="noopener noreferrer" className="btn btn-whatsapp btn-full" style={{ marginTop: 12 }}>
                     Chat WhatsApp
