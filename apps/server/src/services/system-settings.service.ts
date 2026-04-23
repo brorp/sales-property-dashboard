@@ -12,6 +12,8 @@ const DEFAULT_SETTINGS = {
     operationalTimezone: "Asia/Jakarta",
     outsideOfficeReply:
         "Terima kasih sudah menghubungi kami. Jam operasional kami 09.00 - 21.00 WIB. Tim kami akan merespons saat jam operasional.",
+    insideOfficeReply:
+        "Harap menunggu agent professional akan menghubungi anda",
 };
 
 function toTwoDigits(value: number) {
@@ -79,6 +81,7 @@ function mapSettingsRow(row: {
     operationalEndMinute: number;
     operationalTimezone: string;
     outsideOfficeReply: string;
+    insideOfficeReply: string;
     updatedAt: Date;
 }) {
     return {
@@ -91,6 +94,7 @@ function mapSettingsRow(row: {
             row.operationalEndMinute
         ),
         outsideOfficeReply: row.outsideOfficeReply,
+        insideOfficeReply: row.insideOfficeReply,
         updatedAt: row.updatedAt.toISOString(),
     };
 }
@@ -128,6 +132,7 @@ async function ensureSettingsRowForClient(clientId?: string | null) {
             operationalEndMinute: DEFAULT_SETTINGS.operationalEndMinute,
             operationalTimezone: DEFAULT_SETTINGS.operationalTimezone,
             outsideOfficeReply: DEFAULT_SETTINGS.outsideOfficeReply,
+            insideOfficeReply: DEFAULT_SETTINGS.insideOfficeReply,
             createdAt: now,
             updatedAt: now,
         })
@@ -147,6 +152,7 @@ export async function updateSystemSettings(input: {
     operationalEnd?: string;
     operationalTimezone?: string;
     outsideOfficeReply?: string;
+    insideOfficeReply?: string;
 }, clientId?: string | null) {
     const settingsId = resolveSettingsId(clientId || null);
     const current = await ensureSettingsRowForClient(clientId || null);
@@ -213,6 +219,14 @@ export async function updateSystemSettings(input: {
         updates.outsideOfficeReply = nextReply;
     }
 
+    if (input.insideOfficeReply !== undefined) {
+        const nextReply = String(input.insideOfficeReply).trim();
+        if (!nextReply) {
+            throw new Error("INSIDE_OFFICE_REPLY_REQUIRED");
+        }
+        updates.insideOfficeReply = nextReply;
+    }
+
     const [updated] = await db
         .update(appSetting)
         .set(updates)
@@ -251,5 +265,6 @@ export async function getOperationalWindowState(
         ),
         operationalTimezone: settings.operationalTimezone,
         outsideOfficeReply: settings.outsideOfficeReply,
+        insideOfficeReply: settings.insideOfficeReply,
     };
 }

@@ -476,6 +476,9 @@ export const appSetting = pgTable(
             .default(
                 "Terima kasih sudah menghubungi kami. Jam operasional kami 09.00 - 21.00 WIB. Tim kami akan merespons saat jam operasional."
             ),
+        insideOfficeReply: text("inside_office_reply")
+            .notNull()
+            .default("Harap menunggu agent professional akan menghubungi anda"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),
     },

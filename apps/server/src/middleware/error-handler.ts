@@ -76,6 +76,7 @@ const knownBadRequestCodes = new Set([
     "SUPERVISOR_HAS_ACTIVE_SALES",
     "ADMIN_PASSWORD_REQUIRED",
     "ADMIN_PASSWORD_INVALID",
+    "INSIDE_OFFICE_REPLY_REQUIRED",
 ]);
 
 const knownConflictCodes = new Set([

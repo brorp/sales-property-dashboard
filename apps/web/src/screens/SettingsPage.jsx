@@ -56,6 +56,7 @@ export default function SettingsPage() {
         operationalEnd: '21:00',
         operationalTimezone: 'Asia/Jakarta',
         outsideOfficeReply: '',
+        insideOfficeReply: '',
     });
 
     const request = useCallback(
@@ -127,6 +128,7 @@ export default function SettingsPage() {
                 operationalEnd: data?.operationalEnd || '21:00',
                 operationalTimezone: data?.operationalTimezone || 'Asia/Jakarta',
                 outsideOfficeReply: data?.outsideOfficeReply || '',
+                insideOfficeReply: data?.insideOfficeReply || 'Harap menunggu agent professional akan menghubungi anda',
             });
         } catch (err) {
             setSystemSettingsError(err instanceof Error ? err.message : 'Failed loading system settings');
@@ -224,6 +226,7 @@ export default function SettingsPage() {
                     operationalEnd: systemSettingsForm.operationalEnd,
                     operationalTimezone: systemSettingsForm.operationalTimezone,
                     outsideOfficeReply: systemSettingsForm.outsideOfficeReply,
+                    insideOfficeReply: systemSettingsForm.insideOfficeReply,
                 },
             });
             setSystemSettingsFeedback('System settings berhasil disimpan.');
@@ -399,6 +402,22 @@ export default function SettingsPage() {
                             setSystemSettingsForm((prev) => ({
                                 ...prev,
                                 outsideOfficeReply: event.target.value,
+                            }))
+                        }
+                        disabled={systemSettingsLoading || systemSettingsSaving}
+                    />
+                </div>
+
+                <div className="input-group">
+                    <label>Auto reply saat jam operasional</label>
+                    <textarea
+                        className="input-field"
+                        rows={3}
+                        value={systemSettingsForm.insideOfficeReply}
+                        onChange={(event) =>
+                            setSystemSettingsForm((prev) => ({
+                                ...prev,
+                                insideOfficeReply: event.target.value,
                             }))
                         }
                         disabled={systemSettingsLoading || systemSettingsSaving}

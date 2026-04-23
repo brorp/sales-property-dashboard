@@ -381,6 +381,8 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
         cycle,
         firstClientMessage: !hadInboundBefore,
         heldByOperationalHours: false,
-        autoReplyText: "Harap menunggu agent professional akan menghubungi anda",
+        autoReplyText:
+            operationalWindow.insideOfficeReply ||
+            "Harap menunggu agent professional akan menghubungi anda",
     };
 }

@@ -262,6 +262,8 @@ async function upsertSettingsRow(id: string, clientId: string | null) {
         operationalTimezone: "Asia/Jakarta",
         outsideOfficeReply:
             "Terima kasih sudah menghubungi kami. Jam operasional kami 09.00 - 21.00 WIB. Tim kami akan merespons saat jam operasional.",
+        insideOfficeReply:
+            "Harap menunggu agent professional akan menghubungi anda",
         updatedAt: new Date(),
     };
 

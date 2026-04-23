@@ -31,6 +31,7 @@ router.patch("/system", requireMinRole("client_admin") as any, async (req, res: 
             operationalEnd,
             operationalTimezone,
             outsideOfficeReply,
+            insideOfficeReply,
             clientId,
         } = req.body ?? {};
 
@@ -52,6 +53,10 @@ router.patch("/system", requireMinRole("client_admin") as any, async (req, res: 
             outsideOfficeReply:
                 typeof outsideOfficeReply === "string"
                     ? outsideOfficeReply
+                    : undefined,
+            insideOfficeReply:
+                typeof insideOfficeReply === "string"
+                    ? insideOfficeReply
                     : undefined,
         }, targetClientId);
 
