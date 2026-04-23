@@ -62,6 +62,25 @@ function formatSuspensionUntil(value) {
     });
 }
 
+function getTeamActionErrorMessage(error, fallback) {
+    if (!(error instanceof Error)) {
+        return fallback;
+    }
+
+    switch (error.message) {
+        case 'INVALID_SUPERVISOR':
+            return 'Supervisor tujuan tidak valid atau sudah nonaktif.';
+        case 'SUPERVISOR_HAS_ACTIVE_SALES':
+            return 'Supervisor masih punya sales aktif. Pindahkan atau nonaktifkan sales aktifnya terlebih dahulu.';
+        case 'TEAM_MEMBER_NOT_FOUND':
+            return 'Member tim tidak ditemukan atau sudah tidak aktif.';
+        case 'TARGET_SALES_NOT_FOUND':
+            return 'Sales yang mau dipindahkan tidak ditemukan pada workspace ini.';
+        default:
+            return error.message;
+    }
+}
+
 function TeamSummaryCard({ label, value, tone = 'default', helper }) {
     return (
         <div className={`team-summary-card team-summary-${tone}`}>
@@ -145,7 +164,8 @@ export default function TeamPage() {
     const [editLoading, setEditLoading] = useState(false);
     const [editError, setEditError] = useState('');
     const [lifecycleState, setLifecycleState] = useState(null);
-    const [reactivatingSalesId, setReactivatingSalesId] = useState('');
+    const [assignmentState, setAssignmentState] = useState(null);
+    const [deleteSupervisorState, setDeleteSupervisorState] = useState(null);
 
     useEffect(() => {
         if (!isAdmin) {
@@ -169,6 +189,18 @@ export default function TeamPage() {
             .filter((supervisor) => !isLockedTeamMember(supervisor))
             .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')));
     }, [groups]);
+    const supervisorOptionsByClient = useMemo(() => {
+        const nextMap = new Map();
+
+        for (const group of groups) {
+            nextMap.set(
+                group.clientId || 'no-client',
+                sortMembersWithLockedLast(group.supervisors || []).filter((supervisor) => !isLockedTeamMember(supervisor)),
+            );
+        }
+
+        return nextMap;
+    }, [groups]);
 
     const canCreateSupervisor = user?.role === 'client_admin';
     const canCreateSales =
@@ -176,6 +208,7 @@ export default function TeamPage() {
         (user?.role === 'client_admin' && availableSupervisors.length > 0);
     const canEditMembers = user?.role === 'client_admin';
     const canManageSalesLifecycle = user?.role === 'client_admin' || user?.role === 'root_admin';
+    const canManageSalesSupervisor = user?.role === 'client_admin' || user?.role === 'root_admin';
     const summary = teamStats?.summary || {
         supervisors: 0,
         sales: 0,
@@ -330,25 +363,149 @@ export default function TeamPage() {
     };
 
     const handleReactivateSales = async (member) => {
-        if (!user || !member?.id) {
+        if (!member?.id) {
             return;
         }
 
-        setReactivatingSalesId(member.id);
+        const supervisorOptions = supervisorOptionsByClient.get(member.clientId || 'no-client') || [];
+
+        if (supervisorOptions.length === 0) {
+            setSubmitError('Tambahkan supervisor aktif terlebih dahulu sebelum mengaktifkan sales kembali.');
+            return;
+        }
+
+        const hasCurrentSupervisor = supervisorOptions.some((supervisor) => supervisor.id === member.supervisorId);
+
+        setAssignmentState({
+            mode: 'reactivate',
+            sales: member,
+            clientId: member.clientId || null,
+            supervisorId: hasCurrentSupervisor ? member.supervisorId || '' : supervisorOptions[0]?.id || '',
+            error: '',
+            submitting: false,
+        });
         setSubmitSuccess('');
         setSubmitError('');
+    };
+
+    const openAssignSupervisor = (member) => {
+        if (!member?.id) {
+            return;
+        }
+
+        const supervisorOptions = supervisorOptionsByClient.get(member.clientId || 'no-client') || [];
+
+        if (supervisorOptions.length === 0) {
+            setSubmitError('Belum ada supervisor aktif untuk workspace sales ini.');
+            return;
+        }
+
+        const hasCurrentSupervisor = supervisorOptions.some((supervisor) => supervisor.id === member.supervisorId);
+
+        setAssignmentState({
+            mode: 'assign',
+            sales: member,
+            clientId: member.clientId || null,
+            supervisorId: hasCurrentSupervisor ? member.supervisorId || '' : supervisorOptions[0]?.id || '',
+            error: '',
+            submitting: false,
+        });
+        setSubmitSuccess('');
+        setSubmitError('');
+    };
+
+    const closeAssignmentModal = () => {
+        setAssignmentState(null);
+    };
+
+    const handleSubmitAssignment = async () => {
+        if (!user || !assignmentState?.sales?.id || !assignmentState?.clientId) {
+            return;
+        }
+
+        if (!assignmentState.supervisorId) {
+            setAssignmentState((prev) => (prev ? {
+                ...prev,
+                error: 'Supervisor tujuan wajib dipilih.',
+            } : prev));
+            return;
+        }
+
+        setAssignmentState((prev) => (prev ? { ...prev, submitting: true, error: '' } : prev));
 
         try {
-            await apiRequest(`/api/sales/${member.id}/reactivate`, {
-                method: 'POST',
+            if (assignmentState.mode === 'reactivate') {
+                await apiRequest(`/api/sales/${assignmentState.sales.id}/reactivate`, {
+                    method: 'POST',
+                    user,
+                    body: {
+                        supervisorId: assignmentState.supervisorId,
+                    },
+                });
+                setSubmitSuccess(`Sales ${assignmentState.sales.name} berhasil diaktifkan kembali.`);
+            } else {
+                await apiRequest('/api/sales/supervisor/assign', {
+                    method: 'PATCH',
+                    user,
+                    body: {
+                        salesIds: [assignmentState.sales.id],
+                        supervisorId: assignmentState.supervisorId,
+                        clientId: assignmentState.clientId,
+                    },
+                });
+                setSubmitSuccess(`Supervisor untuk ${assignmentState.sales.name} berhasil diperbarui.`);
+            }
+
+            await refreshTeamStats();
+            closeAssignmentModal();
+        } catch (err) {
+            setAssignmentState((prev) => (prev ? {
+                ...prev,
+                submitting: false,
+                error: getTeamActionErrorMessage(err, 'Gagal memperbarui supervisor sales'),
+            } : prev));
+        }
+    };
+
+    const openDeleteSupervisor = (supervisor) => {
+        if (!supervisor?.id) {
+            return;
+        }
+
+        setDeleteSupervisorState({
+            supervisor,
+            submitting: false,
+            error: '',
+        });
+        setSubmitSuccess('');
+        setSubmitError('');
+    };
+
+    const closeDeleteSupervisor = () => {
+        setDeleteSupervisorState(null);
+    };
+
+    const handleDeleteSupervisor = async () => {
+        if (!user || !deleteSupervisorState?.supervisor?.id) {
+            return;
+        }
+
+        setDeleteSupervisorState((prev) => (prev ? { ...prev, submitting: true, error: '' } : prev));
+
+        try {
+            await apiRequest(`/api/team/${deleteSupervisorState.supervisor.id}`, {
+                method: 'DELETE',
                 user,
             });
             await refreshTeamStats();
-            setSubmitSuccess(`Sales ${member.name} berhasil diaktifkan kembali.`);
+            setSubmitSuccess(`Supervisor ${deleteSupervisorState.supervisor.name} berhasil dihapus.`);
+            closeDeleteSupervisor();
         } catch (err) {
-            setSubmitError(err instanceof Error ? err.message : 'Gagal mengaktifkan sales');
-        } finally {
-            setReactivatingSalesId('');
+            setDeleteSupervisorState((prev) => (prev ? {
+                ...prev,
+                submitting: false,
+                error: getTeamActionErrorMessage(err, 'Gagal menghapus supervisor'),
+            } : prev));
         }
     };
 
@@ -613,6 +770,17 @@ export default function TeamPage() {
                                                     + Sales
                                                 </button>
                                             ) : null}
+                                            {canManageSalesSupervisor && !isLockedTeamMember(supervisor) ? (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-sm btn-danger team-edit-btn"
+                                                    onClick={() => openDeleteSupervisor(supervisor)}
+                                                    disabled={Number(supervisor.salesCount || 0) > 0}
+                                                    title={Number(supervisor.salesCount || 0) > 0 ? 'Supervisor hanya bisa dihapus jika tidak punya sales aktif.' : 'Hapus supervisor'}
+                                                >
+                                                    Delete
+                                                </button>
+                                            ) : null}
                                         </div>
                                     </div>
 
@@ -638,6 +806,15 @@ export default function TeamPage() {
                                                                     onClick={() => openEditMember(sales)}
                                                                 >
                                                                     Edit
+                                                                </button>
+                                                            ) : null}
+                                                            {canManageSalesSupervisor && !isLockedTeamMember(sales) ? (
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-sm btn-secondary team-edit-btn"
+                                                                    onClick={() => openAssignSupervisor(sales)}
+                                                                >
+                                                                    {sales.supervisorId ? 'Pindah SPV' : 'Assign SPV'}
                                                                 </button>
                                                             ) : null}
                                                             {canManageSalesLifecycle && !isLockedTeamMember(sales) ? (
@@ -688,14 +865,23 @@ export default function TeamPage() {
                                                                 className="btn btn-sm btn-secondary team-edit-btn"
                                                                 onClick={() => openEditMember(sales)}
                                                             >
-                                                                Edit
-                                                            </button>
-                                                        ) : null}
-                                                        {canManageSalesLifecycle && !isLockedTeamMember(sales) ? (
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm btn-danger team-edit-btn"
-                                                                onClick={() => openDeactivateMember(sales)}
+                                                            Edit
+                                                        </button>
+                                                    ) : null}
+                                                    {canManageSalesSupervisor && !isLockedTeamMember(sales) ? (
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-sm btn-secondary team-edit-btn"
+                                                            onClick={() => openAssignSupervisor(sales)}
+                                                        >
+                                                            {sales.supervisorId ? 'Pindah SPV' : 'Assign SPV'}
+                                                        </button>
+                                                    ) : null}
+                                                    {canManageSalesLifecycle && !isLockedTeamMember(sales) ? (
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-sm btn-danger team-edit-btn"
+                                                            onClick={() => openDeactivateMember(sales)}
                                                             >
                                                                 Deactivate
                                                             </button>
@@ -734,9 +920,10 @@ export default function TeamPage() {
                                                             type="button"
                                                             className="btn btn-sm btn-primary team-edit-btn"
                                                             onClick={() => void handleReactivateSales(sales)}
-                                                            disabled={reactivatingSalesId === sales.id}
+                                                            disabled={(supervisorOptionsByClient.get(sales.clientId || 'no-client') || []).length === 0}
+                                                            title={(supervisorOptionsByClient.get(sales.clientId || 'no-client') || []).length === 0 ? 'Butuh supervisor aktif untuk mengaktifkan sales kembali' : 'Aktifkan kembali sales'}
                                                         >
-                                                            {reactivatingSalesId === sales.id ? 'Loading...' : 'Reactivate'}
+                                                            Reactivate
                                                         </button>
                                                     </div>
                                                 </div>
@@ -816,6 +1003,104 @@ export default function TeamPage() {
                             </button>
                             <button type="button" className="btn btn-secondary btn-full" onClick={closeCreateModal}>Batal</button>
                         </form>
+                    </div>
+                </div>
+            ) : null}
+
+            {assignmentState ? (
+                <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget) closeAssignmentModal(); }}>
+                    <div className="bottom-sheet">
+                        <div className="sheet-handle" />
+                        <h2>{assignmentState.mode === 'reactivate' ? 'Reactivate Sales' : 'Assign Sales ke Supervisor'}</h2>
+                        <div className="team-lifecycle-copy">
+                            <p>
+                                <strong>{assignmentState.sales?.name}</strong>
+                                {assignmentState.mode === 'reactivate'
+                                    ? ' akan diaktifkan kembali dan langsung ditempatkan ke supervisor baru.'
+                                    : ' akan dipindahkan ke supervisor yang kamu pilih.'}
+                            </p>
+                            <p className="team-modal-helper">
+                                Workspace: {groups.find((group) => group.clientId === assignmentState.clientId)?.clientName || assignmentState.sales?.clientName || '-'}
+                            </p>
+                        </div>
+                        <div className="input-group">
+                            <label>Supervisor Tujuan</label>
+                            <select
+                                className="input-field"
+                                value={assignmentState.supervisorId || ''}
+                                onChange={(event) => setAssignmentState((prev) => (
+                                    prev
+                                        ? { ...prev, supervisorId: event.target.value, error: '' }
+                                        : prev
+                                ))}
+                            >
+                                <option value="">Pilih supervisor</option>
+                                {(supervisorOptionsByClient.get(assignmentState.clientId || 'no-client') || []).map((supervisor) => (
+                                    <option key={supervisor.id} value={supervisor.id}>
+                                        {supervisor.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        {assignmentState.error ? <div className="login-error">{assignmentState.error}</div> : null}
+                        <div className="team-lifecycle-actions">
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={closeAssignmentModal}
+                                disabled={assignmentState.submitting}
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={() => void handleSubmitAssignment()}
+                                disabled={assignmentState.submitting}
+                            >
+                                {assignmentState.submitting
+                                    ? 'Menyimpan...'
+                                    : assignmentState.mode === 'reactivate'
+                                        ? 'Reactivate Sales'
+                                        : 'Simpan Supervisor'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {deleteSupervisorState ? (
+                <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget) closeDeleteSupervisor(); }}>
+                    <div className="bottom-sheet">
+                        <div className="sheet-handle" />
+                        <h2>Hapus Supervisor</h2>
+                        <div className="team-lifecycle-copy">
+                            <p>
+                                Supervisor <strong>{deleteSupervisorState.supervisor?.name}</strong> akan dinonaktifkan dan tidak bisa login lagi.
+                            </p>
+                            <p className="team-modal-helper">
+                                Aksi ini hanya diizinkan jika tidak ada sales aktif di bawah supervisor tersebut.
+                            </p>
+                        </div>
+                        {deleteSupervisorState.error ? <div className="login-error">{deleteSupervisorState.error}</div> : null}
+                        <div className="team-lifecycle-actions">
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={closeDeleteSupervisor}
+                                disabled={deleteSupervisorState.submitting}
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-danger"
+                                onClick={() => void handleDeleteSupervisor()}
+                                disabled={deleteSupervisorState.submitting}
+                            >
+                                {deleteSupervisorState.submitting ? 'Menghapus...' : 'Ya, Hapus Supervisor'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             ) : null}

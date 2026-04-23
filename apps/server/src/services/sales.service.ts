@@ -603,12 +603,18 @@ export async function createSalesUser(data: {
                 id: user.id,
                 role: user.role,
                 clientId: user.clientId,
+                isActive: user.isActive,
             })
             .from(user)
             .where(eq(user.id, data.supervisorId))
             .limit(1);
 
-        if (!supervisorRow || supervisorRow.role !== "supervisor") {
+        if (
+            !supervisorRow ||
+            supervisorRow.role !== "supervisor" ||
+            supervisorRow.clientId !== data.clientId ||
+            !supervisorRow.isActive
+        ) {
             throw new Error("INVALID_SUPERVISOR");
         }
 
@@ -707,15 +713,38 @@ export async function assignSalesSupervisor(params: {
                 id: user.id,
                 role: user.role,
                 clientId: user.clientId,
+                isActive: user.isActive,
             })
             .from(user)
             .where(eq(user.id, params.supervisorId))
             .limit(1);
 
-        if (!supervisorRow || supervisorRow.role !== "supervisor") {
+        if (
+            !supervisorRow ||
+            supervisorRow.role !== "supervisor" ||
+            supervisorRow.clientId !== params.clientId ||
+            !supervisorRow.isActive
+        ) {
             throw new Error("INVALID_SUPERVISOR");
         }
 
+    }
+
+    const salesRows = await db
+        .select({
+            id: user.id,
+        })
+        .from(user)
+        .where(
+            and(
+                inArray(user.id, salesIds),
+                eq(user.role, "sales"),
+                eq(user.clientId, params.clientId)
+            )
+        );
+
+    if (salesRows.length !== salesIds.length) {
+        throw new Error("TARGET_SALES_NOT_FOUND");
     }
 
     const updated = await db
@@ -727,7 +756,8 @@ export async function assignSalesSupervisor(params: {
         .where(
             and(
                 inArray(user.id, salesIds),
-                eq(user.role, "sales")
+                eq(user.role, "sales"),
+                eq(user.clientId, params.clientId)
             )
         )
         .returning({

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
-import { requireMinRole } from "../middleware/rbac";
+import { requireMinRole, requireRole } from "../middleware/rbac";
 import * as teamService from "../services/team.service";
 
 const router: ReturnType<typeof Router> = Router();
@@ -31,6 +31,21 @@ router.get("/:id", requireMinRole("supervisor") as any, async (req, res: Respons
         }
 
         res.json(detail);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.delete("/:id", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { scope, user } = req as unknown as AuthenticatedRequest;
+        const updated = await teamService.deactivateSupervisorMember({
+            supervisorId: req.params.id,
+            actorId: user.id,
+            scope,
+        });
+
+        res.json(updated);
     } catch (error) {
         next(error);
     }

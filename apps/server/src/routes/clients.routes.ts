@@ -103,12 +103,18 @@ router.post("/:id/users", requireRole("root_admin", "client_admin") as any, asyn
                     id: user.id,
                     role: user.role,
                     clientId: user.clientId,
+                    isActive: user.isActive,
                 })
                 .from(user)
                 .where(eq(user.id, supervisorId))
                 .limit(1);
 
-            if (!supervisorRow || supervisorRow.role !== "supervisor") {
+            if (
+                !supervisorRow ||
+                supervisorRow.role !== "supervisor" ||
+                supervisorRow.clientId !== clientId ||
+                !supervisorRow.isActive
+            ) {
                 res.status(400).json({ error: "INVALID_SUPERVISOR", message: "supervisorId tidak valid untuk client ini" });
                 return;
             }
@@ -228,12 +234,18 @@ router.patch("/:id/users/:userId", requireRole("root_admin", "client_admin") as 
                         id: user.id,
                         role: user.role,
                         clientId: user.clientId,
+                        isActive: user.isActive,
                     })
                     .from(user)
                     .where(eq(user.id, supervisorId))
                     .limit(1);
 
-                if (!supervisorRow || supervisorRow.role !== "supervisor") {
+                if (
+                    !supervisorRow ||
+                    supervisorRow.role !== "supervisor" ||
+                    supervisorRow.clientId !== clientId ||
+                    !supervisorRow.isActive
+                ) {
                     res.status(400).json({ error: "INVALID_SUPERVISOR", message: "supervisorId tidak valid untuk client ini" });
                     return;
                 }

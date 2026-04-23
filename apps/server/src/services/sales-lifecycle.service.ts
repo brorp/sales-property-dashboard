@@ -23,6 +23,10 @@ function queueLabelFromOrder(order: number) {
 function getManagedSalesWhereClause(salesId: string, actor: ActorScope) {
     const conditions = [eq(user.id, salesId), eq(user.role, "sales")];
 
+    if (actor.actorRole === "client_admin" && actor.actorClientId) {
+        conditions.push(eq(user.clientId, actor.actorClientId));
+    }
+
     return and(...conditions);
 }
 
@@ -44,6 +48,29 @@ async function getManagedSalesRow(salesId: string, actor: ActorScope) {
         .limit(1);
 
     return row || null;
+}
+
+async function getActiveSupervisorRow(
+    executor: DbLike,
+    supervisorId: string,
+    clientId: string
+) {
+    const [row] = await executor
+        .select({
+            id: user.id,
+            role: user.role,
+            clientId: user.clientId,
+            isActive: user.isActive,
+        })
+        .from(user)
+        .where(eq(user.id, supervisorId))
+        .limit(1);
+
+    if (!row || row.role !== "supervisor" || row.clientId !== clientId || !row.isActive) {
+        throw new Error("INVALID_SUPERVISOR");
+    }
+
+    return row;
 }
 
 async function getHighestQueueOrder(executor: DbLike, clientId: string) {
@@ -272,7 +299,13 @@ export async function deactivateSalesUser(salesId: string, actor: ActorScope) {
     });
 }
 
-export async function reactivateSalesUser(salesId: string, actor: ActorScope) {
+export async function reactivateSalesUser(
+    salesId: string,
+    actor: ActorScope,
+    options?: {
+        supervisorId?: string | null;
+    }
+) {
     const salesRow = await getManagedSalesRow(salesId, actor);
     if (!salesRow) {
         throw new Error("SALES_NOT_FOUND");
@@ -283,12 +316,24 @@ export async function reactivateSalesUser(salesId: string, actor: ActorScope) {
     }
 
     return db.transaction(async (tx) => {
+        const nextSupervisorId =
+            options?.supervisorId === undefined
+                ? salesRow.supervisorId || null
+                : options.supervisorId || null;
+
+        if (nextSupervisorId) {
+            await getActiveSupervisorRow(tx, nextSupervisorId, salesRow.clientId!);
+        }
+
         const [updated] = await tx
             .update(user)
             .set({
                 isActive: true,
+                supervisorId: nextSupervisorId,
                 reactivatedAt: new Date(),
                 reactivatedByUserId: actor.actorId,
+                deactivatedAt: null,
+                deactivatedByUserId: null,
                 updatedAt: new Date(),
             })
             .where(eq(user.id, salesRow.id))

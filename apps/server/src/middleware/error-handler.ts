@@ -72,6 +72,8 @@ const knownBadRequestCodes = new Set([
     "IMAGEKIT_MEDIA_EMPTY",
     "UPLOAD_IMAGE_REQUIRED",
     "PENALTY_COMPENSATION_REASON_REQUIRED",
+    "INVALID_SUPERVISOR",
+    "SUPERVISOR_HAS_ACTIVE_SALES",
 ]);
 
 const knownConflictCodes = new Set([
@@ -98,6 +100,7 @@ const knownNotFoundCodes = new Set([
     "TARGET_SALES_NOT_FOUND",
     "DAILY_TASK_NOT_FOUND",
     "PENALTY_NOT_FOUND",
+    "TEAM_MEMBER_NOT_FOUND",
 ]);
 
 function getRequestContext(req: Request) {

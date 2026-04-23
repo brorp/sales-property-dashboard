@@ -106,10 +106,13 @@ router.post("/:id/deactivate", requireRole("root_admin", "client_admin") as any,
 router.post("/:id/reactivate", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
+        const { supervisorId } = req.body ?? {};
         const updated = await salesLifecycleService.reactivateSalesUser(req.params.id, {
             actorId: user.id,
             actorRole: user.role,
             actorClientId: getWorkspaceClientId(req as unknown as AuthenticatedRequest),
+        }, {
+            supervisorId: supervisorId || null,
         });
         res.json(updated);
     } catch (error) {

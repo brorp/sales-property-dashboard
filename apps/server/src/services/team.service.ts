@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db/index";
-import { client, lead, user } from "../db/schema";
+import { client, lead, session, user } from "../db/schema";
 import type { QueryScope } from "../middleware/rbac";
 import { countAppointmentsForSalesIds } from "./appointments.service";
 import { getActiveSalesSuspensionMap } from "./sales-suspension.service";
@@ -721,4 +721,74 @@ export async function getTeamMemberDetail(memberId: string, scope?: QueryScope) 
         }),
         leads: leadRows,
     };
+}
+
+export async function deactivateSupervisorMember(params: {
+    supervisorId: string;
+    actorId: string;
+    scope?: QueryScope;
+}) {
+    const member = await loadVisibleMemberById(params.supervisorId, params.scope);
+
+    if (!member) {
+        throw new Error("TEAM_MEMBER_NOT_FOUND");
+    }
+
+    if (member.role !== "supervisor") {
+        throw new Error("INVALID_SUPERVISOR");
+    }
+
+    if (
+        params.scope?.role === "client_admin" &&
+        params.scope.clientId &&
+        member.clientId !== params.scope.clientId
+    ) {
+        throw new Error("TEAM_MEMBER_NOT_FOUND");
+    }
+
+    const [activeSalesRow] = await db
+        .select({
+            id: user.id,
+        })
+        .from(user)
+        .where(
+            and(
+                eq(user.role, "sales"),
+                eq(user.supervisorId, member.id),
+                eq(user.isActive, true)
+            )
+        )
+        .limit(1);
+
+    if (activeSalesRow) {
+        throw new Error("SUPERVISOR_HAS_ACTIVE_SALES");
+    }
+
+    return db.transaction(async (tx) => {
+        await tx.delete(session).where(eq(session.userId, member.id));
+
+        const [updated] = await tx
+            .update(user)
+            .set({
+                isActive: false,
+                deactivatedAt: new Date(),
+                deactivatedByUserId: params.actorId,
+                reactivatedAt: null,
+                reactivatedByUserId: null,
+                updatedAt: new Date(),
+            })
+            .where(eq(user.id, member.id))
+            .returning({
+                id: user.id,
+                name: user.name,
+                role: user.role,
+                isActive: user.isActive,
+            });
+
+        if (!updated) {
+            throw new Error("TEAM_MEMBER_NOT_FOUND");
+        }
+
+        return updated;
+    });
 }
