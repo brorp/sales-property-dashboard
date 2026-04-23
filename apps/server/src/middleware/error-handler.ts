@@ -74,6 +74,8 @@ const knownBadRequestCodes = new Set([
     "PENALTY_COMPENSATION_REASON_REQUIRED",
     "INVALID_SUPERVISOR",
     "SUPERVISOR_HAS_ACTIVE_SALES",
+    "ADMIN_PASSWORD_REQUIRED",
+    "ADMIN_PASSWORD_INVALID",
 ]);
 
 const knownConflictCodes = new Set([
@@ -93,6 +95,7 @@ const knownForbiddenCodes = new Set([
     "FORBIDDEN_LEAD_ACCEPT",
     "FORBIDDEN_CUSTOMER_PIPELINE_UPDATE",
     "FORBIDDEN_DAILY_TASK",
+    "FORBIDDEN_LEAD_DELETE",
 ]);
 
 const knownNotFoundCodes = new Set([

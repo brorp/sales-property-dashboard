@@ -76,6 +76,10 @@ function getTeamActionErrorMessage(error, fallback) {
             return 'Member tim tidak ditemukan atau sudah tidak aktif.';
         case 'TARGET_SALES_NOT_FOUND':
             return 'Sales yang mau dipindahkan tidak ditemukan pada workspace ini.';
+        case 'ADMIN_PASSWORD_REQUIRED':
+            return 'Password admin wajib diisi.';
+        case 'ADMIN_PASSWORD_INVALID':
+            return 'Password admin tidak valid.';
         default:
             return error.message;
     }
@@ -287,6 +291,7 @@ export default function TeamPage() {
             error: '',
             exportedCount: null,
             accessCode: '',
+            passwordConfirmation: '',
         });
         setSubmitSuccess('');
     };
@@ -328,6 +333,7 @@ export default function TeamPage() {
                 exporting: false,
                 step: 'confirm',
                 exportedCount: exported.exportedCount || 0,
+                passwordConfirmation: '',
             } : prev));
         } catch (err) {
             setLifecycleState((prev) => (prev ? {
@@ -343,12 +349,23 @@ export default function TeamPage() {
             return;
         }
 
+        if (!String(lifecycleState.passwordConfirmation || '').trim()) {
+            setLifecycleState((prev) => (prev ? {
+                ...prev,
+                error: 'Password admin wajib diisi untuk menonaktifkan sales.',
+            } : prev));
+            return;
+        }
+
         setLifecycleState((prev) => (prev ? { ...prev, submitting: true, error: '' } : prev));
 
         try {
             await apiRequest(`/api/sales/${lifecycleState.member.id}/deactivate`, {
                 method: 'POST',
                 user,
+                body: {
+                    passwordConfirmation: lifecycleState.passwordConfirmation || '',
+                },
             });
             await refreshTeamStats();
             setSubmitSuccess(`Sales ${lifecycleState.member.name} berhasil dinonaktifkan.`);
@@ -357,7 +374,7 @@ export default function TeamPage() {
             setLifecycleState((prev) => (prev ? {
                 ...prev,
                 submitting: false,
-                error: err instanceof Error ? err.message : 'Gagal menonaktifkan sales',
+                error: getTeamActionErrorMessage(err, 'Gagal menonaktifkan sales'),
             } : prev));
         }
     };
@@ -476,6 +493,7 @@ export default function TeamPage() {
             supervisor,
             submitting: false,
             error: '',
+            passwordConfirmation: '',
         });
         setSubmitSuccess('');
         setSubmitError('');
@@ -490,12 +508,23 @@ export default function TeamPage() {
             return;
         }
 
+        if (!String(deleteSupervisorState.passwordConfirmation || '').trim()) {
+            setDeleteSupervisorState((prev) => (prev ? {
+                ...prev,
+                error: 'Password admin wajib diisi untuk menghapus supervisor.',
+            } : prev));
+            return;
+        }
+
         setDeleteSupervisorState((prev) => (prev ? { ...prev, submitting: true, error: '' } : prev));
 
         try {
             await apiRequest(`/api/team/${deleteSupervisorState.supervisor.id}`, {
                 method: 'DELETE',
                 user,
+                body: {
+                    passwordConfirmation: deleteSupervisorState.passwordConfirmation || '',
+                },
             });
             await refreshTeamStats();
             setSubmitSuccess(`Supervisor ${deleteSupervisorState.supervisor.name} berhasil dihapus.`);
@@ -1082,6 +1111,20 @@ export default function TeamPage() {
                                 Aksi ini hanya diizinkan jika tidak ada sales aktif di bawah supervisor tersebut.
                             </p>
                         </div>
+                        <div className="input-group">
+                            <label>Password Admin</label>
+                            <input
+                                type="password"
+                                className="input-field"
+                                value={deleteSupervisorState.passwordConfirmation || ''}
+                                onChange={(event) => setDeleteSupervisorState((prev) => (
+                                    prev
+                                        ? { ...prev, passwordConfirmation: event.target.value, error: '' }
+                                        : prev
+                                ))}
+                                placeholder="Masukkan password admin untuk konfirmasi"
+                            />
+                        </div>
                         {deleteSupervisorState.error ? <div className="login-error">{deleteSupervisorState.error}</div> : null}
                         <div className="team-lifecycle-actions">
                             <button
@@ -1205,6 +1248,20 @@ export default function TeamPage() {
                                         Setelah dinonaktifkan, sales ini tidak bisa login dan tidak akan ikut distribusi lead sampai
                                         diaktifkan kembali oleh admin.
                                     </p>
+                                    <div className="input-group" style={{ marginTop: 12 }}>
+                                        <label>Password Admin</label>
+                                        <input
+                                            type="password"
+                                            className="input-field"
+                                            value={lifecycleState.passwordConfirmation || ''}
+                                            onChange={(event) => setLifecycleState((prev) => (
+                                                prev
+                                                    ? { ...prev, passwordConfirmation: event.target.value, error: '' }
+                                                    : prev
+                                            ))}
+                                            placeholder="Masukkan password admin untuk konfirmasi"
+                                        />
+                                    </div>
                                 </>
                             )}
                         </div>

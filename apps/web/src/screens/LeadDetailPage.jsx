@@ -101,6 +101,7 @@ export default function LeadDetailPage({ leadId }) {
         getLeadById,
         loadLeadById,
         updateLead,
+        deleteLead,
         addAppointment,
         updateAppointment,
         cancelAppointment,
@@ -137,6 +138,12 @@ export default function LeadDetailPage({ leadId }) {
     const [requestError, setRequestError] = useState('');
     const [requestSuccess, setRequestSuccess] = useState('');
     const [refreshing, setRefreshing] = useState(false);
+    const [deleteLeadState, setDeleteLeadState] = useState({
+        open: false,
+        passwordConfirmation: '',
+        submitting: false,
+        error: '',
+    });
     const [unitOptions, setUnitOptions] = useState([]);
     const [unitsLoading, setUnitsLoading] = useState(false);
     const [cancelReasons, setCancelReasons] = useState([]);
@@ -280,6 +287,7 @@ export default function LeadDetailPage({ leadId }) {
     const canAdminAssignOpenLead = useMemo(() => {
         return Boolean(isAdmin && !lead?.assignedTo);
     }, [isAdmin, lead?.assignedTo]);
+    const canDeleteLead = user?.role === 'client_admin' || user?.role === 'root_admin';
 
     const isAcceptedLead = effectiveFlowStatus === 'accepted';
     const needsNewLeadTaskAcceptance = canEditLead && effectiveFlowStatus === 'assigned';
@@ -503,15 +511,58 @@ export default function LeadDetailPage({ leadId }) {
         }
     };
 
+    const handleDeleteLead = async () => {
+        if (!lead?.id || !String(deleteLeadState.passwordConfirmation || '').trim()) {
+            setDeleteLeadState((prev) => ({
+                ...prev,
+                error: 'Password admin wajib diisi untuk menghapus lead.',
+            }));
+            return;
+        }
+
+        try {
+            setDeleteLeadState((prev) => ({
+                ...prev,
+                submitting: true,
+                error: '',
+            }));
+            setRequestError('');
+            await deleteLead(lead.id, deleteLeadState.passwordConfirmation);
+            router.push('/leads');
+        } catch (err) {
+            setDeleteLeadState((prev) => ({
+                ...prev,
+                submitting: false,
+                error: err instanceof Error
+                    ? err.message === 'ADMIN_PASSWORD_INVALID'
+                        ? 'Password admin tidak valid.'
+                        : err.message === 'ADMIN_PASSWORD_REQUIRED'
+                            ? 'Password admin wajib diisi.'
+                            : err.message
+                    : 'Gagal menghapus lead',
+            }));
+        }
+    };
+
     return (
         <div className="page-container">
             <Header
                 title="Detail Lead"
                 showBack
                 rightAction={(
-                    <button className="btn btn-sm btn-secondary" onClick={() => void handleRefresh()} disabled={refreshing}>
-                        {refreshing ? 'Loading...' : 'Refresh'}
-                    </button>
+                    <>
+                        {canDeleteLead ? (
+                            <button
+                                className="btn btn-sm btn-danger"
+                                onClick={() => setDeleteLeadState({ open: true, passwordConfirmation: '', submitting: false, error: '' })}
+                            >
+                                Hapus Lead
+                            </button>
+                        ) : null}
+                        <button className="btn btn-sm btn-secondary" onClick={() => void handleRefresh()} disabled={refreshing}>
+                            {refreshing ? 'Loading...' : 'Refresh'}
+                        </button>
+                    </>
                 )}
             />
 
@@ -647,7 +698,7 @@ export default function LeadDetailPage({ leadId }) {
                     <div className="detail-rejected-summary" style={{ marginBottom: 12 }}>
                         {effectiveFlowStatus === 'assigned'
                             ? canEditLead
-                                ? 'Lead sudah assigned ke kamu. Klik Accept dulu agar domisili, tipe unit, dan customer pipeline aktif.'
+                                ? 'Lead sudah assigned ke kamu. Selesaikan Tasks > New Leads dulu agar lead otomatis Accepted dan data sales/customer pipeline aktif.'
                                 : 'Lead ini sudah assigned. Hanya sales owner yang bisa menerima dan mengupdate lead.'
                             : 'Lead masih open. Menunggu assignment ke sales sebelum bisa diproses lebih lanjut.'}
                     </div>
@@ -1014,6 +1065,60 @@ export default function LeadDetailPage({ leadId }) {
                             ))}
                             <button className="btn btn-secondary btn-full" onClick={() => setShowReassign(false)} style={{ marginTop: 8 }}>
                                 Batal
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {deleteLeadState.open ? (
+                <div className="modal-overlay" onClick={(event) => {
+                    if (event.target === event.currentTarget && !deleteLeadState.submitting) {
+                        setDeleteLeadState({ open: false, passwordConfirmation: '', submitting: false, error: '' });
+                    }
+                }}>
+                    <div className="bottom-sheet">
+                        <div className="sheet-handle" />
+                        <h2>Hapus Lead</h2>
+                        <div className="team-lifecycle-copy">
+                            <p>
+                                Lead <strong>{lead.name}</strong> akan dihapus permanen beserta data turunannya di workspace ini.
+                            </p>
+                            <p className="team-modal-helper">
+                                Masukkan password admin sebagai validasi terakhir sebelum data dihapus.
+                            </p>
+                        </div>
+                        <div className="input-group">
+                            <label>Password Admin</label>
+                            <input
+                                type="password"
+                                className="input-field"
+                                value={deleteLeadState.passwordConfirmation}
+                                onChange={(event) => setDeleteLeadState((prev) => ({
+                                    ...prev,
+                                    passwordConfirmation: event.target.value,
+                                    error: '',
+                                }))}
+                                placeholder="Masukkan password admin"
+                            />
+                        </div>
+                        {deleteLeadState.error ? <div className="login-error">{deleteLeadState.error}</div> : null}
+                        <div className="team-lifecycle-actions">
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={() => setDeleteLeadState({ open: false, passwordConfirmation: '', submitting: false, error: '' })}
+                                disabled={deleteLeadState.submitting}
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-danger"
+                                onClick={() => void handleDeleteLead()}
+                                disabled={deleteLeadState.submitting}
+                            >
+                                {deleteLeadState.submitting ? 'Menghapus...' : 'Ya, Hapus Lead'}
                             </button>
                         </div>
                     </div>

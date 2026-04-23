@@ -6,6 +6,7 @@ import {
     lead,
     projectUnit,
     user,
+    waMessage,
 } from "../db/schema";
 import { generateId } from "../utils/id";
 import {
@@ -346,6 +347,50 @@ export async function findById(id: string) {
         customerPipelineTotalSteps: followUpProgress.totalSteps,
         assignedUser: assignedUser[0] || null,
     };
+}
+
+export async function deleteLead(params: {
+    leadId: string;
+    actorId: string;
+    actorRole: string;
+    actorClientId?: string | null;
+}) {
+    const [existingLead] = await db
+        .select({
+            id: lead.id,
+            clientId: lead.clientId,
+            name: lead.name,
+            phone: lead.phone,
+        })
+        .from(lead)
+        .where(eq(lead.id, params.leadId))
+        .limit(1);
+
+    if (!existingLead) {
+        throw new Error("LEAD_NOT_FOUND");
+    }
+
+    if (
+        params.actorRole !== "root_admin" &&
+        params.actorRole !== "client_admin"
+    ) {
+        throw new Error("FORBIDDEN");
+    }
+
+    if (
+        params.actorClientId &&
+        existingLead.clientId &&
+        existingLead.clientId !== params.actorClientId
+    ) {
+        throw new Error("FORBIDDEN_LEAD_DELETE");
+    }
+
+    await db.transaction(async (tx) => {
+        await tx.delete(waMessage).where(eq(waMessage.leadId, existingLead.id));
+        await tx.delete(lead).where(eq(lead.id, existingLead.id));
+    });
+
+    return existingLead;
 }
 
 export async function create(data: {

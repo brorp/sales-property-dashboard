@@ -1,4 +1,4 @@
-import { randomBytes, scryptSync } from "node:crypto";
+import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { db } from "../db/index";
 import { ALL_SEED_USERS } from "../db/seed-data";
@@ -15,6 +15,39 @@ function hashCredentialPassword(password: string) {
     });
 
     return `${salt}:${key.toString("hex")}`;
+}
+
+function deriveCredentialPasswordHash(password: string, salt: string) {
+    return scryptSync(password.normalize("NFKC"), salt, 64, {
+        N: 16384,
+        r: 16,
+        p: 1,
+        maxmem: 128 * 16384 * 16 * 2,
+    }).toString("hex");
+}
+
+function verifyCredentialPasswordHash(
+    storedPasswordHash: string | null | undefined,
+    password: string
+) {
+    if (!storedPasswordHash || typeof storedPasswordHash !== "string") {
+        return false;
+    }
+
+    const [salt, storedHash] = storedPasswordHash.split(":");
+    if (!salt || !storedHash) {
+        return false;
+    }
+
+    const computedHash = deriveCredentialPasswordHash(password, salt);
+    const storedBuffer = Buffer.from(storedHash, "hex");
+    const computedBuffer = Buffer.from(computedHash, "hex");
+
+    if (storedBuffer.length !== computedBuffer.length) {
+        return false;
+    }
+
+    return timingSafeEqual(storedBuffer, computedBuffer);
 }
 
 export async function ensureCredentialAccount(userId: string, password: string) {
@@ -75,4 +108,50 @@ export async function repairKnownSeedCredential(email: string, password: string)
 
     await ensureCredentialAccount(existingUser.id, seedUser.password);
     return true;
+}
+
+export async function verifyCredentialPasswordForUser(userId: string, password: string) {
+    const normalizedPassword = String(password || "");
+    if (!normalizedPassword.trim()) {
+        return false;
+    }
+
+    const [credentialRow] = await db
+        .select({
+            password: account.password,
+        })
+        .from(account)
+        .where(and(eq(account.providerId, "credential"), eq(account.userId, userId)))
+        .limit(1);
+
+    if (verifyCredentialPasswordHash(credentialRow?.password, normalizedPassword)) {
+        return true;
+    }
+
+    const [existingUser] = await db
+        .select({
+            email: user.email,
+        })
+        .from(user)
+        .where(eq(user.id, userId))
+        .limit(1);
+
+    if (!existingUser?.email) {
+        return false;
+    }
+
+    const repaired = await repairKnownSeedCredential(existingUser.email, normalizedPassword);
+    if (!repaired) {
+        return false;
+    }
+
+    const [repairedCredential] = await db
+        .select({
+            password: account.password,
+        })
+        .from(account)
+        .where(and(eq(account.providerId, "credential"), eq(account.userId, userId)))
+        .limit(1);
+
+    return verifyCredentialPasswordHash(repairedCredential?.password, normalizedPassword);
 }

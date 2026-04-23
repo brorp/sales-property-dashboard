@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Response, NextFunction } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireMinRole, requireRole } from "../middleware/rbac";
+import * as adminPasswordService from "../services/admin-password.service";
 import * as teamService from "../services/team.service";
 
 const router: ReturnType<typeof Router> = Router();
@@ -39,6 +40,11 @@ router.get("/:id", requireMinRole("supervisor") as any, async (req, res: Respons
 router.delete("/:id", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
         const { scope, user } = req as unknown as AuthenticatedRequest;
+        await adminPasswordService.assertAdminPasswordConfirmation({
+            actorUserId: user.id,
+            actorRole: user.role,
+            password: req.body?.passwordConfirmation,
+        });
         const updated = await teamService.deactivateSupervisorMember({
             supervisorId: req.params.id,
             actorId: user.id,

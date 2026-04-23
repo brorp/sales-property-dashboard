@@ -7,6 +7,7 @@ import { user as userTable } from "../db/schema";
 import { eq } from "drizzle-orm";
 import * as leadsService from "../services/leads.service";
 import * as leadTransferService from "../services/lead-transfer.service";
+import * as adminPasswordService from "../services/admin-password.service";
 import { getWorkspaceClientId, resolveClientIdFromWorkspace } from "../utils/request-client";
 
 const router: ReturnType<typeof Router> = Router();
@@ -490,6 +491,42 @@ router.post("/:id/appointments", async (req, res: Response, next: NextFunction) 
             salesId: user.id,
         });
         res.status(201).json(created);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.delete("/:id", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const authReq = req as unknown as AuthenticatedRequest;
+        const { user } = authReq;
+        const currentLead = await leadsService.findById(req.params.id);
+
+        if (!currentLead) {
+            res.status(404).json({ error: "NOT_FOUND", message: "Lead tidak ditemukan" });
+            return;
+        }
+
+        const workspaceClientId = getWorkspaceClientId(authReq);
+        if (workspaceClientId && currentLead.clientId !== workspaceClientId) {
+            res.status(403).json({ error: "FORBIDDEN_LEAD_DELETE", message: "Lead ini tidak berada pada workspace aktif" });
+            return;
+        }
+
+        await adminPasswordService.assertAdminPasswordConfirmation({
+            actorUserId: user.id,
+            actorRole: user.role,
+            password: req.body?.passwordConfirmation,
+        });
+
+        const deleted = await leadsService.deleteLead({
+            leadId: req.params.id,
+            actorId: user.id,
+            actorRole: user.role,
+            actorClientId: workspaceClientId,
+        });
+
+        res.json({ success: true, deleted });
     } catch (error) {
         next(error);
     }

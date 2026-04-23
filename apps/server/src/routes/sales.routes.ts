@@ -5,6 +5,7 @@ import { requireMinRole, requireRole } from "../middleware/rbac";
 import * as salesService from "../services/sales.service";
 import * as salesLifecycleService from "../services/sales-lifecycle.service";
 import * as leadTransferService from "../services/lead-transfer.service";
+import * as adminPasswordService from "../services/admin-password.service";
 import { getWorkspaceClientId, resolveClientIdFromWorkspace } from "../utils/request-client";
 
 const router: ReturnType<typeof Router> = Router();
@@ -92,6 +93,11 @@ router.post("/:id/leads/export", requireRole("root_admin", "client_admin") as an
 router.post("/:id/deactivate", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;
+        await adminPasswordService.assertAdminPasswordConfirmation({
+            actorUserId: user.id,
+            actorRole: user.role,
+            password: req.body?.passwordConfirmation,
+        });
         const updated = await salesLifecycleService.deactivateSalesUser(req.params.id, {
             actorId: user.id,
             actorRole: user.role,

@@ -319,6 +319,36 @@ export function LeadsProvider({ children }) {
         return normalized;
     }, [refreshDashboardAnalytics, refreshLeads, refreshTeamStats, syncLeadToState, user]);
 
+    const deleteLead = useCallback(async (leadId, passwordConfirmation) => {
+        if (!user) {
+            throw new Error('Unauthorized');
+        }
+
+        const deleted = await apiRequest(`/api/leads/${leadId}`, {
+            method: 'DELETE',
+            user,
+            body: {
+                passwordConfirmation,
+            },
+        });
+
+        setLeads((prev) => prev.filter((item) => item.id !== leadId));
+        setLeadDetails((prev) => {
+            const next = { ...prev };
+            delete next[leadId];
+            return next;
+        });
+
+        await Promise.all([
+            refreshLeads(),
+            refreshAppointments(),
+            refreshDashboardAnalytics(),
+            refreshTeamStats(),
+        ]);
+
+        return deleted;
+    }, [refreshAppointments, refreshDashboardAnalytics, refreshLeads, refreshTeamStats, user]);
+
     const addAppointment = useCallback(async (leadId, payload) => {
         if (!user) {
             throw new Error('Unauthorized');
@@ -434,6 +464,7 @@ export function LeadsProvider({ children }) {
         acceptLead,
         completeCustomerPipelineStep,
         addLead,
+        deleteLead,
         addAppointment,
         updateAppointment,
         cancelAppointment,
@@ -453,6 +484,7 @@ export function LeadsProvider({ children }) {
     }), [
         addAppointment,
         addLead,
+        deleteLead,
         appointments,
         cancelAppointment,
         createSalesUser,
