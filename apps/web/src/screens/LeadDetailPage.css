@@ -109,6 +109,23 @@
     justify-content: flex-end;
 }
 
+.detail-pipeline-proof-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+}
+
+.detail-pipeline-proof-image {
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 12px;
+    display: block;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
 .detail-pipeline-panel {
     border-top: 1px solid rgba(255, 255, 255, 0.06);
     padding-top: 12px;

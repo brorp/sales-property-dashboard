@@ -19,6 +19,7 @@ export default function SupervisorTasksPage() {
     const { user } = useAuth();
     const router = useRouter();
     const [leads, setLeads] = useState([]);
+    const [submittedTaskGroups, setSubmittedTaskGroups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [actionLoading, setActionLoading] = useState('');
@@ -31,8 +32,12 @@ export default function SupervisorTasksPage() {
         if (!user) return;
         if (!silent) { setLoading(true); setError(''); }
         try {
-            const data = await apiRequest('/api/supervisor-tasks', { user });
-            setLeads(Array.isArray(data) ? data : []);
+            const [pendingData, submittedData] = await Promise.all([
+                apiRequest('/api/supervisor-tasks', { user }),
+                apiRequest('/api/supervisor-tasks/submitted-daily-tasks', { user }),
+            ]);
+            setLeads(Array.isArray(pendingData) ? pendingData : []);
+            setSubmittedTaskGroups(Array.isArray(submittedData) ? submittedData : []);
         } catch (err) {
             if (!silent) setError(err instanceof Error ? err.message : 'Gagal memuat data');
         } finally {
@@ -206,6 +211,98 @@ export default function SupervisorTasksPage() {
                                 </div>
                             );
                         })}
+                    </div>
+                )}
+            </section>
+
+            <section className="dash-section" style={{ marginTop: 24 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <h2 className="section-title" style={{ margin: 0 }}>
+                        Daily Task Submission 24 Jam Terakhir
+                    </h2>
+                    <span className="badge badge-info" style={{ fontSize: '0.82rem' }}>
+                        {submittedTaskGroups.reduce((total, group) => total + (group.taskCount || 0), 0)} task
+                    </span>
+                </div>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 16, lineHeight: 1.5 }}>
+                    Supervisor hanya melihat submission task yang sudah dikirim sales dalam 24 jam terakhir. Data lama otomatis tidak ditampilkan agar list tetap ringkas.
+                </p>
+
+                {!loading && submittedTaskGroups.length === 0 ? (
+                    <div className="empty-state">
+                        <div className="empty-icon">🗂️</div>
+                        <div className="empty-title">Belum ada submission task terbaru</div>
+                        <div className="empty-desc">Task yang sudah disubmit oleh sales akan muncul di sini selama 24 jam.</div>
+                    </div>
+                ) : (
+                    <div className="card-list">
+                        {submittedTaskGroups.map((group) => (
+                            <div key={group.salesId} className="card">
+                                <div className="lead-row-top">
+                                    <div className="lead-row-name">{group.salesName}</div>
+                                    <span className="badge badge-info">{group.taskCount} task</span>
+                                </div>
+
+                                <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+                                    {group.tasks.map((task) => (
+                                        <div
+                                            key={task.id}
+                                            style={{
+                                                display: 'grid',
+                                                gridTemplateColumns: task.screenshotUrl ? '64px 1fr' : '1fr',
+                                                gap: 12,
+                                                alignItems: 'start',
+                                                padding: 12,
+                                                borderRadius: 12,
+                                                background: 'rgba(255,255,255,0.03)',
+                                                border: '1px solid rgba(255,255,255,0.06)',
+                                            }}
+                                        >
+                                            {task.screenshotUrl ? (
+                                                <a href={task.screenshotUrl} target="_blank" rel="noopener noreferrer">
+                                                    <img
+                                                        src={task.screenshotUrl}
+                                                        alt={`${task.label} proof`}
+                                                        style={{
+                                                            width: 64,
+                                                            height: 64,
+                                                            objectFit: 'cover',
+                                                            borderRadius: 10,
+                                                            display: 'block',
+                                                            border: '1px solid rgba(255,255,255,0.08)',
+                                                        }}
+                                                    />
+                                                </a>
+                                            ) : null}
+
+                                            <div>
+                                                <div
+                                                    className="lead-row-name"
+                                                    style={{ cursor: 'pointer', textDecoration: 'underline', marginBottom: 6 }}
+                                                    onClick={() => router.push(`/leads/${task.leadId}`)}
+                                                >
+                                                    {task.leadName}
+                                                </div>
+                                                <div className="lead-row-meta">
+                                                    <span>📱 {task.leadPhone}</span>
+                                                    <span>📣 {task.leadSource}</span>
+                                                </div>
+                                                <div className="lead-row-meta" style={{ marginTop: 6 }}>
+                                                    <span className="badge badge-info">{task.label}</span>
+                                                    {task.submittedSalesStatus ? (
+                                                        <span className="badge badge-warm">{task.submittedSalesStatus.toUpperCase()}</span>
+                                                    ) : null}
+                                                </div>
+                                                <div className="lead-row-meta" style={{ marginTop: 6 }}>
+                                                    <span>✅ Submit {formatDateTime(task.completedAt)}</span>
+                                                    <span>⏱️ {getTimeAgo(task.completedAt)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
             </section>

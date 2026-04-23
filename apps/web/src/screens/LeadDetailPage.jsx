@@ -611,12 +611,17 @@ export default function LeadDetailPage({ leadId }) {
                                     <div className="detail-pipeline-actions">
                                         {step.screenshotUrl ? (
                                             <a
-                                                className="btn btn-sm btn-secondary"
+                                                className="detail-pipeline-proof-link"
                                                 href={step.screenshotUrl}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                             >
-                                                Lihat Proof
+                                                <img
+                                                    src={step.screenshotUrl}
+                                                    alt={`${step.label} proof`}
+                                                    className="detail-pipeline-proof-image"
+                                                />
+                                                <span className="btn btn-sm btn-secondary">Lihat Proof</span>
                                             </a>
                                         ) : (
                                             <span className="settings-help" style={{ margin: 0 }}>

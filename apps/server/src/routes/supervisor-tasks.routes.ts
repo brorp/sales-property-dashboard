@@ -27,6 +27,25 @@ router.get(
     }
 );
 
+router.get(
+    "/submitted-daily-tasks",
+    requireMinRole("supervisor") as any,
+    async (req, res: Response, next: NextFunction) => {
+        try {
+            const { scope } = req as unknown as AuthenticatedRequest;
+
+            const groups = await supervisorTasksService.listSubmittedDailyTasksByManagedSales({
+                managedSalesIds: scope?.managedSalesIds || [],
+                clientId: scope?.clientId || null,
+            });
+
+            res.json(groups);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
 // POST /api/supervisor-tasks/:leadId/validate — validate a HOT lead
 router.post(
     "/:leadId/validate",

@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { WORKSPACE_STORAGE_KEY } from '../lib/api';
+import { AUTH_STORAGE_KEY, WORKSPACE_STORAGE_KEY } from '../lib/api';
 
 const WorkspaceContext = createContext(null);
 
@@ -77,8 +77,24 @@ export function WorkspaceProvider({ children }) {
         if (target) {
             window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(target));
             setActiveWorkspace(target);
+            let nextPath = '/';
+
+            try {
+                const rawUser = window.localStorage.getItem(AUTH_STORAGE_KEY);
+                if (rawUser) {
+                    const parsedUser = JSON.parse(rawUser);
+                    if (parsedUser?.role === 'sales') {
+                        nextPath = '/daily-tasks';
+                    } else if (parsedUser?.role === 'supervisor') {
+                        nextPath = '/supervisor-tasks';
+                    }
+                }
+            } catch {
+                // ignore malformed local auth state
+            }
+
             // Force reload so that all contexts/API clients remount and use the new apiPrefix
-            window.location.href = '/';
+            window.location.href = nextPath;
         }
     };
 

@@ -1,6 +1,6 @@
-import { and, asc, desc, eq, inArray, lte, or } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, or } from "drizzle-orm";
 import { db } from "../db/index";
-import { activity, appointment, dailyTask, lead } from "../db/schema";
+import { activity, appointment, dailyTask, lead, user } from "../db/schema";
 import {
     resolveAppointmentTag,
     toAppointmentDateTime,
@@ -392,6 +392,24 @@ export async function syncLeadDailyTasksForLead(
     const taskRows = await getLeadTaskRows(executor, leadId);
     const appointmentTagMap = await getLatestAppointmentTagMap(executor, [leadId]);
     const appointmentTag = appointmentTagMap.get(leadId) || "none";
+    const normalizedFlowStatus = normalizeFlowStatus(leadRow.flowStatus, leadRow.assignedTo);
+
+    if (
+        leadRow.assignedTo &&
+        normalizedFlowStatus === "assigned"
+    ) {
+        await upsertDailyTask({
+            executor,
+            leadId,
+            salesId: leadRow.assignedTo,
+            clientId: leadRow.clientId || null,
+            taskType: "new_lead",
+            followupStage: 0,
+            eligibleAt: leadRow.updatedAt || leadRow.createdAt,
+            dueAt: addHours(leadRow.updatedAt || leadRow.createdAt, 24),
+            now,
+        });
+    }
 
     const newLeadTaskIdsToInvalidate = taskRows
         .filter(
@@ -916,6 +934,105 @@ export async function getLeadFollowUpProgressMap(
     }
 
     return map;
+}
+
+export async function getSubmittedDailyTaskSnapshotForManagedSales(params: {
+    managedSalesIds: string[];
+    clientId?: string | null;
+    now?: Date;
+    executor?: DbExecutor;
+}) {
+    const executor = params.executor || db;
+    const now = params.now || new Date();
+
+    if (!params.managedSalesIds.length) {
+        return [];
+    }
+
+    const since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const rows = await executor
+        .select({
+            id: dailyTask.id,
+            leadId: dailyTask.leadId,
+            salesId: dailyTask.salesId,
+            taskType: dailyTask.taskType,
+            followupStage: dailyTask.followupStage,
+            screenshotUrl: dailyTask.screenshotUrl,
+            submittedSalesStatus: dailyTask.submittedSalesStatus,
+            completedAt: dailyTask.completedAt,
+            dueAt: dailyTask.dueAt,
+            createdAt: dailyTask.createdAt,
+            leadName: lead.name,
+            leadPhone: lead.phone,
+            leadSource: lead.source,
+            salesName: user.name,
+        })
+        .from(dailyTask)
+        .innerJoin(lead, eq(dailyTask.leadId, lead.id))
+        .leftJoin(user, eq(dailyTask.salesId, user.id))
+        .where(
+            and(
+                inArray(dailyTask.salesId, params.managedSalesIds),
+                eq(dailyTask.status, "done"),
+                gte(dailyTask.completedAt, since),
+                params.clientId ? eq(dailyTask.clientId, params.clientId) : undefined
+            )
+        )
+        .orderBy(desc(dailyTask.completedAt), desc(dailyTask.createdAt));
+
+    type SubmittedTaskSnapshot = {
+        id: string;
+        leadId: string;
+        leadName: string;
+        leadPhone: string;
+        leadSource: string;
+        taskType: string;
+        followupStage: number;
+        label: string;
+        screenshotUrl: string | null;
+        submittedSalesStatus: string | null;
+        completedAt: Date | null;
+        dueAt: Date | null;
+        createdAt: Date;
+    };
+
+    type SubmittedTaskGroup = {
+        salesId: string;
+        salesName: string;
+        taskCount: number;
+        tasks: SubmittedTaskSnapshot[];
+    };
+
+    const grouped = new Map<string, SubmittedTaskGroup>();
+
+    for (const row of rows) {
+        const group = grouped.get(row.salesId) || {
+            salesId: row.salesId,
+            salesName: row.salesName || "Sales",
+            taskCount: 0,
+            tasks: [],
+        };
+
+        group.tasks.push({
+            id: row.id,
+            leadId: row.leadId,
+            leadName: row.leadName,
+            leadPhone: row.leadPhone,
+            leadSource: row.leadSource,
+            taskType: row.taskType,
+            followupStage: row.followupStage,
+            label: getTaskTypeLabel(row.taskType, row.followupStage),
+            screenshotUrl: row.screenshotUrl || null,
+            submittedSalesStatus: row.submittedSalesStatus || null,
+            completedAt: row.completedAt,
+            dueAt: row.dueAt,
+            createdAt: row.createdAt,
+        });
+        group.taskCount = group.tasks.length;
+        grouped.set(row.salesId, group);
+    }
+
+    return Array.from(grouped.values()).sort((a, b) => a.salesName.localeCompare(b.salesName));
 }
 
 export async function getLeadFollowUpProgress(
