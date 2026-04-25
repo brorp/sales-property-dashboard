@@ -54,6 +54,30 @@ async function getActiveQueueRows(executor: DbExecutor, clientId: string) {
     return rows.filter((row) => !suspensionMap.has(row.salesId));
 }
 
+async function getActiveQueueRowsForResequence(
+    executor: DbExecutor,
+    clientId: string
+) {
+    return executor
+        .select({
+            id: salesQueue.id,
+            salesId: salesQueue.salesId,
+            queueOrder: salesQueue.queueOrder,
+            salesName: user.name,
+        })
+        .from(salesQueue)
+        .innerJoin(user, eq(salesQueue.salesId, user.id))
+        .where(
+            and(
+                eq(salesQueue.clientId, clientId),
+                eq(salesQueue.isActive, true),
+                eq(user.role, "sales"),
+                eq(user.isActive, true)
+            )
+        )
+        .orderBy(asc(salesQueue.queueOrder), asc(user.name));
+}
+
 async function getHighestQueueOrder(executor: DbExecutor, clientId: string) {
     const [row] = await executor
         .select({
@@ -540,7 +564,7 @@ export async function moveSalesToQueueEnd(
     clientId: string,
     executor: DbExecutor = db
 ) {
-    const queueRows = await getActiveQueueRows(executor, clientId);
+    const queueRows = await getActiveQueueRowsForResequence(executor, clientId);
     if (queueRows.length <= 1) {
         return false;
     }
