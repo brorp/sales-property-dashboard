@@ -134,6 +134,38 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.settings-live-offer {
+    padding: 10px 12px;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: 10px;
+    background: rgba(245, 158, 11, 0.09);
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.settings-live-offer.is-locked {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.09);
+}
+
+.settings-queue-reward {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.settings-queue-reward-select {
+    min-width: 76px;
+    min-height: 36px;
+    padding: 7px 28px 7px 10px;
+    font-size: 13px;
 }
 
 .settings-queue-btn {

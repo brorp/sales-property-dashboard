@@ -22,6 +22,7 @@ type DbExecutor = typeof db;
 interface QueueEntry {
     salesId: string;
     queueOrder: number;
+    repeatOrderRemaining: number;
     salesName: string;
     salesPhone: string | null;
 }
@@ -73,6 +74,7 @@ async function getNextQueueEntry(
         .select({
             salesId: salesQueue.salesId,
             queueOrder: salesQueue.queueOrder,
+            repeatOrderRemaining: salesQueue.repeatOrderRemaining,
             salesName: user.name,
             salesPhone: user.phone,
         })
@@ -201,11 +203,14 @@ async function assignNextQueue(
         })
         .where(eq(lead.id, leadId));
 
-    const queueRolled = await moveSalesToQueueEnd(
-        next.salesId,
-        clientId,
-        executor
-    );
+    const repeatOrderRemaining = Math.max(0, Number(next.repeatOrderRemaining || 0));
+    const queueRolled = repeatOrderRemaining > 0
+        ? false
+        : await moveSalesToQueueEnd(
+            next.salesId,
+            clientId,
+            executor
+        );
 
     const messageBody = buildClaimOfferMessage(ackTimeoutMinutes);
 
@@ -247,6 +252,13 @@ async function assignNextQueue(
             leadId,
             "note",
             `Urutan sesi berikutnya langsung dirotasi setelah offer dikirim ke ${next.salesName}.`
+        );
+    } else if (repeatOrderRemaining > 0) {
+        await logDistributionActivity(
+            executor,
+            leadId,
+            "note",
+            `${next.salesName} memiliki reward repeat order ${repeatOrderRemaining}x. Queue ditahan sampai sales membalas OK atau timeout.`
         );
     }
 
@@ -425,6 +437,45 @@ export async function handleSalesAck(
             executor: tx as unknown as DbExecutor,
         });
 
+        const [queueRewardRow] = await tx
+            .select({
+                id: salesQueue.id,
+                repeatOrderRemaining: salesQueue.repeatOrderRemaining,
+                salesName: user.name,
+            })
+            .from(salesQueue)
+            .innerJoin(user, eq(salesQueue.salesId, user.id))
+            .where(
+                and(
+                    eq(salesQueue.salesId, salesId),
+                    eq(salesQueue.clientId, leadRow.clientId),
+                    eq(salesQueue.isActive, true)
+                )
+            )
+            .limit(1);
+
+        const rewardBeforeClaim = Math.max(
+            0,
+            Number(queueRewardRow?.repeatOrderRemaining || 0)
+        );
+        if (queueRewardRow && rewardBeforeClaim > 0) {
+            const rewardAfterClaim = Math.max(0, rewardBeforeClaim - 1);
+            await tx
+                .update(salesQueue)
+                .set({
+                    repeatOrderRemaining: rewardAfterClaim,
+                    updatedAt: now,
+                })
+                .where(eq(salesQueue.id, queueRewardRow.id));
+
+            await logDistributionActivity(
+                tx as unknown as DbExecutor,
+                leadId,
+                "note",
+                `Reward repeat order ${queueRewardRow.salesName} digunakan 1x. Sisa reward ${rewardAfterClaim}x.`
+            );
+        }
+
         await tx
             .update(distributionAttempt)
             .set({
@@ -532,6 +583,50 @@ async function timeoutAttemptAndRoll(attemptId: string) {
             "note",
             `Sales ${attempt.salesId} timeout (tidak membalas OK sebelum deadline).`
         );
+
+        const [queueRewardRow] = await tx
+            .select({
+                id: salesQueue.id,
+                repeatOrderRemaining: salesQueue.repeatOrderRemaining,
+                salesName: user.name,
+            })
+            .from(salesQueue)
+            .innerJoin(user, eq(salesQueue.salesId, user.id))
+            .where(
+                and(
+                    eq(salesQueue.salesId, attempt.salesId),
+                    eq(salesQueue.clientId, leadRow.clientId),
+                    eq(salesQueue.isActive, true)
+                )
+            )
+            .limit(1);
+
+        const rewardBeforeTimeout = Math.max(
+            0,
+            Number(queueRewardRow?.repeatOrderRemaining || 0)
+        );
+        if (queueRewardRow && rewardBeforeTimeout > 0) {
+            await tx
+                .update(salesQueue)
+                .set({
+                    repeatOrderRemaining: 0,
+                    updatedAt: now,
+                })
+                .where(eq(salesQueue.id, queueRewardRow.id));
+
+            const queueRolledAfterRewardTimeout = await moveSalesToQueueEnd(
+                attempt.salesId,
+                leadRow.clientId,
+                tx as unknown as DbExecutor
+            );
+
+            await logDistributionActivity(
+                tx as unknown as DbExecutor,
+                attempt.leadId,
+                "note",
+                `Reward repeat order ${queueRewardRow.salesName} hangus ${rewardBeforeTimeout}x karena tidak membalas OK. Sales dipindahkan ke bawah queue${queueRolledAfterRewardTimeout ? "" : " bila masih eligible"}.`
+            );
+        }
 
         await assignNextQueue(
             tx as unknown as DbExecutor,

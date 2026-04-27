@@ -207,6 +207,30 @@ router.patch("/queue/reorder", requireMinRole("client_admin") as any, async (req
     }
 });
 
+router.patch("/queue/:salesId/repeat-order", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { repeatOrderRemaining, clientId } = req.body ?? {};
+        const targetClientId = resolveClientIdFromWorkspace(
+            req as unknown as AuthenticatedRequest,
+            clientId
+        );
+
+        if (!targetClientId) {
+            res.status(400).json({ error: "VALIDATION_ERROR", message: "clientId tidak ditemukan untuk user ini" });
+            return;
+        }
+
+        const queueState = await salesService.updateSalesQueueRepeatOrder({
+            clientId: targetClientId,
+            salesId: req.params.salesId,
+            repeatOrderRemaining: Number(repeatOrderRemaining || 0),
+        });
+        res.json(queueState);
+    } catch (error) {
+        next(error);
+    }
+});
+
 router.delete("/queue/:salesId", requireMinRole("client_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
         const { user } = req as unknown as AuthenticatedRequest;

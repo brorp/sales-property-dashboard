@@ -437,6 +437,7 @@ export const salesQueue = pgTable(
         clientId: text("client_id").references(() => client.id, { onDelete: "set null" }),
         queueOrder: integer("queue_order").notNull(),
         label: text("label").notNull(),
+        repeatOrderRemaining: integer("repeat_order_remaining").notNull().default(0),
         isActive: boolean("is_active").notNull().default(true),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),

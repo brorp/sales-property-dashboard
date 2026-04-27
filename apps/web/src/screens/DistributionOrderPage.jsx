@@ -23,6 +23,8 @@ export default function DistributionOrderPage() {
         isRolledByActiveDistribution: false,
         rolledSalesIds: [],
         liveOffers: [],
+        hasLiveOffer: false,
+        isQueueLocked: false,
     });
 
     const normalizeQueueRows = useCallback((rows) => {
@@ -58,6 +60,8 @@ export default function DistributionOrderPage() {
             liveOffers: Array.isArray(payload?.queuePreview?.liveOffers)
                 ? payload.queuePreview.liveOffers
                 : [],
+            hasLiveOffer: Boolean(payload?.queuePreview?.hasLiveOffer),
+            isQueueLocked: Boolean(payload?.queuePreview?.isQueueLocked),
         };
         setQueueRows(normalizedQueue);
         setAvailableSales(normalizedAvailable);
@@ -113,6 +117,11 @@ export default function DistributionOrderPage() {
     });
 
     const moveQueueItem = (index, direction) => {
+        if (queuePreview?.isQueueLocked) {
+            setQueueError('Distribution order sedang terkunci karena ada live offer menunggu OK.');
+            return;
+        }
+
         setQueueRows((prev) => {
             const nextIndex = direction === 'up' ? index - 1 : index + 1;
             if (nextIndex < 0 || nextIndex >= prev.length) {
@@ -177,6 +186,29 @@ export default function DistributionOrderPage() {
         }
     };
 
+    const updateRepeatOrder = async (salesId, repeatOrderRemaining) => {
+        if (!user || !salesId) {
+            return;
+        }
+
+        setQueueMutating(true);
+        setQueueError('');
+        setQueueFeedback('');
+        try {
+            const data = await apiRequest(`/api/sales/queue/${salesId}/repeat-order`, {
+                method: 'PATCH',
+                user,
+                body: { repeatOrderRemaining: Number(repeatOrderRemaining) },
+            });
+            applyQueueState(data);
+            setQueueFeedback('Reward repeat order berhasil diperbarui.');
+        } catch (err) {
+            setQueueError(err instanceof Error ? err.message : 'Failed updating repeat order reward');
+        } finally {
+            setQueueMutating(false);
+        }
+    };
+
     const removeSalesFromQueue = async (salesId) => {
         if (!user || !salesId) {
             return;
@@ -205,17 +237,21 @@ export default function DistributionOrderPage() {
     };
 
     const queueDirty = buildQueueSignature(queueRows) !== queueInitialSignature;
+    const queueLocked = Boolean(queuePreview?.isQueueLocked);
+    const rewardOptions = [0, 1, 2, 3, 4, 5];
     const insertOrderOptions = useMemo(() => {
         return Array.from({ length: queueRows.length + 1 }, (_, index) => index + 1);
     }, [queueRows.length]);
     const queuePreviewMessage = useMemo(() => {
-        if (!queuePreview?.isRolledByActiveDistribution) {
+        if (!queuePreview?.hasLiveOffer && !queuePreview?.isRolledByActiveDistribution) {
             return '';
         }
 
         const liveOffers = Array.isArray(queuePreview.liveOffers) ? queuePreview.liveOffers : [];
         if (liveOffers.length === 0) {
-            return 'Urutan di bawah sudah diproyeksikan sebagai sesi distribusi berikutnya.';
+            return queuePreview?.isQueueLocked
+                ? 'Distribution order sedang terkunci karena ada live offer menunggu OK.'
+                : 'Urutan di bawah sudah diproyeksikan sebagai sesi distribusi berikutnya.';
         }
 
         const primaryOffer = liveOffers[0];
@@ -227,7 +263,11 @@ export default function DistributionOrderPage() {
             : null;
         const suffix = liveOffers.length > 1 ? ` dan ${liveOffers.length - 1} offer lain` : '';
 
-        return `Urutan di bawah sudah diproyeksikan ke sesi berikutnya. ${primaryOffer?.salesName || 'Sales aktif'} sedang menunggu balasan OK${primaryOffer?.leadName ? ` untuk ${primaryOffer.leadName}` : ''}${deadlineLabel ? ` sampai ${deadlineLabel}` : ''}${suffix}.`;
+        const rewardCopy = primaryOffer?.isRewardLocked
+            ? ` Reward repeat masih aktif ${primaryOffer.repeatOrderRemaining}x, queue ditahan sampai outcome jelas.`
+            : '';
+
+        return `${primaryOffer?.salesName || 'Sales aktif'} sedang menunggu balasan OK${primaryOffer?.leadName ? ` untuk ${primaryOffer.leadName}` : ''}${deadlineLabel ? ` sampai ${deadlineLabel}` : ''}${suffix}. Distribution order dikunci sementara.${rewardCopy}`;
     }, [queuePreview]);
 
     return (
@@ -239,7 +279,7 @@ export default function DistributionOrderPage() {
                     Urutan ini dipakai untuk distribusi lead otomatis. Begitu bot mengirim offer ke sales, urutan sesi berikutnya langsung diproyeksikan secara realtime.
                 </p>
                 {queuePreviewMessage ? (
-                    <div className="settings-help" style={{ marginTop: 10 }}>
+                    <div className={`settings-live-offer ${queueLocked ? 'is-locked' : ''}`} style={{ marginTop: 10 }}>
                         {queuePreviewMessage}
                     </div>
                 ) : null}
@@ -256,7 +296,7 @@ export default function DistributionOrderPage() {
                             className="input-field"
                             value={selectedSalesId}
                             onChange={(event) => setSelectedSalesId(event.target.value)}
-                            disabled={queueLoading || queueSaving || queueMutating || availableSales.length === 0}
+                            disabled={queueLoading || queueSaving || queueMutating || queueLocked || availableSales.length === 0}
                         >
                             {availableSales.length === 0 ? (
                                 <option value="">Semua sales sudah masuk queue</option>
@@ -271,7 +311,7 @@ export default function DistributionOrderPage() {
                             className="input-field"
                             value={selectedInsertOrder}
                             onChange={(event) => setSelectedInsertOrder(event.target.value)}
-                            disabled={queueLoading || queueSaving || queueMutating}
+                            disabled={queueLoading || queueSaving || queueMutating || queueLocked}
                         >
                             <option value="end">Posisi paling bawah</option>
                             {insertOrderOptions.map((order) => (
@@ -285,7 +325,7 @@ export default function DistributionOrderPage() {
                         type="button"
                         className="btn btn-primary"
                         onClick={addSalesToQueue}
-                        disabled={queueLoading || queueSaving || queueMutating || !selectedSalesId}
+                        disabled={queueLoading || queueSaving || queueMutating || queueLocked || !selectedSalesId}
                     >
                         {queueMutating ? 'Menyimpan...' : 'Tambah ke Queue'}
                     </button>
@@ -339,11 +379,27 @@ export default function DistributionOrderPage() {
                                     </div>
                                 </div>
                                 <div className="settings-queue-actions">
+                                    <label className="settings-queue-reward">
+                                        <span>Repeat</span>
+                                        <select
+                                            className="input-field settings-queue-reward-select"
+                                            value={String(Number(item.repeatOrderRemaining || 0))}
+                                            onChange={(event) => void updateRepeatOrder(item.id, event.target.value)}
+                                            disabled={queueSaving || queueMutating || queueLocked}
+                                            title="Reward repeat order"
+                                        >
+                                            {rewardOptions.map((reward) => (
+                                                <option key={reward} value={String(reward)}>
+                                                    {reward}x
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </label>
                                     <button
                                         type="button"
                                         className="btn btn-secondary settings-queue-btn"
                                         onClick={() => moveQueueItem(index, 'up')}
-                                        disabled={queueSaving || queueMutating || index === 0}
+                                        disabled={queueSaving || queueMutating || queueLocked || index === 0}
                                     >
                                         ↑
                                     </button>
@@ -351,7 +407,7 @@ export default function DistributionOrderPage() {
                                         type="button"
                                         className="btn btn-secondary settings-queue-btn"
                                         onClick={() => moveQueueItem(index, 'down')}
-                                        disabled={queueSaving || queueMutating || index === queueRows.length - 1}
+                                        disabled={queueSaving || queueMutating || queueLocked || index === queueRows.length - 1}
                                     >
                                         ↓
                                     </button>
@@ -359,7 +415,7 @@ export default function DistributionOrderPage() {
                                         type="button"
                                         className="btn btn-secondary settings-queue-btn settings-queue-remove"
                                         onClick={() => void removeSalesFromQueue(item.id)}
-                                        disabled={queueSaving || queueMutating}
+                                        disabled={queueSaving || queueMutating || queueLocked}
                                     >
                                         Hapus
                                     </button>
@@ -375,7 +431,7 @@ export default function DistributionOrderPage() {
                 <button
                     type="button"
                     className="btn btn-primary btn-full"
-                    disabled={queueLoading || queueSaving || queueMutating || !queueDirty || queueRows.length === 0}
+                    disabled={queueLoading || queueSaving || queueMutating || queueLocked || !queueDirty || queueRows.length === 0}
                     onClick={saveQueueOrder}
                     style={{ marginTop: 12 }}
                 >

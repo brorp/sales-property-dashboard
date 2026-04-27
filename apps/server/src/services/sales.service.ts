@@ -32,6 +32,7 @@ async function getActiveQueueRows(executor: DbExecutor, clientId: string) {
             id: salesQueue.id,
             salesId: salesQueue.salesId,
             queueOrder: salesQueue.queueOrder,
+            repeatOrderRemaining: salesQueue.repeatOrderRemaining,
             salesName: user.name,
         })
         .from(salesQueue)
@@ -63,6 +64,7 @@ async function getActiveQueueRowsForResequence(
             id: salesQueue.id,
             salesId: salesQueue.salesId,
             queueOrder: salesQueue.queueOrder,
+            repeatOrderRemaining: salesQueue.repeatOrderRemaining,
             salesName: user.name,
         })
         .from(salesQueue)
@@ -103,6 +105,7 @@ async function getQueueRowBySalesId(
             clientId: salesQueue.clientId,
             queueOrder: salesQueue.queueOrder,
             label: salesQueue.label,
+            repeatOrderRemaining: salesQueue.repeatOrderRemaining,
             isActive: salesQueue.isActive,
         })
         .from(salesQueue)
@@ -123,11 +126,48 @@ async function getQueueRowsForClient(executor: DbExecutor, clientId: string) {
         .select({
             id: salesQueue.id,
             queueOrder: salesQueue.queueOrder,
+            repeatOrderRemaining: salesQueue.repeatOrderRemaining,
             isActive: salesQueue.isActive,
         })
         .from(salesQueue)
         .where(eq(salesQueue.clientId, clientId))
         .orderBy(asc(salesQueue.queueOrder), asc(salesQueue.id));
+}
+
+async function getLiveQueueOffers(executor: DbExecutor, clientId: string) {
+    return executor
+        .select({
+            id: distributionAttempt.id,
+            salesId: distributionAttempt.salesId,
+            leadId: distributionAttempt.leadId,
+            ackDeadline: distributionAttempt.ackDeadline,
+        })
+        .from(distributionAttempt)
+        .innerJoin(distributionCycle, eq(distributionAttempt.cycleId, distributionCycle.id))
+        .innerJoin(lead, eq(distributionAttempt.leadId, lead.id))
+        .where(
+            and(
+                eq(distributionCycle.status, "active"),
+                eq(lead.clientId, clientId),
+                eq(distributionAttempt.status, "waiting_ok")
+            )
+        )
+        .orderBy(asc(distributionAttempt.assignedAt), asc(distributionAttempt.queueOrder));
+}
+
+async function assertNoLiveQueueOffer(executor: DbExecutor, clientId: string) {
+    const liveOffers = await getLiveQueueOffers(executor, clientId);
+    if (liveOffers.length > 0) {
+        throw new Error("QUEUE_LIVE_OFFER_LOCKED");
+    }
+}
+
+function normalizeRepeatOrderRemaining(value: unknown) {
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 5) {
+        throw new Error("INVALID_QUEUE_REPEAT_ORDER");
+    }
+    return parsed;
 }
 
 async function getActiveDistributionQueuePreview(
@@ -157,9 +197,23 @@ async function getActiveDistributionQueuePreview(
         )
         .orderBy(asc(distributionAttempt.assignedAt), asc(distributionAttempt.queueOrder));
 
+    const queueRowBySalesId = new Map(queueRows.map((row) => [row.id, row]));
+    const rewardLockedSalesIds = new Set(
+        attemptRows
+            .filter(
+                (row) =>
+                    row.status === "waiting_ok" &&
+                    Number(queueRowBySalesId.get(row.salesId)?.repeatOrderRemaining || 0) > 0
+            )
+            .map((row) => row.salesId)
+    );
+    const projectedAttemptedSalesIds = attemptRows
+        .map((row) => row.salesId)
+        .filter((salesId) => !rewardLockedSalesIds.has(salesId));
+
     const previewRows = projectNextSessionQueue(
         queueRows,
-        attemptRows.map((row) => row.salesId)
+        projectedAttemptedSalesIds
     ).map((row, index) => ({
         ...row,
         queueOrder: index + 1,
@@ -173,7 +227,7 @@ async function getActiveDistributionQueuePreview(
 
     return {
         previewRows,
-        previewSalesIds: Array.from(new Set(attemptRows.map((row) => row.salesId))),
+        previewSalesIds: Array.from(new Set(projectedAttemptedSalesIds)),
         liveOffers: previewRows
             .map((row) => {
                 const offer = liveOfferBySalesId.get(row.id);
@@ -187,9 +241,13 @@ async function getActiveDistributionQueuePreview(
                     leadName: offer.leadName || "-",
                     assignedAt: offer.assignedAt,
                     ackDeadline: offer.ackDeadline,
+                    repeatOrderRemaining: Number(row.repeatOrderRemaining || 0),
+                    isRewardLocked: Number(row.repeatOrderRemaining || 0) > 0,
                 };
             })
             .filter(Boolean),
+        hasLiveOffer: liveOfferRows.length > 0,
+        isQueueLocked: liveOfferRows.length > 0,
     };
 }
 
@@ -280,6 +338,7 @@ export async function getSalesUsers(scope: SalesQueryScope = {}) {
                 isActive: user.isActive,
                 queueOrder: salesQueue.queueOrder,
                 queueLabel: salesQueue.label,
+                repeatOrderRemaining: salesQueue.repeatOrderRemaining,
             })
             .from(user)
             .leftJoin(
@@ -304,6 +363,7 @@ export async function getSalesUsers(scope: SalesQueryScope = {}) {
                 isActive: user.isActive,
                 queueOrder: sql<number | null>`null`,
                 queueLabel: sql<string | null>`null`,
+                repeatOrderRemaining: sql<number>`0`,
             })
             .from(user)
             .where(and(...conditions))
@@ -317,6 +377,9 @@ export async function getSalesUsers(scope: SalesQueryScope = {}) {
             ...row,
             queueOrder: scope.clientId ? row.queueOrder : null,
             queueLabel: scope.clientId ? row.queueLabel : null,
+            repeatOrderRemaining: scope.clientId
+                ? Math.max(0, Number(row.repeatOrderRemaining || 0))
+                : 0,
             isSuspended: Boolean(suspension),
             suspension: suspension
                 ? {
@@ -367,6 +430,8 @@ export async function getDistributionQueue(clientId: string) {
             isRolledByActiveDistribution: queuePreview.previewSalesIds.length > 0,
             rolledSalesIds: queuePreview.previewSalesIds,
             liveOffers: queuePreview.liveOffers,
+            hasLiveOffer: queuePreview.hasLiveOffer,
+            isQueueLocked: queuePreview.isQueueLocked,
         },
     };
 }
@@ -384,6 +449,7 @@ export async function upsertSalesQueue(
         const executor = tx as unknown as DbExecutor;
         await assertSalesNotSuspended(salesId, executor, now);
         await lockQueueForClient(executor, clientId);
+        await assertNoLiveQueueOffer(executor, clientId);
 
         const [salesRow] = await executor
             .select({
@@ -410,6 +476,7 @@ export async function upsertSalesQueue(
                 clientId,
                 queueOrder: (await getHighestQueueOrder(executor, clientId)) + 1,
                 label: label || queueLabelFromOrder(targetOrder),
+                repeatOrderRemaining: 0,
                 isActive: true,
                 createdAt: now,
                 updatedAt: now,
@@ -434,6 +501,7 @@ export async function upsertSalesQueue(
             id: queueId,
             salesId,
             queueOrder: targetOrder,
+            repeatOrderRemaining: existingQueue?.repeatOrderRemaining || 0,
             salesName: salesRow.name,
         });
 
@@ -467,6 +535,7 @@ export async function reorderSalesQueue(clientId: string, salesIds: string[]) {
     await db.transaction(async (tx) => {
         const executor = tx as unknown as DbExecutor;
         await lockQueueForClient(executor, clientId);
+        await assertNoLiveQueueOffer(executor, clientId);
 
         const queueRows = await getActiveQueueRows(executor, clientId);
         if (queueRows.length === 0) {
@@ -494,6 +563,43 @@ export async function reorderSalesQueue(clientId: string, salesIds: string[]) {
     return getDistributionQueue(clientId);
 }
 
+export async function updateSalesQueueRepeatOrder(params: {
+    clientId: string;
+    salesId: string;
+    repeatOrderRemaining: number;
+}) {
+    const repeatOrderRemaining = normalizeRepeatOrderRemaining(
+        params.repeatOrderRemaining
+    );
+    const now = new Date();
+
+    await db.transaction(async (tx) => {
+        const executor = tx as unknown as DbExecutor;
+        await lockQueueForClient(executor, params.clientId);
+        await assertNoLiveQueueOffer(executor, params.clientId);
+
+        const existingQueue = await getQueueRowBySalesId(
+            executor,
+            params.salesId,
+            params.clientId
+        );
+
+        if (!existingQueue || !existingQueue.isActive) {
+            throw new Error("QUEUE_ITEM_NOT_FOUND");
+        }
+
+        await executor
+            .update(salesQueue)
+            .set({
+                repeatOrderRemaining,
+                updatedAt: now,
+            })
+            .where(eq(salesQueue.id, existingQueue.id));
+    });
+
+    return getDistributionQueue(params.clientId);
+}
+
 export async function addSalesToQueue(params: {
     clientId: string;
     salesId: string;
@@ -502,6 +608,7 @@ export async function addSalesToQueue(params: {
     await db.transaction(async (tx) => {
         const executor = tx as unknown as DbExecutor;
         await lockQueueForClient(executor, params.clientId);
+        await assertNoLiveQueueOffer(executor, params.clientId);
 
         const salesRow = await getSalesRow(executor, params.salesId);
 
@@ -537,6 +644,7 @@ export async function addSalesToQueue(params: {
                 clientId: params.clientId,
                 queueOrder: (await getHighestQueueOrder(executor, params.clientId)) + 1,
                 label: queueLabelFromOrder(currentQueue.length + 1),
+                repeatOrderRemaining: 0,
                 isActive: true,
                 createdAt: now,
                 updatedAt: now,
@@ -547,6 +655,7 @@ export async function addSalesToQueue(params: {
                 .set({
                     clientId: params.clientId,
                     isActive: true,
+                    repeatOrderRemaining: 0,
                     updatedAt: now,
                 })
                 .where(eq(salesQueue.id, existingQueue.id));
@@ -557,6 +666,7 @@ export async function addSalesToQueue(params: {
             id: queueId,
             salesId: params.salesId,
             queueOrder: targetIndex + 1,
+            repeatOrderRemaining: 0,
             salesName: salesRow.name,
         });
 
@@ -575,9 +685,13 @@ async function removeSalesFromQueueWithExecutor(
     params: {
         clientId: string;
         salesId: string;
+        bypassLiveOfferLock?: boolean;
     }
 ) {
     await lockQueueForClient(executor, params.clientId);
+    if (!params.bypassLiveOfferLock) {
+        await assertNoLiveQueueOffer(executor, params.clientId);
+    }
 
     const existingQueue = await getQueueRowBySalesId(
         executor,
@@ -596,6 +710,7 @@ async function removeSalesFromQueueWithExecutor(
         .set({
             isActive: false,
             queueOrder: nextInactiveOrder,
+            repeatOrderRemaining: 0,
             updatedAt: new Date(),
         })
         .where(eq(salesQueue.id, existingQueue.id));
@@ -634,7 +749,10 @@ export async function removeSalesFromQueueBySuspension(
     },
     executor: DbExecutor = db
 ) {
-    return removeSalesFromQueueWithExecutor(executor, params);
+    return removeSalesFromQueueWithExecutor(executor, {
+        ...params,
+        bypassLiveOfferLock: true,
+    });
 }
 
 export async function moveSalesToQueueEnd(
