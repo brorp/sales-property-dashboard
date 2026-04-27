@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../db/index";
 import { appSetting } from "../db/schema";
+import { isWithinOperationalHours } from "../utils/operational-hours";
 
 const GLOBAL_SETTINGS_ID = "global";
 const ALLOWED_ACK_TIMEOUT_MINUTES = new Set([5, 10, 15]);
@@ -61,18 +62,6 @@ function getMinutesInTimezone(at: Date, timeZone: string) {
     const hour = Number(parts.find((part) => part.type === "hour")?.value || "0");
     const minute = Number(parts.find((part) => part.type === "minute")?.value || "0");
     return hour * 60 + minute;
-}
-
-function isWithinOperationalHours(params: {
-    nowMinute: number;
-    startMinute: number;
-    endMinute: number;
-}) {
-    const { nowMinute, startMinute, endMinute } = params;
-    if (startMinute < endMinute) {
-        return nowMinute >= startMinute && nowMinute <= endMinute;
-    }
-    return nowMinute >= startMinute || nowMinute <= endMinute;
 }
 
 function mapSettingsRow(row: {

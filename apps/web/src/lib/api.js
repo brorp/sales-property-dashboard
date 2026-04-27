@@ -247,7 +247,12 @@ export function getApiBaseUrl() {
         // Use local Next.js proxy during development (see rewrites in next.config.mjs)
         baseUrl = '';
     } else {
-        const protocol = String(process.env.NEXT_PUBLIC_API_PROTOCOL || 'http').trim();
+        const protocol = String(
+            process.env.NEXT_PUBLIC_API_PROTOCOL ||
+                (typeof window !== 'undefined'
+                    ? window.location.protocol.replace(':', '')
+                    : 'https')
+        ).trim();
         const derivedBaseUrl = deriveApiBaseFromRootDomain(protocol);
         if (derivedBaseUrl) {
             baseUrl = derivedBaseUrl.replace(/\/$/, '');

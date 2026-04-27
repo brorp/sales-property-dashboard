@@ -1,5 +1,7 @@
 'use client';
 
+import { useRef } from 'react';
+
 function formatDisplayValue(type, value, placeholder) {
     if (!value) {
         return placeholder;
@@ -32,12 +34,35 @@ export default function PickerTriggerField({
     min,
     max,
 }) {
+    const inputRef = useRef(null);
     const nextPlaceholder =
         placeholder || (type === 'time' ? 'Pilih jam' : 'Pilih tanggal');
     const displayValue = formatDisplayValue(type, value, nextPlaceholder);
+    const openNativePicker = () => {
+        if (disabled) {
+            return;
+        }
+
+        const input = inputRef.current;
+        if (!input) {
+            return;
+        }
+
+        input.focus();
+        if (typeof input.showPicker === 'function') {
+            try {
+                input.showPicker();
+            } catch {
+                // Some browsers only allow showPicker during direct user activation.
+            }
+        }
+    };
 
     return (
-        <label className={`picker-trigger-field ${disabled ? 'is-disabled' : ''}`}>
+        <label
+            className={`picker-trigger-field ${disabled ? 'is-disabled' : ''}`}
+            onClick={openNativePicker}
+        >
             {label ? <span className="picker-trigger-caption">{label}</span> : null}
             <div className="picker-trigger-button">
                 <span className={`picker-trigger-value ${value ? '' : 'is-placeholder'}`}>
@@ -48,10 +73,12 @@ export default function PickerTriggerField({
                 </span>
             </div>
             <input
+                ref={inputRef}
                 type={type}
                 className="picker-trigger-native"
                 value={value || ''}
                 onChange={onChange}
+                onClick={openNativePicker}
                 disabled={disabled}
                 required={required}
                 min={min}

@@ -70,6 +70,7 @@ const knownBadRequestCodes = new Set([
     "IMAGEKIT_MEDIA_TYPE_NOT_SUPPORTED",
     "IMAGEKIT_MEDIA_TOO_LARGE",
     "IMAGEKIT_MEDIA_EMPTY",
+    "IMAGEKIT_NOT_CONFIGURED",
     "UPLOAD_IMAGE_REQUIRED",
     "PENALTY_COMPENSATION_REASON_REQUIRED",
     "INVALID_SUPERVISOR",
@@ -184,6 +185,20 @@ export function errorHandler(
     }
 
     if (err instanceof Error) {
+        if (err.message.startsWith("IMAGEKIT_UPLOAD_FAILED")) {
+            errorLogger.error("Image upload provider error", {
+                ...requestContext,
+                statusCode: 502,
+                errorCode: "IMAGEKIT_UPLOAD_FAILED",
+                error: err,
+            });
+            sendErrorResponse(res, req, 502, {
+                error: "IMAGEKIT_UPLOAD_FAILED",
+                message: "Upload screenshot gagal, coba ulangi beberapa saat lagi",
+            });
+            return;
+        }
+
         if (knownForbiddenCodes.has(err.message)) {
             errorLogger.warn("Handled business rule error", {
                 ...requestContext,

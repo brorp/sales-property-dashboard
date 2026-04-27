@@ -112,6 +112,24 @@ async function getQueueRowBySalesId(
     return row || null;
 }
 
+async function lockQueueForClient(executor: DbExecutor, clientId: string) {
+    await (executor as any).execute(
+        sql`select pg_advisory_xact_lock(hashtext(${`sales_queue:${clientId}`}))`
+    );
+}
+
+async function getQueueRowsForClient(executor: DbExecutor, clientId: string) {
+    return executor
+        .select({
+            id: salesQueue.id,
+            queueOrder: salesQueue.queueOrder,
+            isActive: salesQueue.isActive,
+        })
+        .from(salesQueue)
+        .where(eq(salesQueue.clientId, clientId))
+        .orderBy(asc(salesQueue.queueOrder), asc(salesQueue.id));
+}
+
 async function getActiveDistributionQueuePreview(
     executor: DbExecutor,
     clientId: string,
@@ -199,20 +217,35 @@ async function resequenceQueue(
     orderedRows: Array<{ id: string }>
 ) {
     const now = new Date();
-    const highestOrder = await getHighestQueueOrder(executor, clientId);
-    const temporaryOrderBase = highestOrder + 1000;
+    await lockQueueForClient(executor, clientId);
 
-    for (let i = 0; i < orderedRows.length; i += 1) {
+    const allRows = await getQueueRowsForClient(executor, clientId);
+    if (allRows.length === 0) {
+        return;
+    }
+
+    const allRowIds = new Set(allRows.map((row) => row.id));
+    const normalizedOrderedRows = orderedRows.filter((row, index, rows) => (
+        allRowIds.has(row.id) &&
+        rows.findIndex((candidate) => candidate.id === row.id) === index
+    ));
+    const orderedRowIds = new Set(normalizedOrderedRows.map((row) => row.id));
+    const remainingRows = allRows.filter((row) => !orderedRowIds.has(row.id));
+    const finalRows = [...normalizedOrderedRows, ...remainingRows];
+    const highestOrder = Math.max(0, ...allRows.map((row) => Number(row.queueOrder || 0)));
+    const temporaryOrderBase = highestOrder + allRows.length + 1000;
+
+    for (let i = 0; i < allRows.length; i += 1) {
         await executor
             .update(salesQueue)
             .set({
                 queueOrder: temporaryOrderBase + i + 1,
                 updatedAt: now,
             })
-            .where(and(eq(salesQueue.id, orderedRows[i].id), eq(salesQueue.clientId, clientId)));
+            .where(and(eq(salesQueue.id, allRows[i].id), eq(salesQueue.clientId, clientId)));
     }
 
-    for (let i = 0; i < orderedRows.length; i += 1) {
+    for (let i = 0; i < finalRows.length; i += 1) {
         const queueOrder = i + 1;
         await executor
             .update(salesQueue)
@@ -221,7 +254,7 @@ async function resequenceQueue(
                 label: queueLabelFromOrder(queueOrder),
                 updatedAt: now,
             })
-            .where(and(eq(salesQueue.id, orderedRows[i].id), eq(salesQueue.clientId, clientId)));
+            .where(and(eq(salesQueue.id, finalRows[i].id), eq(salesQueue.clientId, clientId)));
     }
 }
 
@@ -345,43 +378,81 @@ export async function upsertSalesQueue(
     label: string
 ) {
     const now = new Date();
-    await assertSalesNotSuspended(salesId, db, now);
+    const targetOrder = Number.isFinite(queueOrder) ? Math.max(1, queueOrder) : 1;
 
-    const [existing] = await db
-        .select({ id: salesQueue.id })
-        .from(salesQueue)
-        .where(and(eq(salesQueue.salesId, salesId), eq(salesQueue.clientId, clientId)))
-        .limit(1);
+    const updatedQueue = await db.transaction(async (tx) => {
+        const executor = tx as unknown as DbExecutor;
+        await assertSalesNotSuspended(salesId, executor, now);
+        await lockQueueForClient(executor, clientId);
 
-    if (!existing) {
-        const [created] = await db
-            .insert(salesQueue)
-            .values({
-                id: generateId(),
+        const [salesRow] = await executor
+            .select({
+                id: user.id,
+                name: user.name,
+                role: user.role,
+                isActive: user.isActive,
+            })
+            .from(user)
+            .where(eq(user.id, salesId))
+            .limit(1);
+
+        if (!salesRow || salesRow.role !== "sales" || !salesRow.isActive) {
+            throw new Error("INVALID_ASSIGNED_SALES");
+        }
+
+        const existingQueue = await getQueueRowBySalesId(executor, salesId, clientId);
+        const queueId = existingQueue?.id || generateId();
+
+        if (!existingQueue) {
+            await executor.insert(salesQueue).values({
+                id: queueId,
                 salesId,
                 clientId,
-                queueOrder,
-                label,
+                queueOrder: (await getHighestQueueOrder(executor, clientId)) + 1,
+                label: label || queueLabelFromOrder(targetOrder),
                 isActive: true,
                 createdAt: now,
                 updatedAt: now,
-            })
-            .returning();
-        return created;
-    }
+            });
+        } else {
+            await executor
+                .update(salesQueue)
+                .set({
+                    isActive: true,
+                    label: label || existingQueue.label,
+                    updatedAt: now,
+                })
+                .where(eq(salesQueue.id, existingQueue.id));
+        }
 
-    const [updated] = await db
-        .update(salesQueue)
-        .set({
+        const currentQueue = (await getActiveQueueRowsForResequence(executor, clientId)).filter(
+            (row) => row.salesId !== salesId
+        );
+        const targetIndex = Math.max(0, Math.min(currentQueue.length, targetOrder - 1));
+        const reorderedRows = [...currentQueue];
+        reorderedRows.splice(targetIndex, 0, {
+            id: queueId,
+            salesId,
+            queueOrder: targetOrder,
+            salesName: salesRow.name,
+        });
+
+        await resequenceQueue(
+            executor,
             clientId,
-            queueOrder,
-            label,
-            updatedAt: now,
-        })
-        .where(eq(salesQueue.id, existing.id))
-        .returning();
+            reorderedRows.map((row) => ({ id: row.id }))
+        );
 
-    return updated;
+        const [updated] = await executor
+            .select()
+            .from(salesQueue)
+            .where(eq(salesQueue.id, queueId))
+            .limit(1);
+
+        return updated || null;
+    });
+
+    return updatedQueue;
 }
 
 export async function reorderSalesQueue(clientId: string, salesIds: string[]) {
@@ -394,7 +465,10 @@ export async function reorderSalesQueue(clientId: string, salesIds: string[]) {
     }
 
     await db.transaction(async (tx) => {
-        const queueRows = await getActiveQueueRows(tx as unknown as DbExecutor, clientId);
+        const executor = tx as unknown as DbExecutor;
+        await lockQueueForClient(executor, clientId);
+
+        const queueRows = await getActiveQueueRows(executor, clientId);
         if (queueRows.length === 0) {
             throw new Error("QUEUE_EMPTY");
         }
@@ -411,7 +485,7 @@ export async function reorderSalesQueue(clientId: string, salesIds: string[]) {
         }
 
         await resequenceQueue(
-            tx as unknown as DbExecutor,
+            executor,
             clientId,
             reorderedRows as Array<{ id: string }>
         );
@@ -427,6 +501,8 @@ export async function addSalesToQueue(params: {
 }) {
     await db.transaction(async (tx) => {
         const executor = tx as unknown as DbExecutor;
+        await lockQueueForClient(executor, params.clientId);
+
         const salesRow = await getSalesRow(executor, params.salesId);
 
         if (!salesRow || salesRow.role !== "sales" || !salesRow.isActive) {
@@ -501,6 +577,8 @@ async function removeSalesFromQueueWithExecutor(
         salesId: string;
     }
 ) {
+    await lockQueueForClient(executor, params.clientId);
+
     const existingQueue = await getQueueRowBySalesId(
         executor,
         params.salesId,
