@@ -62,6 +62,7 @@ function normalizeLead(input) {
         acceptedAt: input.acceptedAt || null,
         appointmentTag: input.appointmentTag || 'none',
         latestAppointment: input.latestAppointment || null,
+        latestActivityNote: input.latestActivityNote || null,
         customerPipelineCompletedCount: Number(input.customerPipelineCompletedCount ?? derivedPipelineCompletedCount ?? 0),
         customerPipelineTotalSteps: Number(input.customerPipelineTotalSteps ?? derivedPipelineTotalSteps ?? 0),
         customerPipeline,

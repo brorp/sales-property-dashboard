@@ -79,7 +79,10 @@ export function getStatusBadgeClass(kind, value) {
     const normalizedValue = normalizeKey(value);
 
     if (normalizedKind === 'flow') {
-        if (normalizedValue === 'assigned' || normalizedValue === 'accepted') {
+        if (normalizedValue === 'assigned') {
+            return 'badge-info';
+        }
+        if (normalizedValue === 'accepted') {
             return 'badge-warm';
         }
         if (normalizedValue === 'hold') {

@@ -606,6 +606,14 @@ export default function LeadDetailPage({ leadId }) {
                 <a href={toWaLink(lead.phone)} target="_blank" rel="noopener noreferrer" className="btn btn-whatsapp btn-full" style={{ marginTop: 12 }}>
                     Chat WhatsApp
                 </a>
+                <button
+                    className="btn btn-secondary btn-full"
+                    onClick={() => setShowNote(true)}
+                    disabled={!canEditLead}
+                    style={{ marginTop: 10 }}
+                >
+                    Tambah Catatan
+                </button>
             </div>
 
             {isAcceptedLead ? (
@@ -943,7 +951,6 @@ export default function LeadDetailPage({ leadId }) {
             </div>
 
             <div className="detail-actions">
-                <button className="btn btn-secondary btn-full" onClick={() => setShowNote(true)} disabled={!canEditLead}>Tambah Catatan</button>
                 <button className="btn btn-primary btn-full" onClick={openCreateAppointment} disabled={!canEditLead}>Buat Appointment</button>
             </div>
 

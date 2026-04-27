@@ -153,6 +153,26 @@
     background: rgba(239, 68, 68, 0.09);
 }
 
+.distribution-live-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+    padding: 14px;
+    border: 1px solid rgba(239, 68, 68, 0.38);
+    border-radius: 16px;
+    background:
+        radial-gradient(circle at top left, rgba(239, 68, 68, 0.18), transparent 42%),
+        rgba(239, 68, 68, 0.08);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.16);
+}
+
+.distribution-live-banner-copy {
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
 .settings-queue-reward {
     display: inline-flex;
     align-items: center;

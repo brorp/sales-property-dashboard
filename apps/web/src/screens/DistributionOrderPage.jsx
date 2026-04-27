@@ -274,6 +274,17 @@ export default function DistributionOrderPage() {
         <div className="page-container">
             <Header title="Distribution Order" showBack />
 
+            {queuePreview?.hasLiveOffer ? (
+                <div className="distribution-live-banner">
+                    <div>
+                        <span className="badge badge-danger">Live Offer</span>
+                    </div>
+                    <div className="distribution-live-banner-copy">
+                        {queuePreviewMessage || 'Ada distribusi lead yang sedang menunggu balasan OK. Jangan edit atau hapus distribution order sampai offer selesai.'}
+                    </div>
+                </div>
+            ) : null}
+
             <div className="card settings-card">
                 <p className="settings-help">
                     Urutan ini dipakai untuk distribusi lead otomatis. Begitu bot mengirim offer ke sales, urutan sesi berikutnya langsung diproyeksikan secara realtime.

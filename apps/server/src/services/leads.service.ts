@@ -159,6 +159,43 @@ async function enrichWithAppointmentTag<TRow extends { id: string }>(rows: TRow[
     });
 }
 
+async function getLatestActivityNoteMap(leadIds: string[]) {
+    if (leadIds.length === 0) {
+        return new Map<string, {
+            id: string;
+            note: string;
+            type: string;
+            timestamp: Date;
+        }>();
+    }
+
+    const noteRows = await db
+        .select({
+            id: activity.id,
+            leadId: activity.leadId,
+            type: activity.type,
+            note: activity.note,
+            timestamp: activity.timestamp,
+        })
+        .from(activity)
+        .where(
+            and(
+                inArray(activity.leadId, leadIds),
+                inArray(activity.type, ["manual_note", "note"])
+            )
+        )
+        .orderBy(desc(activity.timestamp));
+
+    const noteByLeadId = new Map<string, typeof noteRows[number]>();
+    for (const item of noteRows) {
+        if (!noteByLeadId.has(item.leadId)) {
+            noteByLeadId.set(item.leadId, item);
+        }
+    }
+
+    return noteByLeadId;
+}
+
 export async function findAll(
     filters: LeadFilters,
     userId: string,
@@ -280,12 +317,17 @@ export async function findAll(
                 ? pipelineProgressMap.get(row.id)?.totalSteps || 3
                 : 0,
     }));
+    const latestNoteMap = await getLatestActivityNoteMap(rowsWithPipeline.map((row) => row.id));
+    const rowsWithLatestNote = rowsWithPipeline.map((row) => ({
+        ...row,
+        latestActivityNote: latestNoteMap.get(row.id) || null,
+    }));
     const requestedTag = mapAppointmentTagFilter(filters.appointmentTag);
     if (!requestedTag) {
-        return rowsWithPipeline;
+        return rowsWithLatestNote;
     }
 
-    return rowsWithPipeline.filter((row) => row.appointmentTag === requestedTag);
+    return rowsWithLatestNote.filter((row) => row.appointmentTag === requestedTag);
 }
 
 export async function findById(id: string) {
@@ -334,12 +376,16 @@ export async function findById(id: string) {
     ]);
 
     const latestAppointment = pickLatestAppointment(appointments);
+    const latestActivityNote =
+        activities.find((item) => item.type === "manual_note" || item.type === "note") ||
+        null;
 
     return {
         ...leadData,
         flowStatus: normalizedFlowStatus,
         appointmentTag: resolveAppointmentTag(latestAppointment || null),
         latestAppointment: latestAppointment || null,
+        latestActivityNote,
         activities,
         appointments,
         customerPipeline: followUpProgress.stages,
@@ -1108,7 +1154,7 @@ export async function patchLead(input: LeadPatchInput) {
     const explicitNote = sanitizeRequiredText(input.activityNote);
     if (explicitNote) {
         activityEntries.push({
-            type: "note",
+            type: "manual_note",
             note: explicitNote,
         });
     }

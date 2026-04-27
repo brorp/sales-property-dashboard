@@ -1039,6 +1039,12 @@ export default function LeadsPage() {
                                 />
                             </div>
                         ) : null}
+                        {lead.latestActivityNote?.note ? (
+                            <div className="leads-card-note">
+                                <span className="leads-card-note-label">Catatan</span>
+                                <span className="leads-card-note-text">{lead.latestActivityNote.note}</span>
+                            </div>
+                        ) : null}
                         {isAdmin ? <div className="leads-card-sales">Sales: {getSalesNameById(lead.assignedTo)}</div> : null}
                     </div>
                 ))}
