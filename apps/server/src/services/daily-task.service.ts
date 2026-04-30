@@ -172,6 +172,7 @@ async function upsertDailyTask(params: {
     eligibleAt: Date;
     dueAt: Date;
     now?: Date;
+    forceReactivateDone?: boolean;
 }) {
     const executor = params.executor || db;
     const now = params.now || new Date();
@@ -215,11 +216,12 @@ async function upsertDailyTask(params: {
         return null;
     }
 
-    if (existing.status === "done") {
+    if (existing.status === "done" && !params.forceReactivateDone) {
         return existing;
     }
 
     const shouldReactivate =
+        params.forceReactivateDone ||
         existing.status === "invalid" ||
         existing.salesId !== params.salesId ||
         existing.clientId !== (params.clientId || null);
@@ -305,6 +307,7 @@ export async function createNewLeadTaskForLead(params: {
     clientId?: string | null;
     assignedAt?: Date;
     executor?: DbExecutor;
+    forceReactivateDone?: boolean;
 }) {
     const executor = params.executor || db;
     const assignedAt = params.assignedAt || new Date();
@@ -319,6 +322,7 @@ export async function createNewLeadTaskForLead(params: {
         eligibleAt: assignedAt,
         dueAt: addHours(assignedAt, 24),
         now: assignedAt,
+        forceReactivateDone: params.forceReactivateDone || false,
     });
 }
 

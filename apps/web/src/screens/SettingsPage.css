@@ -197,6 +197,54 @@
     min-width: 70px;
 }
 
+.reassign-layout {
+    align-items: start;
+}
+
+.reassign-lead-list {
+    max-height: 62vh;
+    overflow: auto;
+    padding-right: 2px;
+}
+
+.reassign-lead-item {
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+}
+
+.reassign-lead-item.is-selected {
+    border-color: rgba(124, 58, 237, 0.65);
+    background: rgba(124, 58, 237, 0.12);
+}
+
+.reassign-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 7px;
+}
+
+.reassign-summary {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.reassign-summary div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.reassign-empty {
+    padding: 24px 12px;
+}
+
 @media (max-width: 720px) {
     .settings-actions {
         grid-template-columns: 1fr;

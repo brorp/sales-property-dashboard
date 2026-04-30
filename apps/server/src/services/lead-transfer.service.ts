@@ -4,11 +4,13 @@ import { activity, lead, leadReassignmentAudit, user } from "../db/schema";
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
 import { syncLeadAppointmentsSalesOwner } from "./appointments.service";
+import * as dailyTaskService from "./daily-task.service";
 
 type AdminActor = {
     actorId: string;
     actorRole: string;
     actorClientId?: string | null;
+    actorName?: string | null;
 };
 
 type ParsedImportRow = {
@@ -680,5 +682,132 @@ export async function commitLeadReassignmentImport(params: {
                 ? { ...row, status: "updated" }
                 : row
         )),
+    };
+}
+
+export async function reassignLeadManually(params: {
+    leadId: string;
+    targetSalesId: string;
+    note?: string | null;
+    actor: AdminActor;
+}) {
+    assertAdminActor(params.actor);
+
+    const targetSales = await getManagedSalesRow(params.targetSalesId, params.actor, true);
+    if (!targetSales) {
+        throw new Error("TARGET_SALES_NOT_FOUND");
+    }
+
+    const [currentLead] = await db
+        .select({
+            id: lead.id,
+            name: lead.name,
+            phone: lead.phone,
+            clientId: lead.clientId,
+            assignedTo: lead.assignedTo,
+            flowStatus: lead.flowStatus,
+            acceptedAt: lead.acceptedAt,
+        })
+        .from(lead)
+        .where(eq(lead.id, params.leadId))
+        .limit(1);
+
+    if (!currentLead) {
+        throw new Error("LEAD_NOT_FOUND");
+    }
+
+    if (
+        params.actor.actorRole !== "root_admin" &&
+        params.actor.actorClientId &&
+        currentLead.clientId !== params.actor.actorClientId
+    ) {
+        throw new Error("FORBIDDEN_LEAD_REASSIGN");
+    }
+
+    if (!currentLead.assignedTo) {
+        throw new Error("LEAD_REASSIGN_REQUIRES_ASSIGNED");
+    }
+
+    if (currentLead.assignedTo === targetSales.id) {
+        throw new Error("LEAD_REASSIGN_SAME_SALES");
+    }
+
+    const note = sanitizeText(params.note);
+    if (!note) {
+        throw new Error("LEAD_REASSIGN_NOTE_REQUIRED");
+    }
+
+    const currentSales = currentLead.assignedTo
+        ? await getManagedSalesRow(currentLead.assignedTo, params.actor, false)
+        : null;
+    const now = new Date();
+
+    await db.transaction(async (tx) => {
+        await tx
+            .update(lead)
+            .set({
+                assignedTo: targetSales.id,
+                flowStatus: "assigned",
+                acceptedAt: null,
+                updatedAt: now,
+            })
+            .where(eq(lead.id, currentLead.id));
+
+        await dailyTaskService.invalidateFollowUpTasksForLead(currentLead.id, tx, now);
+        await dailyTaskService.createNewLeadTaskForLead({
+            leadId: currentLead.id,
+            salesId: targetSales.id,
+            clientId: currentLead.clientId || params.actor.actorClientId || null,
+            assignedAt: now,
+            executor: tx,
+            forceReactivateDone: true,
+        });
+
+        await syncLeadAppointmentsSalesOwner({
+            leadId: currentLead.id,
+            salesId: targetSales.id,
+            executor: tx,
+        });
+
+        const fromSalesName = currentSales?.name || "sales sebelumnya";
+        const actorName = params.actor.actorName || "Admin";
+        const noteSuffix = note ? ` Catatan: ${note}` : "";
+
+        await tx.insert(activity).values({
+            id: generateId(),
+            leadId: currentLead.id,
+            type: "lead_status",
+            note: `Lead direassign dari ${fromSalesName} ke ${targetSales.name} oleh ${actorName}.${noteSuffix}`,
+            timestamp: now,
+        });
+
+        await tx.insert(leadReassignmentAudit).values({
+            id: generateId(),
+            leadId: currentLead.id,
+            fromSalesId: currentLead.assignedTo,
+            toSalesId: targetSales.id,
+            triggeredByUserId: params.actor.actorId,
+            source: "manual_reassign",
+            importBatchId: null,
+            metadata: JSON.stringify({
+                note: note || null,
+                fromSalesName,
+                toSalesName: targetSales.name,
+                leadName: currentLead.name,
+                leadPhone: currentLead.phone,
+                previousFlowStatus: currentLead.flowStatus || null,
+                previousAcceptedAt: currentLead.acceptedAt || null,
+            }),
+            createdAt: now,
+        });
+    });
+
+    return {
+        leadId: currentLead.id,
+        fromSalesId: currentLead.assignedTo,
+        fromSalesName: currentSales?.name || null,
+        toSalesId: targetSales.id,
+        toSalesName: targetSales.name,
+        flowStatus: "assigned",
     };
 }

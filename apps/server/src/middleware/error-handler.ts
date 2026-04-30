@@ -9,6 +9,8 @@ const knownBadRequestCodes = new Set([
     "FORBIDDEN_ASSIGN",
     "FORBIDDEN_LEAD_EDIT",
     "ADMIN_ASSIGNED_LEAD_READ_ONLY",
+    "LEAD_REASSIGN_REQUIRES_ASSIGNED",
+    "LEAD_REASSIGN_NOTE_REQUIRED",
     "INVALID_SALES_STATUS",
     "INVALID_RESULT_STATUS",
     "SALES_STATUS_REQUIRES_ACCEPTED",
@@ -94,6 +96,7 @@ const knownConflictCodes = new Set([
     "DAILY_TASK_NO_LONGER_ELIGIBLE",
     "CUSTOMER_PIPELINE_MANUAL_DISABLED",
     "LEAD_SOURCE_ALREADY_EXISTS",
+    "LEAD_REASSIGN_SAME_SALES",
 ]);
 
 const knownForbiddenCodes = new Set([
@@ -104,6 +107,7 @@ const knownForbiddenCodes = new Set([
     "FORBIDDEN_CUSTOMER_PIPELINE_UPDATE",
     "FORBIDDEN_DAILY_TASK",
     "FORBIDDEN_LEAD_DELETE",
+    "FORBIDDEN_LEAD_REASSIGN",
 ]);
 
 const knownNotFoundCodes = new Set([

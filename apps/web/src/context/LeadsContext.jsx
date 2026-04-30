@@ -351,6 +351,32 @@ export function LeadsProvider({ children }) {
         return deleted;
     }, [refreshAppointments, refreshDashboardAnalytics, refreshLeads, refreshTeamStats, user]);
 
+    const reassignLead = useCallback(async (leadId, payload) => {
+        if (!user) {
+            throw new Error('Unauthorized');
+        }
+
+        const result = await apiRequest(`/api/leads/${leadId}/reassign`, {
+            method: 'POST',
+            user,
+            body: payload,
+        });
+
+        if (result?.lead) {
+            syncLeadToState(result.lead);
+        }
+
+        await Promise.all([
+            refreshLeads(),
+            refreshSalesUsers(),
+            refreshAppointments(),
+            refreshDashboardAnalytics(),
+            refreshTeamStats(),
+        ]);
+
+        return result;
+    }, [refreshAppointments, refreshDashboardAnalytics, refreshLeads, refreshSalesUsers, refreshTeamStats, syncLeadToState, user]);
+
     const addAppointment = useCallback(async (leadId, payload) => {
         if (!user) {
             throw new Error('Unauthorized');
@@ -467,6 +493,7 @@ export function LeadsProvider({ children }) {
         completeCustomerPipelineStep,
         addLead,
         deleteLead,
+        reassignLead,
         addAppointment,
         updateAppointment,
         cancelAppointment,
@@ -487,6 +514,7 @@ export function LeadsProvider({ children }) {
         addAppointment,
         addLead,
         deleteLead,
+        reassignLead,
         appointments,
         cancelAppointment,
         createSalesUser,

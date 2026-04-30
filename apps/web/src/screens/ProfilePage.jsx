@@ -24,6 +24,7 @@ export default function ProfilePage() {
 
     const handleLogout = () => { logout(); router.replace('/login'); };
     const goToDistributionOrder = () => { router.push('/settings/distribution-order'); };
+    const goToReassignedLeads = () => { router.push('/settings/reassigned-leads'); };
     const goToUnits = () => { router.push('/settings/units'); };
     const goToLeadSources = () => { router.push('/settings/lead-sources'); };
     const goToCancelReasons = () => { router.push('/settings/cancel-reasons'); };
@@ -31,6 +32,7 @@ export default function ProfilePage() {
     const goToBroadcast = () => { router.push('/broadcast'); };
     const goToEditProfile = () => { router.push('/settings/profile'); };
     const canManageDistribution = user?.role === 'client_admin';
+    const canReassignLeads = user?.role === 'client_admin' || user?.role === 'root_admin';
     const canManageCancelReasons = user?.role === 'client_admin' || user?.role === 'root_admin';
     const canManageSharedWhatsApp = tenant.canManageSharedWhatsApp(user);
     const workspaceLabel = tenant.isClientSite
@@ -56,6 +58,11 @@ export default function ProfilePage() {
                 {canManageDistribution ? (
                     <button className="profile-menu-item" onClick={goToDistributionOrder}>
                         <span>🔁</span><span>Distribution Order</span><span className="profile-menu-arrow">→</span>
+                    </button>
+                ) : null}
+                {canReassignLeads ? (
+                    <button className="profile-menu-item" onClick={goToReassignedLeads}>
+                        <span>🧭</span><span>Reassigned Leads</span><span className="profile-menu-arrow">→</span>
                     </button>
                 ) : null}
                 {canManageDistribution ? (

@@ -202,6 +202,41 @@ router.post("/:id/accept", requireRole("sales") as any, async (req, res: Respons
     }
 });
 
+router.post("/:id/reassign", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { user } = req as unknown as AuthenticatedRequest;
+        const { targetSalesId, note } = req.body ?? {};
+
+        if (!targetSalesId || typeof targetSalesId !== "string") {
+            res.status(400).json({
+                error: "VALIDATION_ERROR",
+                message: "targetSalesId wajib diisi",
+            });
+            return;
+        }
+
+        const result = await leadTransferService.reassignLeadManually({
+            leadId: req.params.id,
+            targetSalesId,
+            note: typeof note === "string" ? note : null,
+            actor: {
+                actorId: user.id,
+                actorRole: user.role,
+                actorClientId: getWorkspaceClientId(req as unknown as AuthenticatedRequest),
+                actorName: user.name,
+            },
+        });
+
+        const fullLead = await leadsService.findById(req.params.id);
+        res.json({
+            ...result,
+            lead: fullLead,
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
 router.get("/:id/customer-pipeline", async (req, res: Response, next: NextFunction) => {
     try {
         const { user, scope } = req as unknown as AuthenticatedRequest;
