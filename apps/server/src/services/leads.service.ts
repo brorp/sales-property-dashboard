@@ -16,9 +16,9 @@ import {
 } from "../utils/appointment";
 import { createGoogleCalendarEvent } from "./calendar.service";
 import { syncLeadAppointmentsSalesOwner } from "./appointments.service";
-import { normalizeFixedLeadSource } from "../constants/lead-sources";
 import * as cancelReasonsService from "./cancel-reasons.service";
 import * as dailyTaskService from "./daily-task.service";
+import * as leadSourcesService from "./lead-sources.service";
 import {
     getFlowStatusLabel,
     getResultStatusLabel,
@@ -270,6 +270,7 @@ export async function findAll(
             name: lead.name,
             phone: lead.phone,
             source: lead.source,
+            agentOfficeName: lead.agentOfficeName,
             assignedTo: lead.assignedTo,
             flowStatus: lead.flowStatus,
             salesStatus: lead.salesStatus,
@@ -290,6 +291,7 @@ export async function findAll(
             receivedAt: lead.receivedAt,
             createdAt: lead.createdAt,
             updatedAt: lead.updatedAt,
+            resultStatusUpdatedAt: lead.resultStatusUpdatedAt,
             assignedUserName: user.name,
         })
         .from(lead)
@@ -443,6 +445,7 @@ export async function create(data: {
     name: string;
     phone: string;
     source: string;
+    agentOfficeName?: string | null;
     assignedTo?: string | null;
     clientId?: string | null;
 }) {
@@ -450,7 +453,15 @@ export async function create(data: {
     const now = new Date();
     const assignedTo = data.assignedTo || null;
     let resolvedClientId = data.clientId || null;
-    const normalizedSource = normalizeFixedLeadSource(data.source) || "Online";
+    const normalizedSource = await leadSourcesService.resolveLeadSourceValue(
+        resolvedClientId,
+        data.source || "Online"
+    );
+    const normalizedAgentOfficeName = sanitizeNullableText(data.agentOfficeName);
+
+    if (normalizedSource.toLowerCase() === "agent" && !normalizedAgentOfficeName) {
+        throw new Error("AGENT_OFFICE_NAME_REQUIRED");
+    }
 
     if (assignedTo) {
         const [assignedSales] = await db
@@ -471,10 +482,6 @@ export async function create(data: {
         // The resolvedClientId remains the target workspace ID.
     }
 
-    if (resolvedClientId && !normalizeFixedLeadSource(normalizedSource)) {
-        throw new Error("INVALID_LEAD_SOURCE");
-    }
-
     const [newLead] = await db
         .insert(lead)
         .values({
@@ -482,6 +489,10 @@ export async function create(data: {
             name: data.name,
             phone: data.phone,
             source: normalizedSource,
+            agentOfficeName:
+                normalizedSource.toLowerCase() === "agent"
+                    ? normalizedAgentOfficeName
+                    : null,
             assignedTo,
             clientId: resolvedClientId,
             flowStatus: assignedTo ? "assigned" : "open",
@@ -1094,6 +1105,9 @@ export async function patchLead(input: LeadPatchInput) {
 
     if (isResultStatusUpdated) {
         updates.resultStatus = nextResultStatusRaw;
+        if (nextResultStatusRaw !== currentLead.resultStatus) {
+            updates.resultStatusUpdatedAt = now;
+        }
 
         if (nextResultStatusRaw !== "cancel" && nextResultStatusRaw !== "akad") {
             updates.rejectedReason = null;

@@ -178,8 +178,8 @@ export const TENANTS: SeedClient[] = [
 ];
 
 export const TENANT_LEAD_SOURCE_OPTIONS: Record<string, string[]> = {
-    "wr-001": ["Online", "Offline", "Walk In", "Agent", "Old", "Pribadi"],
-    "wv-001": ["Online", "Offline", "Walk In", "Agent"],
+    "wr-001": ["Online", "Offline", "Walk In", "Call In", "Agent", "Old", "Pribadi"],
+    "wv-001": ["Online", "Offline", "Walk In", "Call In", "Agent"],
 };
 
 export const TENANT_CANCEL_REASONS: Record<string, SeedCancelReason[]> = {

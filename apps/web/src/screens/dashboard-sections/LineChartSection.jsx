@@ -16,7 +16,7 @@ function formatCount(value) {
     return new Intl.NumberFormat('id-ID').format(Number(value || 0));
 }
 
-export default function LineChartSection({ data }) {
+export default function LineChartSection({ data, dateFilterControl = null }) {
     const [granularity, setGranularity] = useState(data?.defaultGranularity || 'month');
     const [dataset, setDataset] = useState(data?.defaultDataset || 'l4');
 
@@ -42,7 +42,9 @@ export default function LineChartSection({ data }) {
     const series = Array.isArray(chartPayload.series) ? chartPayload.series : [];
     const datasetLabel = data?.datasetOptions?.find((item) => item.key === dataset)?.label || 'Data';
     const granularityLabel = data?.granularityOptions?.find((item) => item.key === granularity)?.label || 'Bulan';
-    const nonZeroSeries = series.filter((item) => Number(item.total || 0) > 0);
+    const visibleSeries = dataset === 'source'
+        ? series.filter((item) => Number(item.total || 0) > 0)
+        : series;
 
     const chartGeometry = useMemo(() => {
         const width = 720;
@@ -68,7 +70,7 @@ export default function LineChartSection({ data }) {
     }, [periods]);
 
     const seriesWithPoints = useMemo(() => {
-        return nonZeroSeries.map((seriesItem, index) => {
+        return visibleSeries.map((seriesItem, index) => {
             const points = periods.map((period, periodIndex) => {
                 const rawValue = Number(period.values?.[seriesItem.key] || 0);
                 const x = chartGeometry.padding.left + (periods.length > 1 ? chartGeometry.xStep * periodIndex : chartGeometry.chartWidth / 2);
@@ -83,7 +85,7 @@ export default function LineChartSection({ data }) {
                 path: buildPath(points),
             };
         });
-    }, [chartGeometry.chartHeight, chartGeometry.chartWidth, chartGeometry.maxValue, chartGeometry.padding.left, chartGeometry.padding.top, chartGeometry.xStep, nonZeroSeries, periods]);
+    }, [chartGeometry.chartHeight, chartGeometry.chartWidth, chartGeometry.maxValue, chartGeometry.padding.left, chartGeometry.padding.top, chartGeometry.xStep, visibleSeries, periods]);
 
     const gridTicks = useMemo(() => {
         return Array.from({ length: 4 }, (_, index) => {
@@ -100,9 +102,11 @@ export default function LineChartSection({ data }) {
             defaultExpanded={false}
         >
             <div className="line-chart-shell">
+                {dateFilterControl}
+
                 <div className="line-chart-controls">
                     <div className="input-group">
-                        <label>Granularity</label>
+                        <label>Time</label>
                         <select
                             className="input-field"
                             value={granularity}

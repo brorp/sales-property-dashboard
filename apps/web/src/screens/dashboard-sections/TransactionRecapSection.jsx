@@ -527,12 +527,9 @@ export default function TransactionRecapSection({
                             }}
                         >
                             <option value="">Semua Tipe</option>
-                            <option value="Studio">Studio</option>
-                            <option value="1BR">1 BR</option>
-                            <option value="2BR">2 BR</option>
-                            <option value="3BR">3 BR</option>
-                            <option value="Townhouse">Townhouse</option>
-                            <option value="Penthouse">Penthouse</option>
+                            {data.unitOptions?.map((u) => (
+                                <option key={u.value} value={u.value}>{u.label}</option>
+                            ))}
                         </select>
                     </div>
                 </div>

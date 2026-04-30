@@ -253,7 +253,7 @@ router.post("/:id/customer-pipeline/:stepNo/complete", requireRole("sales") as a
 router.post("/", async (req, res: Response, next: NextFunction) => {
     try {
         const { user, scope } = req as unknown as AuthenticatedRequest;
-        const { name, phone, source, assignedTo } = req.body ?? {};
+        const { name, phone, source, assignedTo, agentOfficeName } = req.body ?? {};
         if (!name || !phone) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "name dan phone wajib diisi" });
             return;
@@ -290,7 +290,8 @@ router.post("/", async (req, res: Response, next: NextFunction) => {
         const created = await leadsService.create({
             name,
             phone,
-            source: source || "Manual Input",
+            source: source || "Online",
+            agentOfficeName,
             assignedTo:
                 (user.role === "client_admin" || user.role === "root_admin")
                     ? assignedTo || null

@@ -12,6 +12,7 @@ import TransactionRecapSection from './dashboard-sections/TransactionRecapSectio
 import TeamPerformanceSection from './dashboard-sections/TeamPerformanceSection';
 import DatabaseControlCenterSection from './dashboard-sections/DatabaseControlCenterSection';
 import LineChartSection from './dashboard-sections/LineChartSection';
+import DailySalesReportSection from './dashboard-sections/DailySalesReportSection';
 
 const STATUS_COLOR_MAP = {
     hot: 'var(--hot)',
@@ -42,14 +43,15 @@ const DEFAULT_ANALYTICS = {
     teamPerformance: null,
     databaseControl: null,
     lineChart: null,
+    dailySalesReport: null,
 };
 
 const DAY_LABELS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 
 const QUICK_RANGES = [
     { key: 'today', label: 'Hari Ini' },
-    { key: 'last7', label: '7 Hari' },
-    { key: 'next30', label: '30 Hari Kedepan' },
+    { key: 'last7', label: '7 Hari Terakhir' },
+    { key: 'last30', label: '30 Hari Terakhir' },
     { key: 'thisMonth', label: 'Bulan Ini' },
 ];
 
@@ -289,12 +291,12 @@ function getPresetRange(key) {
         };
     }
 
-    if (key === 'next30') {
-        const end = new Date(today);
-        end.setDate(today.getDate() + 29);
+    if (key === 'last30') {
+        const start = new Date(today);
+        start.setDate(today.getDate() - 29);
         return {
-            dateFrom: formatDateInput(today),
-            dateTo: formatDateInput(end),
+            dateFrom: formatDateInput(start),
+            dateTo: end,
         };
     }
 
@@ -324,6 +326,7 @@ export default function DashboardPage() {
     const transactionFilterRef = useRef(null);
     const teamPerformanceFilterRef = useRef(null);
     const databaseControlFilterRef = useRef(null);
+    const lineChartFilterRef = useRef(null);
 
     const [refreshing, setRefreshing] = useState(false);
     const [filterLoading, setFilterLoading] = useState(false);
@@ -333,9 +336,9 @@ export default function DashboardPage() {
     const [holdActionMessage, setHoldActionMessage] = useState('');
     const [holdActionError, setHoldActionError] = useState('');
     const [filterOpenKey, setFilterOpenKey] = useState('');
-    const [appliedDateRange, setAppliedDateRange] = useState(() => getPresetRange('next30'));
-    const [draftDateRange, setDraftDateRange] = useState(() => getPresetRange('next30'));
-    const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(parseDateInput(getPresetRange('next30').dateFrom) || new Date()));
+    const [appliedDateRange, setAppliedDateRange] = useState(() => getPresetRange('today'));
+    const [draftDateRange, setDraftDateRange] = useState(() => getPresetRange('today'));
+    const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(parseDateInput(getPresetRange('today').dateFrom) || new Date()));
 
     const showDateFilter = Boolean(user);
     const hasActiveDateFilter = Boolean(appliedDateRange.dateFrom || appliedDateRange.dateTo);
@@ -545,7 +548,9 @@ export default function DashboardPage() {
                 ? transactionFilterRef
                 : filterOpenKey === 'team-performance'
                     ? teamPerformanceFilterRef
-                    : databaseControlFilterRef;
+                    : filterOpenKey === 'line-chart'
+                        ? lineChartFilterRef
+                        : databaseControlFilterRef;
 
         const handlePointerDown = (event) => {
             if (activeFilterRef.current && !activeFilterRef.current.contains(event.target)) {
@@ -560,7 +565,7 @@ export default function DashboardPage() {
     useEffect(() => {
         if (!user) {
             setPageAnalytics(null);
-            const nextRange = getPresetRange('next30');
+            const nextRange = getPresetRange('today');
             setAppliedDateRange(nextRange);
             setDraftDateRange(nextRange);
             setFilterOpenKey('');
@@ -577,19 +582,82 @@ export default function DashboardPage() {
         return (
             <div className="dashboard-filter-shell" ref={filterRef}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                    <button
-                        type="button"
-                        className={`btn btn-sm ${hasActiveDateFilter ? 'btn-primary' : 'btn-secondary'} dashboard-filter-trigger`}
-                        onClick={() => {
-                            if (isOpen) {
-                                setFilterOpenKey('');
-                                return;
-                            }
-                            openDateFilter(filterKey);
-                        }}
-                    >
-                        {formatRangeButtonLabel(appliedDateRange)}
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+                        {QUICK_RANGES.map(preset => {
+                            const presetRange = getPresetRange(preset.key);
+                            const isActive = presetRange.dateFrom === appliedDateRange.dateFrom && presetRange.dateTo === appliedDateRange.dateTo;
+                            return (
+                                <button
+                                    key={preset.key}
+                                    type="button"
+                                    onClick={async () => {
+                                        const nextRange = getPresetRange(preset.key);
+                                        setFilterLoading(true);
+                                        setDashboardError('');
+                                        try {
+                                            await loadDashboardAnalytics(nextRange);
+                                            setAppliedDateRange(nextRange);
+                                            setDraftDateRange(nextRange);
+                                            setFilterOpenKey('');
+                                        } catch (err) {
+                                            setDashboardError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
+                                        } finally {
+                                            setFilterLoading(false);
+                                        }
+                                    }}
+                                    style={{
+                                        cursor: 'pointer',
+                                        padding: '8px 14px',
+                                        borderRadius: '999px',
+                                        border: isActive ? 'none' : '1px solid var(--border-color)',
+                                        background: isActive ? 'var(--primary)' : 'var(--bg-card)',
+                                        color: isActive ? 'white' : 'var(--text-primary)',
+                                        fontSize: '0.85rem',
+                                        fontWeight: 600,
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    {preset.label}
+                                </button>
+                            );
+                        })}
+                        <button
+                            type="button"
+                            className="dashboard-filter-trigger"
+                            style={{
+                                cursor: 'pointer',
+                                padding: '8px 14px',
+                                borderRadius: '999px',
+                                border: (!QUICK_RANGES.some(r => {
+                                    const pr = getPresetRange(r.key);
+                                    return pr.dateFrom === appliedDateRange.dateFrom && pr.dateTo === appliedDateRange.dateTo;
+                                })) ? 'none' : '1px solid var(--border-color)',
+                                background: (!QUICK_RANGES.some(r => {
+                                    const pr = getPresetRange(r.key);
+                                    return pr.dateFrom === appliedDateRange.dateFrom && pr.dateTo === appliedDateRange.dateTo;
+                                })) ? 'var(--primary)' : 'var(--bg-card)',
+                                color: (!QUICK_RANGES.some(r => {
+                                    const pr = getPresetRange(r.key);
+                                    return pr.dateFrom === appliedDateRange.dateFrom && pr.dateTo === appliedDateRange.dateTo;
+                                })) ? 'white' : 'var(--text-primary)',
+                                fontSize: '0.85rem',
+                                fontWeight: 600,
+                                whiteSpace: 'nowrap',
+                            }}
+                            onClick={() => {
+                                if (isOpen) {
+                                    setFilterOpenKey('');
+                                    return;
+                                }
+                                openDateFilter(filterKey);
+                            }}
+                        >
+                            {(!QUICK_RANGES.some(r => {
+                                const pr = getPresetRange(r.key);
+                                return pr.dateFrom === appliedDateRange.dateFrom && pr.dateTo === appliedDateRange.dateTo;
+                            })) ? formatRangeButtonLabel(appliedDateRange) : 'Custom Tanggal'}
+                        </button>
+                    </div>
 
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
                         {formatRangeSummary(appliedDateRange)}
@@ -911,6 +979,10 @@ export default function DashboardPage() {
                 </section>
             ) : null}
 
+            {user?.role === 'root_admin' || user?.role === 'client_admin' || user?.role === 'supervisor' ? (
+                <DailySalesReportSection data={analytics.dailySalesReport} />
+            ) : null}
+
             <TransactionRecapSection
                 data={analytics.transactionRecap}
                 dateFilterControl={renderDateFilterControl('transaction', transactionFilterRef)}
@@ -934,7 +1006,10 @@ export default function DashboardPage() {
                 allowScopeFiltering={canUseTeamFilters}
                 scopeLabel={scopedDashboardLabel}
             />
-            <LineChartSection data={analytics.lineChart} />
+            <LineChartSection
+                data={analytics.lineChart}
+                dateFilterControl={renderDateFilterControl('line-chart', lineChartFilterRef)}
+            />
         </div>
     );
 }

@@ -50,6 +50,7 @@ function normalizeLead(input) {
     return {
         ...input,
         flowStatus: input.flowStatus || 'open',
+        agentOfficeName: input.agentOfficeName || null,
         salesStatus: input.salesStatus || null,
         validated: Boolean(input.validated),
         domicileCity: input.domicileCity || null,

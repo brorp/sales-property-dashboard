@@ -571,6 +571,7 @@ export default function LeadDetailPage({ leadId }) {
                 <div className="detail-info-row"><span>📱</span><span>{lead.phone}</span></div>
                 <div className="detail-info-row"><span>📅</span><span>Masuk: {formatDate(lead.createdAt)}</span></div>
                 <div className="detail-info-row"><span>📣</span><span>{lead.source}</span></div>
+                {lead.agentOfficeName ? <div className="detail-info-row"><span>🏬</span><span>{lead.agentOfficeName}</span></div> : null}
                 <div className="detail-info-row"><span>🧭</span><span>Status Distribusi: {getFlowStatusLabel(effectiveFlowStatus)}</span></div>
                 <div className="detail-info-row"><span>📌</span><span>Status Appointment: {getAppointmentTagLabel(appointmentTag)}</span></div>
                 <div className="detail-info-row">

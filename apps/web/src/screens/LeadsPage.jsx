@@ -34,7 +34,6 @@ const EMPTY_DATE_RANGE = {
     dateFrom: '',
     dateTo: '',
 };
-const FIXED_LEAD_SOURCES = ['Online', 'Offline', 'Walk In', 'Agent', 'Old', 'Pribadi'];
 const SPECIAL_SALES_STATUS_FILTERS = [
     { key: 'hot_validated', label: 'HOT | Validated' },
 ];
@@ -75,6 +74,10 @@ function formatDateInput(date) {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+}
+
+function isAgentSource(value) {
+    return String(value || '').trim().toLowerCase() === 'agent';
 }
 
 function normalizeDateRange(range) {
@@ -327,6 +330,7 @@ export default function LeadsPage() {
         getLeadSources,
         refreshLeads,
         refreshSalesUsers,
+        refreshLeadSources,
         refreshTeamStats,
         refreshDashboardAnalytics,
     } = useLeads();
@@ -346,7 +350,8 @@ export default function LeadsPage() {
     const [appliedDateRange, setAppliedDateRange] = useState(EMPTY_DATE_RANGE);
     const [draftDateRange, setDraftDateRange] = useState(EMPTY_DATE_RANGE);
     const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
-    const [newLead, setNewLead] = useState({ name: '', phone: '', source: '', assignedTo: '' });
+    const [newLead, setNewLead] = useState({ name: '', phone: '', source: '', agentOfficeName: '', assignedTo: '' });
+    const [agentOfficeOptions, setAgentOfficeOptions] = useState([]);
     const [addModalTab, setAddModalTab] = useState('manual');
     const [submitLoading, setSubmitLoading] = useState(false);
     const [submitError, setSubmitError] = useState('');
@@ -395,12 +400,26 @@ export default function LeadsPage() {
             }
         });
 
-        FIXED_LEAD_SOURCES.forEach((value) => {
-            values.add(value);
+        return Array.from(values).sort((a, b) => a.localeCompare(b));
+    }, [allLeads, leadSources]);
+
+    const availableAgentOffices = useMemo(() => {
+        const values = new Set();
+
+        agentOfficeOptions.forEach((item) => {
+            if (item) {
+                values.add(item);
+            }
+        });
+
+        allLeads.forEach((item) => {
+            if (item?.agentOfficeName) {
+                values.add(item.agentOfficeName);
+            }
         });
 
         return Array.from(values).sort((a, b) => a.localeCompare(b));
-    }, [allLeads, leadSources]);
+    }, [agentOfficeOptions, allLeads]);
 
     const filteredLeads = useMemo(() => {
         return allLeads.filter((lead) => {
@@ -441,8 +460,21 @@ export default function LeadsPage() {
         await Promise.all([
             refreshLeads(),
             refreshSalesUsers(),
+            refreshLeadSources(),
         ]);
-    }, [refreshLeads, refreshSalesUsers]);
+    }, [refreshLeadSources, refreshLeads, refreshSalesUsers]);
+
+    const loadAgentOfficeOptions = useCallback(async () => {
+        if (!user) {
+            setAgentOfficeOptions([]);
+            return [];
+        }
+
+        const rows = await apiRequest('/api/lead-sources/agent-offices', { user });
+        const normalized = Array.isArray(rows) ? rows : [];
+        setAgentOfficeOptions(normalized);
+        return normalized;
+    }, [user]);
 
     usePagePolling({
         enabled: Boolean(user),
@@ -453,6 +485,10 @@ export default function LeadsPage() {
     const handleAddLead = async (e) => {
         e.preventDefault();
         if (!newLead.name || !newLead.phone || !newLead.source) return;
+        if (isAgentSource(newLead.source) && !newLead.agentOfficeName.trim()) {
+            setSubmitError('Nama Kantor wajib diisi untuk source Agent.');
+            return;
+        }
 
         setSubmitLoading(true);
         setSubmitError('');
@@ -461,9 +497,11 @@ export default function LeadsPage() {
                 name: newLead.name,
                 phone: newLead.phone,
                 source: newLead.source,
+                agentOfficeName: isAgentSource(newLead.source) ? newLead.agentOfficeName : null,
                 assignedTo: newLead.assignedTo || null,
             });
-            setNewLead({ name: '', phone: '', source: '', assignedTo: '' });
+            setNewLead({ name: '', phone: '', source: '', agentOfficeName: '', assignedTo: '' });
+            await loadAgentOfficeOptions();
             setShowAddModal(false);
             setAddModalTab('manual');
         } catch (err) {
@@ -502,6 +540,7 @@ export default function LeadsPage() {
             ...prev,
             source: prev.source || leadSources[0]?.value || '',
         }));
+        void loadAgentOfficeOptions();
         setShowAddModal(true);
     };
 
@@ -1027,6 +1066,7 @@ export default function LeadsPage() {
                         <div className="leads-card-details">
                             <span>📱 {lead.phone}</span>
                             <span>📣 {lead.source}</span>
+                            {lead.agentOfficeName ? <span>🏬 {lead.agentOfficeName}</span> : null}
                             {lead.domicileCity ? <span>🏙️ {lead.domicileCity}</span> : null}
                         </div>
                         {lead.customerPipelineTotalSteps > 0 ? (
@@ -1087,13 +1127,43 @@ export default function LeadsPage() {
                                 </div>
                                 <div className="input-group">
                                     <label>Sumber</label>
-                                    <select className="input-field" value={newLead.source} onChange={(e) => setNewLead({ ...newLead, source: e.target.value })} required>
+                                    <select
+                                        className="input-field"
+                                        value={newLead.source}
+                                        onChange={(e) => {
+                                            const nextSource = e.target.value;
+                                            setNewLead({
+                                                ...newLead,
+                                                source: nextSource,
+                                                agentOfficeName: isAgentSource(nextSource) ? newLead.agentOfficeName : '',
+                                            });
+                                        }}
+                                        required
+                                    >
                                         <option value="">Pilih source lead</option>
                                         {availableLeadSources.map((source) => (
                                             <option key={source} value={source}>{source}</option>
                                         ))}
                                     </select>
                                 </div>
+                                {isAgentSource(newLead.source) ? (
+                                    <div className="input-group">
+                                        <label>Nama Kantor</label>
+                                        <input
+                                            className="input-field"
+                                            value={newLead.agentOfficeName}
+                                            onChange={(e) => setNewLead({ ...newLead, agentOfficeName: e.target.value })}
+                                            placeholder="Ketik atau pilih history kantor agent"
+                                            list="agent-office-history"
+                                            required
+                                        />
+                                        <datalist id="agent-office-history">
+                                            {availableAgentOffices.map((office) => (
+                                                <option key={office} value={office} />
+                                            ))}
+                                        </datalist>
+                                    </div>
+                                ) : null}
                                 {isAdmin && (
                                     <div className="input-group">
                                         <label>Assign ke Sales (opsional)</label>

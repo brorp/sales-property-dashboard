@@ -25,6 +25,7 @@ export default function ProfilePage() {
     const handleLogout = () => { logout(); router.replace('/login'); };
     const goToDistributionOrder = () => { router.push('/settings/distribution-order'); };
     const goToUnits = () => { router.push('/settings/units'); };
+    const goToLeadSources = () => { router.push('/settings/lead-sources'); };
     const goToCancelReasons = () => { router.push('/settings/cancel-reasons'); };
     const goToWhatsAppSettings = () => { router.push('/settings/whatsapp'); };
     const goToBroadcast = () => { router.push('/broadcast'); };
@@ -60,6 +61,11 @@ export default function ProfilePage() {
                 {canManageDistribution ? (
                     <button className="profile-menu-item" onClick={goToUnits}>
                         <span>🏢</span><span>Kelola Unit</span><span className="profile-menu-arrow">→</span>
+                    </button>
+                ) : null}
+                {canManageCancelReasons ? (
+                    <button className="profile-menu-item" onClick={goToLeadSources}>
+                        <span>📣</span><span>Kelola Sumber Leads</span><span className="profile-menu-arrow">→</span>
                     </button>
                 ) : null}
                 {canManageCancelReasons ? (

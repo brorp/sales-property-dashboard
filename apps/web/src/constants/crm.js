@@ -6,8 +6,8 @@ export const FLOW_STATUSES = [
 ];
 
 export const SALES_STATUSES = [
-    { key: 'warm', label: 'Warm' },
     { key: 'hot', label: 'Hot' },
+    { key: 'warm', label: 'Warm' },
     { key: 'error', label: 'Error' },
     { key: 'cold', label: 'Cold' },
     { key: 'no_response', label: 'No Response' },

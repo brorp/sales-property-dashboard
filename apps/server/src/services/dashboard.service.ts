@@ -1,6 +1,6 @@
-import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, or } from "drizzle-orm";
 import { db } from "../db/index";
-import { appointment, cancelReason, client, lead, user } from "../db/schema";
+import { appointment, cancelReason, client, lead, projectUnit, user } from "../db/schema";
 import { resolveAppointmentTag, toAppointmentDateTime } from "../utils/appointment";
 import type { QueryScope } from "../middleware/rbac";
 
@@ -24,8 +24,10 @@ type LeadRow = {
     rejectedReason: string | null;
     validated: boolean;
     progress: string;
+    receivedAt: Date;
     createdAt: Date;
     updatedAt: Date;
+    resultStatusUpdatedAt: Date | null;
 };
 
 type AppointmentRow = {
@@ -140,9 +142,48 @@ const LINE_CHART_L4_SERIES = [
     { key: "on_process", label: "Process" },
     { key: "cancel", label: "Cancel" },
 ] as const;
+const DAILY_REPORT_TIMEZONE = "Asia/Jakarta";
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
 
 function toLowerTrimmed(value: string | null | undefined) {
     return String(value || "").trim().toLowerCase();
+}
+
+function getJakartaDateParts(now: Date) {
+    const shifted = new Date(now.getTime() + JAKARTA_OFFSET_MS);
+    return {
+        year: shifted.getUTCFullYear(),
+        monthIndex: shifted.getUTCMonth(),
+        day: shifted.getUTCDate(),
+    };
+}
+
+function jakartaDateToUtc(
+    year: number,
+    monthIndex: number,
+    day: number,
+    hour = 0,
+    minute = 0,
+    second = 0,
+    ms = 0
+) {
+    return new Date(Date.UTC(year, monthIndex, day, hour, minute, second, ms) - JAKARTA_OFFSET_MS);
+}
+
+function getJakartaTodayWindow(now = new Date()) {
+    const parts = getJakartaDateParts(now);
+    return {
+        start: jakartaDateToUtc(parts.year, parts.monthIndex, parts.day),
+        end: jakartaDateToUtc(parts.year, parts.monthIndex, parts.day, 23, 59, 59, 999),
+        monthStart: jakartaDateToUtc(parts.year, parts.monthIndex, 1),
+        label: new Intl.DateTimeFormat("id-ID", {
+            timeZone: DAILY_REPORT_TIMEZONE,
+            weekday: "long",
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+        }).format(now).toUpperCase(),
+    };
 }
 
 function humanizeKey(value: string | null | undefined) {
@@ -304,8 +345,16 @@ function formatLineChartPeriodLabel(date: Date, granularity: string) {
     }).format(date);
 }
 
-function buildLineChartPeriods(dates: Date[], granularity: string) {
-    const validDates = dates.filter((date) => !Number.isNaN(date.getTime()));
+function buildLineChartPeriods(
+    dates: Date[],
+    granularity: string,
+    range?: { dateFrom: Date | null; dateTo: Date | null }
+) {
+    const rangeDates = [range?.dateFrom, range?.dateTo].filter(
+        (date): date is Date => Boolean(date && !Number.isNaN(date.getTime()))
+    );
+    const validDates = (rangeDates.length > 0 ? rangeDates : dates)
+        .filter((date) => !Number.isNaN(date.getTime()));
     if (validDates.length === 0) {
         return [];
     }
@@ -409,35 +458,50 @@ function getLatestAppointmentByLead(appointments: AppointmentRow[]) {
     return latestMap;
 }
 
+function buildLeadScopeConditions(
+    userId: string,
+    role: string,
+    scope?: QueryScope
+) {
+    const conditions: any[] = [];
+
+    if (role === "root_admin") {
+        return conditions;
+    }
+
+    if (scope?.clientId) {
+        conditions.push(eq(lead.clientId, scope.clientId));
+    }
+
+    if (role === "client_admin") {
+        return conditions;
+    }
+
+    if (
+        role === "supervisor" &&
+        scope?.managedSalesIds &&
+        scope.managedSalesIds.length > 0
+    ) {
+        conditions.push(inArray(lead.assignedTo, scope.managedSalesIds));
+        return conditions;
+    }
+
+    if (role === "supervisor") {
+        conditions.push(eq(lead.assignedTo, "__none__"));
+        return conditions;
+    }
+
+    conditions.push(eq(lead.assignedTo, userId));
+    return conditions;
+}
+
 async function loadScopedLeadsAndAppointments(
     userId: string,
     role: string,
     scope?: QueryScope,
     filters?: DashboardDateRange
 ) {
-    const conditions: any[] = [];
-
-    if (role === "root_admin") {
-        // no filter
-    } else {
-        if (scope?.clientId) {
-            conditions.push(eq(lead.clientId, scope.clientId));
-        }
-
-        if (role === "client_admin") {
-            // workspace-scoped only
-        } else if (
-            role === "supervisor" &&
-            scope?.managedSalesIds &&
-            scope.managedSalesIds.length > 0
-        ) {
-            conditions.push(inArray(lead.assignedTo, scope.managedSalesIds));
-        } else if (role === "supervisor") {
-            conditions.push(eq(lead.assignedTo, "__none__"));
-        } else {
-            conditions.push(eq(lead.assignedTo, userId));
-        }
-    }
+    const conditions = buildLeadScopeConditions(userId, role, scope);
 
     const normalizedDateRange = normalizeDateRange(filters);
     if (normalizedDateRange.dateFrom) {
@@ -470,8 +534,10 @@ async function loadScopedLeadsAndAppointments(
             rejectedReason: lead.rejectedReason,
             validated: lead.validated,
             progress: lead.progress,
+            receivedAt: lead.receivedAt,
             createdAt: lead.createdAt,
             updatedAt: lead.updatedAt,
+            resultStatusUpdatedAt: lead.resultStatusUpdatedAt,
         })
         .from(lead)
         .leftJoin(user, eq(lead.assignedTo, user.id))
@@ -516,10 +582,11 @@ async function loadScopedLeadsAndAppointments(
 }
 
 function buildLineChartData(
-    decoratedLeads: Array<LeadRow & { appointmentTag: string }>
+    decoratedLeads: Array<LeadRow & { appointmentTag: string }>,
+    range?: { dateFrom: Date | null; dateTo: Date | null }
 ) {
-    const createdDates = decoratedLeads
-        .map((item) => new Date(item.createdAt))
+    const receivedDates = decoratedLeads
+        .map((item) => new Date(item.receivedAt || item.createdAt))
         .filter((date) => !Number.isNaN(date.getTime()));
 
     const sourceTotals = new Map<string, number>();
@@ -552,19 +619,19 @@ function buildLineChartData(
     ) as Record<string, any>;
 
     for (const granularity of LINE_CHART_GRANULARITY_OPTIONS) {
-        const periods = buildLineChartPeriods(createdDates, granularity.key);
+        const periods = buildLineChartPeriods(receivedDates, granularity.key, range);
 
         const sourceBucket = buildLineChartSeriesBucket(periods, sourceSeriesEntries);
         const l3Bucket = buildLineChartSeriesBucket(periods, [...LINE_CHART_L3_SERIES]);
         const l4Bucket = buildLineChartSeriesBucket(periods, [...LINE_CHART_L4_SERIES]);
 
         for (const item of decoratedLeads) {
-            const createdAt = new Date(item.createdAt);
-            if (Number.isNaN(createdAt.getTime())) {
+            const receivedAt = new Date(item.receivedAt || item.createdAt);
+            if (Number.isNaN(receivedAt.getTime())) {
                 continue;
             }
 
-            const periodStart = toPeriodStart(createdAt, granularity.key);
+            const periodStart = toPeriodStart(receivedAt, granularity.key);
             const periodKey = formatPeriodKey(periodStart);
 
             const sourceRow = sourceBucket.rowMap.get(periodKey);
@@ -631,6 +698,114 @@ function buildLineChartData(
         granularityOptions: LINE_CHART_GRANULARITY_OPTIONS,
         datasetOptions: LINE_CHART_DATASET_OPTIONS,
         data: lineChartData,
+    };
+}
+
+async function buildDailySalesReport(
+    userId: string,
+    role: string,
+    scope?: QueryScope,
+    now = new Date()
+) {
+    const todayWindow = getJakartaTodayWindow(now);
+    const baseConditions = buildLeadScopeConditions(userId, role, scope);
+    const dateRelevantCondition = or(
+        and(gte(lead.receivedAt, todayWindow.start), lte(lead.receivedAt, todayWindow.end)),
+        and(gte(lead.resultStatusUpdatedAt, todayWindow.monthStart), lte(lead.resultStatusUpdatedAt, todayWindow.end)),
+        and(gte(lead.updatedAt, todayWindow.monthStart), lte(lead.updatedAt, todayWindow.end))
+    );
+    const conditions = [...baseConditions];
+    if (dateRelevantCondition) {
+        conditions.push(dateRelevantCondition);
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const rows = await db
+        .select({
+            id: lead.id,
+            source: lead.source,
+            assignedTo: lead.assignedTo,
+            assignedUserName: user.name,
+            resultStatus: lead.resultStatus,
+            receivedAt: lead.receivedAt,
+            updatedAt: lead.updatedAt,
+            resultStatusUpdatedAt: lead.resultStatusUpdatedAt,
+        })
+        .from(lead)
+        .leftJoin(user, eq(lead.assignedTo, user.id))
+        .where(whereClause);
+
+    const isSource = (value: string | null | undefined, expected: string) =>
+        toLowerTrimmed(value) === expected.toLowerCase();
+    const isTodayReceived = (value: Date | string | null | undefined) => {
+        if (!value) {
+            return false;
+        }
+        const date = value instanceof Date ? value : new Date(value);
+        return date.getTime() >= todayWindow.start.getTime() && date.getTime() <= todayWindow.end.getTime();
+    };
+    const isCurrentMonthStatus = (item: {
+        resultStatusUpdatedAt: Date | null;
+        updatedAt: Date;
+    }) => {
+        const statusDate = item.resultStatusUpdatedAt || item.updatedAt;
+        if (!statusDate) {
+            return false;
+        }
+        const date = statusDate instanceof Date ? statusDate : new Date(statusDate);
+        return date.getTime() >= todayWindow.monthStart.getTime() && date.getTime() <= todayWindow.end.getTime();
+    };
+
+    const todayRows = rows.filter((item) => isTodayReceived(item.receivedAt));
+    const onlineAssignedRows = todayRows.filter(
+        (item) => isSource(item.source, "Online") && Boolean(item.assignedTo)
+    );
+    const onlineBySalesMap = new Map<string, {
+        salesId: string;
+        salesName: string;
+        count: number;
+    }>();
+
+    for (const item of onlineAssignedRows) {
+        const key = item.assignedTo || "unassigned";
+        const existing = onlineBySalesMap.get(key) || {
+            salesId: key,
+            salesName: item.assignedUserName || "Unassigned",
+            count: 0,
+        };
+        existing.count += 1;
+        onlineBySalesMap.set(key, existing);
+    }
+
+    const soldRows = rows.filter(
+        (item) => item.resultStatus === "akad" && isCurrentMonthStatus(item)
+    );
+    const reservedRows = rows.filter(
+        (item) =>
+            (item.resultStatus === "full_book" ||
+                item.resultStatus === "reserve" ||
+                item.resultStatus === "on_process") &&
+            isCurrentMonthStatus(item)
+    );
+
+    return {
+        title: `Daily Sales Report ${todayWindow.label}`,
+        dateLabel: todayWindow.label,
+        generatedAt: now,
+        walkIn: todayRows.filter((item) => isSource(item.source, "Walk In")).length,
+        callIn: todayRows.filter((item) => isSource(item.source, "Call In")).length,
+        onlineLeads: {
+            total: onlineAssignedRows.length,
+            bySales: Array.from(onlineBySalesMap.values()).sort((a, b) => {
+                if (b.count !== a.count) {
+                    return b.count - a.count;
+                }
+                return a.salesName.localeCompare(b.salesName);
+            }),
+        },
+        leadAgent: todayRows.filter((item) => isSource(item.source, "Agent")).length,
+        totalSold: soldRows.length,
+        totalReserved: reservedRows.length,
     };
 }
 
@@ -795,8 +970,32 @@ export async function getHomeAnalytics(
     scope?: QueryScope,
     filters?: DashboardDateRange
 ) {
+    const normalizedDateRange = normalizeDateRange(filters);
     const { leads: scopedLeads, appointments: scopedAppointments } =
         await loadScopedLeadsAndAppointments(userId, role, scope, filters);
+
+    const unitConditions: any[] = [];
+    if (scope?.clientId) {
+        unitConditions.push(eq(projectUnit.clientId, scope.clientId));
+    } else if (role !== "root_admin") {
+        const u = await db.select({ clientId: user.clientId }).from(user).where(eq(user.id, userId)).limit(1);
+        if (u[0]?.clientId) {
+            unitConditions.push(eq(projectUnit.clientId, u[0].clientId));
+        }
+    }
+
+    const units = await db
+        .select({
+            unitName: projectUnit.unitName,
+        })
+        .from(projectUnit)
+        .where(unitConditions.length > 0 ? and(...unitConditions) : undefined)
+        .orderBy(asc(projectUnit.unitName));
+
+    const unitOptions = Array.from(new Set(units.map(u => u.unitName))).map(name => ({
+        value: name,
+        label: name
+    }));
 
     // Fetch unique supervisor names mapped from leads
     const supervisorIdsMap = new Set<string>();
@@ -972,6 +1171,9 @@ export async function getHomeAnalytics(
     }> = [];
 
     const isManagerRole = role === "root_admin" || role === "client_admin" || role === "supervisor";
+    const dailySalesReport = isManagerRole
+        ? await buildDailySalesReport(userId, role, scope)
+        : null;
 
     if (isManagerRole) {
         // Build scoped sales user list
@@ -1376,7 +1578,7 @@ export async function getHomeAnalytics(
         count,
         percentage: toPercent(count, totalLeads)
     })).sort((a, b) => b.count - a.count);
-    const lineChart = buildLineChartData(decoratedLeads);
+    const lineChart = buildLineChartData(decoratedLeads, normalizedDateRange);
 
     for (const team of teamList) {
         ensureDatabaseStatusScope(team.teamId);
@@ -1423,6 +1625,7 @@ export async function getHomeAnalytics(
                     .sort((a, b) => b.count - a.count),
             ])
         ),
+        unitOptions,
     };
 
     const teamPerformance = {
@@ -1498,6 +1701,7 @@ export async function getHomeAnalytics(
             },
         },
         holdLeads,
+        dailySalesReport,
         transactionRecap,
         teamPerformance,
         databaseControl,

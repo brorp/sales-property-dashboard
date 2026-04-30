@@ -150,6 +150,7 @@ export const lead = pgTable(
         name: text("name").notNull(),
         phone: text("phone").notNull(),
         source: text("source").notNull().default("Manual Input"),
+        agentOfficeName: text("agent_office_name"),
         metaLeadId: text("meta_lead_id"),
         entryChannel: text("entry_channel").notNull().default("meta_ads"),
         receivedAt: timestamp("received_at").notNull().defaultNow(),
@@ -178,6 +179,7 @@ export const lead = pgTable(
         progress: text("progress").notNull().default("pending"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),
+        resultStatusUpdatedAt: timestamp("result_status_updated_at"),
     },
     (table) => ({
         phoneIdx: index("lead_phone_idx").on(table.phone),
