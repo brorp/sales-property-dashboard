@@ -3,8 +3,8 @@ import Providers from './providers';
 import AppShell from '../src/components/AppShell';
 
 export const metadata = {
-    title: 'Property Lounge Dashboard',
-    description: 'Sales and lead distribution dashboard',
+    title: 'CRM Widari',
+    description: 'Sales management panel for Widari',
     icons: {
         icon: '/favicon.ico',
     },
