@@ -448,9 +448,12 @@ export async function create(data: {
     agentOfficeName?: string | null;
     assignedTo?: string | null;
     clientId?: string | null;
+    createdAt?: Date | null;
 }) {
     const id = generateId();
-    const now = new Date();
+    const now = data.createdAt instanceof Date && !Number.isNaN(data.createdAt.getTime())
+        ? data.createdAt
+        : new Date();
     const assignedTo = data.assignedTo || null;
     let resolvedClientId = data.clientId || null;
     const normalizedSource = await leadSourcesService.resolveLeadSourceValue(

@@ -350,7 +350,7 @@ export default function LeadsPage() {
     const [appliedDateRange, setAppliedDateRange] = useState(EMPTY_DATE_RANGE);
     const [draftDateRange, setDraftDateRange] = useState(EMPTY_DATE_RANGE);
     const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
-    const [newLead, setNewLead] = useState({ name: '', phone: '', source: '', agentOfficeName: '', assignedTo: '' });
+    const [newLead, setNewLead] = useState({ name: '', phone: '', source: '', agentOfficeName: '', assignedTo: '', createdAt: '' });
     const [agentOfficeOptions, setAgentOfficeOptions] = useState([]);
     const [addModalTab, setAddModalTab] = useState('manual');
     const [submitLoading, setSubmitLoading] = useState(false);
@@ -499,8 +499,9 @@ export default function LeadsPage() {
                 source: newLead.source,
                 agentOfficeName: isAgentSource(newLead.source) ? newLead.agentOfficeName : null,
                 assignedTo: newLead.assignedTo || null,
+                createdAt: newLead.createdAt || null,
             });
-            setNewLead({ name: '', phone: '', source: '', agentOfficeName: '', assignedTo: '' });
+            setNewLead({ name: '', phone: '', source: '', agentOfficeName: '', assignedTo: '', createdAt: '' });
             await loadAgentOfficeOptions();
             setShowAddModal(false);
             setAddModalTab('manual');
@@ -1173,6 +1174,15 @@ export default function LeadsPage() {
                                         </select>
                                     </div>
                                 )}
+                                <div className="input-group">
+                                    <label>Tanggal Masuk <span style={{ fontWeight: 400, opacity: 0.6 }}>(opsional, default: sekarang)</span></label>
+                                    <input
+                                        type="datetime-local"
+                                        className="input-field"
+                                        value={newLead.createdAt}
+                                        onChange={(e) => setNewLead({ ...newLead, createdAt: e.target.value })}
+                                    />
+                                </div>
                                 {submitError ? <div className="login-error">{submitError}</div> : null}
                                 <button type="submit" className="btn btn-primary btn-full" disabled={submitLoading}>
                                     {submitLoading ? 'Menyimpan...' : 'Tambah Lead'}
