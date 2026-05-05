@@ -410,10 +410,23 @@ export async function ensureActiveCycle(leadId: string) {
 export async function handleSalesAck(
     leadId: string,
     salesId: string,
-    messageBody: string
+    messageBody: string,
+    clientId?: string | null
 ) {
     if (messageBody.trim().toLowerCase() !== "ok") {
         return { accepted: false, reason: "message_not_ok" as const };
+    }
+
+    if (clientId) {
+        const [leadScope] = await db
+            .select({ clientId: lead.clientId })
+            .from(lead)
+            .where(eq(lead.id, leadId))
+            .limit(1);
+
+        if (!leadScope || leadScope.clientId !== clientId) {
+            return { accepted: false, reason: "client_scope_mismatch" as const };
+        }
     }
 
     const [waitingAttempt] = await db

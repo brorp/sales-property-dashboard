@@ -163,9 +163,16 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
                 leadId: distributionAttempt.leadId,
                 status: distributionAttempt.status,
                 closeReason: distributionAttempt.closeReason,
+                clientId: lead.clientId,
             })
             .from(distributionAttempt)
-            .where(eq(distributionAttempt.salesId, salesSender.id))
+            .innerJoin(lead, eq(distributionAttempt.leadId, lead.id))
+            .where(
+                and(
+                    eq(distributionAttempt.salesId, salesSender.id),
+                    payload.clientId ? eq(lead.clientId, payload.clientId) : undefined
+                )
+            )
             .orderBy(desc(distributionAttempt.assignedAt))
             .limit(1);
 
@@ -229,7 +236,8 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
         const ackResult = await handleSalesAck(
             latestAttempt.leadId,
             salesSender.id,
-            messageBody
+            messageBody,
+            payload.clientId || null
         );
 
         if (ackResult.accepted) {
