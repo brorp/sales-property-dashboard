@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { and, asc, desc, eq, lte, ne } from "drizzle-orm";
 import { db } from "../db/index";
 import {
@@ -35,10 +36,21 @@ function toWaMeLink(phone: string | null | undefined) {
     return digits ? `https://wa.me/${digits}` : "-";
 }
 
-function buildClaimOfferMessage(timeoutMinutes: number) {
+function buildLeadDistributionIdentifier(leadId: string) {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const digest = createHash("sha256").update(leadId).digest();
+    return Array.from({ length: 5 }, (_, index) => alphabet[digest[index] % alphabet.length]).join("");
+}
+
+function buildClaimOfferMessage(params: {
+    leadId: string;
+    timeoutMinutes: number;
+}) {
+    const leadIdentifier = buildLeadDistributionIdentifier(params.leadId);
     return [
+        `[lid] ${leadIdentifier}`,
         "Leads baru masuk.",
-        `Balas "OK" dalam ${timeoutMinutes} menit untuk claim.`,
+        `Balas "OK" dalam ${params.timeoutMinutes} menit untuk claim.`,
         "Detail lead akan dikirim setelah claim berhasil.",
     ].join("\n");
 }
@@ -128,12 +140,62 @@ async function assignNextQueue(
     const [cycle] = await executor
         .select({
             status: distributionCycle.status,
+            cycleLeadId: distributionCycle.leadId,
         })
         .from(distributionCycle)
         .where(eq(distributionCycle.id, cycleId))
         .limit(1);
 
     if (!cycle || cycle.status !== "active") {
+        return null;
+    }
+
+    if (cycle.cycleLeadId !== leadId) {
+        await logDistributionActivity(
+            executor,
+            leadId,
+            "note",
+            "Distribusi dilewati: cycle tidak cocok dengan lead."
+        );
+        return null;
+    }
+
+    const [leadScope] = await executor
+        .select({
+            clientId: lead.clientId,
+        })
+        .from(lead)
+        .where(eq(lead.id, leadId))
+        .limit(1);
+
+    if (!leadScope?.clientId || leadScope.clientId !== clientId) {
+        await logDistributionActivity(
+            executor,
+            leadId,
+            "note",
+            `Distribusi dilewati: workspace lead tidak cocok dengan worker/queue (${leadScope?.clientId || "-"} != ${clientId}).`
+        );
+        return null;
+    }
+
+    const activeWaitingAttempts = await executor
+        .select({ id: distributionAttempt.id })
+        .from(distributionAttempt)
+        .where(
+            and(
+                eq(distributionAttempt.cycleId, cycleId),
+                eq(distributionAttempt.status, "waiting_ok")
+            )
+        )
+        .limit(1);
+
+    if (activeWaitingAttempts.length > 0) {
+        await logDistributionActivity(
+            executor,
+            leadId,
+            "note",
+            "Distribusi dilewati: masih ada offer aktif yang menunggu OK."
+        );
         return null;
     }
 
@@ -204,15 +266,10 @@ async function assignNextQueue(
         .where(eq(lead.id, leadId));
 
     const repeatOrderRemaining = Math.max(0, Number(next.repeatOrderRemaining || 0));
-    const queueRolled = repeatOrderRemaining > 0
-        ? false
-        : await moveSalesToQueueEnd(
-            next.salesId,
-            clientId,
-            executor
-        );
-
-    const messageBody = buildClaimOfferMessage(ackTimeoutMinutes);
+    const messageBody = buildClaimOfferMessage({
+        leadId,
+        timeoutMinutes: ackTimeoutMinutes,
+    });
 
     const outboundResult = next.salesPhone
         ? await sendWhatsAppText(next.salesPhone, messageBody)
@@ -238,6 +295,34 @@ async function assignNextQueue(
         salesId: next.salesId,
         createdAt: now,
     });
+
+    if (!outboundResult.sent) {
+        await executor
+            .update(distributionAttempt)
+            .set({
+                status: "closed",
+                closedAt: new Date(),
+                closeReason: "send_failed",
+            })
+            .where(eq(distributionAttempt.id, attempt.id));
+
+        await logDistributionActivity(
+            executor,
+            leadId,
+            "note",
+            `Offer distribusi ke ${next.salesName} gagal dikirim (${outboundResult.error || "unknown error"}). Sistem lanjut ke antrian berikutnya.`
+        );
+
+        return assignNextQueue(executor, cycleId, leadId, clientId);
+    }
+
+    const queueRolled = repeatOrderRemaining > 0
+        ? false
+        : await moveSalesToQueueEnd(
+            next.salesId,
+            clientId,
+            executor
+        );
 
     await logDistributionActivity(
         executor,
@@ -518,21 +603,30 @@ export async function handleSalesAck(
     };
 }
 
-async function timeoutAttemptAndRoll(attemptId: string) {
-    await db.transaction(async (tx) => {
+async function timeoutAttemptAndRoll(
+    attemptId: string,
+    clientId?: string | null
+) {
+    return db.transaction(async (tx) => {
+        const now = new Date();
         const [attempt] = await tx
-            .select()
-            .from(distributionAttempt)
+            .update(distributionAttempt)
+            .set({
+                status: "timeout",
+                closedAt: now,
+                closeReason: "ack_timeout_5m",
+            })
             .where(
                 and(
                     eq(distributionAttempt.id, attemptId),
-                    eq(distributionAttempt.status, "waiting_ok")
+                    eq(distributionAttempt.status, "waiting_ok"),
+                    lte(distributionAttempt.ackDeadline, now)
                 )
             )
-            .limit(1);
+            .returning();
 
         if (!attempt) {
-            return;
+            return false;
         }
 
         const [cycle] = await tx
@@ -552,10 +646,9 @@ async function timeoutAttemptAndRoll(attemptId: string) {
                     closeReason: "cycle_closed",
                 })
                 .where(eq(distributionAttempt.id, attempt.id));
-            return;
+            return false;
         }
 
-        const now = new Date();
         const [leadRow] = await tx
             .select({
                 clientId: lead.clientId,
@@ -568,14 +661,25 @@ async function timeoutAttemptAndRoll(attemptId: string) {
             throw new Error("LEAD_CLIENT_NOT_FOUND");
         }
 
-        await tx
-            .update(distributionAttempt)
-            .set({
-                status: "timeout",
-                closedAt: now,
-                closeReason: "ack_timeout_5m",
-            })
-            .where(eq(distributionAttempt.id, attempt.id));
+        if (clientId && leadRow.clientId !== clientId) {
+            await tx
+                .update(distributionAttempt)
+                .set({
+                    status: "closed",
+                    closedAt: now,
+                    closeReason: "client_scope_mismatch",
+                })
+                .where(eq(distributionAttempt.id, attempt.id));
+
+            await logDistributionActivity(
+                tx as unknown as DbExecutor,
+                attempt.leadId,
+                "note",
+                `Timeout distribusi dilewati: workspace attempt ${leadRow.clientId} tidak cocok dengan worker ${clientId}.`
+            );
+
+            return false;
+        }
 
         await logDistributionActivity(
             tx as unknown as DbExecutor,
@@ -634,28 +738,36 @@ async function timeoutAttemptAndRoll(attemptId: string) {
             attempt.leadId,
             leadRow.clientId
         );
+
+        return true;
     });
 }
 
-export async function processExpiredAttempts() {
+export async function processExpiredAttempts(clientId?: string | null) {
     const now = new Date();
     const attempts = await db
         .select({ id: distributionAttempt.id })
         .from(distributionAttempt)
+        .innerJoin(lead, eq(distributionAttempt.leadId, lead.id))
         .where(
             and(
                 eq(distributionAttempt.status, "waiting_ok"),
-                lte(distributionAttempt.ackDeadline, now)
+                lte(distributionAttempt.ackDeadline, now),
+                clientId ? eq(lead.clientId, clientId) : undefined
             )
         )
         .orderBy(asc(distributionAttempt.ackDeadline))
         .limit(100);
 
+    let processed = 0;
     for (const attempt of attempts) {
-        await timeoutAttemptAndRoll(attempt.id);
+        const didProcess = await timeoutAttemptAndRoll(attempt.id, clientId || null);
+        if (didProcess) {
+            processed += 1;
+        }
     }
 
-    return attempts.length;
+    return processed;
 }
 
 export async function getLeadDistributionState(leadId: string) {
