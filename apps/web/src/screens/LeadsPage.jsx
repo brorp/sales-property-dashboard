@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
 import {
@@ -158,7 +158,7 @@ function formatRangeButtonLabel(range) {
 
 function formatRangeSummary(range) {
     if (!range.dateFrom && !range.dateTo) {
-        return 'Semua data lead masuk';
+        return '';
     }
 
     const formatter = new Intl.DateTimeFormat('id-ID', {
@@ -170,7 +170,7 @@ function formatRangeSummary(range) {
     const start = parseDateInput(range.dateFrom);
     const end = parseDateInput(range.dateTo || range.dateFrom);
     if (!start || !end) {
-        return 'Semua data lead masuk';
+        return '';
     }
 
     return `Lead masuk ${formatter.format(start)} - ${formatter.format(end)}`;
@@ -234,6 +234,26 @@ function matchesMultiValueFilter(selectedValues, actualValue, fallbackValue = ''
     return selectedValues.includes(actualValue ?? fallbackValue);
 }
 
+function matchesResultStatusFilter(actualValue, selectedValue) {
+    if (selectedValue === 'all') {
+        return true;
+    }
+    if (selectedValue === 'cancel' || selectedValue === 'cancel_transaksi') {
+        return actualValue === 'cancel_transaksi' || actualValue === 'cancel' || actualValue === 'cancel_minat';
+    }
+    return actualValue === selectedValue;
+}
+
+function matchesResultStatusMultiFilter(selectedValues, actualValue, fallbackValue = 'unfilled') {
+    if (!Array.isArray(selectedValues) || selectedValues.length === 0) {
+        return true;
+    }
+    if (selectedValues.includes('cancel_transaksi') && (actualValue === 'cancel' || actualValue === 'cancel_transaksi')) {
+        return true;
+    }
+    return selectedValues.includes(actualValue ?? fallbackValue);
+}
+
 function isHotValidatedLead(lead) {
     return lead?.salesStatus === 'hot' && Boolean(lead?.validated);
 }
@@ -251,7 +271,7 @@ function matchesLeadFilters(lead, filters) {
         return false;
     }
 
-    if (filters.resultStatus !== 'all' && lead.resultStatus !== filters.resultStatus) {
+    if (!matchesResultStatusFilter(lead.resultStatus, filters.resultStatus)) {
         return false;
     }
 
@@ -279,7 +299,7 @@ function matchesLeadExportFilters(lead, filters) {
         return false;
     }
 
-    if (!matchesMultiValueFilter(filters.resultStatuses, lead.resultStatus, 'unfilled')) {
+    if (!matchesResultStatusMultiFilter(filters.resultStatuses, lead.resultStatus, 'unfilled')) {
         return false;
     }
 
@@ -340,10 +360,12 @@ export default function LeadsPage() {
     const [search, setSearch] = useState('');
     const [flowFilter, setFlowFilter] = useState('all');
     const [salesStatusFilter, setSalesStatusFilter] = useState('all');
-    const [resultFilter, setResultFilter] = useState('all');
+    const searchParams = useSearchParams();
+    const [resultFilter, setResultFilter] = useState(searchParams?.get('resultFilter') || 'all');
     const [appointmentFilter, setAppointmentFilter] = useState('all');
     const [salesFilter, setSalesFilter] = useState('all');
     const [sourceFilter, setSourceFilter] = useState('all');
+    const [incompleteDataFilter, setIncompleteDataFilter] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showExportModal, setShowExportModal] = useState(false);
     const [filterOpen, setFilterOpen] = useState(false);
@@ -436,6 +458,14 @@ export default function LeadsPage() {
                 return false;
             }
 
+            if (incompleteDataFilter) {
+                const hasDomisili = Boolean(lead.domicileCity);
+                const hasTipeUnit = Boolean(lead.interestUnitId || lead.interestUnitName);
+                if (hasDomisili && hasTipeUnit) {
+                    return false;
+                }
+            }
+
             return matchesLeadFilters(lead, {
                 flowStatus: flowFilter,
                 salesStatus: salesStatusFilter,
@@ -444,7 +474,7 @@ export default function LeadsPage() {
                 salesId: salesFilter,
             });
         }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    }, [allLeads, appliedDateRange.dateFrom, appliedDateRange.dateTo, appointmentFilter, flowFilter, resultFilter, salesFilter, salesStatusFilter, search, sourceFilter]);
+    }, [allLeads, appliedDateRange.dateFrom, appliedDateRange.dateTo, appointmentFilter, flowFilter, resultFilter, salesFilter, salesStatusFilter, search, sourceFilter, incompleteDataFilter]);
 
     const exportLeads = useMemo(() => {
         return allLeads.filter((lead) => {
@@ -980,9 +1010,24 @@ export default function LeadsPage() {
                     </>
                 )}
             />
-            <div className="dashboard-filter-summary" style={{ marginBottom: 12 }}>
-                <span className="badge badge-purple">{hasActiveDateFilter ? 'Range Active' : 'All Data'}</span>
-                <span>{formatRangeSummary(appliedDateRange)}</span>
+            <div className="dashboard-filter-summary" style={{ marginBottom: 12, display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                    type="button"
+                    className={`badge ${!incompleteDataFilter ? 'badge-purple' : 'badge-neutral'}`}
+                    style={{ cursor: 'pointer', border: 'none', padding: '4px 8px' }}
+                    onClick={() => setIncompleteDataFilter(false)}
+                >
+                    {hasActiveDateFilter ? 'Range Active' : 'All Data'}
+                </button>
+                <button
+                    type="button"
+                    className={`badge ${incompleteDataFilter ? 'badge-danger' : 'badge-neutral'}`}
+                    style={{ cursor: 'pointer', border: 'none', padding: '4px 8px' }}
+                    onClick={() => setIncompleteDataFilter(true)}
+                >
+                    Incomplete Data
+                </button>
+                <span style={{ marginLeft: '4px' }}>{formatRangeSummary(appliedDateRange)}</span>
             </div>
             <div className="input-icon-wrapper" style={{ marginBottom: 12 }}>
                 <span className="input-icon">🔍</span>
@@ -1054,7 +1099,10 @@ export default function LeadsPage() {
                             <div className="leads-card-info" style={{ flexWrap: 'wrap' }}>
                                 <span className={`badge ${getStatusBadgeClass('flow', lead.flowStatus)}`}>{getFlowStatusLabel(lead.flowStatus)}</span>
                                 {isHotValidatedLead(lead) ? (
-                                    <span className="badge badge-success">HOT | Validated</span>
+                                    <>
+                                        <span className="badge badge-hot">HOT</span>
+                                        <span className="badge badge-success">✓ Validated</span>
+                                    </>
                                 ) : lead.salesStatus ? (
                                     <span className={`badge ${getStatusBadgeClass('sales', lead.salesStatus)}`}>{getSalesStatusLabel(lead.salesStatus)}</span>
                                 ) : null}
@@ -1080,12 +1128,10 @@ export default function LeadsPage() {
                                 />
                             </div>
                         ) : null}
-                        {lead.latestActivityNote?.note ? (
-                            <div className="leads-card-note">
-                                <span className="leads-card-note-label">Catatan</span>
-                                <span className="leads-card-note-text">{lead.latestActivityNote.note}</span>
-                            </div>
-                        ) : null}
+                        <div className="leads-card-note">
+                            <span className="leads-card-note-label">Catatan</span>
+                            <span className="leads-card-note-text">{lead.manualNote || '-'}</span>
+                        </div>
                         {isAdmin ? <div className="leads-card-sales">Sales: {getSalesNameById(lead.assignedTo)}</div> : null}
                     </div>
                 ))}

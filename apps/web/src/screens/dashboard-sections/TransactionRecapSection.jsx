@@ -1,6 +1,7 @@
 import Accordion from '../../components/Accordion';
 import './DashboardSections.css';
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 const PIE_COLORS = [
     '#7c4dff',
@@ -193,6 +194,7 @@ export default function TransactionRecapSection({
     viewerId = '',
     viewerName = '',
 }) {
+    const router = useRouter();
     const teams = data?.teams || [];
     const [isCompare, setIsCompare] = useState(false);
     const [unitType, setUnitType] = useState('');
@@ -268,6 +270,11 @@ export default function TransactionRecapSection({
     }));
     const unitTypeItems = (data.unitTypeBreakdown?.[transactionChartStatus] || []).map((item, index) => ({
         label: item.label,
+        count: item.count,
+        color: PIE_COLORS[index % PIE_COLORS.length],
+    }));
+    const cancelReasonItems = (data.cancelReasonBreakdown || []).map((item, index) => ({
+        label: item.label || item.key || 'Lainnya',
         count: item.count,
         color: PIE_COLORS[index % PIE_COLORS.length],
     }));
@@ -537,27 +544,42 @@ export default function TransactionRecapSection({
                 {allowTeamFiltering ? (
                     <>
                         <div>
-                            <div style={{ background: 'var(--bg-input)', padding: '16px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', border: '1px solid var(--green)' }}>
+                            <div
+                                onClick={() => router.push('/leads?resultFilter=akad')}
+                                style={{ cursor: 'pointer', background: 'var(--bg-input)', padding: '16px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', border: '1px solid var(--green)' }}
+                            >
                                 <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Total Akad</span>
                                 <strong style={{ fontSize: '2rem', color: 'var(--green)', marginTop: '4px' }}>{summaryScope.totalAkad || 0}</strong>
                             </div>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                            <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div
+                                onClick={() => router.push('/leads?resultFilter=full_book')}
+                                style={{ cursor: 'pointer', background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                            >
                                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total Full Book</span>
                                 <strong style={{ fontSize: '1.4rem', color: 'var(--purple)', marginTop: '4px' }}>{summaryScope.totalFullBook || 0}</strong>
                             </div>
-                            <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div
+                                onClick={() => router.push('/leads?resultFilter=on_process')}
+                                style={{ cursor: 'pointer', background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                            >
                                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total On Process</span>
                                 <strong style={{ fontSize: '1.4rem', color: 'var(--primary)', marginTop: '4px' }}>{summaryScope.totalOnProcess || 0}</strong>
                             </div>
-                            <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div
+                                onClick={() => router.push('/leads?resultFilter=reserve')}
+                                style={{ cursor: 'pointer', background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                            >
                                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total Reserve</span>
                                 <strong style={{ fontSize: '1.4rem', marginTop: '4px' }}>{summaryScope.totalReserve || 0}</strong>
                             </div>
-                            
-                            <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+
+                            <div
+                                onClick={() => router.push('/leads?resultFilter=cancel')}
+                                style={{ cursor: 'pointer', background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                            >
                                 <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total Cancel</span>
                                 <strong style={{ fontSize: '1.4rem', color: 'var(--danger)' }}>{summaryScope.totalCancel || 0}</strong>
                             </div>
@@ -654,6 +676,13 @@ export default function TransactionRecapSection({
                         total={unitTypeItems.reduce((sum, item) => sum + item.count, 0)}
                         items={unitTypeItems}
                         emptyLabel="Belum ada tipe unit pada status transaksi ini."
+                    />
+                    <PieChartCard
+                        title="Alasan Cancel"
+                        subtitle="Distribusi alasan cancel dari semua transaksi cancel pada filter tanggal aktif."
+                        total={cancelReasonItems.reduce((sum, item) => sum + item.count, 0)}
+                        items={cancelReasonItems}
+                        emptyLabel="Belum ada data alasan cancel."
                     />
                 </div>
             </div>

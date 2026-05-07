@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, lte } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lte, ne } from "drizzle-orm";
 import { db } from "../db/index";
 import {
     activity,
@@ -9,7 +9,7 @@ import {
     user,
 } from "../db/schema";
 import type { QueryScope } from "../middleware/rbac";
-import { createSalesSuspension } from "./sales-suspension.service";
+import { createSalesSuspension, getActiveSalesSuspension } from "./sales-suspension.service";
 import { removeSalesFromQueueBySuspension } from "./sales.service";
 import { generateId } from "../utils/id";
 import {
@@ -66,6 +66,7 @@ async function getPenaltyCandidateRows(
         .where(
             and(
                 inArray(dailyTask.status, ["pending", "overdue"]),
+                ne(dailyTask.taskType, "deadline_lead"),
                 lte(dailyTask.dueAt, now)
             )
         )
@@ -109,6 +110,15 @@ export async function createPenaltyForTask(
         .limit(1);
 
     if (existingPenalty[0]) {
+        return null;
+    }
+
+    if (taskRow.taskType === "deadline_lead") {
+        return null;
+    }
+
+    const activeSuspension = await getActiveSalesSuspension(taskRow.salesId, executor, now);
+    if (activeSuspension) {
         return null;
     }
 
@@ -204,8 +214,13 @@ export async function createPenaltyForTask(
 export async function processMissedDailyTasks(now: Date = new Date()) {
     const candidates = await getPenaltyCandidateRows(db, now);
     let createdCount = 0;
+    const penalizedSalesIds = new Set<string>();
 
     for (const candidate of candidates) {
+        if (penalizedSalesIds.has(candidate.salesId)) {
+            continue;
+        }
+
         await syncLeadDailyTasksForLead(candidate.leadId, db, now);
 
         const [freshTask] = await db
@@ -221,6 +236,7 @@ export async function processMissedDailyTasks(now: Date = new Date()) {
         const penalty = await createPenaltyForTask(candidate.id, db, now);
         if (penalty) {
             createdCount += 1;
+            penalizedSalesIds.add(candidate.salesId);
         }
     }
 

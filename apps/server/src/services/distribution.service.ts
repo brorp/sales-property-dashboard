@@ -557,20 +557,11 @@ export async function handleSalesAck(
             Number(queueRewardRow?.repeatOrderRemaining || 0)
         );
         if (queueRewardRow && rewardBeforeClaim > 0) {
-            const rewardAfterClaim = Math.max(0, rewardBeforeClaim - 1);
-            await tx
-                .update(salesQueue)
-                .set({
-                    repeatOrderRemaining: rewardAfterClaim,
-                    updatedAt: now,
-                })
-                .where(eq(salesQueue.id, queueRewardRow.id));
-
             await logDistributionActivity(
                 tx as unknown as DbExecutor,
                 leadId,
                 "note",
-                `Reward repeat order ${queueRewardRow.salesName} digunakan 1x. Sisa reward ${rewardAfterClaim}x.`
+                `Reward repeat order ${queueRewardRow.salesName} tetap aktif ${rewardBeforeClaim}x setelah claim berhasil.`
             );
         }
 
@@ -723,14 +714,6 @@ async function timeoutAttemptAndRoll(
             Number(queueRewardRow?.repeatOrderRemaining || 0)
         );
         if (queueRewardRow && rewardBeforeTimeout > 0) {
-            await tx
-                .update(salesQueue)
-                .set({
-                    repeatOrderRemaining: 0,
-                    updatedAt: now,
-                })
-                .where(eq(salesQueue.id, queueRewardRow.id));
-
             const queueRolledAfterRewardTimeout = await moveSalesToQueueEnd(
                 attempt.salesId,
                 leadRow.clientId,
@@ -741,7 +724,7 @@ async function timeoutAttemptAndRoll(
                 tx as unknown as DbExecutor,
                 attempt.leadId,
                 "note",
-                `Reward repeat order ${queueRewardRow.salesName} hangus ${rewardBeforeTimeout}x karena tidak membalas OK. Sales dipindahkan ke bawah queue${queueRolledAfterRewardTimeout ? "" : " bila masih eligible"}.`
+                `Reward repeat order ${queueRewardRow.salesName} tetap aktif ${rewardBeforeTimeout}x meski timeout. Sales dipindahkan ke bawah queue${queueRolledAfterRewardTimeout ? "" : " bila masih eligible"}.`
             );
         }
 

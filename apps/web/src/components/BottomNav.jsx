@@ -18,12 +18,13 @@ import { useWorkspace } from '../context/WorkspaceContext';
 
 function Icon({ name }) {
     const common = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
-    if (name === 'home') {
+    if (name === 'analytics') {
         return (
             <svg {...common}>
-                <path d="M3 10.5 12 3l9 7.5" />
-                <path d="M5 9.5V21h14V9.5" />
-                <path d="M9 21v-6h6v6" />
+                <path d="M3 3v18h18" />
+                <path d="M18 17V9" />
+                <path d="M13 17V5" />
+                <path d="M8 17v-3" />
             </svg>
         );
     }
@@ -108,19 +109,20 @@ function Icon({ name }) {
 }
 
 const ADMIN_TABS = [
-    { key: '/', icon: 'home', label: 'Analytics' },
+    { key: '/', icon: 'analytics', label: 'Analytics' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/appointments', icon: 'appointment', label: 'Appt' },
     { key: '/activity-logs', icon: 'logs', label: 'Logs' },
     { key: '/penalties', icon: 'warning', label: 'Penalty' },
-    { key: '/team', icon: 'team', label: 'Team' },
+    { key: '/team', icon: 'team', label: 'Teams' },
     { key: '/settings', icon: 'settings', label: 'Settings' },
 ];
 
 const SUPERVISOR_TABS = [
     { key: '/supervisor-tasks', icon: 'tasks', label: 'Tasks' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
-    { key: '/', icon: 'home', label: 'Analytics' },
+    { key: '/', icon: 'analytics', label: 'Analytics' },
+    { key: '/team', icon: 'team', label: 'Team' },
     { key: '/penalties', icon: 'warning', label: 'Penalty' },
     { key: '/settings', icon: 'settings', label: 'Settings' },
 ];
@@ -129,7 +131,7 @@ const SALES_TABS = [
     { key: '/daily-tasks', icon: 'tasks', label: 'Tasks' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/appointments', icon: 'appointment', label: 'Appt' },
-    { key: '/', icon: 'home', label: 'Analytics' },
+    { key: '/', icon: 'analytics', label: 'Analytics' },
     { key: '/penalties', icon: 'warning', label: 'Penalty' },
     { key: '/settings', icon: 'settings', label: 'Settings' },
 ];

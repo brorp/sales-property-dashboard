@@ -20,6 +20,7 @@ import {
     getTimeAgo,
     formatDate,
     toWaLink,
+    isCancelResultStatus,
 } from '../constants/crm';
 import { INDONESIA_CITIES } from '../constants/indonesiaCities';
 import CustomerPipelineProgress from '../components/CustomerPipelineProgress';
@@ -68,6 +69,14 @@ function addDays(value, days) {
     return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
+function isAgentSource(value) {
+    return String(value || '').trim().toLowerCase() === 'agent';
+}
+
+function normalizeResultStatusForForm(value) {
+    return value === 'cancel' ? 'cancel_transaksi' : value || '';
+}
+
 function buildCustomerPipelineRows(lead) {
     const sourceRows = Array.isArray(lead?.customerPipeline) ? lead.customerPipeline : [];
     const mapped = new Map(sourceRows.map((item) => [Number(item.stepNo), item]));
@@ -106,6 +115,7 @@ export default function LeadDetailPage({ leadId }) {
         updateAppointment,
         cancelAppointment,
         getSalesUsers,
+        getLeadSources,
     } = useLeads();
     const router = useRouter();
 
@@ -123,6 +133,8 @@ export default function LeadDetailPage({ leadId }) {
     });
     const [flow2Form, setFlow2Form] = useState({
         name: '',
+        source: '',
+        agentOfficeName: '',
         salesStatus: '',
         domicileCity: '',
         interestUnitId: '',
@@ -150,6 +162,21 @@ export default function LeadDetailPage({ leadId }) {
     const [cancelReasonsLoading, setCancelReasonsLoading] = useState(false);
     const lead = getLeadById(leadId);
     const salesUsers = getSalesUsers();
+    const leadSources = getLeadSources();
+    const availableLeadSources = useMemo(
+        () => {
+            const values = new Set(
+                Array.isArray(leadSources)
+                    ? leadSources.map((item) => item?.value || item).filter(Boolean)
+                    : []
+            );
+            if (lead?.source) {
+                values.add(lead.source);
+            }
+            return Array.from(values);
+        },
+        [lead?.source, leadSources]
+    );
 
     const getSalesNameById = (salesId) => salesUsers.find((item) => item.id === salesId)?.name || 'Unassigned';
     const getCancelReasonLabel = (code) => {
@@ -191,19 +218,21 @@ export default function LeadDetailPage({ leadId }) {
 
         setFlow2Form({
             name: lead.name || '',
+            source: lead.source || availableLeadSources[0] || '',
+            agentOfficeName: lead.agentOfficeName || '',
             salesStatus: lead.salesStatus || 'warm',
             domicileCity: lead.domicileCity || '',
             interestUnitId: lead.interestUnitId || '',
         });
         setResultForm({
-            resultStatus: lead.resultStatus || '',
+            resultStatus: normalizeResultStatusForForm(lead.resultStatus),
             unitName: lead.unitName || '',
             unitDetail: lead.unitDetail || '',
             paymentMethod: lead.paymentMethod || '',
             rejectedReason: lead.rejectedReason || '',
             rejectedNote: lead.rejectedNote || '',
         });
-    }, [lead]);
+    }, [availableLeadSources, lead]);
 
     useEffect(() => {
         let cancelled = false;
@@ -388,8 +417,20 @@ export default function LeadDetailPage({ leadId }) {
             return;
         }
 
+        if (!flow2Form.source) {
+            setRequestError('Source lead wajib dipilih.');
+            return;
+        }
+
+        if (isAgentSource(flow2Form.source) && !flow2Form.agentOfficeName.trim()) {
+            setRequestError('Nama kantor wajib diisi untuk source Agent.');
+            return;
+        }
+
         await runLeadUpdate({
             name: flow2Form.name,
+            source: flow2Form.source,
+            agentOfficeName: isAgentSource(flow2Form.source) ? flow2Form.agentOfficeName : null,
             salesStatus: flow2Form.salesStatus,
             domicileCity: flow2Form.domicileCity || null,
             interestUnitId: flow2Form.interestUnitId || null,
@@ -423,7 +464,7 @@ export default function LeadDetailPage({ leadId }) {
             return;
         }
 
-        if (resultForm.resultStatus === 'cancel') {
+        if (isCancelResultStatus(resultForm.resultStatus)) {
             if (!resultForm.rejectedReason) {
                 setRequestError('Alasan cancel wajib dipilih.');
                 return;
@@ -435,10 +476,10 @@ export default function LeadDetailPage({ leadId }) {
             }
 
             await runLeadUpdate({
-                resultStatus: 'cancel',
+                resultStatus: resultForm.resultStatus,
                 rejectedReason: resultForm.rejectedReason,
                 rejectedNote: resultForm.rejectedNote.trim(),
-            }, 'Result status berhasil diubah ke Cancel. Status L2 otomatis menjadi Skip.');
+            }, `Result status berhasil diubah ke ${getResultStatusLabel(resultForm.resultStatus)}. Status L2 otomatis menjadi Skip.`);
             return;
         }
 
@@ -452,7 +493,7 @@ export default function LeadDetailPage({ leadId }) {
         if (!note.trim()) {
             return;
         }
-        await runLeadUpdate({ activityNote: note.trim() }, 'Catatan berhasil ditambahkan.');
+        await runLeadUpdate({ manualNote: note.trim() }, 'Catatan berhasil disimpan.');
         setNote('');
         setShowNote(false);
     };
@@ -572,6 +613,7 @@ export default function LeadDetailPage({ leadId }) {
                 <div className="detail-info-row"><span>📅</span><span>Masuk: {formatDate(lead.createdAt)}</span></div>
                 <div className="detail-info-row"><span>📣</span><span>{lead.source}</span></div>
                 {lead.agentOfficeName ? <div className="detail-info-row"><span>🏬</span><span>{lead.agentOfficeName}</span></div> : null}
+                <div className="detail-info-row"><span>📝</span><span>Catatan: {lead.manualNote || '-'}</span></div>
                 <div className="detail-info-row"><span>🧭</span><span>Status Distribusi: {getFlowStatusLabel(effectiveFlowStatus)}</span></div>
                 <div className="detail-info-row"><span>📌</span><span>Status Appointment: {getAppointmentTagLabel(appointmentTag)}</span></div>
                 <div className="detail-info-row">
@@ -609,11 +651,14 @@ export default function LeadDetailPage({ leadId }) {
                 </a>
                 <button
                     className="btn btn-secondary btn-full"
-                    onClick={() => setShowNote(true)}
+                    onClick={() => {
+                        setNote(lead.manualNote || '');
+                        setShowNote(true);
+                    }}
                     disabled={!canEditLead}
                     style={{ marginTop: 10 }}
                 >
-                    Tambah Catatan
+                    {lead.manualNote ? 'Ubah Catatan' : 'Tambah Catatan'}
                 </button>
             </div>
 
@@ -728,6 +773,40 @@ export default function LeadDetailPage({ leadId }) {
                             disabled={!canEditLead}
                         />
                     </div>
+                    <div className="input-group">
+                        <label>Source Lead</label>
+                        <select
+                            className="input-field"
+                            value={flow2Form.source}
+                            onChange={(event) => {
+                                const nextSource = event.target.value;
+                                setFlow2Form({
+                                    ...flow2Form,
+                                    source: nextSource,
+                                    agentOfficeName: isAgentSource(nextSource) ? flow2Form.agentOfficeName : '',
+                                });
+                            }}
+                            disabled={!canEditLead || availableLeadSources.length === 0}
+                        >
+                            <option value="">{availableLeadSources.length === 0 ? 'Source belum tersedia' : 'Pilih source'}</option>
+                            {availableLeadSources.map((source) => (
+                                <option key={source} value={source}>{source}</option>
+                            ))}
+                        </select>
+                    </div>
+                    {isAgentSource(flow2Form.source) ? (
+                        <div className="input-group">
+                            <label>Nama Kantor Agent</label>
+                            <input
+                                type="text"
+                                className="input-field"
+                                value={flow2Form.agentOfficeName}
+                                onChange={(event) => setFlow2Form({ ...flow2Form, agentOfficeName: event.target.value })}
+                                disabled={!canEditLead}
+                                placeholder="Nama kantor agent"
+                            />
+                        </div>
+                    ) : null}
                     <div className="input-group">
                         <label>Sales Status</label>
                         <select
@@ -893,7 +972,7 @@ export default function LeadDetailPage({ leadId }) {
                         </>
                     ) : null}
 
-                    {resultForm.resultStatus === 'cancel' ? (
+                    {isCancelResultStatus(resultForm.resultStatus) ? (
                         <>
                             <div className="input-group">
                                 <label>Alasan Cancel</label>
@@ -925,7 +1004,7 @@ export default function LeadDetailPage({ leadId }) {
 
                     <div className="lead-row-meta">
                         <span>Current Result: {lead.resultStatus ? getResultStatusLabel(lead.resultStatus) : '-'}</span>
-                        {lead.resultStatus === 'cancel' ? <span>Reason: {getCancelReasonLabel(lead.rejectedReason)}</span> : null}
+                        {isCancelResultStatus(lead.resultStatus) ? <span>Reason: {getCancelReasonLabel(lead.rejectedReason)}</span> : null}
                     </div>
 
                     <button type="submit" className="btn btn-primary btn-full" disabled={!canUpdateResult}>
@@ -959,7 +1038,7 @@ export default function LeadDetailPage({ leadId }) {
                 <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget) setShowNote(false); }}>
                     <div className="bottom-sheet">
                         <div className="sheet-handle" />
-                        <h2>Tambah Catatan</h2>
+                        <h2>{lead.manualNote ? 'Ubah Catatan' : 'Tambah Catatan'}</h2>
                         <form onSubmit={handleAddNote} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div className="input-group">
                                 <label>Catatan</label>

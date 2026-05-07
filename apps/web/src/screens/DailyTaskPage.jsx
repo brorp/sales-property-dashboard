@@ -82,7 +82,12 @@ export default function DailyTaskPage() {
     const { user } = useAuth();
     const router = useRouter();
     const [activeTab, setActiveTab] = useState('new_leads');
-    const [tasks, setTasks] = useState({ newLeads: [], followUps: [], counts: { totalCount: 0, newLeadCount: 0, followUpCount: 0 } });
+    const [tasks, setTasks] = useState({
+        newLeads: [],
+        followUps: [],
+        deadlineLeads: [],
+        counts: { totalCount: 0, newLeadCount: 0, followUpCount: 0, deadlineLeadCount: 0 },
+    });
     const [drafts, setDrafts] = useState({});
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -116,16 +121,18 @@ export default function DailyTaskPage() {
             const normalized = {
                 newLeads: Array.isArray(data?.newLeads) ? data.newLeads : [],
                 followUps: Array.isArray(data?.followUps) ? data.followUps : [],
+                deadlineLeads: Array.isArray(data?.deadlineLeads) ? data.deadlineLeads : [],
                 counts: {
                     totalCount: Number(data?.counts?.totalCount || 0),
                     newLeadCount: Number(data?.counts?.newLeadCount || 0),
                     followUpCount: Number(data?.counts?.followUpCount || 0),
+                    deadlineLeadCount: Number(data?.counts?.deadlineLeadCount || 0),
                 },
             };
             setTasks(normalized);
             setDrafts((prev) => {
                 const next = { ...prev };
-                [...normalized.newLeads, ...normalized.followUps].forEach((task) => {
+                [...normalized.newLeads, ...normalized.followUps, ...normalized.deadlineLeads].forEach((task) => {
                     next[task.id] = {
                         ...buildDefaultDraft(task),
                         ...(prev[task.id] || {}),
@@ -268,19 +275,44 @@ export default function DailyTaskPage() {
         await handleSubmitTask(task, `/api/daily-tasks/${task.id}/submit-follow-up`);
     };
 
+    const handleDeadlineLeadAction = async (task, action) => {
+        if (!user) {
+            return;
+        }
+
+        mergeDraft(task.id, { submitting: true, uploadError: '' });
+        setError('');
+        setSuccess('');
+
+        try {
+            await apiRequest(`/api/daily-tasks/${task.id}/submit-deadline-lead`, {
+                method: 'POST',
+                user,
+                body: { action },
+            });
+            setSuccess(
+                action === 'change_to_cold'
+                    ? `${task.leadName} berhasil diubah ke Cold.`
+                    : `${task.leadName} dihapus dari Deadline Leads.`
+            );
+            setDrafts((prev) => {
+                const next = { ...prev };
+                delete next[task.id];
+                return next;
+            });
+            await loadTasks({ silent: true });
+        } catch (err) {
+            mergeDraft(task.id, { submitting: false });
+            setError(err instanceof Error ? err.message : 'Gagal submit Deadline Leads');
+            return;
+        }
+
+        mergeDraft(task.id, { submitting: false });
+    };
+
     return (
         <div className="page-container">
             <Header title="Daily Task" />
-
-            <div className="card daily-task-summary-card">
-                    <div className="section-title" style={{ marginBottom: 6 }}>Tugas Sales Hari Ini</div>
-                <div className="daily-task-summary-stats">
-                    <div className="daily-task-summary-pill">New Leads {tasks.counts.newLeadCount}</div>
-                    <div className="daily-task-summary-pill">Follow Up {tasks.counts.followUpCount}</div>
-                    {appointments.length > 0 ? <div className="daily-task-summary-pill">Appt {appointments.length}</div> : null}
-                    {validatedHot.length > 0 ? <div className="daily-task-summary-pill">HOT ✓ {validatedHot.length}</div> : null}
-                </div>
-            </div>
 
             <div className="daily-task-tabs">
                 <button
@@ -301,6 +333,14 @@ export default function DailyTaskPage() {
                 </button>
                 <button
                     type="button"
+                    className={`daily-task-tab ${activeTab === 'deadline_leads' ? 'is-active' : ''}`}
+                    onClick={() => setActiveTab('deadline_leads')}
+                >
+                    Deadline Leads
+                    {tasks.counts.deadlineLeadCount > 0 ? <span className="daily-task-tab-badge">{tasks.counts.deadlineLeadCount}</span> : null}
+                </button>
+                <button
+                    type="button"
                     className={`daily-task-tab ${activeTab === 'appointments' ? 'is-active' : ''}`}
                     onClick={() => setActiveTab('appointments')}
                 >
@@ -312,7 +352,7 @@ export default function DailyTaskPage() {
                     className={`daily-task-tab ${activeTab === 'hot_validated' ? 'is-active' : ''}`}
                     onClick={() => setActiveTab('hot_validated')}
                 >
-                    HOT ✓
+                    Hot Validation
                     {validatedHot.length > 0 ? <span className="daily-task-tab-badge" style={{ background: 'var(--green, #22c55e)' }}>{validatedHot.length}</span> : null}
                 </button>
             </div>
@@ -425,6 +465,80 @@ export default function DailyTaskPage() {
                                             onClick={() => void (task.taskType === 'new_lead' ? handleSubmitNewLead(task) : handleSubmitFollowUp(task))}
                                         >
                                             {draft.submitting ? 'Submitting...' : 'Submit Task'}
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </>
+            ) : null}
+
+            {/* ── Deadline Leads ─────────────────────────────────── */}
+            {activeTab === 'deadline_leads' ? (
+                <>
+                    {loading ? (
+                        <div className="card"><p className="settings-help">Loading Deadline Leads...</p></div>
+                    ) : null}
+
+                    {!loading && tasks.deadlineLeads.length === 0 ? (
+                        <div className="empty-state">
+                            <div className="empty-title">Tidak ada Deadline Leads</div>
+                            <div className="empty-subtitle">
+                                Lead warm yang masuk hari ke-14 tanpa appointment akan muncul di sini.
+                            </div>
+                        </div>
+                    ) : null}
+
+                    <div className="daily-task-list">
+                        {tasks.deadlineLeads.map((task) => {
+                            const draft = drafts[task.id] || buildDefaultDraft(task);
+
+                            return (
+                                <div key={task.id} className="card daily-task-card">
+                                    <div className="daily-task-card-top">
+                                        <div>
+                                            <div className="daily-task-card-title">{task.leadName}</div>
+                                            <div className="daily-task-card-meta">{task.leadPhone}</div>
+                                            <div className="daily-task-card-meta">{task.leadSource}</div>
+                                        </div>
+                                        <div className="daily-task-card-badges">
+                                            <span className="badge badge-danger">Deadline Leads</span>
+                                            {task.salesStatus ? (
+                                                <span className={`badge ${task.salesStatus === 'hot' ? 'badge-hot' : 'badge-warm'}`}>
+                                                    {getSalesStatusLabel(task.salesStatus)}
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                    </div>
+
+                                    <div className="daily-task-card-grid">
+                                        <div className="daily-task-card-meta">Lead age: {getTimeAgo(task.createdAt)}</div>
+                                        <div className="daily-task-card-meta">Appointment: belum ada</div>
+                                        <div className="daily-task-card-meta">Status L4: belum ada</div>
+                                        <div className="daily-task-card-meta">Masuk reminder: {formatDateTime(task.assignedAt)}</div>
+                                    </div>
+
+                                    <div className="settings-help" style={{ marginBottom: 12 }}>
+                                        Tentukan apakah lead ini cold atau tetap dipertahankan.
+                                    </div>
+
+                                    <div className="daily-task-actions">
+                                        <button
+                                            type="button"
+                                            className="btn btn-danger"
+                                            disabled={draft.submitting}
+                                            onClick={() => void handleDeadlineLeadAction(task, 'change_to_cold')}
+                                        >
+                                            {draft.submitting ? 'Submitting...' : 'Change to Cold'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-secondary"
+                                            disabled={draft.submitting}
+                                            onClick={() => void handleDeadlineLeadAction(task, 'stay')}
+                                        >
+                                            Stay Warm
                                         </button>
                                     </div>
                                 </div>

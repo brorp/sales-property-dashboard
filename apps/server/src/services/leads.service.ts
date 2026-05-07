@@ -27,6 +27,7 @@ import {
     normalizeResultStatus,
     normalizeSalesStatus,
     canManuallySetSalesStatus,
+    isCancelResultStatus,
 } from "../utils/lead-workflow";
 
 interface LeadFilters {
@@ -47,6 +48,9 @@ export type LeadPatchInput = {
     actorClientId?: string | null;
     managedSalesIds?: string[];
     name?: string;
+    source?: string | null;
+    agentOfficeName?: string | null;
+    manualNote?: string | null;
     domicileCity?: string | null;
     salesStatus?: string | null;
     interestUnitId?: string | null;
@@ -240,7 +244,11 @@ export async function findAll(
     }
 
     if (filters.resultStatus && filters.resultStatus !== "all") {
-        conditions.push(eq(lead.resultStatus, filters.resultStatus));
+        if (filters.resultStatus === "cancel_transaksi") {
+            conditions.push(or(eq(lead.resultStatus, "cancel_transaksi"), eq(lead.resultStatus, "cancel")));
+        } else {
+            conditions.push(eq(lead.resultStatus, filters.resultStatus));
+        }
     }
 
     if (filters.assignedTo && filters.assignedTo !== "all") {
@@ -274,6 +282,7 @@ export async function findAll(
             assignedTo: lead.assignedTo,
             flowStatus: lead.flowStatus,
             salesStatus: lead.salesStatus,
+            manualNote: lead.manualNote,
             domicileCity: lead.domicileCity,
             interestUnitId: lead.interestUnitId,
             interestProjectType: lead.interestProjectType,
@@ -492,6 +501,7 @@ export async function create(data: {
             name: data.name,
             phone: data.phone,
             source: normalizedSource,
+            manualNote: null,
             agentOfficeName:
                 normalizedSource.toLowerCase() === "agent"
                     ? normalizedAgentOfficeName
@@ -882,6 +892,49 @@ export async function patchLead(input: LeadPatchInput) {
         });
     }
 
+    if (input.source !== undefined || input.agentOfficeName !== undefined) {
+        const nextSource =
+            input.source !== undefined
+                ? await leadSourcesService.resolveLeadSourceValue(
+                    currentLead.clientId || input.actorClientId || null,
+                    input.source
+                )
+                : currentLead.source;
+        const nextAgentOfficeName =
+            input.agentOfficeName !== undefined
+                ? sanitizeNullableText(input.agentOfficeName)
+                : currentLead.agentOfficeName;
+        const requiresAgentOffice = nextSource.toLowerCase() === "agent";
+
+        if (requiresAgentOffice && !nextAgentOfficeName) {
+            throw new Error("AGENT_OFFICE_NAME_REQUIRED");
+        }
+
+        const normalizedAgentOfficeName = requiresAgentOffice ? nextAgentOfficeName : null;
+        if (
+            nextSource !== currentLead.source ||
+            normalizedAgentOfficeName !== currentLead.agentOfficeName
+        ) {
+            updates.source = nextSource;
+            updates.agentOfficeName = normalizedAgentOfficeName;
+            activityEntries.push({
+                type: "lead_status",
+                note: `Source lead diubah dari ${currentLead.source || "-"} ke ${nextSource}${normalizedAgentOfficeName ? ` (${normalizedAgentOfficeName})` : ""}`,
+            });
+        }
+    }
+
+    if (input.manualNote !== undefined) {
+        const nextManualNote = sanitizeNullableText(input.manualNote);
+        if (nextManualNote !== undefined && nextManualNote !== currentLead.manualNote) {
+            updates.manualNote = nextManualNote;
+            activityEntries.push({
+                type: "manual_note",
+                note: nextManualNote || "Catatan lead dikosongkan.",
+            });
+        }
+    }
+
     if (input.assignedTo !== undefined) {
         if (!isAdminRole && input.actorRole !== "supervisor") {
             throw new Error("FORBIDDEN_ASSIGN");
@@ -1077,7 +1130,7 @@ export async function patchLead(input: LeadPatchInput) {
         throw new Error("CLOSING_FIELDS_REQUIRE_AKAD_STATUS");
     }
 
-    if ((isResultStatusUpdated || isCancelFieldUpdated) && nextResultStatusRaw === "cancel") {
+    if ((isResultStatusUpdated || isCancelFieldUpdated) && isCancelResultStatus(nextResultStatusRaw)) {
         if (!nextCancelReason) {
             throw new Error("CANCEL_REASON_REQUIRED");
         }
@@ -1099,10 +1152,10 @@ export async function patchLead(input: LeadPatchInput) {
             updates.layer2Status = "skip";
             activityEntries.push({
                 type: "lead_status",
-                note: `Status L2 berubah dari ${getSalesStatusLabel(currentLead.salesStatus)} ke ${getSalesStatusLabel("skip")} otomatis karena result status ${getResultStatusLabel("cancel")}`,
+                note: `Status L2 berubah dari ${getSalesStatusLabel(currentLead.salesStatus)} ke ${getSalesStatusLabel("skip")} otomatis karena result status ${getResultStatusLabel(nextResultStatusRaw)}`,
             });
         }
-    } else if (isCancelFieldUpdated && nextResultStatusRaw !== "cancel") {
+    } else if (isCancelFieldUpdated && !isCancelResultStatus(nextResultStatusRaw)) {
         throw new Error("CANCEL_REASON_REQUIRES_CANCEL_STATUS");
     }
 
@@ -1112,12 +1165,12 @@ export async function patchLead(input: LeadPatchInput) {
             updates.resultStatusUpdatedAt = now;
         }
 
-        if (nextResultStatusRaw !== "cancel" && nextResultStatusRaw !== "akad") {
+        if (!isCancelResultStatus(nextResultStatusRaw) && nextResultStatusRaw !== "akad") {
             updates.rejectedReason = null;
             updates.rejectedNote = null;
         }
 
-        if (nextResultStatusRaw !== "akad" && nextResultStatusRaw !== "cancel" && !isAkadFieldUpdated) {
+        if (nextResultStatusRaw !== "akad" && !isCancelResultStatus(nextResultStatusRaw) && !isAkadFieldUpdated) {
             updates.unitName = currentLead.unitName;
             updates.unitDetail = currentLead.unitDetail;
             updates.paymentMethod = currentLead.paymentMethod;

@@ -2,7 +2,10 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db/index";
 import { activity, lead, user } from "../db/schema";
 import { generateId } from "../utils/id";
-import { getSubmittedDailyTaskSnapshotForManagedSales } from "./daily-task.service";
+import {
+    getDeadlineLeadTaskSnapshotForManagedSales,
+    getSubmittedDailyTaskSnapshotForManagedSales,
+} from "./daily-task.service";
 
 export async function listPendingHotLeads(params: {
     supervisorId: string;
@@ -170,6 +173,16 @@ export async function listSubmittedDailyTasksByManagedSales(params: {
     clientId?: string | null;
 }) {
     return getSubmittedDailyTaskSnapshotForManagedSales({
+        managedSalesIds: params.managedSalesIds,
+        clientId: params.clientId || null,
+    });
+}
+
+export async function listDeadlineLeadTasksByManagedSales(params: {
+    managedSalesIds: string[];
+    clientId?: string | null;
+}) {
+    return getDeadlineLeadTaskSnapshotForManagedSales({
         managedSalesIds: params.managedSalesIds,
         clientId: params.clientId || null,
     });

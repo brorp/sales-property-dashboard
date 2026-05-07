@@ -74,4 +74,32 @@ router.post(
     }
 );
 
+router.post(
+    "/:id/submit-deadline-lead",
+    requireRole("sales") as any,
+    async (req, res: Response, next: NextFunction) => {
+        try {
+            const { user } = req as unknown as AuthenticatedRequest;
+            const action = String(req.body?.action || "").trim();
+            if (action !== "change_to_cold" && action !== "stay") {
+                res.status(400).json({
+                    error: "VALIDATION_ERROR",
+                    message: "Action Deadline Leads tidak valid",
+                });
+                return;
+            }
+
+            const updated = await dailyTaskService.submitDeadlineLeadTask({
+                taskId: req.params.id,
+                actorId: user.id,
+                actorName: user.name,
+                action,
+            });
+            res.json(updated);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
 export default router;

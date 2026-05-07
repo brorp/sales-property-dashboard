@@ -3,6 +3,8 @@ import { db } from "../db/index";
 import { appointment, cancelReason, client, lead, projectUnit, user } from "../db/schema";
 import { resolveAppointmentTag, toAppointmentDateTime } from "../utils/appointment";
 import type { QueryScope } from "../middleware/rbac";
+import { isCancelResultStatus } from "../utils/lead-workflow";
+import * as leadSourcesService from "./lead-sources.service";
 
 type LeadRow = {
     id: string;
@@ -66,7 +68,8 @@ const RESULT_STATUS_META = [
     { key: "on_process", label: "On Process" },
     { key: "full_book", label: "Full Book" },
     { key: "akad", label: "Akad" },
-    { key: "cancel", label: "Cancel" },
+    { key: "cancel_transaksi", label: "Cancel Transaksi" },
+    { key: "cancel_minat", label: "Cancel Minat" },
 ] as const;
 
 const TRANSACTION_STATUS_META = [
@@ -106,7 +109,8 @@ const DATABASE_STATUS_LAYER_META = {
         { key: "full_book", label: "Full Book" },
         { key: "on_process", label: "On Process" },
         { key: "reserve", label: "Reserve" },
-        { key: "cancel", label: "Cancel" },
+        { key: "cancel_transaksi", label: "Cancel Transaksi" },
+        { key: "cancel_minat", label: "Cancel Minat" },
         { key: "none", label: "Belum Masuk Transaksi" },
     ],
 } as const;
@@ -140,7 +144,8 @@ const LINE_CHART_L4_SERIES = [
     { key: "full_book", label: "Full Book" },
     { key: "reserve", label: "Reserve" },
     { key: "on_process", label: "Process" },
-    { key: "cancel", label: "Cancel" },
+    { key: "cancel_transaksi", label: "Cancel Transaksi" },
+    { key: "cancel_minat", label: "Cancel Minat" },
 ] as const;
 const DAILY_REPORT_TIMEZONE = "Asia/Jakarta";
 const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
@@ -194,12 +199,32 @@ function humanizeKey(value: string | null | undefined) {
 
 function resolveTransactionStatusKey(resultStatus: string | null | undefined) {
     const normalized = toLowerTrimmed(resultStatus);
+    if (isCancelResultStatus(normalized)) {
+        return "cancel";
+    }
+    if (
+        normalized === "akad" ||
+        normalized === "full_book" ||
+        normalized === "on_process" ||
+        normalized === "reserve"
+    ) {
+        return normalized;
+    }
+    return null;
+}
+
+function resolveDatabaseResultStatusKey(resultStatus: string | null | undefined) {
+    const normalized = toLowerTrimmed(resultStatus);
+    if (normalized === "cancel") {
+        return "cancel_transaksi";
+    }
     if (
         normalized === "akad" ||
         normalized === "full_book" ||
         normalized === "on_process" ||
         normalized === "reserve" ||
-        normalized === "cancel"
+        normalized === "cancel_transaksi" ||
+        normalized === "cancel_minat"
     ) {
         return normalized;
     }
@@ -656,7 +681,7 @@ function buildLineChartData(
                 );
             }
 
-            const l4Key = resolveTransactionStatusKey(item.resultStatus);
+            const l4Key = resolveDatabaseResultStatusKey(item.resultStatus);
             const l4Row = l4Bucket.rowMap.get(periodKey);
             if (l4Row && l4Key && Object.prototype.hasOwnProperty.call(l4Row.values, l4Key)) {
                 l4Row.values[l4Key] += 1;
@@ -757,25 +782,136 @@ async function buildDailySalesReport(
     };
 
     const todayRows = rows.filter((item) => isTodayReceived(item.receivedAt));
-    const onlineAssignedRows = todayRows.filter(
-        (item) => isSource(item.source, "Online") && Boolean(item.assignedTo)
+    const nonAgentAssignedRows = todayRows.filter(
+        (item) => !isSource(item.source, "Agent") && Boolean(item.assignedTo)
     );
-    const onlineBySalesMap = new Map<string, {
+
+    const salesConditions: any[] = [eq(user.role, "sales"), eq(user.isActive, true)];
+    if (role === "sales") {
+        salesConditions.push(eq(user.id, userId));
+    } else if (role === "supervisor") {
+        if (scope?.managedSalesIds?.length) {
+            salesConditions.push(inArray(user.id, scope.managedSalesIds));
+        } else {
+            salesConditions.push(eq(user.id, "__none__"));
+        }
+    } else if (role !== "root_admin" && scope?.clientId) {
+        salesConditions.push(eq(user.clientId, scope.clientId));
+    }
+
+    const activeSalesRows = await db
+        .select({
+            id: user.id,
+            name: user.name,
+            clientId: user.clientId,
+        })
+        .from(user)
+        .where(and(...salesConditions))
+        .orderBy(asc(user.name));
+
+    const sourceClientIds = scope?.clientId
+        ? [scope.clientId]
+        : Array.from(
+            new Set(
+                activeSalesRows
+                    .map((item) => item.clientId)
+                    .filter((value): value is string => Boolean(value))
+            )
+        );
+    const configuredSourceRows = (
+        await Promise.all(sourceClientIds.map((clientId) => leadSourcesService.listLeadSources(clientId)))
+    ).flat();
+    const defaultSourceMap = new Map<string, string>();
+
+    for (const sourceRow of configuredSourceRows) {
+        if (isSource(sourceRow.value, "Agent")) {
+            continue;
+        }
+        defaultSourceMap.set(toLowerTrimmed(sourceRow.value), sourceRow.value);
+    }
+
+    for (const item of nonAgentAssignedRows) {
+        const sourceValue = item.source || "Lainnya";
+        defaultSourceMap.set(toLowerTrimmed(sourceValue), sourceValue);
+    }
+
+    const defaultSourceRows = Array.from(defaultSourceMap.values())
+        .sort((a, b) => a.localeCompare(b));
+
+    const leadsBySourceMap = new Map<string, {
+        source: string;
+        total: number;
+        bySales: Map<string, { salesId: string; salesName: string; count: number }>;
+    }>();
+    const leadsBySalesMap = new Map<string, {
         salesId: string;
         salesName: string;
-        count: number;
+        total: number;
+        bySource: Map<string, { source: string; count: number }>;
     }>();
 
-    for (const item of onlineAssignedRows) {
-        const key = item.assignedTo || "unassigned";
-        const existing = onlineBySalesMap.get(key) || {
-            salesId: key,
-            salesName: item.assignedUserName || "Unassigned",
-            count: 0,
-        };
-        existing.count += 1;
-        onlineBySalesMap.set(key, existing);
+    for (const sales of activeSalesRows) {
+        leadsBySalesMap.set(sales.id, {
+            salesId: sales.id,
+            salesName: sales.name,
+            total: 0,
+            bySource: new Map(
+                defaultSourceRows.map((sourceValue) => [
+                    toLowerTrimmed(sourceValue),
+                    { source: sourceValue, count: 0 },
+                ])
+            ),
+        });
     }
+
+    for (const item of nonAgentAssignedRows) {
+        const src = item.source || "Lainnya";
+        const key = src.toLowerCase();
+
+        let sourceGrp = leadsBySourceMap.get(key);
+        if (!sourceGrp) {
+            sourceGrp = { source: src, total: 0, bySales: new Map() };
+            leadsBySourceMap.set(key, sourceGrp);
+        }
+
+        sourceGrp.total += 1;
+
+        const salesKey = item.assignedTo || "unassigned";
+        let salesObj = sourceGrp.bySales.get(salesKey);
+        if (!salesObj) {
+            salesObj = { salesId: salesKey, salesName: item.assignedUserName || "Unassigned", count: 0 };
+            sourceGrp.bySales.set(salesKey, salesObj);
+        }
+        salesObj.count += 1;
+
+        let salesGrp = leadsBySalesMap.get(salesKey);
+        if (!salesGrp) {
+            salesGrp = {
+                salesId: salesKey,
+                salesName: item.assignedUserName || "Unassigned",
+                total: 0,
+                bySource: new Map(),
+            };
+            leadsBySalesMap.set(salesKey, salesGrp);
+        }
+
+        salesGrp.total += 1;
+        const sourceObj = salesGrp.bySource.get(key) || { source: src, count: 0 };
+        sourceObj.count += 1;
+        salesGrp.bySource.set(key, sourceObj);
+    }
+
+    const leadsBySource = Array.from(leadsBySourceMap.values()).map(grp => ({
+        source: grp.source,
+        total: grp.total,
+        bySales: Array.from(grp.bySales.values()).sort((a, b) => b.count - a.count || a.salesName.localeCompare(b.salesName)),
+    })).sort((a, b) => b.total - a.total);
+    const leadsBySales = Array.from(leadsBySalesMap.values()).map(grp => ({
+        salesId: grp.salesId,
+        salesName: grp.salesName,
+        total: grp.total,
+        bySource: Array.from(grp.bySource.values()).sort((a, b) => b.count - a.count || a.source.localeCompare(b.source)),
+    })).sort((a, b) => b.total - a.total || a.salesName.localeCompare(b.salesName));
 
     const soldRows = rows.filter(
         (item) => item.resultStatus === "akad" && isCurrentMonthStatus(item)
@@ -794,15 +930,8 @@ async function buildDailySalesReport(
         generatedAt: now,
         walkIn: todayRows.filter((item) => isSource(item.source, "Walk In")).length,
         callIn: todayRows.filter((item) => isSource(item.source, "Call In")).length,
-        onlineLeads: {
-            total: onlineAssignedRows.length,
-            bySales: Array.from(onlineBySalesMap.values()).sort((a, b) => {
-                if (b.count !== a.count) {
-                    return b.count - a.count;
-                }
-                return a.salesName.localeCompare(b.salesName);
-            }),
-        },
+        leadsBySource,
+        leadsBySales,
         leadAgent: todayRows.filter((item) => isSource(item.source, "Agent")).length,
         totalSold: soldRows.length,
         totalReserved: reservedRows.length,
@@ -1093,7 +1222,7 @@ export async function getHomeAnalytics(
 
     const resultCounts = new Map<string, number>();
     for (const item of decoratedLeads) {
-        const key = item.resultStatus || "none";
+        const key = resolveDatabaseResultStatusKey(item.resultStatus) || "none";
         resultCounts.set(key, (resultCounts.get(key) || 0) + 1);
     }
 
@@ -1108,7 +1237,7 @@ export async function getHomeAnalytics(
     });
 
     const cancelledLeads = decoratedLeads.filter(
-        (item) => item.resultStatus === "cancel" && item.rejectedReason
+        (item) => isCancelResultStatus(item.resultStatus) && item.rejectedReason
     );
     const cancelReasonClientIds = Array.from(
         new Set(
@@ -1243,6 +1372,261 @@ export async function getHomeAnalytics(
         })
         .from(user)
         .where(userConditions);
+
+    const resolveSourceLabel = (value: string | null | undefined) => String(value || "").trim() || "Lainnya";
+    const createEmptyTeamStats = (teamId: string, teamName: string) => ({
+        teamId,
+        teamName,
+        ongoing: 0,
+        reserve: 0,
+        onProcess: 0,
+        fullBook: 0,
+        akad: 0,
+        cancel: 0,
+        hold: 0,
+        skip: 0,
+        prospek: 0,
+        survey: 0,
+        mauSurvey: 0,
+        hot: 0,
+        hotValidated: 0,
+        potensi: 0,
+        batal: 0,
+        cancelReasons: {} as Record<string, number>,
+        salesMap: new Map<string, any>(),
+    });
+    const createEmptySalesStats = (salesId: string, salesName: string) => ({
+        salesId,
+        salesName,
+        ongoing: 0,
+        reserve: 0,
+        onProcess: 0,
+        fullBook: 0,
+        akad: 0,
+        cancel: 0,
+        hold: 0,
+        skip: 0,
+        prospek: 0,
+        survey: 0,
+        mauSurvey: 0,
+        hot: 0,
+        hotValidated: 0,
+        potensi: 0,
+        batal: 0,
+        conversionRate: 0,
+    });
+    const createPrefilledTeamStats = () => {
+        const statsMap = new Map<string, any>();
+
+        for (const scopedUser of allScopedUsers) {
+            if (scopedUser.role === "supervisor" && !statsMap.has(scopedUser.id)) {
+                statsMap.set(scopedUser.id, createEmptyTeamStats(scopedUser.id, scopedUser.name));
+            }
+        }
+
+        for (const scopedUser of allScopedUsers) {
+            if (scopedUser.role !== "sales") {
+                continue;
+            }
+
+            const supervisorId = scopedUser.supervisorId || "unassigned_sup";
+            if (!statsMap.has(supervisorId)) {
+                statsMap.set(
+                    supervisorId,
+                    createEmptyTeamStats(
+                        supervisorId,
+                        supervisorNameMap.get(supervisorId) ||
+                            (supervisorId === "unassigned_sup" ? "Unassigned Supervisor" : "Unknown Supervisor")
+                    )
+                );
+            }
+
+            statsMap.get(supervisorId)!.salesMap.set(scopedUser.id, createEmptySalesStats(scopedUser.id, scopedUser.name));
+        }
+
+        return statsMap;
+    };
+    const incrementTeamStatsFromLead = (
+        statsMap: Map<string, any>,
+        item: LeadRow & { appointmentTag: string }
+    ) => {
+        const supervisorId = item.supervisorId || "unassigned_sup";
+        const supervisorName = supervisorNameMap.get(supervisorId) || "Unassigned Supervisor";
+        const salesId = item.assignedTo || "unassigned_sales";
+        const salesName = item.assignedUserName || "Unassigned Sales";
+
+        if (!statsMap.has(supervisorId)) {
+            statsMap.set(supervisorId, createEmptyTeamStats(supervisorId, supervisorName));
+        }
+
+        const stats = statsMap.get(supervisorId)!;
+        if (!stats.salesMap.has(salesId)) {
+            stats.salesMap.set(salesId, createEmptySalesStats(salesId, salesName));
+        }
+
+        const salesStats = stats.salesMap.get(salesId)!;
+        stats.prospek += 1;
+        salesStats.prospek += 1;
+
+        const isHold = item.flowStatus === "hold";
+        const isSkip = item.salesStatus === "skip";
+        const isSurvey = item.appointmentTag === "sudah_survey";
+        const isMauSurvey = item.appointmentTag === "mau_survey";
+        const isHot = item.salesStatus === "hot";
+        const isPotensi = item.salesStatus === "hot" || item.salesStatus === "warm";
+        const resultStatus = toLowerTrimmed(item.resultStatus);
+        const isReserve = resultStatus === "reserve";
+        const isOnProcess = resultStatus === "on_process";
+        const isFullBook = resultStatus === "full_book";
+        const isAkad = resultStatus === "akad";
+        const isCancel = isCancelResultStatus(resultStatus);
+
+        if (isAkad) {
+            stats.akad += 1;
+            salesStats.akad += 1;
+        } else if (isCancel) {
+            stats.cancel += 1;
+            salesStats.cancel += 1;
+            const reason = item.rejectedReason || "Lainnya";
+            stats.cancelReasons[reason] = (stats.cancelReasons[reason] || 0) + 1;
+        } else if (isHold) {
+            stats.hold += 1;
+            salesStats.hold += 1;
+        } else if (isSkip) {
+            stats.skip += 1;
+            salesStats.skip += 1;
+        } else {
+            stats.ongoing += 1;
+            salesStats.ongoing += 1;
+        }
+
+        if (isSurvey) {
+            stats.survey += 1;
+            salesStats.survey += 1;
+        }
+        if (isMauSurvey) {
+            stats.mauSurvey += 1;
+            salesStats.mauSurvey += 1;
+        }
+        if (isHot) {
+            stats.hot += 1;
+            salesStats.hot += 1;
+            if (item.validated) {
+                stats.hotValidated += 1;
+                salesStats.hotValidated += 1;
+            }
+        }
+        if (isPotensi) {
+            stats.potensi += 1;
+            salesStats.potensi += 1;
+        }
+        if (isReserve) {
+            stats.reserve += 1;
+            salesStats.reserve += 1;
+        }
+        if (isOnProcess) {
+            stats.onProcess += 1;
+            salesStats.onProcess += 1;
+        }
+        if (isFullBook) {
+            stats.fullBook += 1;
+            salesStats.fullBook += 1;
+        }
+
+        return {
+            isAkad,
+            isCancel,
+            isFullBook,
+            isHot,
+            isHotValidated: isHot && item.validated,
+            isMauSurvey,
+            isPotensi,
+            isSurvey,
+        };
+    };
+    const buildTeamList = (statsMap: Map<string, any>) => Array.from(statsMap.values()).map(t => {
+        const salesList = Array.from(t.salesMap.values() as any[]).map((s: any) => ({
+            ...s,
+            prospectRate: toPercent((s.hot || 0) + (s.mauSurvey || 0), s.prospek),
+            surveyRate: toPercent(s.survey, s.prospek),
+            closingRate: toPercent(s.fullBook, s.prospek),
+            conversionRate: toPercent(s.akad, s.survey || s.prospek)
+        })).sort((a, b) => {
+            if ((b.fullBook || 0) !== (a.fullBook || 0)) {
+                return (b.fullBook || 0) - (a.fullBook || 0);
+            }
+            return (b.prospek || 0) - (a.prospek || 0);
+        });
+
+        return {
+            teamId: t.teamId,
+            teamName: t.teamName,
+            ongoing: t.ongoing,
+            reserve: t.reserve,
+            onProcess: t.onProcess,
+            fullBook: t.fullBook,
+            akad: t.akad,
+            cancel: t.cancel,
+            hold: t.hold,
+            skip: t.skip,
+            prospek: t.prospek,
+            survey: t.survey,
+            mauSurvey: t.mauSurvey,
+            hot: t.hot,
+            hotValidated: t.hotValidated,
+            potensi: t.potensi,
+            cancelReasons: t.cancelReasons,
+            prospectRate: toPercent((t.hot || 0) + (t.mauSurvey || 0), t.prospek),
+            surveyRate: toPercent(t.survey, t.prospek),
+            closingRate: toPercent(t.fullBook, t.prospek),
+            conversionRate: toPercent(t.akad, t.survey || t.prospek),
+            sales: salesList
+        };
+    }).sort((a, b) => b.ongoing - a.ongoing);
+    const buildTeamPerformanceSnapshot = (items: Array<LeadRow & { appointmentTag: string }>) => {
+        const statsMap = createPrefilledTeamStats();
+        const totals = {
+            totalClosing: 0,
+            totalFullBook: 0,
+            totalPotensi: 0,
+            totalBatal: 0,
+            totalMauSurvey: 0,
+            totalHot: 0,
+            totalHotValidated: 0,
+        };
+
+        for (const item of items) {
+            const flags = incrementTeamStatsFromLead(statsMap, item);
+            if (flags.isAkad) totals.totalClosing += 1;
+            if (flags.isCancel) totals.totalBatal += 1;
+            if (flags.isFullBook) totals.totalFullBook += 1;
+            if (flags.isHot) totals.totalHot += 1;
+            if (flags.isHotValidated) totals.totalHotValidated += 1;
+            if (flags.isMauSurvey) totals.totalMauSurvey += 1;
+            if (flags.isPotensi) totals.totalPotensi += 1;
+        }
+
+        const sourceTotalLeads = items.length;
+        const sourceSurveyedLeads = items.filter((item) => item.appointmentTag === "sudah_survey").length;
+
+        return {
+            totalProspek: sourceTotalLeads,
+            totalLeads: sourceTotalLeads,
+            totalSurvey: sourceSurveyedLeads,
+            totalMauSurvey: totals.totalMauSurvey,
+            totalHot: totals.totalHot,
+            totalHotValidated: totals.totalHotValidated,
+            totalFullBook: totals.totalFullBook,
+            totalPotensi: totals.totalPotensi,
+            totalBatal: totals.totalBatal,
+            totalClosing: totals.totalFullBook,
+            prospectRate: toPercent(totals.totalHot + totals.totalMauSurvey, sourceTotalLeads),
+            surveyRate: toPercent(sourceSurveyedLeads, sourceTotalLeads),
+            closingRate: toPercent(totals.totalFullBook, sourceTotalLeads),
+            conversionRate: toPercent(totals.totalClosing, sourceSurveyedLeads || sourceTotalLeads),
+            teams: buildTeamList(statsMap),
+        };
+    };
 
     const teamStats = new Map<string, any>();
 
@@ -1421,7 +1805,7 @@ export async function getHomeAnalytics(
         const sStats = stats.salesMap.get(salesId)!;
 
         // Source Breakdown
-        const src = item.source || "Lainnya";
+        const src = resolveSourceLabel(item.source);
         sourceCounts.set(src, (sourceCounts.get(src) || 0) + 1);
 
         const transactionStatusKey = resolveTransactionStatusKey(item.resultStatus);
@@ -1452,7 +1836,7 @@ export async function getHomeAnalytics(
 
             const transactionSourceMap = transactionSourceBreakdownMaps.get(transactionStatusKey);
             const totalTransactionSourceMap = transactionSourceBreakdownMaps.get("all");
-            const sourceLabel = item.source || "Lainnya";
+            const sourceLabel = resolveSourceLabel(item.source);
 
             if (transactionSourceMap) {
                 transactionSourceMap.set(sourceLabel, (transactionSourceMap.get(sourceLabel) || 0) + 1);
@@ -1469,7 +1853,7 @@ export async function getHomeAnalytics(
             incrementStatusCount(scopeBucket, "l1", item.flowStatus, "open");
             incrementStatusCount(scopeBucket, "l2", item.salesStatus, "unfilled");
             incrementStatusCount(scopeBucket, "l3", item.appointmentTag, "none");
-            incrementStatusCount(scopeBucket, "l4", resolveTransactionStatusKey(item.resultStatus), "none");
+            incrementStatusCount(scopeBucket, "l4", resolveDatabaseResultStatusKey(item.resultStatus), "none");
         }
 
         stats.prospek += 1;
@@ -1488,7 +1872,7 @@ export async function getHomeAnalytics(
         const isOnProcess = rStatus === 'on_process';
         const isFullBook = rStatus === 'full_book';
         const isAkad = rStatus === 'akad';
-        const isCancel = rStatus === 'cancel';
+        const isCancel = isCancelResultStatus(rStatus);
 
         if (isAkad) {
             stats.akad += 1; sStats.akad += 1;
@@ -1533,45 +1917,51 @@ export async function getHomeAnalytics(
         }
     }
 
-    const teamList = Array.from(teamStats.values()).map(t => {
-        const salesList = Array.from(t.salesMap.values() as any[]).map((s: any) => ({
-            ...s,
-            prospectRate: toPercent((s.hot || 0) + (s.mauSurvey || 0), s.prospek),
-            surveyRate: toPercent(s.survey, s.prospek),
-            closingRate: toPercent(s.fullBook, s.prospek),
-            conversionRate: toPercent(s.akad, s.survey || s.prospek)
-        })).sort((a, b) => {
-            if ((b.fullBook || 0) !== (a.fullBook || 0)) {
-                return (b.fullBook || 0) - (a.fullBook || 0);
-            }
-            return (b.prospek || 0) - (a.prospek || 0);
-        });
+    const teamList = buildTeamList(teamStats);
 
+    const sourceClientIds = scope?.clientId
+        ? [scope.clientId]
+        : Array.from(
+            new Set(
+                decoratedLeads
+                    .map((item) => item.clientId)
+                    .filter((value): value is string => Boolean(value))
+            )
+        );
+    const configuredLeadSources = (
+        await Promise.all(sourceClientIds.map((clientId) => leadSourcesService.listLeadSources(clientId)))
+    ).flat();
+    const sourceOptionMap = new Map<string, string>();
+    const sourceCountByCompareKey = new Map<string, number>();
+
+    for (const [source, count] of sourceCounts.entries()) {
+        const compareKey = toLowerTrimmed(source);
+        sourceCountByCompareKey.set(compareKey, (sourceCountByCompareKey.get(compareKey) || 0) + count);
+    }
+
+    for (const item of configuredLeadSources) {
+        const sourceValue = resolveSourceLabel(item.value);
+        sourceOptionMap.set(toLowerTrimmed(sourceValue), sourceValue);
+    }
+
+    for (const source of sourceCounts.keys()) {
+        const sourceValue = resolveSourceLabel(source);
+        const compareKey = toLowerTrimmed(sourceValue);
+        if (!sourceOptionMap.has(compareKey)) {
+            sourceOptionMap.set(compareKey, sourceValue);
+        }
+    }
+
+    const sourceOptionValues = Array.from(sourceOptionMap.values())
+        .sort((a, b) => a.localeCompare(b));
+    const teamPerformanceSourceBreakdown = sourceOptionValues.map((source) => {
+        const count = sourceCountByCompareKey.get(toLowerTrimmed(source)) || 0;
         return {
-            teamId: t.teamId,
-            teamName: t.teamName,
-            ongoing: t.ongoing,
-            reserve: t.reserve,
-            onProcess: t.onProcess,
-            fullBook: t.fullBook,
-            akad: t.akad,
-            cancel: t.cancel,
-            hold: t.hold,
-            skip: t.skip,
-            prospek: t.prospek,
-            survey: t.survey,
-            mauSurvey: t.mauSurvey,
-            hot: t.hot,
-            hotValidated: t.hotValidated,
-            potensi: t.potensi,
-            cancelReasons: t.cancelReasons,
-            prospectRate: toPercent((t.hot || 0) + (t.mauSurvey || 0), t.prospek),
-            surveyRate: toPercent(t.survey, t.prospek),
-            closingRate: toPercent(t.fullBook, t.prospek),
-            conversionRate: toPercent(t.akad, t.survey || t.prospek),
-            sales: salesList
+            source,
+            count,
+            percentage: toPercent(count, totalLeads),
         };
-    }).sort((a, b) => b.ongoing - a.ongoing); 
+    });
 
     const sourceBreakdown = Array.from(sourceCounts.entries()).map(([source, count]) => ({
         source,
@@ -1625,8 +2015,19 @@ export async function getHomeAnalytics(
                     .sort((a, b) => b.count - a.count),
             ])
         ),
+        cancelReasonBreakdown: cancelReasonItems,
         unitOptions,
     };
+
+    const teamPerformanceSourceScopes = Object.fromEntries(
+        teamPerformanceSourceBreakdown.map((item) => {
+            const sourceKey = `source:${item.source}`;
+            const sourceLeads = decoratedLeads.filter((leadItem) => (
+                toLowerTrimmed(resolveSourceLabel(leadItem.source)) === toLowerTrimmed(item.source)
+            ));
+            return [sourceKey, buildTeamPerformanceSnapshot(sourceLeads)];
+        })
+    );
 
     const teamPerformance = {
         totalProspek: totalLeads,
@@ -1643,7 +2044,17 @@ export async function getHomeAnalytics(
         surveyRate: toPercent(surveyedLeads, totalLeads),
         closingRate: toPercent(totalFullBook, totalLeads),
         conversionRate: toPercent(totalClosing, surveyedLeads || totalLeads),
-        teams: teamList
+        teams: teamList,
+        sourceBreakdown: teamPerformanceSourceBreakdown,
+        sourceOptions: [
+            { key: "all", label: "Semua Source", count: totalLeads },
+            ...teamPerformanceSourceBreakdown.map((item) => ({
+                key: `source:${item.source}`,
+                label: item.source,
+                count: item.count,
+            })),
+        ],
+        sourceScopes: teamPerformanceSourceScopes,
     };
 
     const databaseControl = {

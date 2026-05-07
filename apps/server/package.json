@@ -24,6 +24,7 @@
         "db:push": "drizzle-kit push",
         "db:seed": "tsx src/db/seed.ts",
         "db:reset": "node --import tsx src/db/seed.ts --reset",
+        "db:reset-rewards": "tsx src/db/reset-queue-rewards.ts",
         "db:studio": "drizzle-kit studio",
         "db:generate": "drizzle-kit generate"
     },

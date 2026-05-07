@@ -19,7 +19,8 @@ const RESULT_STATUS_LABELS: Record<string, string> = {
     on_process: "On Process",
     full_book: "Full Book",
     akad: "Akad",
-    cancel: "Cancel",
+    cancel_transaksi: "Cancel Transaksi",
+    cancel_minat: "Cancel Minat",
 };
 
 const APPOINTMENT_STATUS_LABELS: Record<string, string> = {
@@ -38,7 +39,7 @@ export const LEAD_COLD_OPEN_DAYS = 14;
 export const CUSTOMER_PIPELINE_OVERDUE_DAYS = 14;
 export const DAILY_TASK_FOLLOWUP_MILESTONE_DAYS = [4, 8, 12] as const;
 export const DAILY_TASK_FOLLOWUP_STAGE_COUNT = DAILY_TASK_FOLLOWUP_MILESTONE_DAYS.length;
-export const DAILY_TASK_TYPE_SET = new Set(["new_lead", "follow_up"]);
+export const DAILY_TASK_TYPE_SET = new Set(["new_lead", "follow_up", "deadline_lead"]);
 export const DAILY_TASK_STATUS_SET = new Set(["pending", "done", "invalid", "overdue"]);
 export const DAILY_TASK_PENALTY_RULE_CODE = "daily_task_overdue";
 export const DAILY_TASK_PENALTY_STATUS_SET = new Set([
@@ -72,7 +73,19 @@ export function normalizeSalesStatus(value: string | null | undefined) {
 
 export function normalizeResultStatus(value: string | null | undefined) {
     const normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "cancel") {
+        return "cancel_transaksi";
+    }
     return RESULT_STATUS_SET.has(normalized) ? normalized : null;
+}
+
+export function isCancelResultStatus(value: string | null | undefined) {
+    const normalized = String(value || "").trim().toLowerCase();
+    return (
+        normalized === "cancel" ||
+        normalized === "cancel_transaksi" ||
+        normalized === "cancel_minat"
+    );
 }
 
 export function getFlowStatusLabel(value: string | null | undefined) {
@@ -84,7 +97,11 @@ export function getSalesStatusLabel(value: string | null | undefined) {
 }
 
 export function getResultStatusLabel(value: string | null | undefined) {
-    return RESULT_STATUS_LABELS[String(value || "").trim().toLowerCase()] || value || "-";
+    const normalized = String(value || "").trim().toLowerCase();
+    if (normalized === "cancel") {
+        return RESULT_STATUS_LABELS.cancel_transaksi;
+    }
+    return RESULT_STATUS_LABELS[normalized] || value || "-";
 }
 
 export function getAppointmentStatusLabel(value: string | null | undefined) {

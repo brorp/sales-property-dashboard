@@ -19,6 +19,7 @@ function formatCount(value) {
 export default function LineChartSection({ data, dateFilterControl = null }) {
     const [granularity, setGranularity] = useState(data?.defaultGranularity || 'month');
     const [dataset, setDataset] = useState(data?.defaultDataset || 'l4');
+    const [hiddenSeriesKeys, setHiddenSeriesKeys] = useState([]);
 
     useEffect(() => {
         if (!data) {
@@ -42,17 +43,34 @@ export default function LineChartSection({ data, dateFilterControl = null }) {
     const series = Array.isArray(chartPayload.series) ? chartPayload.series : [];
     const datasetLabel = data?.datasetOptions?.find((item) => item.key === dataset)?.label || 'Data';
     const granularityLabel = data?.granularityOptions?.find((item) => item.key === granularity)?.label || 'Bulan';
-    const visibleSeries = dataset === 'source'
+    const visibleSeries = useMemo(() => dataset === 'source'
         ? series.filter((item) => Number(item.total || 0) > 0)
-        : series;
+        : series, [dataset, series]);
+    const visibleSeriesKeys = useMemo(() => visibleSeries.map((item) => item.key), [visibleSeries]);
+    const activeSeriesKeys = useMemo(
+        () => visibleSeriesKeys.filter((key) => !hiddenSeriesKeys.includes(key)),
+        [hiddenSeriesKeys, visibleSeriesKeys]
+    );
+
+    useEffect(() => {
+        setHiddenSeriesKeys((prev) => {
+            const next = prev.filter((key) => visibleSeriesKeys.includes(key));
+            return next.length === prev.length ? prev : next;
+        });
+    }, [visibleSeriesKeys]);
 
     const chartGeometry = useMemo(() => {
         const width = 720;
         const height = 280;
-        const padding = { top: 16, right: 16, bottom: 38, left: 36 };
+        const denseXAxis = granularity === 'day' && periods.length >= 20;
+        const padding = { top: 16, right: 16, bottom: denseXAxis ? 62 : 38, left: 36 };
         const maxValue = Math.max(
             1,
-            ...periods.flatMap((period) => Object.values(period.values || {}).map((value) => Number(value || 0)))
+            ...periods.flatMap((period) => (
+                activeSeriesKeys.length > 0
+                    ? activeSeriesKeys.map((key) => Number(period.values?.[key] || 0))
+                    : Object.values(period.values || {}).map((value) => Number(value || 0))
+            ))
         );
         const chartWidth = width - padding.left - padding.right;
         const chartHeight = height - padding.top - padding.bottom;
@@ -66,11 +84,27 @@ export default function LineChartSection({ data, dateFilterControl = null }) {
             chartHeight,
             chartWidth,
             xStep,
+            denseXAxis,
+            xLabelEvery: periods.length > 60 ? 7 : periods.length > 31 ? 4 : periods.length > 20 ? 2 : 1,
         };
-    }, [periods]);
+    }, [activeSeriesKeys, granularity, periods]);
+
+    const seriesWithColor = useMemo(() => {
+        return visibleSeries.map((seriesItem, index) => {
+            return {
+                ...seriesItem,
+                color: LINE_COLORS[index % LINE_COLORS.length],
+            };
+        });
+    }, [visibleSeries]);
+
+    const activeSeries = useMemo(
+        () => seriesWithColor.filter((seriesItem) => !hiddenSeriesKeys.includes(seriesItem.key)),
+        [hiddenSeriesKeys, seriesWithColor]
+    );
 
     const seriesWithPoints = useMemo(() => {
-        return visibleSeries.map((seriesItem, index) => {
+        return activeSeries.map((seriesItem) => {
             const points = periods.map((period, periodIndex) => {
                 const rawValue = Number(period.values?.[seriesItem.key] || 0);
                 const x = chartGeometry.padding.left + (periods.length > 1 ? chartGeometry.xStep * periodIndex : chartGeometry.chartWidth / 2);
@@ -80,12 +114,11 @@ export default function LineChartSection({ data, dateFilterControl = null }) {
 
             return {
                 ...seriesItem,
-                color: LINE_COLORS[index % LINE_COLORS.length],
                 points,
                 path: buildPath(points),
             };
         });
-    }, [chartGeometry.chartHeight, chartGeometry.chartWidth, chartGeometry.maxValue, chartGeometry.padding.left, chartGeometry.padding.top, chartGeometry.xStep, visibleSeries, periods]);
+    }, [activeSeries, chartGeometry.chartHeight, chartGeometry.chartWidth, chartGeometry.maxValue, chartGeometry.padding.left, chartGeometry.padding.top, chartGeometry.xStep, periods]);
 
     const gridTicks = useMemo(() => {
         return Array.from({ length: 4 }, (_, index) => {
@@ -132,21 +165,40 @@ export default function LineChartSection({ data, dateFilterControl = null }) {
                     </div>
                 </div>
 
-                {seriesWithPoints.length === 0 || periods.length === 0 ? (
+                {seriesWithColor.length === 0 || periods.length === 0 ? (
                     <div className="line-chart-empty">Belum ada data untuk kombinasi filter ini.</div>
                 ) : (
                     <>
                         <div className="line-chart-legend">
-                            {seriesWithPoints.map((item) => (
-                                <div key={item.key} className="line-chart-legend-item">
+                            {seriesWithColor.map((item) => {
+                                const isHidden = hiddenSeriesKeys.includes(item.key);
+                                return (
+                                <button
+                                    key={item.key}
+                                    type="button"
+                                    className={`line-chart-legend-item${isHidden ? ' is-hidden' : ''}`}
+                                    onClick={() => {
+                                        setHiddenSeriesKeys((prev) => (
+                                            prev.includes(item.key)
+                                                ? prev.filter((key) => key !== item.key)
+                                                : [...prev, item.key]
+                                        ));
+                                    }}
+                                    aria-pressed={!isHidden}
+                                    title={`${isHidden ? 'Tampilkan' : 'Sembunyikan'} ${item.label}`}
+                                >
                                     <span className="line-chart-legend-dot" style={{ background: item.color }} />
                                     <span>{item.label}</span>
                                     <strong>{formatCount(item.total)}</strong>
-                                </div>
-                            ))}
+                                </button>
+                                );
+                            })}
                         </div>
 
-                        <div className="line-chart-card">
+                        {seriesWithPoints.length === 0 ? (
+                            <div className="line-chart-empty">Semua garis sedang disembunyikan. Klik legend warna untuk menampilkan lagi.</div>
+                        ) : (
+                            <div className="line-chart-card">
                             <svg
                                 className="line-chart-svg"
                                 viewBox={`0 0 ${chartGeometry.width} ${chartGeometry.height}`}
@@ -198,22 +250,31 @@ export default function LineChartSection({ data, dateFilterControl = null }) {
                                 ))}
 
                                 {periods.map((period, index) => {
+                                    const shouldShowLabel =
+                                        index === 0 ||
+                                        index === periods.length - 1 ||
+                                        index % chartGeometry.xLabelEvery === 0;
+                                    if (!shouldShowLabel) {
+                                        return null;
+                                    }
                                     const x = chartGeometry.padding.left + (periods.length > 1 ? chartGeometry.xStep * index : chartGeometry.chartWidth / 2);
                                     return (
                                         <text
                                             key={period.key}
                                             x={x}
-                                            y={chartGeometry.height - 10}
-                                            textAnchor="middle"
-                                            fontSize="11"
+                                            y={chartGeometry.height - (chartGeometry.denseXAxis ? 16 : 10)}
+                                            textAnchor={chartGeometry.denseXAxis ? 'end' : 'middle'}
+                                            fontSize={chartGeometry.denseXAxis ? '8' : '11'}
                                             fill="var(--text-muted)"
+                                            transform={chartGeometry.denseXAxis ? `rotate(-45 ${x} ${chartGeometry.height - 16})` : undefined}
                                         >
                                             {period.label}
                                         </text>
                                     );
                                 })}
                             </svg>
-                        </div>
+                            </div>
+                        )}
                     </>
                 )}
             </div>

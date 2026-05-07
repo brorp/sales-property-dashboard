@@ -207,7 +207,7 @@ export default function DatabaseControlCenterSection({
     data,
     dateFilterControl = null,
     allowScopeFiltering = true,
-    scopeLabel = 'Semua Supervisor & PIC Agent',
+    scopeLabel = 'Semua',
 }) {
     const [selectedLayer, setSelectedLayer] = useState('l1');
     const [selectedScope, setSelectedScope] = useState('all');
@@ -226,7 +226,7 @@ export default function DatabaseControlCenterSection({
     const filteredTotal = selectedScopeData?.totalData || 0;
     const effectiveScopeLabel = allowScopeFiltering
         ? effectiveScopeKey === 'all'
-            ? 'Semua Supervisor & PIC Agent'
+            ? 'Semua'
             : getScopeDisplayLabel(selectedScopeOption)
         : scopeLabel;
     const statusLayerItems = (selectedScopeData?.layers?.[selectedLayer] || []).map((item, index) => ({

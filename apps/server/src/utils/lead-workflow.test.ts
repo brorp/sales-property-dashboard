@@ -9,6 +9,7 @@ import {
     getPenaltyDurationHours,
     getPenaltySPLevel,
     getAllowedManualSalesStatuses,
+    isCancelResultStatus,
     normalizeFlowStatus,
     normalizeResultStatus,
     normalizeSalesStatus,
@@ -21,7 +22,13 @@ test("normalize helpers map known statuses and fall back safely", () => {
     assert.equal(normalizeSalesStatus("Warm"), "warm");
     assert.equal(normalizeSalesStatus("unknown"), null);
     assert.equal(normalizeResultStatus("FULL_BOOK"), "full_book");
+    assert.equal(normalizeResultStatus("cancel"), "cancel_transaksi");
+    assert.equal(normalizeResultStatus("cancel_minat"), "cancel_minat");
     assert.equal(normalizeResultStatus("invalid"), null);
+    assert.equal(isCancelResultStatus("cancel"), true);
+    assert.equal(isCancelResultStatus("cancel_transaksi"), true);
+    assert.equal(isCancelResultStatus("cancel_minat"), true);
+    assert.equal(isCancelResultStatus("akad"), false);
 });
 
 test("cold and no_response only open after lead age exceeds 14 days", () => {

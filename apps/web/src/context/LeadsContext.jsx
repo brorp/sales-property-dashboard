@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { apiRequest } from '../lib/api';
 import { useAuth } from './AuthContext';
+import { isCancelResultStatus } from '../constants/crm';
 
 const LeadsContext = createContext(null);
 const TEAM_ACCESS_ROLES = new Set(['admin', 'root_admin', 'client_admin', 'supervisor']);
@@ -52,6 +53,7 @@ function normalizeLead(input) {
         flowStatus: input.flowStatus || 'open',
         agentOfficeName: input.agentOfficeName || null,
         salesStatus: input.salesStatus || null,
+        manualNote: input.manualNote || null,
         validated: Boolean(input.validated),
         domicileCity: input.domicileCity || null,
         interestUnitId: input.interestUnitId || null,
@@ -470,7 +472,7 @@ export function LeadsProvider({ children }) {
             assigned: leads.filter((item) => item.flowStatus === 'assigned').length,
             open: leads.filter((item) => item.flowStatus === 'open').length,
             menunggu: leads.filter((item) => item.resultStatus === 'reserve' || item.resultStatus === 'on_process').length,
-            batal: leads.filter((item) => item.resultStatus === 'cancel').length,
+            batal: leads.filter((item) => isCancelResultStatus(item.resultStatus)).length,
         };
     }, [leads]);
 

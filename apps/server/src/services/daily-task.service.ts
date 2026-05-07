@@ -20,6 +20,9 @@ import {
 } from "../utils/lead-workflow";
 
 type DbExecutor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+const DAY_MS = 24 * 60 * 60 * 1000;
+const JAKARTA_OFFSET_MS = 7 * 60 * 60 * 1000;
+const DEADLINE_LEAD_TARGET_AGE_DAYS = 14;
 
 type LeadTaskScope = {
     id: string;
@@ -42,6 +45,21 @@ function addHours(date: Date, hours: number) {
 
 function addDays(date: Date, days: number) {
     return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+function getJakartaDayIndex(value: Date) {
+    const shifted = new Date(value.getTime() + JAKARTA_OFFSET_MS);
+    return Math.floor(
+        Date.UTC(
+            shifted.getUTCFullYear(),
+            shifted.getUTCMonth(),
+            shifted.getUTCDate()
+        ) / DAY_MS
+    );
+}
+
+function getJakartaCalendarAgeDays(value: Date, now: Date) {
+    return getJakartaDayIndex(now) - getJakartaDayIndex(value);
 }
 
 function pickLatestAppointment<T extends { date: string; time: string }>(items: T[]) {
@@ -69,7 +87,13 @@ function getFollowUpLabel(stage: number) {
 }
 
 function getTaskTypeLabel(taskType: string, stage = 0) {
-    return taskType === "follow_up" ? getFollowUpLabel(stage) : "New Lead";
+    if (taskType === "follow_up") {
+        return getFollowUpLabel(stage);
+    }
+    if (taskType === "deadline_lead") {
+        return "Deadline Leads";
+    }
+    return "New Lead";
 }
 
 function isLeadStillEligibleForNewLeadTask(leadRow: LeadTaskScope, salesId: string) {
@@ -90,6 +114,32 @@ function isLeadEligibleForFollowUpTask(
         Boolean(leadRow.assignedTo) &&
         !leadRow.resultStatus &&
         appointmentTag === "none"
+    );
+}
+
+function isLeadBaseEligibleForDeadlineLeadTask(
+    leadRow: LeadTaskScope,
+    appointmentTag: AppointmentTag
+) {
+    const normalizedFlowStatus = normalizeFlowStatus(leadRow.flowStatus, leadRow.assignedTo);
+    const normalizedSalesStatus = normalizeSalesStatus(leadRow.salesStatus);
+    return (
+        normalizedFlowStatus === "accepted" &&
+        Boolean(leadRow.assignedTo) &&
+        !leadRow.resultStatus &&
+        appointmentTag === "none" &&
+        normalizedSalesStatus === "warm"
+    );
+}
+
+function isLeadEligibleForDeadlineLeadCreation(
+    leadRow: LeadTaskScope,
+    appointmentTag: AppointmentTag,
+    now: Date
+) {
+    return (
+        isLeadBaseEligibleForDeadlineLeadTask(leadRow, appointmentTag) &&
+        getJakartaCalendarAgeDays(leadRow.createdAt, now) === DEADLINE_LEAD_TARGET_AGE_DAYS
     );
 }
 
@@ -167,7 +217,7 @@ async function upsertDailyTask(params: {
     leadId: string;
     salesId: string;
     clientId?: string | null;
-    taskType: "new_lead" | "follow_up";
+    taskType: "new_lead" | "follow_up" | "deadline_lead";
     followupStage?: number;
     eligibleAt: Date;
     dueAt: Date;
@@ -425,6 +475,40 @@ export async function syncLeadDailyTasksForLead(
         .map((task) => task.id);
     await invalidateTaskIds(newLeadTaskIdsToInvalidate, executor, now);
 
+    const deadlineLeadCreationEligible = isLeadEligibleForDeadlineLeadCreation(
+        leadRow,
+        appointmentTag,
+        now
+    );
+    const deadlineLeadBaseEligible = isLeadBaseEligibleForDeadlineLeadTask(
+        leadRow,
+        appointmentTag
+    );
+
+    if (leadRow.assignedTo && deadlineLeadCreationEligible) {
+        const eligibleAt = addDays(leadRow.createdAt, 14);
+        await upsertDailyTask({
+            executor,
+            leadId,
+            salesId: leadRow.assignedTo,
+            clientId: leadRow.clientId || null,
+            taskType: "deadline_lead",
+            followupStage: 0,
+            eligibleAt,
+            dueAt: eligibleAt,
+            now,
+        });
+    } else if (!deadlineLeadBaseEligible) {
+        const deadlineLeadTaskIdsToInvalidate = taskRows
+            .filter(
+                (task) =>
+                    task.taskType === "deadline_lead" &&
+                    ["pending", "overdue"].includes(task.status)
+            )
+            .map((task) => task.id);
+        await invalidateTaskIds(deadlineLeadTaskIdsToInvalidate, executor, now);
+    }
+
     const activeFollowUpTasks = taskRows.filter((task) => task.taskType === "follow_up");
     const completedFollowUpCount = activeFollowUpTasks.filter(
         (task) => task.status === "done" && task.followupStage >= 1 && task.followupStage <= 3
@@ -627,6 +711,7 @@ export async function getDailyTasksForSales(
 
     const newLeads: Array<any> = [];
     const followUps: Array<any> = [];
+    const deadlineLeads: Array<any> = [];
 
     for (const row of rows) {
         const leadRow = leadMap.get(row.leadId);
@@ -645,16 +730,23 @@ export async function getDailyTasksForSales(
             continue;
         }
 
+        if (row.taskType === "deadline_lead") {
+            deadlineLeads.push(payload);
+            continue;
+        }
+
         followUps.push(payload);
     }
 
     return {
         newLeads,
         followUps,
+        deadlineLeads,
         counts: {
             newLeadCount: newLeads.length,
             followUpCount: followUps.length,
-            totalCount: newLeads.length + followUps.length,
+            deadlineLeadCount: deadlineLeads.length,
+            totalCount: newLeads.length + followUps.length + deadlineLeads.length,
         },
     };
 }
@@ -671,7 +763,7 @@ export async function getDailyTaskCounts(
 async function getTaskForSalesAction(
     taskId: string,
     salesId: string,
-    taskType: "new_lead" | "follow_up",
+    taskType: "new_lead" | "follow_up" | "deadline_lead",
     executor: DbExecutor = db
 ) {
     const [taskRow] = await executor
@@ -873,6 +965,96 @@ export async function submitFollowUpTask(params: {
     });
 }
 
+export async function submitDeadlineLeadTask(params: {
+    taskId: string;
+    actorId: string;
+    actorName: string;
+    action: "change_to_cold" | "stay";
+}) {
+    return db.transaction(async (tx) => {
+        const taskRow = await getTaskForSalesAction(
+            params.taskId,
+            params.actorId,
+            "deadline_lead",
+            tx
+        );
+        const [leadRow] = await tx
+            .select({
+                id: lead.id,
+                name: lead.name,
+                phone: lead.phone,
+                source: lead.source,
+                clientId: lead.clientId,
+                assignedTo: lead.assignedTo,
+                flowStatus: lead.flowStatus,
+                acceptedAt: lead.acceptedAt,
+                createdAt: lead.createdAt,
+                updatedAt: lead.updatedAt,
+                salesStatus: lead.salesStatus,
+                resultStatus: lead.resultStatus,
+            })
+            .from(lead)
+            .where(eq(lead.id, taskRow.leadId))
+            .limit(1);
+
+        if (!leadRow) {
+            throw new Error("LEAD_NOT_FOUND");
+        }
+
+        const now = new Date();
+        const appointmentTagMap = await getLatestAppointmentTagMap(tx, [leadRow.id]);
+        const appointmentTag = appointmentTagMap.get(leadRow.id) || "none";
+        if (!isLeadBaseEligibleForDeadlineLeadTask(leadRow, appointmentTag)) {
+            await invalidateTaskIds([taskRow.id], tx, now);
+            throw new Error("DAILY_TASK_NO_LONGER_ELIGIBLE");
+        }
+
+        const isChangeToCold = params.action === "change_to_cold";
+        if (isChangeToCold) {
+            await tx
+                .update(lead)
+                .set({
+                    salesStatus: "cold",
+                    clientStatus: "cold",
+                    layer2Status: "cold",
+                    updatedAt: now,
+                })
+                .where(eq(lead.id, leadRow.id));
+        }
+
+        await tx
+            .update(dailyTask)
+            .set({
+                completedAt: now,
+                status: "done",
+                submittedSalesStatus: isChangeToCold ? "cold" : leadRow.salesStatus || null,
+                note: isChangeToCold ? "deadline_change_to_cold" : "deadline_stay",
+                updatedAt: now,
+            })
+            .where(eq(dailyTask.id, taskRow.id));
+
+        await tx.insert(activity).values({
+            id: generateId(),
+            leadId: leadRow.id,
+            type: "daily_task",
+            note: isChangeToCold
+                ? `Deadline Leads diselesaikan oleh ${params.actorName}. Status L2 diubah ke ${getSalesStatusLabel("cold")}.`
+                : `Deadline Leads diselesaikan oleh ${params.actorName}. Lead dipertahankan tanpa perubahan status.`,
+            timestamp: now,
+        });
+
+        await syncLeadDailyTasksForLead(leadRow.id, tx, now);
+
+        const [updatedTask] = await tx
+            .select()
+            .from(dailyTask)
+            .where(eq(dailyTask.id, taskRow.id))
+            .limit(1);
+
+        return updatedTask || null;
+    });
+}
+
 export async function getLeadFollowUpProgressMap(
     leadIds: string[],
     executor: DbExecutor = db
@@ -1031,6 +1213,113 @@ export async function getSubmittedDailyTaskSnapshotForManagedSales(params: {
             completedAt: row.completedAt,
             dueAt: row.dueAt,
             createdAt: row.createdAt,
+        });
+        group.taskCount = group.tasks.length;
+        grouped.set(row.salesId, group);
+    }
+
+    return Array.from(grouped.values()).sort((a, b) => a.salesName.localeCompare(b.salesName));
+}
+
+export async function getDeadlineLeadTaskSnapshotForManagedSales(params: {
+    managedSalesIds: string[];
+    clientId?: string | null;
+    now?: Date;
+    executor?: DbExecutor;
+}) {
+    const executor = params.executor || db;
+    const now = params.now || new Date();
+
+    if (!params.managedSalesIds.length) {
+        return [];
+    }
+
+    await markOverdueDailyTasks(executor, now);
+    for (const salesId of params.managedSalesIds) {
+        await reconcileTaskVisibilityForSales(salesId, params.clientId || null, executor, now);
+    }
+
+    const rows = await executor
+        .select({
+            id: dailyTask.id,
+            leadId: dailyTask.leadId,
+            salesId: dailyTask.salesId,
+            taskType: dailyTask.taskType,
+            followupStage: dailyTask.followupStage,
+            eligibleAt: dailyTask.eligibleAt,
+            dueAt: dailyTask.dueAt,
+            status: dailyTask.status,
+            createdAt: dailyTask.createdAt,
+            updatedAt: dailyTask.updatedAt,
+            leadName: lead.name,
+            leadPhone: lead.phone,
+            leadSource: lead.source,
+            leadSalesStatus: lead.salesStatus,
+            leadResultStatus: lead.resultStatus,
+            leadCreatedAt: lead.createdAt,
+            leadUpdatedAt: lead.updatedAt,
+            salesName: user.name,
+        })
+        .from(dailyTask)
+        .innerJoin(lead, eq(dailyTask.leadId, lead.id))
+        .leftJoin(user, eq(dailyTask.salesId, user.id))
+        .where(
+            and(
+                inArray(dailyTask.salesId, params.managedSalesIds),
+                params.clientId ? eq(dailyTask.clientId, params.clientId) : undefined,
+                eq(dailyTask.taskType, "deadline_lead"),
+                inArray(dailyTask.status, ["pending", "overdue"])
+            )
+        )
+        .orderBy(asc(dailyTask.dueAt), asc(dailyTask.createdAt));
+
+    type DeadlineLeadTaskSnapshot = {
+        id: string;
+        leadId: string;
+        leadName: string;
+        leadPhone: string;
+        leadSource: string;
+        salesStatus: string | null;
+        resultStatus: string | null;
+        assignedAt: Date;
+        dueAt: Date;
+        status: string;
+        createdAt: Date;
+        updatedAt: Date;
+        label: string;
+    };
+
+    type DeadlineLeadTaskGroup = {
+        salesId: string;
+        salesName: string;
+        taskCount: number;
+        tasks: DeadlineLeadTaskSnapshot[];
+    };
+
+    const grouped = new Map<string, DeadlineLeadTaskGroup>();
+
+    for (const row of rows) {
+        const group = grouped.get(row.salesId) || {
+            salesId: row.salesId,
+            salesName: row.salesName || "Sales",
+            taskCount: 0,
+            tasks: [],
+        };
+
+        group.tasks.push({
+            id: row.id,
+            leadId: row.leadId,
+            leadName: row.leadName,
+            leadPhone: row.leadPhone,
+            leadSource: row.leadSource,
+            salesStatus: row.leadSalesStatus || null,
+            resultStatus: row.leadResultStatus || null,
+            assignedAt: row.eligibleAt,
+            dueAt: row.dueAt,
+            status: row.status,
+            createdAt: row.leadCreatedAt,
+            updatedAt: row.leadUpdatedAt,
+            label: getTaskTypeLabel(row.taskType, row.followupStage),
         });
         group.taskCount = group.tasks.length;
         grouped.set(row.salesId, group);

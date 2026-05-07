@@ -161,6 +161,7 @@ export const lead = pgTable(
         flowStatus: text("flow_status").notNull().default("open"),
         acceptedAt: timestamp("accepted_at"),
         salesStatus: text("sales_status"),
+        manualNote: text("manual_note"),
         domicileCity: text("domicile_city"),
         interestUnitId: text("interest_unit_id").references(() => projectUnit.id, {
             onDelete: "set null",

@@ -348,6 +348,9 @@ router.patch("/:id", async (req, res: Response, next: NextFunction) => {
         const { user, scope } = req as unknown as AuthenticatedRequest;
         const {
             name,
+            source,
+            agentOfficeName,
+            manualNote,
             domicileCity,
             salesStatus,
             interestUnitId,
@@ -372,7 +375,7 @@ router.patch("/:id", async (req, res: Response, next: NextFunction) => {
             return;
         }
 
-        if (currentLead.resultStatus === "akad" && (salesStatus || resultStatus || name || domicileCity || interestUnitId || unitName || paymentMethod || rejectedReason)) {
+        if (currentLead.resultStatus === "akad" && (salesStatus || resultStatus || name || source || agentOfficeName || domicileCity || interestUnitId || unitName || paymentMethod || rejectedReason)) {
             res.status(400).json({ error: "LOCKED_LEAD", message: "Lead yang sudah Akad telah dikunci secara permanen dan tidak dapat diubah datanya." });
             return;
         }
@@ -384,6 +387,9 @@ router.patch("/:id", async (req, res: Response, next: NextFunction) => {
             actorClientId: getWorkspaceClientId(req as unknown as AuthenticatedRequest),
             managedSalesIds: scope?.managedSalesIds || [],
             name,
+            source,
+            agentOfficeName,
+            manualNote,
             domicileCity,
             salesStatus,
             interestUnitId,

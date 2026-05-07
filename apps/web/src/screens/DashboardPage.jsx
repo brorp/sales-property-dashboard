@@ -52,6 +52,7 @@ const QUICK_RANGES = [
     { key: 'today', label: 'Hari Ini' },
     { key: 'last7', label: '7 Hari Terakhir' },
     { key: 'last30', label: '30 Hari Terakhir' },
+    { key: 'last90', label: '90 Hari Terakhir' },
     { key: 'thisMonth', label: 'Bulan Ini' },
 ];
 
@@ -300,6 +301,15 @@ function getPresetRange(key) {
         };
     }
 
+    if (key === 'last90') {
+        const start = new Date(today);
+        start.setDate(today.getDate() - 89);
+        return {
+            dateFrom: formatDateInput(start),
+            dateTo: end,
+        };
+    }
+
     const start = new Date(today.getFullYear(), today.getMonth(), 1);
     return {
         dateFrom: formatDateInput(start),
@@ -350,7 +360,7 @@ export default function DashboardPage() {
             ? 'Tim Anda'
             : user?.role === 'sales'
                 ? 'Data Anda'
-                : 'Semua Supervisor & PIC Agent';
+                : 'Semua';
 
     const analytics = useMemo(() => {
         return pageAnalytics ?? dashboardAnalytics ?? DEFAULT_ANALYTICS;
@@ -995,6 +1005,7 @@ export default function DashboardPage() {
             />
             <TeamPerformanceSection
                 data={analytics.teamPerformance}
+                sourceBreakdown={analytics.databaseControl?.sourceBreakdown || []}
                 dateFilterControl={renderDateFilterControl('team-performance', teamPerformanceFilterRef)}
                 allowTeamFiltering={canUseTeamFilters}
                 autoShowScopedDetails={!canUseTeamFilters}

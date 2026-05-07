@@ -25,8 +25,11 @@ export const RESULT_STATUSES = [
     { key: 'on_process', label: 'On process' },
     { key: 'full_book', label: 'Full Book' },
     { key: 'akad', label: 'Akad' },
-    { key: 'cancel', label: 'Cancel' },
+    { key: 'cancel_transaksi', label: 'Cancel Transaksi' },
+    { key: 'cancel_minat', label: 'Cancel Minat' },
 ];
+
+export const CANCEL_RESULT_STATUSES = ['cancel', 'cancel_transaksi', 'cancel_minat'];
 
 export const DAILY_TASK_FOLLOWUP_MILESTONE_DAYS = [4, 8, 12];
 
@@ -56,8 +59,15 @@ export function getSalesStatusLabel(key) {
 }
 
 export function getResultStatusLabel(key) {
+    if (key === 'cancel') {
+        return 'Cancel Transaksi';
+    }
     const found = RESULT_STATUSES.find((item) => item.key === key);
     return found ? found.label : key || '-';
+}
+
+export function isCancelResultStatus(key) {
+    return CANCEL_RESULT_STATUSES.includes(normalizeKey(key));
 }
 
 export function getFlowStatusLabel(key) {
@@ -121,7 +131,7 @@ export function getStatusBadgeClass(kind, value) {
         if (normalizedValue === 'reserve' || normalizedValue === 'on_process') {
             return 'badge-warm';
         }
-        if (normalizedValue === 'cancel') {
+        if (isCancelResultStatus(normalizedValue)) {
             return 'badge-danger';
         }
         return 'badge-neutral';

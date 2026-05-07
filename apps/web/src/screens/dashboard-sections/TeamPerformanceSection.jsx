@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Accordion from '../../components/Accordion';
 import './DashboardSections.css';
 
@@ -277,16 +277,63 @@ function TeamPerformancePanel({ title, metrics, showSalesList }) {
 
 export default function TeamPerformanceSection({
     data,
+    sourceBreakdown = [],
     dateFilterControl = null,
     allowTeamFiltering = true,
     autoShowScopedDetails = false,
-    scopeLabel = 'Semua Supervisor & PIC Agent',
+    scopeLabel = 'Semua',
 }) {
-    const teams = data?.teams || [];
     const [isCompare, setIsCompare] = useState(false);
+    const [selectedSourceFilter, setSelectedSourceFilter] = useState('all');
     const [selectedTeamFilter, setSelectedTeamFilter] = useState('all');
     const [selectedTeam1, setSelectedTeam1] = useState('');
     const [selectedTeam2, setSelectedTeam2] = useState('');
+    const sourceOptions = useMemo(() => {
+        const defaultOption = {
+            key: 'all',
+            label: 'Semua Source',
+            count: data?.totalLeads || data?.totalProspek || 0,
+        };
+        const fallbackSourceBreakdown = Array.isArray(sourceBreakdown) ? sourceBreakdown : [];
+        const payloadSourceBreakdown = Array.isArray(data?.sourceBreakdown) ? data.sourceBreakdown : [];
+        const sourceBreakdownItems = payloadSourceBreakdown.length > 0 ? payloadSourceBreakdown : fallbackSourceBreakdown;
+
+        if (Array.isArray(data?.sourceOptions) && data.sourceOptions.length > 1) {
+            const hasAllOption = data.sourceOptions.some((option) => option.key === 'all');
+            return hasAllOption ? data.sourceOptions : [defaultOption, ...data.sourceOptions];
+        }
+
+        if (sourceBreakdownItems.length > 0) {
+            return [
+                defaultOption,
+                ...sourceBreakdownItems.map((item) => ({
+                    key: `source:${item.source}`,
+                    label: item.source,
+                    count: item.count,
+                })),
+            ];
+        }
+
+        return [defaultOption];
+    }, [data, sourceBreakdown]);
+    const activeData = useMemo(() => {
+        if (!data || selectedSourceFilter === 'all') {
+            return data;
+        }
+
+        return data.sourceScopes?.[selectedSourceFilter] || data;
+    }, [data, selectedSourceFilter]);
+    const teams = activeData?.teams || [];
+
+    useEffect(() => {
+        if (selectedSourceFilter === 'all') {
+            return;
+        }
+
+        if (!sourceOptions.some((option) => option.key === selectedSourceFilter)) {
+            setSelectedSourceFilter('all');
+        }
+    }, [selectedSourceFilter, sourceOptions]);
 
     useEffect(() => {
         if (teams.length === 0) {
@@ -319,7 +366,7 @@ export default function TeamPerformanceSection({
             : null;
     const compareTeam1Data = teams.find((team) => team.teamId === selectedTeam1) || teams[0] || null;
     const compareTeam2Data = teams.find((team) => team.teamId === selectedTeam2) || teams[1] || teams[0] || null;
-    const summaryMetrics = buildScopeMetrics(!effectiveCompare ? selectedTeamData : null, data);
+    const summaryMetrics = buildScopeMetrics(!effectiveCompare ? selectedTeamData : null, activeData);
     const summary = `${formatCount(summaryMetrics.totalSurvey)} sudah survey • ${formatCount(summaryMetrics.totalHot)} hot • ${formatCount(summaryMetrics.totalFullBook)} full book`;
 
     const renderTeamPills = (value, onChange, compareKeyPrefix = 'single') => (
@@ -343,6 +390,20 @@ export default function TeamPerformanceSection({
                     style={getPillButtonStyle(value === team.teamId)}
                 >
                     {getTeamDisplayLabel(team)}
+                </button>
+            ))}
+        </div>
+    );
+    const renderSourcePills = () => (
+        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+            {sourceOptions.map((option) => (
+                <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setSelectedSourceFilter(option.key)}
+                    style={getPillButtonStyle(selectedSourceFilter === option.key)}
+                >
+                    {option.label} {option.count !== undefined ? `(${formatCount(option.count)})` : ''}
                 </button>
             ))}
         </div>
@@ -375,38 +436,45 @@ export default function TeamPerformanceSection({
                 {allowTeamFiltering && !effectiveCompare ? (
                     <>
                         {renderTeamPills(selectedTeamFilter, setSelectedTeamFilter)}
+                        {renderSourcePills()}
                         <TeamPerformancePanel
                             title={selectedTeamData ? getTeamDisplayLabel(selectedTeamData) : scopeLabel}
-                            metrics={buildScopeMetrics(selectedTeamData, data)}
+                            metrics={buildScopeMetrics(selectedTeamData, activeData)}
                             showSalesList={true}
                         />
                     </>
                 ) : !allowTeamFiltering ? (
-                    <TeamPerformancePanel
-                        title={scopeLabel}
-                        metrics={buildScopeMetrics(selectedTeamData, data)}
-                        showSalesList={autoShowScopedDetails && Boolean(selectedTeamData)}
-                    />
+                    <>
+                        {renderSourcePills()}
+                        <TeamPerformancePanel
+                            title={scopeLabel}
+                            metrics={buildScopeMetrics(selectedTeamData, activeData)}
+                            showSalesList={autoShowScopedDetails && Boolean(selectedTeamData)}
+                        />
+                    </>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {renderTeamPills(selectedTeam1, setSelectedTeam1, 'compare-1')}
-                            <TeamPerformancePanel
-                                title={getTeamDisplayLabel(compareTeam1Data) || 'Team 1'}
-                                metrics={buildScopeMetrics(compareTeam1Data, data)}
-                                showSalesList={Boolean(compareTeam1Data)}
-                            />
-                        </div>
+                    <>
+                        {renderSourcePills()}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {renderTeamPills(selectedTeam1, setSelectedTeam1, 'compare-1')}
+                                <TeamPerformancePanel
+                                    title={getTeamDisplayLabel(compareTeam1Data) || 'Team 1'}
+                                    metrics={buildScopeMetrics(compareTeam1Data, activeData)}
+                                    showSalesList={Boolean(compareTeam1Data)}
+                                />
+                            </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            {renderTeamPills(selectedTeam2, setSelectedTeam2, 'compare-2')}
-                            <TeamPerformancePanel
-                                title={getTeamDisplayLabel(compareTeam2Data) || 'Team 2'}
-                                metrics={buildScopeMetrics(compareTeam2Data, data)}
-                                showSalesList={Boolean(compareTeam2Data)}
-                            />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {renderTeamPills(selectedTeam2, setSelectedTeam2, 'compare-2')}
+                                <TeamPerformancePanel
+                                    title={getTeamDisplayLabel(compareTeam2Data) || 'Team 2'}
+                                    metrics={buildScopeMetrics(compareTeam2Data, activeData)}
+                                    showSalesList={Boolean(compareTeam2Data)}
+                                />
+                            </div>
                         </div>
-                    </div>
+                    </>
                 )}
             </div>
         </Accordion>
