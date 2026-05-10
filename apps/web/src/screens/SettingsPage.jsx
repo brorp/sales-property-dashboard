@@ -406,6 +406,10 @@ export default function SettingsPage() {
                         }
                         disabled={systemSettingsLoading || systemSettingsSaving}
                     />
+                    <p className="settings-help">
+                        Placeholder dinamis: <code>{'{{leadCode}}'}</code> untuk kode lead dan <code>{'{{leadName}}'}</code> untuk nama customer.
+                        Jika <code>{'{{leadCode}}'}</code> tidak ditulis, sistem otomatis menambahkan Kode Lead di atas pesan.
+                    </p>
                 </div>
 
                 <div className="input-group">
@@ -422,6 +426,9 @@ export default function SettingsPage() {
                         }
                         disabled={systemSettingsLoading || systemSettingsSaving}
                     />
+                    <p className="settings-help">
+                        Contoh: <code>{'Kode Lead: {{leadCode}}'}</code>. Kode ini tersimpan di database dan ikut dikirim agar pesan tidak repetitif.
+                    </p>
                 </div>
 
                 {systemSettingsError ? <p className="settings-error">{systemSettingsError}</p> : null}

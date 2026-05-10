@@ -105,10 +105,10 @@ function PieChartCard({ title, subtitle, total, items, emptyLabel = 'Belum ada d
             ) : (
                 <div
                     style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'minmax(180px, 220px) 1fr',
-                        gap: '20px',
-                        alignItems: 'center',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '18px',
+                        alignItems: 'stretch',
                     }}
                 >
                     <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -145,7 +145,7 @@ function PieChartCard({ title, subtitle, total, items, emptyLabel = 'Belum ada d
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'stretch', textAlign: 'left' }}>
                         {chartItems.map((item) => {
                             const percentage = total > 0 ? Math.round((item.count / total) * 10000) / 100 : 0;
                             return (

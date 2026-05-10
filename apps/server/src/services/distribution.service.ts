@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { and, asc, desc, eq, lte, ne } from "drizzle-orm";
 import { db } from "../db/index";
 import {
@@ -17,6 +16,7 @@ import { getActiveWhatsAppNumber } from "./whatsapp-identity.service";
 import { moveSalesToQueueEnd } from "./sales.service";
 import { getActiveSalesSuspensionMap } from "./sales-suspension.service";
 import { createNewLeadTaskForLead } from "./daily-task.service";
+import { ensureLeadCode } from "./lead-code.service";
 
 type DbExecutor = typeof db;
 
@@ -36,19 +36,12 @@ function toWaMeLink(phone: string | null | undefined) {
     return digits ? `https://wa.me/${digits}` : "-";
 }
 
-function buildLeadDistributionIdentifier(leadId: string) {
-    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    const digest = createHash("sha256").update(leadId).digest();
-    return Array.from({ length: 5 }, (_, index) => alphabet[digest[index] % alphabet.length]).join("");
-}
-
 function buildClaimOfferMessage(params: {
-    leadId: string;
+    leadCode: string;
     timeoutMinutes: number;
 }) {
-    const leadIdentifier = buildLeadDistributionIdentifier(params.leadId);
     return [
-        `[lid] ${leadIdentifier}`,
+        `[lid] ${params.leadCode}`,
         "Leads baru masuk.",
         `Balas "OK" dalam ${params.timeoutMinutes} menit untuk claim.`,
         "Detail lead akan dikirim setelah claim berhasil.",
@@ -232,7 +225,7 @@ async function assignNextQueue(
 
     const ackTimeoutMs = await getDistributionAckTimeoutMs(clientId);
     const ackTimeoutMinutes = Math.max(1, Math.round(ackTimeoutMs / 60_000));
-    const ackDeadline = new Date(now.getTime() + ackTimeoutMs);
+    const initialAckDeadline = new Date(now.getTime() + ackTimeoutMs);
 
     const [attempt] = await executor
         .insert(distributionAttempt)
@@ -244,7 +237,7 @@ async function assignNextQueue(
             queueOrder: next.queueOrder,
             status: "waiting_ok",
             assignedAt: now,
-            ackDeadline,
+            ackDeadline: initialAckDeadline,
         })
         .returning();
 
@@ -266,8 +259,9 @@ async function assignNextQueue(
         .where(eq(lead.id, leadId));
 
     const repeatOrderRemaining = Math.max(0, Number(next.repeatOrderRemaining || 0));
+    const leadCode = await ensureLeadCode(leadId, executor);
     const messageBody = buildClaimOfferMessage({
-        leadId,
+        leadCode,
         timeoutMinutes: ackTimeoutMinutes,
     });
 
@@ -315,6 +309,15 @@ async function assignNextQueue(
 
         return assignNextQueue(executor, cycleId, leadId, clientId);
     }
+
+    const sentAt = new Date();
+    const ackDeadline = new Date(sentAt.getTime() + ackTimeoutMs);
+    await executor
+        .update(distributionAttempt)
+        .set({
+            ackDeadline,
+        })
+        .where(eq(distributionAttempt.id, attempt.id));
 
     const queueRolled = repeatOrderRemaining > 0
         ? false

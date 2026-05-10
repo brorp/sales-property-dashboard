@@ -12,9 +12,9 @@ const DEFAULT_SETTINGS = {
     operationalEndMinute: 21 * 60,
     operationalTimezone: "Asia/Jakarta",
     outsideOfficeReply:
-        "Terima kasih sudah menghubungi kami. Jam operasional kami 09.00 - 21.00 WIB. Tim kami akan merespons saat jam operasional.",
+        "Kode Lead: {{leadCode}}\n\nTerima kasih sudah menghubungi kami. Jam operasional kami 09.00 - 21.00 WIB. Tim kami akan merespons saat jam operasional.",
     insideOfficeReply:
-        "Harap menunggu agent professional akan menghubungi anda",
+        "Kode Lead: {{leadCode}}\n\nHarap menunggu agent professional akan menghubungi anda",
 };
 
 function toTwoDigits(value: number) {

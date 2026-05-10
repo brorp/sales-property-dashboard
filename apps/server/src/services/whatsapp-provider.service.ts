@@ -1,18 +1,56 @@
+import { Queue, QueueEvents, Worker, type Job } from "bullmq";
+import IORedis from "ioredis";
 import { normalizePhone } from "../utils/phone";
 import { createComponentLogger } from "../utils/logger";
 import { sendWhatsAppQrMedia, sendWhatsAppQrText } from "./whatsapp-qr.service";
 
 const waProviderLogger = createComponentLogger("wa:provider");
+const waQueueLogger = createComponentLogger("wa:queue");
+
+type WaProvider = "dummy" | "cloud_api" | "qr_local";
 
 type SendResult = {
     sent: boolean;
-    provider: "dummy" | "cloud_api" | "qr_local";
+    provider: WaProvider;
     providerMessageId?: string;
     error?: string;
 };
 
+type TextJobData = {
+    kind: "text";
+    to: string;
+    body: string;
+    scopeKey: string;
+};
+
+type MediaJobData = {
+    kind: "media";
+    to: string;
+    body?: string;
+    mediaBase64: string;
+    mimeType: string;
+    fileName?: string;
+    scopeKey: string;
+};
+
+type OutboundJobData = TextJobData | MediaJobData;
+
 let outboundSendChain: Promise<void> = Promise.resolve();
 let lastOutboundSentAt = 0;
+let redisConnection: IORedis | null = null;
+let queueConnection: IORedis | null = null;
+let queueEventsConnection: IORedis | null = null;
+let outboundQueue: Queue<OutboundJobData, SendResult> | null = null;
+let outboundQueueEvents: QueueEvents | null = null;
+let outboundWorker: Worker<OutboundJobData, SendResult> | null = null;
+
+function currentProvider(): WaProvider {
+    const provider = (process.env.WA_PROVIDER || "dummy").toLowerCase();
+    if (provider === "qr_local" || provider === "cloud_api") {
+        return provider;
+    }
+    return "dummy";
+}
 
 function toWhatsAppRecipient(input: string) {
     const normalized = normalizePhone(input);
@@ -40,6 +78,117 @@ function parsePositiveIntEnv(raw: string | undefined, fallback: number) {
     return Math.floor(parsed);
 }
 
+function getRedisUrl() {
+    return process.env.REDIS_URL || process.env.WA_QUEUE_REDIS_URL || "";
+}
+
+function isQueueEnabled() {
+    const raw = String(process.env.WA_QUEUE_ENABLED || "").toLowerCase();
+    if (raw === "false" || raw === "0" || raw === "off") {
+        return false;
+    }
+    return Boolean(getRedisUrl()) || raw === "true" || raw === "1" || raw === "on";
+}
+
+function queueName() {
+    return (process.env.WA_QUEUE_NAME || `wa-outbound-${getOutboundScopeKey()}`).replace(/:/g, "_");
+}
+
+function getOutboundScopeKey() {
+    return (
+        process.env.WA_ACTIVE_CLIENT_SLUG ||
+        process.env.WA_CLOUD_PHONE_NUMBER_ID ||
+        process.env.WA_QR_AUTH_PATH ||
+        "default"
+    ).replace(/[^a-zA-Z0-9:_-]/g, "_");
+}
+
+function createRedisConnection(
+    label: string,
+    options: {
+        maxRetriesPerRequest: number | null;
+        enableOfflineQueue: boolean;
+    } = {
+        maxRetriesPerRequest: null,
+        enableOfflineQueue: true,
+    }
+) {
+    const redisUrl = getRedisUrl();
+    if (!redisUrl) {
+        throw new Error("REDIS_URL is required when WA queue is enabled");
+    }
+
+    const connection = new IORedis(redisUrl, {
+        maxRetriesPerRequest: options.maxRetriesPerRequest,
+        enableReadyCheck: false,
+        enableOfflineQueue: options.enableOfflineQueue,
+    });
+    connection.on("error", (error) => {
+        waQueueLogger.error("Redis connection error", { label, error });
+    });
+    return connection;
+}
+
+function getRedisConnection() {
+    if (!redisConnection) {
+        redisConnection = createRedisConnection("worker");
+    }
+    return redisConnection;
+}
+
+function getQueueConnection() {
+    if (!queueConnection) {
+        queueConnection = createRedisConnection("queue", {
+            maxRetriesPerRequest: 1,
+            enableOfflineQueue: false,
+        });
+    }
+    return queueConnection;
+}
+
+function getQueueEventsConnection() {
+    if (!queueEventsConnection) {
+        queueEventsConnection = createRedisConnection("events", {
+            maxRetriesPerRequest: 1,
+            enableOfflineQueue: false,
+        });
+    }
+    return queueEventsConnection;
+}
+
+function getOutboundQueue() {
+    if (!outboundQueue) {
+        outboundQueue = new Queue<OutboundJobData, SendResult>(queueName(), {
+            connection: getQueueConnection(),
+            defaultJobOptions: {
+                attempts: parsePositiveIntEnv(process.env.WA_QUEUE_ATTEMPTS, 1),
+                backoff: {
+                    type: "exponential",
+                    delay: parsePositiveIntEnv(process.env.WA_QUEUE_RETRY_DELAY_MS, 30_000),
+                },
+                removeOnComplete: {
+                    age: parsePositiveIntEnv(process.env.WA_QUEUE_REMOVE_COMPLETE_AGE_SEC, 86_400),
+                    count: parsePositiveIntEnv(process.env.WA_QUEUE_REMOVE_COMPLETE_COUNT, 1_000),
+                },
+                removeOnFail: {
+                    age: parsePositiveIntEnv(process.env.WA_QUEUE_REMOVE_FAIL_AGE_SEC, 604_800),
+                    count: parsePositiveIntEnv(process.env.WA_QUEUE_REMOVE_FAIL_COUNT, 5_000),
+                },
+            },
+        });
+    }
+    return outboundQueue;
+}
+
+function getOutboundQueueEvents() {
+    if (!outboundQueueEvents) {
+        outboundQueueEvents = new QueueEvents(queueName(), {
+            connection: getQueueEventsConnection(),
+        });
+    }
+    return outboundQueueEvents;
+}
+
 function getOutboundThrottleConfig(provider: string) {
     if (provider === "dummy") {
         return {
@@ -52,6 +201,53 @@ function getOutboundThrottleConfig(provider: string) {
         minDelayMs: parsePositiveIntEnv(process.env.WA_OUTBOUND_MIN_DELAY_MS, 8_000),
         jitterMs: parsePositiveIntEnv(process.env.WA_OUTBOUND_RANDOM_JITTER_MS, 4_000),
     };
+}
+
+function getQueueDelayConfig(provider: string) {
+    if (provider === "dummy") {
+        return {
+            minDelayMs: 0,
+            maxDelayMs: 0,
+        };
+    }
+
+    const minDelayMs = parsePositiveIntEnv(
+        process.env.WA_QUEUE_MIN_DELAY_MS || process.env.WA_OUTBOUND_MIN_DELAY_MS,
+        8_000
+    );
+    const maxDelayMs = parsePositiveIntEnv(
+        process.env.WA_QUEUE_MAX_DELAY_MS,
+        Math.max(minDelayMs, 25_000)
+    );
+
+    return {
+        minDelayMs,
+        maxDelayMs: Math.max(minDelayMs, maxDelayMs),
+    };
+}
+
+async function applyQueueDelay(provider: WaProvider, job: Job<OutboundJobData, SendResult>) {
+    const { minDelayMs, maxDelayMs } = getQueueDelayConfig(provider);
+    if (minDelayMs <= 0 && maxDelayMs <= 0) {
+        return;
+    }
+
+    const delayRange = Math.max(0, maxDelayMs - minDelayMs);
+    const waitMs = minDelayMs + (delayRange > 0 ? Math.floor(Math.random() * (delayRange + 1)) : 0);
+    if (waitMs <= 0) {
+        return;
+    }
+
+    waQueueLogger.info("Applying WhatsApp queue delay", {
+        jobId: job.id,
+        provider,
+        scopeKey: job.data.scopeKey,
+        kind: job.data.kind,
+        waitMs,
+        minDelayMs,
+        maxDelayMs,
+    });
+    await sleep(waitMs);
 }
 
 async function runWithOutboundThrottle<T>(
@@ -101,13 +297,13 @@ async function runWithOutboundThrottle<T>(
     }
 }
 
-export async function sendWhatsAppText(to: string, body: string): Promise<SendResult> {
-    const provider = (process.env.WA_PROVIDER || "dummy").toLowerCase();
-
+async function sendWhatsAppTextRaw(
+    to: string,
+    body: string,
+    provider = currentProvider()
+): Promise<SendResult> {
     if (provider === "qr_local") {
-        return runWithOutboundThrottle(provider, { to, kind: "text" }, () =>
-            sendWhatsAppQrText(to, body)
-        );
+        return sendWhatsAppQrText(to, body);
     }
 
     if (provider !== "cloud_api") {
@@ -134,28 +330,23 @@ export async function sendWhatsAppText(to: string, body: string): Promise<SendRe
     const url = `https://graph.facebook.com/${version}/${phoneNumberId}/messages`;
 
     try {
-        const response = await runWithOutboundThrottle(
-            provider,
-            { to, kind: "text" },
-            () =>
-                fetch(url, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
-                    },
-                    body: JSON.stringify({
-                        messaging_product: "whatsapp",
-                        recipient_type: "individual",
-                        to: recipient,
-                        type: "text",
-                        text: {
-                            preview_url: false,
-                            body,
-                        },
-                    }),
-                })
-        );
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                messaging_product: "whatsapp",
+                recipient_type: "individual",
+                to: recipient,
+                type: "text",
+                text: {
+                    preview_url: false,
+                    body,
+                },
+            }),
+        });
 
         const data = (await response.json()) as any;
         if (!response.ok) {
@@ -180,19 +371,15 @@ export async function sendWhatsAppText(to: string, body: string): Promise<SendRe
     }
 }
 
-export async function sendWhatsAppMedia(params: {
+async function sendWhatsAppMediaRaw(params: {
     to: string;
     body?: string;
     mediaBuffer: Buffer;
     mimeType: string;
     fileName?: string;
-}): Promise<SendResult> {
-    const provider = (process.env.WA_PROVIDER || "dummy").toLowerCase();
-
+}, provider = currentProvider()): Promise<SendResult> {
     if (provider === "qr_local") {
-        return runWithOutboundThrottle(provider, { to: params.to, kind: "media" }, () =>
-            sendWhatsAppQrMedia(params)
-        );
+        return sendWhatsAppQrMedia(params);
     }
 
     if (provider !== "cloud_api") {
@@ -210,4 +397,164 @@ export async function sendWhatsAppMedia(params: {
         provider: "cloud_api",
         error: "Cloud API media broadcast is not supported in this build",
     };
+}
+
+async function sendWhatsAppTextDirect(to: string, body: string): Promise<SendResult> {
+    const provider = currentProvider();
+    return runWithOutboundThrottle(provider, { to, kind: "text" }, () =>
+        sendWhatsAppTextRaw(to, body, provider)
+    );
+}
+
+async function sendWhatsAppMediaDirect(params: {
+    to: string;
+    body?: string;
+    mediaBuffer: Buffer;
+    mimeType: string;
+    fileName?: string;
+}): Promise<SendResult> {
+    const provider = currentProvider();
+    return runWithOutboundThrottle(provider, { to: params.to, kind: "media" }, () =>
+        sendWhatsAppMediaRaw(params, provider)
+    );
+}
+
+async function processOutboundJob(job: Job<OutboundJobData, SendResult>) {
+    const provider = currentProvider();
+    await applyQueueDelay(provider, job);
+
+    if (job.data.kind === "text") {
+        return sendWhatsAppTextRaw(job.data.to, job.data.body, provider);
+    }
+
+    return sendWhatsAppMediaRaw(
+        {
+            to: job.data.to,
+            body: job.data.body,
+            mediaBuffer: Buffer.from(job.data.mediaBase64, "base64"),
+            mimeType: job.data.mimeType,
+            fileName: job.data.fileName,
+        },
+        provider
+    );
+}
+
+export function startWhatsAppOutboundWorker() {
+    if (!isQueueEnabled()) {
+        waQueueLogger.info("WhatsApp outbound queue disabled; using direct send fallback");
+        return;
+    }
+
+    if (outboundWorker) {
+        return;
+    }
+
+    outboundWorker = new Worker<OutboundJobData, SendResult>(
+        queueName(),
+        processOutboundJob,
+        {
+            connection: getRedisConnection(),
+            concurrency: parsePositiveIntEnv(process.env.WA_QUEUE_CONCURRENCY, 1),
+        }
+    );
+
+    outboundWorker.on("completed", (job, result) => {
+        waQueueLogger.info("WhatsApp outbound job completed", {
+            jobId: job.id,
+            kind: job.data.kind,
+            scopeKey: job.data.scopeKey,
+            sent: result?.sent || false,
+            provider: result?.provider || currentProvider(),
+        });
+    });
+
+    outboundWorker.on("failed", (job, error) => {
+        waQueueLogger.error("WhatsApp outbound job failed", {
+            jobId: job?.id || null,
+            kind: job?.data?.kind || null,
+            scopeKey: job?.data?.scopeKey || null,
+            error,
+        });
+    });
+
+    waQueueLogger.info("WhatsApp outbound queue worker started", {
+        queueName: queueName(),
+        scopeKey: getOutboundScopeKey(),
+    });
+}
+
+async function enqueueOutboundJob(data: OutboundJobData): Promise<SendResult> {
+    startWhatsAppOutboundWorker();
+
+    const queue = getOutboundQueue();
+    const queueEvents = getOutboundQueueEvents();
+    const job = await queue.add(data.kind, data);
+    const waitTimeoutMs = parsePositiveIntEnv(process.env.WA_QUEUE_WAIT_TIMEOUT_MS, 180_000);
+
+    waQueueLogger.info("WhatsApp outbound job queued", {
+        jobId: job.id,
+        kind: data.kind,
+        to: data.to,
+        scopeKey: data.scopeKey,
+        waitTimeoutMs,
+    });
+
+    return job.waitUntilFinished(queueEvents, waitTimeoutMs) as Promise<SendResult>;
+}
+
+export async function sendWhatsAppText(to: string, body: string): Promise<SendResult> {
+    if (!isQueueEnabled()) {
+        return sendWhatsAppTextDirect(to, body);
+    }
+
+    try {
+        return await enqueueOutboundJob({
+            kind: "text",
+            to,
+            body,
+            scopeKey: getOutboundScopeKey(),
+        });
+    } catch (error) {
+        const provider = currentProvider();
+        const message = error instanceof Error ? error.message : "Unknown queue error";
+        waQueueLogger.error("WhatsApp text queue send failed", { error, to });
+        return {
+            sent: false,
+            provider,
+            error: message,
+        };
+    }
+}
+
+export async function sendWhatsAppMedia(params: {
+    to: string;
+    body?: string;
+    mediaBuffer: Buffer;
+    mimeType: string;
+    fileName?: string;
+}): Promise<SendResult> {
+    if (!isQueueEnabled()) {
+        return sendWhatsAppMediaDirect(params);
+    }
+
+    try {
+        return await enqueueOutboundJob({
+            kind: "media",
+            to: params.to,
+            body: params.body,
+            mediaBase64: params.mediaBuffer.toString("base64"),
+            mimeType: params.mimeType,
+            fileName: params.fileName,
+            scopeKey: getOutboundScopeKey(),
+        });
+    } catch (error) {
+        const provider = currentProvider();
+        const message = error instanceof Error ? error.message : "Unknown queue error";
+        waQueueLogger.error("WhatsApp media queue send failed", { error, to: params.to });
+        return {
+            sent: false,
+            provider,
+            error: message,
+        };
+    }
 }

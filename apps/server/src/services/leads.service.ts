@@ -19,6 +19,7 @@ import { syncLeadAppointmentsSalesOwner } from "./appointments.service";
 import * as cancelReasonsService from "./cancel-reasons.service";
 import * as dailyTaskService from "./daily-task.service";
 import * as leadSourcesService from "./lead-sources.service";
+import { buildLeadCode } from "./lead-code.service";
 import {
     getFlowStatusLabel,
     getResultStatusLabel,
@@ -498,6 +499,7 @@ export async function create(data: {
         .insert(lead)
         .values({
             id,
+            leadCode: buildLeadCode(`${resolvedClientId || "global"}:${id}`),
             name: data.name,
             phone: data.phone,
             source: normalizedSource,

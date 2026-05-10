@@ -44,6 +44,7 @@ import {
 } from "./seed-data";
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
+import { buildLeadCode } from "../services/lead-code.service";
 
 const shouldReset =
     process.argv.includes("--reset") ||
@@ -376,12 +377,20 @@ async function upsertSeedLead(seedLead: SeedLead, emailToId: Map<string, string>
         .limit(1);
 
     if (existing) {
-        await db.update(lead).set(payload).where(eq(lead.id, existing.id));
+        await db
+            .update(lead)
+            .set({
+                ...payload,
+                leadCode: buildLeadCode(`${payload.clientId || "global"}:${existing.id}`),
+            })
+            .where(eq(lead.id, existing.id));
         return;
     }
 
+    const id = generateId();
     await db.insert(lead).values({
-        id: generateId(),
+        id,
+        leadCode: buildLeadCode(`${payload.clientId || "global"}:${id}`),
         createdAt: receivedAt,
         ...payload,
     });

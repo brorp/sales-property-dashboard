@@ -147,6 +147,7 @@ export const lead = pgTable(
     "lead",
     {
         id: text("id").primaryKey(),
+        leadCode: text("lead_code"),
         name: text("name").notNull(),
         phone: text("phone").notNull(),
         source: text("source").notNull().default("Manual Input"),
@@ -187,6 +188,8 @@ export const lead = pgTable(
         assignedToIdx: index("lead_assigned_to_idx").on(table.assignedTo),
         flowStatusIdx: index("lead_flow_status_idx").on(table.flowStatus),
         clientIdx: index("lead_client_id_idx").on(table.clientId),
+        leadCodeIdx: index("lead_code_idx").on(table.leadCode),
+        leadCodeUnique: uniqueIndex("lead_code_unique").on(table.leadCode),
         metaLeadUnique: uniqueIndex("lead_meta_lead_id_unique").on(table.metaLeadId),
     })
 );
@@ -478,11 +481,11 @@ export const appSetting = pgTable(
         outsideOfficeReply: text("outside_office_reply")
             .notNull()
             .default(
-                "Terima kasih sudah menghubungi kami. Jam operasional kami 09.00 - 21.00 WIB. Tim kami akan merespons saat jam operasional."
+                "Kode Lead: {{leadCode}}\n\nTerima kasih sudah menghubungi kami. Jam operasional kami 09.00 - 21.00 WIB. Tim kami akan merespons saat jam operasional."
             ),
         insideOfficeReply: text("inside_office_reply")
             .notNull()
-            .default("Harap menunggu agent professional akan menghubungi anda"),
+            .default("Kode Lead: {{leadCode}}\n\nHarap menunggu agent professional akan menghubungi anda"),
         createdAt: timestamp("created_at").notNull().defaultNow(),
         updatedAt: timestamp("updated_at").notNull().defaultNow(),
     },

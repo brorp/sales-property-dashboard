@@ -8,6 +8,11 @@ import { getOperationalWindowState } from "./system-settings.service";
 import { getActiveWhatsAppNumber } from "./whatsapp-identity.service";
 import { sendWhatsAppText } from "./whatsapp-provider.service";
 import { createComponentLogger } from "../utils/logger";
+import {
+    buildLeadCode,
+    ensureLeadCode,
+    renderLeadMessageTemplate,
+} from "./lead-code.service";
 
 const waIngestLogger = createComponentLogger("wa:ingest");
 
@@ -309,10 +314,12 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
     const shouldHoldByOperationalHours = !operationalWindow.isOpen;
 
     if (!clientLead) {
+        const leadId = generateId();
         const [createdLead] = await db
             .insert(lead)
             .values({
-                id: generateId(),
+                id: leadId,
+                leadCode: buildLeadCode(`${payload.clientId || "global"}:${leadId}`),
                 name: payload.clientName || "Unknown Client",
                 phone: fromWa,
                 source: "Online",
@@ -334,6 +341,14 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
             .returning();
         clientLead = createdLead;
     } else {
+        if (!clientLead.leadCode) {
+            const leadCode = await ensureLeadCode(clientLead.id);
+            clientLead = {
+                ...clientLead,
+                leadCode,
+            };
+        }
+
         if (
             shouldHoldByOperationalHours &&
             !clientLead.assignedTo &&
@@ -367,6 +382,7 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
         .returning();
 
     if (clientLead.flowStatus === "hold") {
+        const fallbackOutsideReply = `Terima kasih sudah menghubungi kami. Jam operasional kami ${operationalWindow.operationalRangeLabel}. Tim kami akan merespons saat jam operasional.`;
         return {
             type: "client_message" as const,
             message,
@@ -374,9 +390,13 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
             cycle: null,
             firstClientMessage: !hadInboundBefore,
             heldByOperationalHours: true,
-            autoReplyText:
-                operationalWindow.outsideOfficeReply ||
-                `Terima kasih sudah menghubungi kami. Jam operasional kami ${operationalWindow.operationalRangeLabel}. Tim kami akan merespons saat jam operasional.`,
+            autoReplyText: renderLeadMessageTemplate(
+                operationalWindow.outsideOfficeReply || fallbackOutsideReply,
+                {
+                    leadCode: clientLead.leadCode,
+                    leadName: clientLead.name,
+                }
+            ),
         };
     }
 
@@ -389,8 +409,13 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
         cycle,
         firstClientMessage: !hadInboundBefore,
         heldByOperationalHours: false,
-        autoReplyText:
+        autoReplyText: renderLeadMessageTemplate(
             operationalWindow.insideOfficeReply ||
-            "Harap menunggu agent professional akan menghubungi anda",
+                "Harap menunggu agent professional akan menghubungi anda",
+            {
+                leadCode: clientLead.leadCode,
+                leadName: clientLead.name,
+            }
+        ),
     };
 }

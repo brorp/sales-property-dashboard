@@ -908,9 +908,8 @@ async function handleIncomingMessage(message: any) {
                 ? result.autoReplyText.trim()
                 : "Harap menunggu agent professional akan menghubungi anda";
 
-        const replyResult = inboundReplyJid
-            ? await sendWhatsAppQrTextByJid(inboundReplyJid, autoReplyText)
-            : await sendWhatsAppQrText(fromWa, autoReplyText);
+        const { sendWhatsAppText } = await import("./whatsapp-provider.service");
+        const replyResult = await sendWhatsAppText(fromWa, autoReplyText);
 
         if (!replyResult.sent) {
             logWaQrError("Auto-reply failed", {

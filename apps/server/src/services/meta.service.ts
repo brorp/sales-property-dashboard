@@ -4,6 +4,7 @@ import { activity, lead } from "../db/schema";
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
 import { getOperationalWindowState } from "./system-settings.service";
+import { buildLeadCode, ensureLeadCode } from "./lead-code.service";
 
 export interface MetaLeadPayload {
     metaLeadId?: string;
@@ -52,6 +53,10 @@ export async function ingestMetaLead(payload: MetaLeadPayload) {
         .limit(1);
 
     if (existingByPhone) {
+        if (!existingByPhone.leadCode) {
+            await ensureLeadCode(existingByPhone.id);
+        }
+
         const [updated] = await db
             .update(lead)
             .set({
@@ -69,10 +74,12 @@ export async function ingestMetaLead(payload: MetaLeadPayload) {
         return { lead: updated, created: false };
     }
 
+    const leadId = generateId();
     const [newLead] = await db
         .insert(lead)
         .values({
-            id: generateId(),
+            id: leadId,
+            leadCode: buildLeadCode(`${payload.clientId || "global"}:${leadId}`),
             name: payload.name,
             phone: normalizedPhone,
             source: payload.sourceAds || "Meta Ads CTA",
