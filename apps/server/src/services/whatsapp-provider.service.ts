@@ -139,7 +139,7 @@ function getRedisConnection() {
 function getQueueConnection() {
     if (!queueConnection) {
         queueConnection = createRedisConnection("queue", {
-            maxRetriesPerRequest: 1,
+            maxRetriesPerRequest: null,
             enableOfflineQueue: false,
         });
     }
@@ -149,7 +149,7 @@ function getQueueConnection() {
 function getQueueEventsConnection() {
     if (!queueEventsConnection) {
         queueEventsConnection = createRedisConnection("events", {
-            maxRetriesPerRequest: 1,
+            maxRetriesPerRequest: null,
             enableOfflineQueue: false,
         });
     }
