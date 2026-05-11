@@ -17,93 +17,73 @@ import WorkspaceSwitcher from './WorkspaceSwitcher';
 import { useWorkspace } from '../context/WorkspaceContext';
 
 function Icon({ name }) {
-    const common = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' };
-    if (name === 'analytics') {
-        return (
-            <svg {...common}>
-                <path d="M3 3v18h18" />
-                <path d="M18 17V9" />
-                <path d="M13 17V5" />
-                <path d="M8 17v-3" />
-            </svg>
-        );
-    }
-    if (name === 'leads') {
-        return (
-            <svg {...common}>
-                <rect x="4" y="4" width="16" height="16" rx="2" />
-                <path d="M8 9h8M8 13h8M8 17h5" />
-            </svg>
-        );
-    }
-    if (name === 'team') {
-        return (
-            <svg {...common}>
-                <path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-                <path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />
-                <path d="M2 20c0-2.8 2.2-5 5-5h2" />
-                <path d="M12 20c0-2.2 1.8-4 4-4h1c2.2 0 4 1.8 4 4" />
-            </svg>
-        );
-    }
-    if (name === 'appointment') {
-        return (
-            <svg {...common}>
-                <rect x="4" y="5" width="16" height="15" rx="2" />
-                <path d="M8 3v4M16 3v4M4 10h16" />
-                <path d="M9 14h2M13 14h2" />
-            </svg>
-        );
-    }
-    if (name === 'logs') {
-        return (
-            <svg {...common}>
-                <rect x="4" y="4" width="16" height="16" rx="2" />
-                <path d="M8 8h8M8 12h8M8 16h6" />
-            </svg>
-        );
-    }
-    if (name === 'tasks') {
-        return (
-            <svg {...common}>
-                <rect x="4" y="4" width="16" height="16" rx="2" />
-                <path d="M9 8h6" />
-                <path d="M8 12h8" />
-                <path d="M8 16h5" />
-                <path d="m6 12 1.2 1.2L9.6 10.8" />
-            </svg>
-        );
-    }
-    if (name === 'warning') {
-        return (
-            <svg {...common}>
-                <path d="M12 4 4 19h16L12 4Z" />
-                <path d="M12 10v4" />
-                <path d="M12 17h.01" />
-            </svg>
-        );
-    }
-    if (name === 'settings') {
-        return (
-            <svg {...common}>
-                <circle cx="12" cy="12" r="3.2" />
-                <path d="M12 2.8v2.4M12 18.8v2.4M4.4 4.4l1.7 1.7M17.9 17.9l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.4 19.6l1.7-1.7M17.9 6.1l1.7-1.7" />
-            </svg>
-        );
-    }
-    if (name === 'logout') {
-        return (
-            <svg {...common}>
-                <path d="M14 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3" />
-                <path d="M10 17l5-5-5-5" />
-                <path d="M15 12H4" />
-            </svg>
-        );
-    }
+    const c = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round', strokeLinejoin: 'round' };
+    if (name === 'analytics') return (
+        <svg {...c}>
+            <path d="M3 3v18h18"/>
+            <path d="M7 16l4-5 4 4 4-6"/>
+        </svg>
+    );
+    if (name === 'leads') return (
+        <svg {...c}>
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+    );
+    if (name === 'team') return (
+        <svg {...c}>
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+    );
+    if (name === 'appointment') return (
+        <svg {...c}>
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <path d="M16 2v4M8 2v4M3 10h18"/>
+            <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>
+        </svg>
+    );
+    if (name === 'logs') return (
+        <svg {...c}>
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <path d="M14 2v6h6"/>
+            <path d="M16 13H8M16 17H8M10 9H8"/>
+        </svg>
+    );
+    if (name === 'tasks') return (
+        <svg {...c}>
+            <path d="M9 11l3 3L22 4"/>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+        </svg>
+    );
+    if (name === 'warning') return (
+        <svg {...c}>
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+    );
+    if (name === 'settings') return (
+        <svg {...c}>
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+    );
+    if (name === 'logout') return (
+        <svg {...c}>
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+    );
     return (
-        <svg {...common}>
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+        <svg {...c}>
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
         </svg>
     );
 }
@@ -272,13 +252,13 @@ export default function BottomNav() {
     return (
         <nav className="bottom-nav">
             <div className="bottom-nav-brand">
-                <WorkspaceSwitcher variant="desktop" />
                 {logoUrl ? (
-                    <img src={logoUrl} alt={clientName} style={{ height: '160px', width: '100%', objectFit: 'contain', margin: '0 auto', display: 'block' }} />
+                    <img src={logoUrl} alt={clientName} style={{ height: '64px', width: '100%', objectFit: 'contain', objectPosition: 'left' }} />
                 ) : (
                     <div className="bottom-nav-brand-title">{brandTitle}</div>
                 )}
                 {brandSubtitle && !logoUrl ? <div className="bottom-nav-brand-subtitle">{brandSubtitle}</div> : null}
+                <WorkspaceSwitcher variant="desktop" />
             </div>
 
             <div className="bottom-nav-inner">

@@ -58,46 +58,131 @@ export default function LoginPage() {
 
     return (
         <div className="login-container">
-            <div className="login-glow1" />
-            <div className="login-glow2" />
-            <div className="login-card">
-                <div className="login-logo">
-                    <div className="login-site-badge">
-                        {tenant.isClientSite ? `Client Site: ${tenant.siteLabel}` : 'SALES MANAGEMENT PANEL'}
+            {/* Left Panel — Branding */}
+            <div className="login-left">
+                <div className="login-left-top">
+                    <div className="login-brand-badge">
+                        {tenant.isClientSite ? tenant.siteLabel : 'Property Lounge'}
                     </div>
-                    <div className="login-logo-mark">
-                        <img
-                            src="/logo-wr.png"
-                            alt="Widari Residence"
-                            className="login-logo-image"
-                            style={{ width: '100%', maxHeight: '320px', objectFit: 'contain', margin: '0 auto', display: 'block' }}
-                        />
-                    </div>
-                    {/* <h1>{siteTitle}</h1> */}
-                    {/* <p>{siteSubtitle}</p> */}
+                    <img src="/logo-wr.png" alt="Property Lounge" className="login-left-logo" />
                 </div>
-                <form onSubmit={handleSubmit} className="login-form">
-                    <div className="input-group">
-                        <label>Email</label>
-                        <div className="input-icon-wrapper">
-                            <span className="input-icon">📧</span>
-                            <input type="email" className="input-field" placeholder="Masukkan email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+
+                <div className="login-left-middle">
+                    <div>
+                        <h1 className="login-left-tagline">
+                            Kelola leads properti<br />lebih <span>cerdas & cepat</span>
+                        </h1>
+                        <p className="login-left-desc">
+                            Dashboard terpusat untuk tim sales, supervisor, dan admin dalam satu platform.
+                        </p>
+                    </div>
+                </div>
+
+                <div className="login-left-bottom">
+                    <div className="login-left-stats">
+                        <div className="login-stat-item">
+                            <span className="login-stat-value">Auto</span>
+                            <span className="login-stat-label">Distribusi Lead</span>
+                        </div>
+                        <div className="login-stat-item">
+                            <span className="login-stat-value">Real-time</span>
+                            <span className="login-stat-label">Monitoring</span>
+                        </div>
+                        <div className="login-stat-item">
+                            <span className="login-stat-value">WA</span>
+                            <span className="login-stat-label">Terintegrasi</span>
                         </div>
                     </div>
-                    <div className="input-group">
-                        <label>Password</label>
-                        <div className="input-icon-wrapper">
-                            <span className="input-icon">🔒</span>
-                            <input type={showPass ? 'text' : 'password'} className="input-field" placeholder="Masukkan password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                            <button type="button" className="input-action" onClick={() => setShowPass(!showPass)}>{showPass ? '🙈' : '👁'}</button>
-                        </div>
-                    </div>
-                    {error && <div className="login-error">{error}</div>}
-                    <button type="submit" className="btn btn-primary btn-full login-submit" disabled={loading}>
-                        {loading ? '⏳ Memproses...' : 'Submit'}
-                    </button>
-                </form>
+                </div>
             </div>
+
+            {/* Right Panel — Form */}
+            <div className="login-right">
+                {/* Mobile: navy header strip */}
+                <div className="login-mobile-header">
+                    <img src="/logo-wr.png" alt="Property Lounge" className="login-mobile-logo" />
+                    <p className="login-mobile-tagline">
+                        Dashboard sales properti terpusat
+                    </p>
+                </div>
+
+                <div className="login-right-inner">
+                    <div className="login-mobile-form-area">
+                    <div className="login-site-badge">
+                        {tenant.isClientSite ? `Client Site: ${tenant.siteLabel}` : 'Sales Management Panel'}
+                    </div>
+
+                    <h2 className="login-body-title">Selamat datang</h2>
+                    <p className="login-body-subtitle">Masukkan kredensial Anda untuk melanjutkan</p>
+
+                    <form onSubmit={handleSubmit} className="login-form">
+                        <div className="input-group">
+                            <label>Email</label>
+                            <div className="input-icon-wrapper">
+                                <span className="input-icon">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="2" y="4" width="20" height="16" rx="2"/>
+                                        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                                    </svg>
+                                </span>
+                                <input
+                                    type="email"
+                                    className="input-field"
+                                    placeholder="nama@email.com"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="input-group">
+                            <label>Password</label>
+                            <div className="input-icon-wrapper">
+                                <span className="input-icon">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <rect x="3" y="11" width="18" height="11" rx="2"/>
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                                    </svg>
+                                </span>
+                                <input
+                                    type={showPass ? 'text' : 'password'}
+                                    className="input-field"
+                                    placeholder="Masukkan password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                />
+                                <button type="button" className="input-action" onClick={() => setShowPass(!showPass)}>
+                                    {showPass ? (
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                                            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                                            <line x1="1" y1="1" x2="23" y2="23"/>
+                                        </svg>
+                                    ) : (
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                            <circle cx="12" cy="12" r="3"/>
+                                        </svg>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+
+                        {error && <div className="login-error">{error}</div>}
+
+                        <button type="submit" className="login-submit" disabled={loading}>
+                            {loading ? 'Memproses...' : 'Masuk'}
+                        </button>
+                    </form>
+
+                    <div className="login-footer">
+                        &copy; {new Date().getFullYear()} Property Lounge. All rights reserved.
+                    </div>
+                    </div>{/* login-mobile-form-area */}
+                </div>{/* login-right-inner */}
+            </div>{/* login-right */}
         </div>
     );
 }
