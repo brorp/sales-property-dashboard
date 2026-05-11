@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
@@ -13,17 +13,14 @@ import {
     getFlowStatusLabel,
     getResultStatusLabel,
     getSalesStatusLabel,
-    getStatusBadgeClass,
-    getTimeAgo,
 } from '../constants/crm';
 import Header from '../components/Header';
-import CustomerPipelineProgress from '../components/CustomerPipelineProgress';
-import PickerTriggerField from '../components/PickerTriggerField';
+import LeadCardV2 from '../components/LeadCardV2';
+import FilterBottomSheet from '../components/FilterBottomSheet';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { apiRequest } from '../lib/api';
 import { readLeadTransferWorkbook } from '../lib/lead-transfer-workbook';
 
-const DAY_LABELS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
 const QUICK_RANGES = [
     { key: 'today', label: 'Hari Ini' },
     { key: 'last7', label: '7 Hari' },
@@ -34,10 +31,6 @@ const EMPTY_DATE_RANGE = {
     dateFrom: '',
     dateTo: '',
 };
-const SPECIAL_SALES_STATUS_FILTERS = [
-    { key: 'hot_validated', label: 'HOT | Validated' },
-];
-
 const IMPORT_REASON_LABELS = {
     missing_identifier: 'Row tidak punya leadId atau phone.',
     phone_ambiguous: 'Nomor telepon cocok ke lebih dari satu lead.',
@@ -46,14 +39,6 @@ const IMPORT_REASON_LABELS = {
     already_assigned_to_target: 'Lead sudah dimiliki sales target.',
     owner_changed_since_export: 'Owner lead berubah sejak file ini diexport.',
 };
-
-function startOfMonth(date) {
-    return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
-function addMonths(date, amount) {
-    return new Date(date.getFullYear(), date.getMonth() + amount, 1);
-}
 
 function parseDateInput(value) {
     if (!value) {
@@ -97,65 +82,6 @@ function normalizeDateRange(range) {
     };
 }
 
-function isSameDay(a, b) {
-    if (!a || !b) {
-        return false;
-    }
-
-    return (
-        a.getFullYear() === b.getFullYear() &&
-        a.getMonth() === b.getMonth() &&
-        a.getDate() === b.getDate()
-    );
-}
-
-function isDateBetween(date, start, end) {
-    if (!date || !start || !end) {
-        return false;
-    }
-
-    return date.getTime() > start.getTime() && date.getTime() < end.getTime();
-}
-
-function buildMonthDays(monthDate) {
-    const firstDayOfMonth = startOfMonth(monthDate);
-    const weekDayOffset = (firstDayOfMonth.getDay() + 6) % 7;
-    const gridStart = new Date(firstDayOfMonth);
-    gridStart.setDate(firstDayOfMonth.getDate() - weekDayOffset);
-
-    return Array.from({ length: 42 }, (_, index) => {
-        const next = new Date(gridStart);
-        next.setDate(gridStart.getDate() + index);
-        return next;
-    });
-}
-
-function formatMonthLabel(date) {
-    return new Intl.DateTimeFormat('id-ID', {
-        month: 'long',
-        year: 'numeric',
-    }).format(date);
-}
-
-function formatRangeButtonLabel(range) {
-    if (!range.dateFrom && !range.dateTo) {
-        return 'Filter Tanggal';
-    }
-
-    const formatter = new Intl.DateTimeFormat('id-ID', {
-        day: 'numeric',
-        month: 'short',
-    });
-
-    const start = parseDateInput(range.dateFrom);
-    const end = parseDateInput(range.dateTo || range.dateFrom);
-    if (!start || !end) {
-        return 'Filter Tanggal';
-    }
-
-    return `${formatter.format(start)} - ${formatter.format(end)}`;
-}
-
 function formatRangeSummary(range) {
     if (!range.dateFrom && !range.dateTo) {
         return '';
@@ -174,19 +100,6 @@ function formatRangeSummary(range) {
     }
 
     return `Lead masuk ${formatter.format(start)} - ${formatter.format(end)}`;
-}
-
-function formatDatePreview(value) {
-    const parsed = parseDateInput(value);
-    if (!parsed) {
-        return 'Pilih tanggal';
-    }
-
-    return new Intl.DateTimeFormat('id-ID', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-    }).format(parsed);
 }
 
 function getPresetRange(key) {
@@ -355,7 +268,6 @@ export default function LeadsPage() {
         refreshDashboardAnalytics,
     } = useLeads();
     const router = useRouter();
-    const filterRef = useRef(null);
     const [refreshing, setRefreshing] = useState(false);
     const [search, setSearch] = useState('');
     const [flowFilter, setFlowFilter] = useState('all');
@@ -368,10 +280,8 @@ export default function LeadsPage() {
     const [incompleteDataFilter, setIncompleteDataFilter] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showExportModal, setShowExportModal] = useState(false);
-    const [filterOpen, setFilterOpen] = useState(false);
     const [appliedDateRange, setAppliedDateRange] = useState(EMPTY_DATE_RANGE);
     const [draftDateRange, setDraftDateRange] = useState(EMPTY_DATE_RANGE);
-    const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
     const [newLead, setNewLead] = useState({ name: '', phone: '', source: '', agentOfficeName: '', assignedTo: '', createdAt: '' });
     const [agentOfficeOptions, setAgentOfficeOptions] = useState([]);
     const [addModalTab, setAddModalTab] = useState('manual');
@@ -385,6 +295,7 @@ export default function LeadsPage() {
     const [importCommitLoading, setImportCommitLoading] = useState(false);
     const [importError, setImportError] = useState('');
     const [importSuccess, setImportSuccess] = useState('');
+    const [filterSheetOpen, setFilterSheetOpen] = useState(false);
     const [exporting, setExporting] = useState(false);
     const [exportError, setExportError] = useState('');
     const [exportAccessCode, setExportAccessCode] = useState('');
@@ -405,8 +316,28 @@ export default function LeadsPage() {
     const getSalesNameById = (salesId) => salesUsers.find((item) => item.id === salesId)?.name || 'Unassigned';
     const canExportLeads = user?.role === 'root_admin' || user?.role === 'client_admin' || user?.role === 'admin';
     const hasActiveDateFilter = Boolean(appliedDateRange.dateFrom || appliedDateRange.dateTo);
-    const draftStartDate = parseDateInput(draftDateRange.dateFrom);
-    const draftEndDate = parseDateInput(draftDateRange.dateTo);
+    const activeFilterCount = [
+        flowFilter !== 'all',
+        salesStatusFilter !== 'all',
+        resultFilter !== 'all',
+        appointmentFilter !== 'all',
+        sourceFilter !== 'all',
+        salesFilter !== 'all',
+        incompleteDataFilter,
+        hasActiveDateFilter,
+    ].filter(Boolean).length;
+
+    const handleResetFilters = () => {
+        setFlowFilter('all');
+        setSalesStatusFilter('all');
+        setResultFilter('all');
+        setAppointmentFilter('all');
+        setSourceFilter('all');
+        setSalesFilter('all');
+        setIncompleteDataFilter(false);
+        setDraftDateRange({ ...EMPTY_DATE_RANGE });
+        setAppliedDateRange({ ...EMPTY_DATE_RANGE });
+    };
     const availableLeadSources = useMemo(() => {
         const values = new Set();
 
@@ -642,62 +573,24 @@ export default function LeadsPage() {
         }
     };
 
-    const openDateFilter = () => {
-        const nextDraft = normalizeDateRange(appliedDateRange);
-        setDraftDateRange(nextDraft);
-        setCalendarMonth(startOfMonth(parseDateInput(nextDraft.dateFrom) || new Date()));
-        setFilterOpen(true);
+    const openFilterSheet = () => {
+        setDraftDateRange(normalizeDateRange(appliedDateRange));
+        setFilterSheetOpen(true);
     };
 
-    const handleDateSelection = (date) => {
-        const pickedDate = formatDateInput(date);
-
-        setDraftDateRange((prev) => {
-            const start = parseDateInput(prev.dateFrom);
-            const end = parseDateInput(prev.dateTo);
-
-            if (!start || (start && end)) {
-                return {
-                    dateFrom: pickedDate,
-                    dateTo: '',
-                };
-            }
-
-            if (date.getTime() < start.getTime()) {
-                return {
-                    dateFrom: pickedDate,
-                    dateTo: prev.dateFrom,
-                };
-            }
-
-            return {
-                dateFrom: prev.dateFrom,
-                dateTo: pickedDate,
-            };
-        });
-    };
-
-    const handleQuickRange = (key) => {
-        const nextRange = getPresetRange(key);
-        setDraftDateRange(nextRange);
-        setCalendarMonth(startOfMonth(parseDateInput(nextRange.dateFrom) || new Date()));
-    };
-
-    const handleApplyDateFilter = () => {
+    const handleApplySheet = () => {
         const nextRange = normalizeDateRange({
             dateFrom: draftDateRange.dateFrom,
             dateTo: draftDateRange.dateTo || draftDateRange.dateFrom,
         });
-
         setAppliedDateRange(nextRange);
         setDraftDateRange(nextRange);
-        setFilterOpen(false);
+        setFilterSheetOpen(false);
     };
 
-    const handleClearDateFilter = () => {
-        setAppliedDateRange({ ...EMPTY_DATE_RANGE });
-        setDraftDateRange({ ...EMPTY_DATE_RANGE });
-        setFilterOpen(false);
+    const handleCloseFilterSheet = () => {
+        setDraftDateRange(normalizeDateRange(appliedDateRange));
+        setFilterSheetOpen(false);
     };
 
     const openExportModal = () => {
@@ -838,167 +731,16 @@ export default function LeadsPage() {
     };
 
     useEffect(() => {
-        if (!filterOpen) {
-            return undefined;
-        }
-
-        const handlePointerDown = (event) => {
-            if (filterRef.current && !filterRef.current.contains(event.target)) {
-                setFilterOpen(false);
-            }
-        };
-
-        document.addEventListener('mousedown', handlePointerDown);
-        return () => document.removeEventListener('mousedown', handlePointerDown);
-    }, [filterOpen]);
+        document.body.classList.add('lp2-body');
+        return () => document.body.classList.remove('lp2-body');
+    }, []);
 
     return (
-        <div className="page-container">
+        <div className="page-container lp2-page">
             <Header
                 title="Leads"
                 rightAction={(
                     <>
-                        <div className="dashboard-filter-shell" ref={filterRef}>
-                            <button
-                                type="button"
-                                className={`btn btn-sm ${hasActiveDateFilter ? 'btn-primary' : 'btn-secondary'} dashboard-filter-trigger`}
-                                onClick={() => {
-                                    if (filterOpen) {
-                                        setFilterOpen(false);
-                                        return;
-                                    }
-                                    openDateFilter();
-                                }}
-                            >
-                                {formatRangeButtonLabel(appliedDateRange)}
-                            </button>
-
-                            {filterOpen ? (
-                                <div className="dashboard-filter-popover">
-                                    <div className="dashboard-filter-popover-head">
-                                        <div>
-                                            <h3>Pilih Rentang Tanggal</h3>
-                                            <p>Filter semua data leads berdasarkan tanggal masuk.</p>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="dashboard-filter-close"
-                                            onClick={() => setFilterOpen(false)}
-                                            aria-label="Tutup filter"
-                                        >
-                                            ×
-                                        </button>
-                                    </div>
-
-                                    <div className="dashboard-filter-preview">
-                                        <div className="dashboard-filter-preview-card">
-                                            <span>Mulai</span>
-                                            <strong>{formatDatePreview(draftDateRange.dateFrom)}</strong>
-                                        </div>
-                                        <div className="dashboard-filter-preview-card">
-                                            <span>Sampai</span>
-                                            <strong>{formatDatePreview(draftDateRange.dateTo || draftDateRange.dateFrom)}</strong>
-                                        </div>
-                                    </div>
-
-                                    <div className="dashboard-filter-quick">
-                                        {QUICK_RANGES.map((preset) => (
-                                            <button
-                                                key={preset.key}
-                                                type="button"
-                                                className="dashboard-quick-pill"
-                                                onClick={() => handleQuickRange(preset.key)}
-                                            >
-                                                {preset.label}
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    <div className="dashboard-calendar-head">
-                                        <button
-                                            type="button"
-                                            className="dashboard-calendar-nav"
-                                            onClick={() => setCalendarMonth((prev) => addMonths(prev, -1))}
-                                            aria-label="Bulan sebelumnya"
-                                        >
-                                            ←
-                                        </button>
-                                        <div className="dashboard-calendar-head-label">Calendar Range</div>
-                                        <button
-                                            type="button"
-                                            className="dashboard-calendar-nav"
-                                            onClick={() => setCalendarMonth((prev) => addMonths(prev, 1))}
-                                            aria-label="Bulan berikutnya"
-                                        >
-                                            →
-                                        </button>
-                                    </div>
-
-                                    <div className="dashboard-calendar-grid">
-                                        {[0, 1].map((offset) => {
-                                            const monthDate = addMonths(calendarMonth, offset);
-                                            const days = buildMonthDays(monthDate);
-
-                                            return (
-                                                <div key={formatMonthLabel(monthDate)} className="dashboard-calendar-month">
-                                                    <div className="dashboard-calendar-month-title">{formatMonthLabel(monthDate)}</div>
-                                                    <div className="dashboard-calendar-weekdays">
-                                                        {DAY_LABELS.map((dayLabel) => (
-                                                            <span key={dayLabel}>{dayLabel}</span>
-                                                        ))}
-                                                    </div>
-                                                    <div className="dashboard-calendar-days">
-                                                        {days.map((day) => {
-                                                            const isOutsideMonth = day.getMonth() !== monthDate.getMonth();
-                                                            const isStart = isSameDay(day, draftStartDate);
-                                                            const isEnd = isSameDay(day, draftEndDate);
-                                                            const isInRange = isDateBetween(day, draftStartDate, draftEndDate);
-                                                            const isToday = isSameDay(day, new Date());
-
-                                                            return (
-                                                                <button
-                                                                    key={`${formatMonthLabel(monthDate)}-${formatDateInput(day)}`}
-                                                                    type="button"
-                                                                    className={[
-                                                                        'dashboard-calendar-day',
-                                                                        isOutsideMonth ? 'is-outside' : '',
-                                                                        isToday ? 'is-today' : '',
-                                                                        isInRange ? 'is-in-range' : '',
-                                                                        isStart ? 'is-start' : '',
-                                                                        isEnd ? 'is-end' : '',
-                                                                    ].filter(Boolean).join(' ')}
-                                                                    onClick={() => handleDateSelection(day)}
-                                                                >
-                                                                    {day.getDate()}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-
-                                    <div className="dashboard-filter-actions">
-                                        <button
-                                            type="button"
-                                            className="btn btn-sm btn-secondary"
-                                            onClick={handleClearDateFilter}
-                                        >
-                                            Reset
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn btn-sm btn-primary"
-                                            onClick={handleApplyDateFilter}
-                                            disabled={!draftDateRange.dateFrom}
-                                        >
-                                            Apply
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : null}
-                        </div>
                         <button className="btn btn-sm btn-secondary" onClick={() => void handleRefresh()} disabled={refreshing}>
                             {refreshing ? 'Loading...' : 'Refresh'}
                         </button>
@@ -1010,83 +752,48 @@ export default function LeadsPage() {
                     </>
                 )}
             />
-            <div className="dashboard-filter-summary" style={{ marginBottom: 12, display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <button
-                    type="button"
-                    className={`badge ${!incompleteDataFilter ? 'badge-purple' : 'badge-neutral'}`}
-                    style={{ cursor: 'pointer', border: 'none', padding: '4px 8px' }}
-                    onClick={() => setIncompleteDataFilter(false)}
-                >
-                    {hasActiveDateFilter ? 'Range Active' : 'All Data'}
-                </button>
-                <button
-                    type="button"
-                    className={`badge ${incompleteDataFilter ? 'badge-danger' : 'badge-neutral'}`}
-                    style={{ cursor: 'pointer', border: 'none', padding: '4px 8px' }}
-                    onClick={() => setIncompleteDataFilter(true)}
-                >
-                    Incomplete Data
-                </button>
-                <span style={{ marginLeft: '4px' }}>{formatRangeSummary(appliedDateRange)}</span>
-            </div>
-            <div className="input-icon-wrapper" style={{ marginBottom: 12 }}>
-                <span className="input-icon">🔍</span>
-                <input type="text" className="input-field" placeholder="Cari nama atau no. WA..." value={search} onChange={(e) => setSearch(e.target.value)} />
-            </div>
-
-            <div className="filter-pills" style={{ marginBottom: 8 }}>
-                <button className={`filter-pill ${flowFilter === 'all' ? 'active' : ''}`} onClick={() => setFlowFilter('all')}>Distribusi: Semua</button>
-                {FLOW_STATUSES.map((item) => (
-                    <button key={item.key} className={`filter-pill ${flowFilter === item.key ? 'active' : ''}`} onClick={() => setFlowFilter(item.key)}>{item.label}</button>
-                ))}
-            </div>
-
-            <div className="filter-pills" style={{ marginBottom: 8 }}>
-                <button className={`filter-pill ${salesStatusFilter === 'all' ? 'active' : ''}`} onClick={() => setSalesStatusFilter('all')}>Sales Status: All</button>
-                {SPECIAL_SALES_STATUS_FILTERS.map((item) => (
-                    <button key={item.key} className={`filter-pill ${salesStatusFilter === item.key ? 'active' : ''}`} onClick={() => setSalesStatusFilter(item.key)}>{item.label}</button>
-                ))}
-                {SALES_STATUSES.map((item) => (
-                    <button key={item.key} className={`filter-pill ${salesStatusFilter === item.key ? 'active' : ''}`} onClick={() => setSalesStatusFilter(item.key)}>{item.label}</button>
-                ))}
-            </div>
-
-            <div className="filter-pills" style={{ marginBottom: 8 }}>
-                <button className={`filter-pill ${appointmentFilter === 'all' ? 'active' : ''}`} onClick={() => setAppointmentFilter('all')}>Appointment: All</button>
-                {APPOINTMENT_TAGS.map((item) => (
-                    <button key={item.key} className={`filter-pill ${appointmentFilter === item.key ? 'active' : ''}`} onClick={() => setAppointmentFilter(item.key)}>{item.label}</button>
-                ))}
-            </div>
-
-            <div className="filter-pills" style={{ marginBottom: 12 }}>
-                <button className={`filter-pill ${resultFilter === 'all' ? 'active' : ''}`} onClick={() => setResultFilter('all')}>Result: All</button>
-                {RESULT_STATUSES.map((item) => (
-                    <button key={item.key} className={`filter-pill ${resultFilter === item.key ? 'active' : ''}`} onClick={() => setResultFilter(item.key)}>{item.label}</button>
-                ))}
-            </div>
-
-            <div className="input-group" style={{ marginBottom: 16 }}>
-                <label>Filter Source</label>
-                <select className="input-field" value={sourceFilter} onChange={(event) => setSourceFilter(event.target.value)}>
-                    <option value="all">Semua Source</option>
-                    {availableLeadSources.map((value) => (
-                        <option key={value} value={value}>{value}</option>
-                    ))}
-                </select>
-            </div>
-
-            {isAdmin && (
-                <div className="filter-pills" style={{ marginBottom: 16 }}>
-                    <button className={`filter-pill ${salesFilter === 'all' ? 'active' : ''}`} onClick={() => setSalesFilter('all')}>Semua Sales</button>
-                    {salesUsers.map((sales) => (
-                        <button key={sales.id} className={`filter-pill ${salesFilter === sales.id ? 'active' : ''}`} onClick={() => setSalesFilter(sales.id)}>{sales.name.split(' ')[0]}</button>
-                    ))}
+            {/* Search + Filter row */}
+            <div className="lp2-search-row">
+                <div className="lp2-search">
+                    <span className="lp2-search-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                        </svg>
+                    </span>
+                    <input
+                        type="text"
+                        className="lp2-search-input"
+                        placeholder="Cari nama atau no. WA..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
                 </div>
-            )}
+                <button
+                    type="button"
+                    className={`lp2-filter-toggle${activeFilterCount > 0 ? ' has-active' : ''}`}
+                    onClick={openFilterSheet}
+                >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 3H2l8 9.46V19l4 2V12.46L22 3z"/>
+                    </svg>
+                    Filter
+                    {activeFilterCount > 0 ? <span className="lp2-filter-badge">{activeFilterCount}</span> : null}
+                </button>
+            </div>
 
-            <p className="leads-result-count">{filteredLeads.length} leads ditemukan</p>
+            {hasActiveDateFilter ? (
+                <p className="lp2-date-summary">{formatRangeSummary(appliedDateRange)}</p>
+            ) : null}
 
-            <div className="leads-list">
+
+            {/* Count */}
+            <div className="lp2-count-bar">
+                <span className="lp2-count">{filteredLeads.length} leads ditemukan</span>
+            </div>
+
+            {/* Lead list */}
+            <div className="lp2-list">
                 {filteredLeads.length === 0 ? (
                     <div className="empty-state">
                         <div className="empty-icon">📋</div>
@@ -1094,50 +801,40 @@ export default function LeadsPage() {
                         <div className="empty-desc">Coba ubah filter pencarian</div>
                     </div>
                 ) : filteredLeads.map((lead) => (
-                    <div key={lead.id} className="card card-clickable leads-card" onClick={() => router.push(`/leads/${lead.id}`)}>
-                        <div className="leads-card-header">
-                            <div className="leads-card-info" style={{ flexWrap: 'wrap' }}>
-                                <span className={`badge ${getStatusBadgeClass('flow', lead.flowStatus)}`}>{getFlowStatusLabel(lead.flowStatus)}</span>
-                                {isHotValidatedLead(lead) ? (
-                                    <>
-                                        <span className="badge badge-hot">HOT</span>
-                                        <span className="badge badge-success">✓ Validated</span>
-                                    </>
-                                ) : lead.salesStatus ? (
-                                    <span className={`badge ${getStatusBadgeClass('sales', lead.salesStatus)}`}>{getSalesStatusLabel(lead.salesStatus)}</span>
-                                ) : null}
-                                {lead.resultStatus ? <span className={`badge ${getStatusBadgeClass('result', lead.resultStatus)}`}>{getResultStatusLabel(lead.resultStatus)}</span> : null}
-                                {lead.appointmentTag && lead.appointmentTag !== 'none' ? <span className={`badge ${getStatusBadgeClass('appointment', lead.appointmentTag)}`}>{getAppointmentTagLabel(lead.appointmentTag)}</span> : null}
-                                <span className="leads-card-name">{lead.name}</span>
-                            </div>
-                            <span className="leads-card-time">{getTimeAgo(lead.createdAt)}</span>
-                        </div>
-                        <div className="leads-card-details">
-                            <span>📱 {lead.phone}</span>
-                            <span>📣 {lead.source}</span>
-                            {lead.agentOfficeName ? <span>🏬 {lead.agentOfficeName}</span> : null}
-                            {lead.domicileCity ? <span>🏙️ {lead.domicileCity}</span> : null}
-                        </div>
-                        {lead.customerPipelineTotalSteps > 0 ? (
-                            <div className="leads-card-pipeline">
-                                <span className="leads-card-pipeline-label">Customer Pipeline</span>
-                                <CustomerPipelineProgress
-                                    completed={lead.customerPipelineCompletedCount}
-                                    total={lead.customerPipelineTotalSteps}
-                                    compact
-                                />
-                            </div>
-                        ) : null}
-                        <div className="leads-card-note">
-                            <span className="leads-card-note-label">Catatan</span>
-                            <span className="leads-card-note-text">{lead.manualNote || '-'}</span>
-                        </div>
-                        {isAdmin ? <div className="leads-card-sales">Sales: {getSalesNameById(lead.assignedTo)}</div> : null}
-                    </div>
+                    <LeadCardV2
+                        key={lead.id}
+                        lead={lead}
+                        onClick={() => router.push(`/leads/${lead.id}`)}
+                        salesName={getSalesNameById(lead.assignedTo)}
+                        showSales={isAdmin}
+                    />
                 ))}
             </div>
 
-            <button className="fab" onClick={() => openAddLeadModal('manual')}>＋</button>
+            <button type="button" className="lp2-fab" onClick={() => openAddLeadModal('manual')}>＋</button>
+
+            <FilterBottomSheet
+                open={filterSheetOpen}
+                onClose={handleCloseFilterSheet}
+                onApply={handleApplySheet}
+                dateFrom={draftDateRange.dateFrom}
+                dateTo={draftDateRange.dateTo}
+                onDateFromChange={(v) => setDraftDateRange((prev) => ({ ...prev, dateFrom: v }))}
+                onDateToChange={(v) => setDraftDateRange((prev) => ({ ...prev, dateTo: v }))}
+                quickRanges={QUICK_RANGES}
+                onQuickRange={(key) => setDraftDateRange(getPresetRange(key))}
+                onClearDate={() => setDraftDateRange({ ...EMPTY_DATE_RANGE })}
+                flowFilter={flowFilter} setFlowFilter={setFlowFilter}
+                salesStatusFilter={salesStatusFilter} setSalesStatusFilter={setSalesStatusFilter}
+                appointmentFilter={appointmentFilter} setAppointmentFilter={setAppointmentFilter}
+                resultFilter={resultFilter} setResultFilter={setResultFilter}
+                sourceFilter={sourceFilter} setSourceFilter={setSourceFilter} availableLeadSources={availableLeadSources}
+                salesFilter={salesFilter} setSalesFilter={setSalesFilter} salesUsers={salesUsers}
+                incompleteDataFilter={incompleteDataFilter} setIncompleteDataFilter={setIncompleteDataFilter}
+                isAdmin={isAdmin}
+                activeFilterCount={activeFilterCount}
+                onReset={handleResetFilters}
+            />
 
             {showAddModal && (
                 <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeAddLeadModal(); }}>

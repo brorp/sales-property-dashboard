@@ -1,0 +1,173 @@
+/* ── LeadCardV2 — Navy+Gold card component ───────────────────────────────── */
+
+.lc2 {
+    background: #FFFFFF;
+    border: 1px solid #E5E7EB;
+    border-radius: 14px;
+    padding: 14px 16px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease;
+    -webkit-tap-highlight-color: transparent;
+    outline: none;
+}
+
+.lc2:hover {
+    box-shadow: 0 4px 20px rgba(30, 58, 95, 0.10);
+    border-color: #CBD5E1;
+    transform: translateY(-1px);
+}
+
+.lc2:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(30, 58, 95, 0.06);
+}
+
+/* ── Top row: name + time ── */
+
+.lc2-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.lc2-name {
+    font-size: 0.938rem;
+    font-weight: 700;
+    color: #1E3A5F;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.lc2-time {
+    font-size: 0.72rem;
+    color: #94A3B8;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ── Badges ── */
+
+.lc2-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    align-items: center;
+}
+
+.lc2-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 0.688rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.lc2-badge-navy    { background: #EEF3F9; color: #1E3A5F; }
+.lc2-badge-blue    { background: #DBEAFE; color: #1D4ED8; }
+.lc2-badge-amber   { background: #FFFBEB; color: #B45309; }
+.lc2-badge-purple  { background: #F5F3FF; color: #7C3AED; }
+.lc2-badge-red     { background: #FEF2F2; color: #DC2626; }
+.lc2-badge-orange  { background: #FFF7ED; color: #EA580C; }
+.lc2-badge-sky     { background: #F0F9FF; color: #0369A1; }
+.lc2-badge-green   { background: #F0FDF4; color: #16A34A; }
+.lc2-badge-muted   { background: #F1F5F9; color: #64748B; }
+
+/* ── Detail row ── */
+
+.lc2-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    align-items: center;
+}
+
+.lc2-detail-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.8rem;
+    color: #64748B;
+}
+
+.lc2-detail-icon {
+    display: inline-flex;
+    align-items: center;
+    color: #94A3B8;
+    flex-shrink: 0;
+}
+
+/* ── Pipeline ── */
+
+.lc2-pipeline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 8px;
+    border-top: 1px solid #F1F5F9;
+}
+
+.lc2-pipeline-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #94A3B8;
+}
+
+/* ── Note ── */
+
+.lc2-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #F8FAFC;
+    border: 1px solid #F1F5F9;
+    border-radius: 10px;
+}
+
+.lc2-note-label {
+    flex-shrink: 0;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #94A3B8;
+    padding-top: 1px;
+}
+
+.lc2-note-text {
+    font-size: 0.8rem;
+    color: #475569;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ── Sales footer ── */
+
+.lc2-sales {
+    font-size: 0.75rem;
+    color: #64748B;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.lc2-sales-name {
+    font-weight: 600;
+    color: #1E3A5F;
+}

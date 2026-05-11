@@ -4,6 +4,9 @@
 @import '../src/screens/LoginPage.css';
 @import '../src/screens/DashboardPage.css';
 @import '../src/screens/LeadsPage.css';
+@import '../src/screens/LeadsPageV2.css';
+@import '../src/components/LeadCardV2.css';
+@import '../src/components/FilterBottomSheet.css';
 @import '../src/screens/LeadDetailPage.css';
 @import '../src/screens/DailyTaskPage.css';
 @import '../src/screens/PenaltiesPage.css';
