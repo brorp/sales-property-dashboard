@@ -1,12 +1,48 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
     APPOINTMENT_TAGS,
     FLOW_STATUSES,
     RESULT_STATUSES,
     SALES_STATUSES,
 } from '../constants/crm';
+import DateRangePicker from './DateRangePicker';
+
+function parseDateStr(value) {
+    if (!value) return null;
+    const [y, m, d] = String(value).split('-').map(Number);
+    if (!y || !m || !d) return null;
+    const date = new Date(y, m - 1, d);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatDateTrigger(value) {
+    const fmt = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    const d = parseDateStr(value);
+    return d ? fmt.format(d) : '';
+}
+
+function toDateStr(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function getQuickRange(key) {
+    const today = new Date();
+    const end = toDateStr(today);
+    if (key === 'today') return { dateFrom: end, dateTo: end };
+    if (key === 'last7') { const s = new Date(today); s.setDate(today.getDate() - 6); return { dateFrom: toDateStr(s), dateTo: end }; }
+    if (key === 'last30') { const s = new Date(today); s.setDate(today.getDate() - 29); return { dateFrom: toDateStr(s), dateTo: end }; }
+    const s = new Date(today.getFullYear(), today.getMonth(), 1);
+    return { dateFrom: toDateStr(s), dateTo: end };
+}
+
+const DATE_QUICK_RANGES = [
+    { key: 'today', label: 'Hari Ini' },
+    { key: 'last7', label: '7 Hari' },
+    { key: 'last30', label: '30 Hari' },
+    { key: 'thisMonth', label: 'Bulan Ini' },
+];
 
 const SPECIAL_SALES_STATUS_FILTERS = [
     { key: 'hot_validated', label: 'HOT | Validated' },
@@ -16,30 +52,100 @@ export default function FilterBottomSheet({
     open,
     onClose,
     onApply,
-    dateFrom, dateTo,
-    onDateFromChange, onDateToChange,
-    quickRanges, onQuickRange, onClearDate,
-    flowFilter, setFlowFilter,
-    salesStatusFilter, setSalesStatusFilter,
-    appointmentFilter, setAppointmentFilter,
-    resultFilter, setResultFilter,
-    sourceFilter, setSourceFilter, availableLeadSources,
-    salesFilter, setSalesFilter, salesUsers,
-    incompleteDataFilter, setIncompleteDataFilter,
+    // initial / applied values (read-only, used to seed draft on open)
+    flowFilter,
+    salesStatusFilter,
+    appointmentFilter,
+    resultFilter,
+    sourceFilter,
+    salesFilter,
+    incompleteDataFilter,
+    dateFrom,
+    dateTo,
+    availableLeadSources,
+    salesUsers,
     isAdmin,
-    activeFilterCount,
-    onReset,
 }) {
+    // ── Draft state ────────────────────────────────────────────────────────────
+    const [draftFlow, setDraftFlow] = useState(flowFilter);
+    const [draftSalesStatus, setDraftSalesStatus] = useState(salesStatusFilter);
+    const [draftAppointment, setDraftAppointment] = useState(appointmentFilter);
+    const [draftResult, setDraftResult] = useState(resultFilter);
+    const [draftSource, setDraftSource] = useState(sourceFilter);
+    const [draftSales, setDraftSales] = useState(salesFilter);
+    const [draftIncomplete, setDraftIncomplete] = useState(incompleteDataFilter);
+    const [draftDateFrom, setDraftDateFrom] = useState(dateFrom);
+    const [draftDateTo, setDraftDateTo] = useState(dateTo);
+    const [datePickerOpen, setDatePickerOpen] = useState(false);
+
+    // Re-seed draft from applied values every time the sheet opens
     useEffect(() => {
         if (open) {
+            setDraftFlow(flowFilter);
+            setDraftSalesStatus(salesStatusFilter);
+            setDraftAppointment(appointmentFilter);
+            setDraftResult(resultFilter);
+            setDraftSource(sourceFilter);
+            setDraftSales(salesFilter);
+            setDraftIncomplete(incompleteDataFilter);
+            setDraftDateFrom(dateFrom);
+            setDraftDateTo(dateTo);
+            setDatePickerOpen(false);
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = '';
         }
         return () => { document.body.style.overflow = ''; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
 
     if (!open) return null;
+
+    // ── Derived ────────────────────────────────────────────────────────────────
+    const draftActiveCount = [
+        draftFlow !== 'all',
+        draftSalesStatus !== 'all',
+        draftAppointment !== 'all',
+        draftResult !== 'all',
+        draftSource !== 'all',
+        draftSales !== 'all',
+        draftIncomplete,
+        Boolean(draftDateFrom || draftDateTo),
+    ].filter(Boolean).length;
+
+    // ── Handlers ───────────────────────────────────────────────────────────────
+    const handleDateChange = (range) => {
+        setDraftDateFrom(range.dateFrom);
+        setDraftDateTo(range.dateTo);
+        if (range.dateFrom && range.dateTo) setDatePickerOpen(false);
+    };
+
+    const handleReset = () => {
+        setDraftFlow('all');
+        setDraftSalesStatus('all');
+        setDraftAppointment('all');
+        setDraftResult('all');
+        setDraftSource('all');
+        setDraftSales('all');
+        setDraftIncomplete(false);
+        setDraftDateFrom('');
+        setDraftDateTo('');
+        setDatePickerOpen(false);
+    };
+
+    const handleApply = () => {
+        onApply({
+            flowFilter: draftFlow,
+            salesStatusFilter: draftSalesStatus,
+            appointmentFilter: draftAppointment,
+            resultFilter: draftResult,
+            sourceFilter: draftSource,
+            salesFilter: draftSales,
+            incompleteDataFilter: draftIncomplete,
+            dateFrom: draftDateFrom,
+            dateTo: draftDateTo,
+        });
+    };
 
     return (
         <>
@@ -60,87 +166,115 @@ export default function FilterBottomSheet({
                 </div>
 
                 <div className="fbs-body">
+                    {/* ── Tanggal ── */}
                     <div className="fbs-group">
                         <span className="fbs-group-label">Tanggal Masuk</span>
-                        {quickRanges?.length ? (
-                            <div className="fbs-pills" style={{ marginBottom: 8 }}>
-                                {quickRanges.map((r) => (
-                                    <button type="button" key={r.key} className="fbs-pill" onClick={() => onQuickRange(r.key)}>{r.label}</button>
-                                ))}
-                            </div>
-                        ) : null}
+                        <div className="fbs-pills" style={{ marginBottom: 8 }}>
+                            {DATE_QUICK_RANGES.map((r) => {
+                                const range = getQuickRange(r.key);
+                                const isActive = range.dateFrom === draftDateFrom && range.dateTo === draftDateTo;
+                                return (
+                                    <button
+                                        key={r.key}
+                                        type="button"
+                                        className={`fbs-pill${isActive ? ' is-active' : ''}`}
+                                        onClick={() => { setDraftDateFrom(range.dateFrom); setDraftDateTo(range.dateTo); setDatePickerOpen(false); }}
+                                    >
+                                        {r.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
                         <div className="fbs-date-range">
                             <div className="fbs-date-field">
-                                <label className="fbs-date-label">Dari</label>
-                                <input
-                                    type="date"
-                                    className="fbs-date-input"
-                                    value={dateFrom || ''}
-                                    onChange={(e) => onDateFromChange(e.target.value)}
-                                />
+                                <span className="fbs-date-field-label">Dari</span>
+                                <button
+                                    type="button"
+                                    className="fbs-date-range-input"
+                                    onClick={() => setDatePickerOpen((v) => !v)}
+                                >
+                                    {draftDateFrom ? formatDateTrigger(draftDateFrom) : 'Pilih tanggal'}
+                                </button>
+                            </div>
+                            <div className="fbs-date-range-arrow">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="5 12 19 12"/>
+                                    <polyline points="12 5 19 12 12 19"/>
+                                </svg>
                             </div>
                             <div className="fbs-date-field">
-                                <label className="fbs-date-label">Sampai</label>
-                                <input
-                                    type="date"
-                                    className="fbs-date-input"
-                                    value={dateTo || ''}
-                                    min={dateFrom || undefined}
-                                    onChange={(e) => onDateToChange(e.target.value)}
-                                />
+                                <span className="fbs-date-field-label">Sampai</span>
+                                <button
+                                    type="button"
+                                    className="fbs-date-range-input"
+                                    onClick={() => setDatePickerOpen((v) => !v)}
+                                >
+                                    {draftDateTo ? formatDateTrigger(draftDateTo) : 'Pilih tanggal'}
+                                </button>
                             </div>
                         </div>
-                        {(dateFrom || dateTo) ? (
-                            <button type="button" className="fbs-date-clear" onClick={onClearDate}>Hapus tanggal</button>
+                        {datePickerOpen ? (
+                            <div className="fbs-date-picker-wrap">
+                                <DateRangePicker
+                                    dateFrom={draftDateFrom}
+                                    dateTo={draftDateTo}
+                                    onChange={handleDateChange}
+                                />
+                            </div>
                         ) : null}
                     </div>
 
+                    {/* ── Status Distribusi ── */}
                     <div className="fbs-group">
                         <span className="fbs-group-label">Status Distribusi</span>
                         <div className="fbs-pills">
-                            <button type="button" className={`fbs-pill ${flowFilter === 'all' ? 'is-active' : ''}`} onClick={() => setFlowFilter('all')}>Semua</button>
+                            <button type="button" className={`fbs-pill${draftFlow === 'all' ? ' is-active' : ''}`} onClick={() => setDraftFlow('all')}>Semua</button>
                             {FLOW_STATUSES.map((item) => (
-                                <button type="button" key={item.key} className={`fbs-pill ${flowFilter === item.key ? 'is-active' : ''}`} onClick={() => setFlowFilter(item.key)}>{item.label}</button>
+                                <button type="button" key={item.key} className={`fbs-pill${draftFlow === item.key ? ' is-active' : ''}`} onClick={() => setDraftFlow(item.key)}>{item.label}</button>
                             ))}
                         </div>
                     </div>
 
+                    {/* ── Sales Status ── */}
                     <div className="fbs-group">
                         <span className="fbs-group-label">Sales Status</span>
                         <div className="fbs-pills">
-                            <button type="button" className={`fbs-pill ${salesStatusFilter === 'all' ? 'is-active' : ''}`} onClick={() => setSalesStatusFilter('all')}>Semua</button>
+                            <button type="button" className={`fbs-pill${draftSalesStatus === 'all' ? ' is-active' : ''}`} onClick={() => setDraftSalesStatus('all')}>Semua</button>
                             {SPECIAL_SALES_STATUS_FILTERS.map((item) => (
-                                <button type="button" key={item.key} className={`fbs-pill ${salesStatusFilter === item.key ? 'is-active' : ''}`} onClick={() => setSalesStatusFilter(item.key)}>{item.label}</button>
+                                <button type="button" key={item.key} className={`fbs-pill${draftSalesStatus === item.key ? ' is-active' : ''}`} onClick={() => setDraftSalesStatus(item.key)}>{item.label}</button>
                             ))}
                             {SALES_STATUSES.map((item) => (
-                                <button type="button" key={item.key} className={`fbs-pill ${salesStatusFilter === item.key ? 'is-active' : ''}`} onClick={() => setSalesStatusFilter(item.key)}>{item.label}</button>
+                                <button type="button" key={item.key} className={`fbs-pill${draftSalesStatus === item.key ? ' is-active' : ''}`} onClick={() => setDraftSalesStatus(item.key)}>{item.label}</button>
                             ))}
                         </div>
                     </div>
 
+                    {/* ── Appointment ── */}
                     <div className="fbs-group">
                         <span className="fbs-group-label">Appointment</span>
                         <div className="fbs-pills">
-                            <button type="button" className={`fbs-pill ${appointmentFilter === 'all' ? 'is-active' : ''}`} onClick={() => setAppointmentFilter('all')}>Semua</button>
+                            <button type="button" className={`fbs-pill${draftAppointment === 'all' ? ' is-active' : ''}`} onClick={() => setDraftAppointment('all')}>Semua</button>
                             {APPOINTMENT_TAGS.map((item) => (
-                                <button type="button" key={item.key} className={`fbs-pill ${appointmentFilter === item.key ? 'is-active' : ''}`} onClick={() => setAppointmentFilter(item.key)}>{item.label}</button>
+                                <button type="button" key={item.key} className={`fbs-pill${draftAppointment === item.key ? ' is-active' : ''}`} onClick={() => setDraftAppointment(item.key)}>{item.label}</button>
                             ))}
                         </div>
                     </div>
 
+                    {/* ── Result ── */}
                     <div className="fbs-group">
                         <span className="fbs-group-label">Result</span>
                         <div className="fbs-pills">
-                            <button type="button" className={`fbs-pill ${resultFilter === 'all' ? 'is-active' : ''}`} onClick={() => setResultFilter('all')}>Semua</button>
+                            <button type="button" className={`fbs-pill${draftResult === 'all' ? ' is-active' : ''}`} onClick={() => setDraftResult('all')}>Semua</button>
                             {RESULT_STATUSES.map((item) => (
-                                <button type="button" key={item.key} className={`fbs-pill ${resultFilter === item.key ? 'is-active' : ''}`} onClick={() => setResultFilter(item.key)}>{item.label}</button>
+                                <button type="button" key={item.key} className={`fbs-pill${draftResult === item.key ? ' is-active' : ''}`} onClick={() => setDraftResult(item.key)}>{item.label}</button>
                             ))}
                         </div>
                     </div>
 
+                    {/* ── Source ── */}
                     <div className="fbs-group">
                         <span className="fbs-group-label">Source</span>
-                        <select className="fbs-select" value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
+                        <select className="fbs-select" value={draftSource} onChange={(e) => setDraftSource(e.target.value)}>
                             <option value="all">Semua Source</option>
                             {availableLeadSources.map((value) => (
                                 <option key={value} value={value}>{value}</option>
@@ -148,32 +282,34 @@ export default function FilterBottomSheet({
                         </select>
                     </div>
 
+                    {/* ── Sales (admin only) ── */}
                     {isAdmin ? (
                         <div className="fbs-group">
                             <span className="fbs-group-label">Sales</span>
                             <div className="fbs-pills">
-                                <button type="button" className={`fbs-pill ${salesFilter === 'all' ? 'is-active' : ''}`} onClick={() => setSalesFilter('all')}>Semua</button>
+                                <button type="button" className={`fbs-pill${draftSales === 'all' ? ' is-active' : ''}`} onClick={() => setDraftSales('all')}>Semua</button>
                                 {salesUsers.map((sales) => (
-                                    <button type="button" key={sales.id} className={`fbs-pill ${salesFilter === sales.id ? 'is-active' : ''}`} onClick={() => setSalesFilter(sales.id)}>{sales.name.split(' ')[0]}</button>
+                                    <button type="button" key={sales.id} className={`fbs-pill${draftSales === sales.id ? ' is-active' : ''}`} onClick={() => setDraftSales(sales.id)}>{sales.name.split(' ')[0]}</button>
                                 ))}
                             </div>
                         </div>
                     ) : null}
 
+                    {/* ── Data ── */}
                     <div className="fbs-group">
                         <span className="fbs-group-label">Data</span>
                         <div className="fbs-pills">
-                            <button type="button" className={`fbs-pill ${!incompleteDataFilter ? 'is-active' : ''}`} onClick={() => setIncompleteDataFilter(false)}>Semua Data</button>
-                            <button type="button" className={`fbs-pill fbs-pill-danger ${incompleteDataFilter ? 'is-active' : ''}`} onClick={() => setIncompleteDataFilter(true)}>Incomplete Data</button>
+                            <button type="button" className={`fbs-pill${!draftIncomplete ? ' is-active' : ''}`} onClick={() => setDraftIncomplete(false)}>Semua Data</button>
+                            <button type="button" className={`fbs-pill fbs-pill-danger${draftIncomplete ? ' is-active' : ''}`} onClick={() => setDraftIncomplete(true)}>Incomplete Data</button>
                         </div>
                     </div>
                 </div>
 
                 <div className="fbs-footer">
-                    <button type="button" className="fbs-btn-reset" onClick={onReset} disabled={activeFilterCount === 0}>
-                        Reset {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
+                    <button type="button" className="fbs-btn-reset" onClick={handleReset} disabled={draftActiveCount === 0}>
+                        Reset {draftActiveCount > 0 ? `(${draftActiveCount})` : ''}
                     </button>
-                    <button type="button" className="fbs-btn-apply" onClick={onApply || onClose}>
+                    <button type="button" className="fbs-btn-apply" onClick={handleApply}>
                         Terapkan
                     </button>
                 </div>

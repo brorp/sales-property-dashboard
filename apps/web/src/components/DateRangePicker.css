@@ -1,0 +1,247 @@
+/* ── Date Range Picker ─────────────────────────────────────────────────────── */
+
+.drp {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* ── Quick range pills ── */
+
+.drp-quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.drp-quick-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 0.775rem;
+    font-weight: 500;
+    white-space: nowrap;
+    background: #F8FAFC;
+    color: #64748B;
+    border: 1.5px solid #E5E7EB;
+    cursor: pointer;
+    transition: all 150ms ease;
+    font-family: inherit;
+}
+
+.drp-quick-pill:hover {
+    background: #EEF3F9;
+    border-color: #1E3A5F;
+    color: #1E3A5F;
+}
+
+/* ── Selected range preview ── */
+
+.drp-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: #EEF3F9;
+    border: 1.5px solid #C7D7EA;
+    border-radius: 10px;
+}
+
+.drp-preview-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.drp-preview-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #94A3B8;
+}
+
+.drp-preview-val {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #1E3A5F;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.drp-preview-arrow {
+    color: #94A3B8;
+    flex-shrink: 0;
+}
+
+/* ── Month navigation ── */
+
+.drp-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.drp-nav-btn {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 8px;
+    background: #F8FAFC;
+    color: #64748B;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 150ms ease;
+    font-family: inherit;
+    padding: 0;
+}
+
+.drp-nav-btn:hover {
+    background: #EEF3F9;
+    border-color: #1E3A5F;
+    color: #1E3A5F;
+}
+
+.drp-nav-label {
+    flex: 1;
+    text-align: center;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #1E3A5F;
+    text-transform: capitalize;
+}
+
+/* ── Weekday header ── */
+
+.drp-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 2px;
+}
+
+.drp-weekdays span {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: #94A3B8;
+    text-align: center;
+    padding: 3px 0 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* ── Day grid ── */
+
+.drp-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+}
+
+.drp-day {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0;
+    /* range band covers full cell */
+}
+
+/* Range band: half-bands for start/end, full band for in-range */
+.drp-day.is-in-range {
+    background: #EEF3F9;
+}
+
+.drp-day.is-start.has-end {
+    background: linear-gradient(to right, transparent 50%, #EEF3F9 50%);
+}
+
+.drp-day.is-end.has-start {
+    background: linear-gradient(to left, transparent 50%, #EEF3F9 50%);
+}
+
+/* ── Day inner circle ── */
+
+.drp-day-inner {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: calc(100% - 4px);
+    height: calc(100% - 4px);
+    border-radius: 8px;
+    border: 1.5px solid transparent;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #374151;
+    transition: background 100ms ease, color 100ms ease, border-color 100ms ease;
+    line-height: 1;
+}
+
+.drp-day:hover:not(.is-outside):not(.is-start):not(.is-end) .drp-day-inner {
+    background: #EEF3F9;
+    border-color: #1E3A5F;
+    color: #1E3A5F;
+}
+
+.drp-day.is-outside {
+    pointer-events: none;
+}
+
+.drp-day.is-outside .drp-day-inner {
+    color: #D1D5DB;
+}
+
+.drp-day.is-today .drp-day-inner {
+    border-color: #D4A843;
+    color: #B45309;
+    font-weight: 700;
+}
+
+.drp-day.is-in-range .drp-day-inner {
+    color: #1E3A5F;
+    font-weight: 500;
+}
+
+.drp-day.is-start .drp-day-inner,
+.drp-day.is-end .drp-day-inner {
+    background: linear-gradient(135deg, #1E3A5F 0%, #2d5491 100%);
+    color: #FFFFFF;
+    border-color: transparent;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(30, 58, 95, 0.35);
+}
+
+/* ── Clear button ── */
+
+.drp-clear {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0;
+    border: none;
+    background: none;
+    font-size: 0.75rem;
+    color: #94A3B8;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color 150ms ease;
+    align-self: flex-start;
+    margin-top: 2px;
+}
+
+.drp-clear:hover {
+    color: #DC2626;
+}

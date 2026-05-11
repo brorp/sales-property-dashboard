@@ -7,6 +7,7 @@ import { useLeads } from '../context/LeadsContext';
 import { getRejectedReasonLabel, getSalesStatusLabel, getResultStatusLabel, getStatusBadgeClass } from '../constants/crm';
 import { apiRequest } from '../lib/api';
 import Header from '../components/Header';
+import DateRangePicker from '../components/DateRangePicker';
 import { usePagePolling } from '../hooks/usePagePolling';
 import TransactionRecapSection from './dashboard-sections/TransactionRecapSection';
 import TeamPerformanceSection from './dashboard-sections/TeamPerformanceSection';
@@ -46,8 +47,6 @@ const DEFAULT_ANALYTICS = {
     dailySalesReport: null,
 };
 
-const DAY_LABELS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
-
 const QUICK_RANGES = [
     { key: 'today', label: 'Hari Ini' },
     { key: 'last7', label: '7 Hari Terakhir' },
@@ -83,14 +82,6 @@ function toConicGradient(items, total, colorFor, emptyColor = 'var(--bg-input)')
     }
 
     return `conic-gradient(${segments.join(', ')})`;
-}
-
-function startOfMonth(date) {
-    return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
-function addMonths(date, amount) {
-    return new Date(date.getFullYear(), date.getMonth() + amount, 1);
 }
 
 function parseDateInput(value) {
@@ -131,46 +122,6 @@ function normalizeDateRange(range) {
     };
 }
 
-function isSameDay(a, b) {
-    if (!a || !b) {
-        return false;
-    }
-
-    return (
-        a.getFullYear() === b.getFullYear() &&
-        a.getMonth() === b.getMonth() &&
-        a.getDate() === b.getDate()
-    );
-}
-
-function isDateBetween(date, start, end) {
-    if (!date || !start || !end) {
-        return false;
-    }
-
-    return date.getTime() > start.getTime() && date.getTime() < end.getTime();
-}
-
-function buildMonthDays(monthDate) {
-    const firstDayOfMonth = startOfMonth(monthDate);
-    const weekDayOffset = (firstDayOfMonth.getDay() + 6) % 7;
-    const gridStart = new Date(firstDayOfMonth);
-    gridStart.setDate(firstDayOfMonth.getDate() - weekDayOffset);
-
-    return Array.from({ length: 42 }, (_, index) => {
-        const next = new Date(gridStart);
-        next.setDate(gridStart.getDate() + index);
-        return next;
-    });
-}
-
-function formatMonthLabel(date) {
-    return new Intl.DateTimeFormat('id-ID', {
-        month: 'long',
-        year: 'numeric',
-    }).format(date);
-}
-
 function formatRangeButtonLabel(range) {
     if (!range.dateFrom && !range.dateTo) {
         return 'Filter Tanggal';
@@ -208,19 +159,6 @@ function formatRangeSummary(range) {
     }
 
     return `Lead masuk ${formatter.format(start)} - ${formatter.format(end)}`;
-}
-
-function formatDatePreview(value) {
-    const parsed = parseDateInput(value);
-    if (!parsed) {
-        return 'Pilih tanggal';
-    }
-
-    return new Intl.DateTimeFormat('id-ID', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-    }).format(parsed);
 }
 
 function formatReminderDateTime(dateValue, timeValue) {
@@ -348,7 +286,6 @@ export default function DashboardPage() {
     const [filterOpenKey, setFilterOpenKey] = useState('');
     const [appliedDateRange, setAppliedDateRange] = useState(() => getPresetRange('today'));
     const [draftDateRange, setDraftDateRange] = useState(() => getPresetRange('today'));
-    const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(parseDateInput(getPresetRange('today').dateFrom) || new Date()));
 
     const showDateFilter = Boolean(user);
     const hasActiveDateFilter = Boolean(appliedDateRange.dateFrom || appliedDateRange.dateTo);
@@ -411,9 +348,6 @@ export default function DashboardPage() {
         return `${shortRoleLabel} Dashboard`;
     }, [analytics.hierarchySummary?.client?.name, getRoleLabel, user?.clientSlug, user?.role]);
 
-    const draftStartDate = parseDateInput(draftDateRange.dateFrom);
-    const draftEndDate = parseDateInput(draftDateRange.dateTo);
-
     const loadDashboardAnalytics = useCallback(async (range = EMPTY_DATE_RANGE) => {
         if (!user) {
             setPageAnalytics(null);
@@ -471,42 +405,7 @@ export default function DashboardPage() {
     const openDateFilter = (filterKey) => {
         const nextDraft = normalizeDateRange(appliedDateRange);
         setDraftDateRange(nextDraft);
-        setCalendarMonth(startOfMonth(parseDateInput(nextDraft.dateFrom) || new Date()));
         setFilterOpenKey(filterKey);
-    };
-
-    const handleDateSelection = (date) => {
-        const pickedDate = formatDateInput(date);
-
-        setDraftDateRange((prev) => {
-            const start = parseDateInput(prev.dateFrom);
-            const end = parseDateInput(prev.dateTo);
-
-            if (!start || (start && end)) {
-                return {
-                    dateFrom: pickedDate,
-                    dateTo: '',
-                };
-            }
-
-            if (date.getTime() < start.getTime()) {
-                return {
-                    dateFrom: pickedDate,
-                    dateTo: prev.dateFrom,
-                };
-            }
-
-            return {
-                dateFrom: prev.dateFrom,
-                dateTo: pickedDate,
-            };
-        });
-    };
-
-    const handleQuickRange = (key) => {
-        const nextRange = getPresetRange(key);
-        setDraftDateRange(nextRange);
-        setCalendarMonth(startOfMonth(parseDateInput(nextRange.dateFrom) || new Date()));
     };
 
     const handleApplyDateFilter = async () => {
@@ -588,18 +487,23 @@ export default function DashboardPage() {
         }
 
         const isOpen = filterOpenKey === filterKey;
+        const isCustomActive = !QUICK_RANGES.some((r) => {
+            const pr = getPresetRange(r.key);
+            return pr.dateFrom === appliedDateRange.dateFrom && pr.dateTo === appliedDateRange.dateTo;
+        });
 
         return (
             <div className="dashboard-filter-shell" ref={filterRef}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
-                        {QUICK_RANGES.map(preset => {
+                <div className="dash-dfbar">
+                    <div className="dash-dfpills">
+                        {QUICK_RANGES.map((preset) => {
                             const presetRange = getPresetRange(preset.key);
                             const isActive = presetRange.dateFrom === appliedDateRange.dateFrom && presetRange.dateTo === appliedDateRange.dateTo;
                             return (
                                 <button
                                     key={preset.key}
                                     type="button"
+                                    className={`dash-dfpill${isActive ? ' is-active' : ''}`}
                                     onClick={async () => {
                                         const nextRange = getPresetRange(preset.key);
                                         setFilterLoading(true);
@@ -615,45 +519,14 @@ export default function DashboardPage() {
                                             setFilterLoading(false);
                                         }
                                     }}
-                                    style={{
-                                        cursor: 'pointer',
-                                        padding: '8px 14px',
-                                        borderRadius: '999px',
-                                        border: isActive ? 'none' : '1px solid var(--border-color)',
-                                        background: isActive ? 'var(--primary)' : 'var(--bg-card)',
-                                        color: isActive ? 'white' : 'var(--text-primary)',
-                                        fontSize: '0.85rem',
-                                        fontWeight: 600,
-                                        whiteSpace: 'nowrap',
-                                    }}
                                 >
-                                    {preset.label}
+                                    {isActive && filterLoading ? 'Memuat...' : preset.label}
                                 </button>
                             );
                         })}
                         <button
                             type="button"
-                            className="dashboard-filter-trigger"
-                            style={{
-                                cursor: 'pointer',
-                                padding: '8px 14px',
-                                borderRadius: '999px',
-                                border: (!QUICK_RANGES.some(r => {
-                                    const pr = getPresetRange(r.key);
-                                    return pr.dateFrom === appliedDateRange.dateFrom && pr.dateTo === appliedDateRange.dateTo;
-                                })) ? 'none' : '1px solid var(--border-color)',
-                                background: (!QUICK_RANGES.some(r => {
-                                    const pr = getPresetRange(r.key);
-                                    return pr.dateFrom === appliedDateRange.dateFrom && pr.dateTo === appliedDateRange.dateTo;
-                                })) ? 'var(--primary)' : 'var(--bg-card)',
-                                color: (!QUICK_RANGES.some(r => {
-                                    const pr = getPresetRange(r.key);
-                                    return pr.dateFrom === appliedDateRange.dateFrom && pr.dateTo === appliedDateRange.dateTo;
-                                })) ? 'white' : 'var(--text-primary)',
-                                fontSize: '0.85rem',
-                                fontWeight: 600,
-                                whiteSpace: 'nowrap',
-                            }}
+                            className={`dash-dfpill dashboard-filter-trigger${isCustomActive ? ' is-active' : ''}`}
                             onClick={() => {
                                 if (isOpen) {
                                     setFilterOpenKey('');
@@ -662,15 +535,12 @@ export default function DashboardPage() {
                                 openDateFilter(filterKey);
                             }}
                         >
-                            {(!QUICK_RANGES.some(r => {
-                                const pr = getPresetRange(r.key);
-                                return pr.dateFrom === appliedDateRange.dateFrom && pr.dateTo === appliedDateRange.dateTo;
-                            })) ? formatRangeButtonLabel(appliedDateRange) : 'Custom Tanggal'}
+                            {isCustomActive ? formatRangeButtonLabel(appliedDateRange) : 'Custom'}
                         </button>
                     </div>
 
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-                        {formatRangeSummary(appliedDateRange)}
+                    <span className="dash-dfsummary">
+                        {filterLoading ? 'Memuat...' : formatRangeSummary(appliedDateRange)}
                     </span>
                 </div>
 
@@ -691,94 +561,11 @@ export default function DashboardPage() {
                             </button>
                         </div>
 
-                        <div className="dashboard-filter-preview">
-                            <div className="dashboard-filter-preview-card">
-                                <span>Mulai</span>
-                                <strong>{formatDatePreview(draftDateRange.dateFrom)}</strong>
-                            </div>
-                            <div className="dashboard-filter-preview-card">
-                                <span>Sampai</span>
-                                <strong>{formatDatePreview(draftDateRange.dateTo || draftDateRange.dateFrom)}</strong>
-                            </div>
-                        </div>
-
-                        <div className="dashboard-filter-quick">
-                            {QUICK_RANGES.map((preset) => (
-                                <button
-                                    key={preset.key}
-                                    type="button"
-                                    className="dashboard-quick-pill"
-                                    onClick={() => handleQuickRange(preset.key)}
-                                >
-                                    {preset.label}
-                                </button>
-                            ))}
-                        </div>
-
-                        <div className="dashboard-calendar-head">
-                            <button
-                                type="button"
-                                className="dashboard-calendar-nav"
-                                onClick={() => setCalendarMonth((prev) => addMonths(prev, -1))}
-                                aria-label="Bulan sebelumnya"
-                            >
-                                ←
-                            </button>
-                            <div className="dashboard-calendar-head-label">Calendar Range</div>
-                            <button
-                                type="button"
-                                className="dashboard-calendar-nav"
-                                onClick={() => setCalendarMonth((prev) => addMonths(prev, 1))}
-                                aria-label="Bulan berikutnya"
-                            >
-                                →
-                            </button>
-                        </div>
-
-                        <div className="dashboard-calendar-grid">
-                            {[0, 1].map((offset) => {
-                                const monthDate = addMonths(calendarMonth, offset);
-                                const days = buildMonthDays(monthDate);
-
-                                return (
-                                    <div key={formatMonthLabel(monthDate)} className="dashboard-calendar-month">
-                                        <div className="dashboard-calendar-month-title">{formatMonthLabel(monthDate)}</div>
-                                        <div className="dashboard-calendar-weekdays">
-                                            {DAY_LABELS.map((dayLabel) => (
-                                                <span key={dayLabel}>{dayLabel}</span>
-                                            ))}
-                                        </div>
-                                        <div className="dashboard-calendar-days">
-                                            {days.map((day) => {
-                                                const isOutsideMonth = day.getMonth() !== monthDate.getMonth();
-                                                const isStart = isSameDay(day, draftStartDate);
-                                                const isEnd = isSameDay(day, draftEndDate);
-                                                const isInRange = isDateBetween(day, draftStartDate, draftEndDate);
-                                                const isToday = isSameDay(day, new Date());
-
-                                                return (
-                                                    <button
-                                                        key={`${formatMonthLabel(monthDate)}-${formatDateInput(day)}`}
-                                                        type="button"
-                                                        className={[
-                                                            'dashboard-calendar-day',
-                                                            isOutsideMonth ? 'is-outside' : '',
-                                                            isToday ? 'is-today' : '',
-                                                            isInRange ? 'is-in-range' : '',
-                                                            isStart ? 'is-start' : '',
-                                                            isEnd ? 'is-end' : '',
-                                                        ].filter(Boolean).join(' ')}
-                                                        onClick={() => handleDateSelection(day)}
-                                                    >
-                                                        {day.getDate()}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
+                        <DateRangePicker
+                            dateFrom={draftDateRange.dateFrom}
+                            dateTo={draftDateRange.dateTo}
+                            onChange={(range) => setDraftDateRange(range)}
+                        />
 
                         <div className="dashboard-filter-actions">
                             <button

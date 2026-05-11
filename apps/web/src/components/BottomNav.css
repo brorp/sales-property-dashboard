@@ -104,6 +104,10 @@
     display: none;
 }
 
+.sidebar-toggle {
+    display: none;
+}
+
 .bottom-nav-unread-dot {
     position: absolute;
     top: 4px;
@@ -149,6 +153,16 @@
         background: #FFFFFF;
         box-shadow: 2px 0 16px rgba(30, 58, 95, 0.06);
         padding-bottom: 0;
+        transition: width 200ms ease;
+    }
+
+    .bottom-nav.is-collapsed {
+        width: 64px;
+    }
+
+    .bottom-nav.is-collapsed .bottom-nav-brand {
+        padding: 20px 12px 16px;
+        align-items: center;
     }
 
     /* ── Brand area ── */
@@ -172,6 +186,56 @@
         font-size: 0.75rem;
         color: #94A3B8;
         letter-spacing: 0.02em;
+    }
+
+    /* ── Initials avatar ketika collapsed ── */
+    .bottom-nav-initials {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: #1E3A5F;
+        color: #fff;
+        font-size: 0.85rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin: 0 auto;
+    }
+
+    /* ── Sidebar toggle button ── */
+    .sidebar-toggle {
+        display: flex;
+        position: fixed;
+        right: auto;
+        left: 243px;
+        top: 50px;
+        z-index: 95;
+        width: 32px;
+        height: 32px;
+        align-items: center;
+        justify-content: center;
+        border: 1.5px solid #E5E7EB;
+        border-radius: 8px;
+        background: #F8FAFC;
+        color: #64748B;
+        cursor: pointer;
+        transition: all 150ms ease;
+        padding: 0;
+        flex-shrink: 0;
+        box-shadow: 0 2px 8px rgba(30, 58, 95, 0.12);
+    }
+
+    .sidebar-toggle:hover {
+        border-color: #CBD5E1;
+        color: #1E3A5F;
+        background: #EEF3F9;
+        box-shadow: 0 4px 12px rgba(30, 58, 95, 0.15);
+    }
+
+    .bottom-nav.is-collapsed .sidebar-toggle {
+        left: 47px;
     }
 
     /* ── Nav items ── */
@@ -203,6 +267,11 @@
         width: 100%;
     }
 
+    .bottom-nav.is-collapsed .bottom-nav-tab {
+        padding: 10px;
+        justify-content: center;
+    }
+
     .bottom-nav-tab:hover:not(.active) {
         background: #F8FAFC;
         color: #1E3A5F;
@@ -224,6 +293,10 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+
+    .bottom-nav.is-collapsed .bottom-nav-label {
+        display: none;
     }
 
     .bottom-nav-icon {

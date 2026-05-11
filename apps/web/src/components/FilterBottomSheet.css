@@ -39,7 +39,13 @@
 
 @media (min-width: 1024px) {
     .fbs-backdrop {
-        left: 260px; /* clear the sidebar */
+        left: 0;
+        right: 360px;
+        transition: right 200ms ease;
+    }
+
+    body.sidebar-collapsed .fbs-backdrop {
+        right: 360px;
     }
 
     .fbs-sheet {
@@ -210,69 +216,88 @@
     border-color: #FCA5A5;
 }
 
-/* ── Date range ── */
+/* ── Date field buttons ── */
 
 .fbs-date-range {
     display: flex;
-    gap: 10px;
+    align-items: center;
+    gap: 0;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 10px;
+    background: #F8FAFC;
+    transition: border-color 150ms ease, background 150ms ease;
+    overflow: hidden;
+    padding: 10px 0;
+}
+
+.fbs-date-range:hover {
+    border-color: #CBD5E1;
+    background: #F1F5F9;
+}
+
+.fbs-date-range.is-open {
+    border-color: #1E3A5F;
+    background: #EEF3F9;
+    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
 }
 
 .fbs-date-field {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
+    padding: 0 12px;
 }
 
-.fbs-date-label {
-    font-size: 0.7rem;
+.fbs-date-range-input {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.813rem;
     font-weight: 600;
     color: #94A3B8;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
 }
 
-.fbs-date-input {
-    padding: 9px 10px;
-    border: 1.5px solid #E5E7EB;
-    border-radius: 10px;
-    font-size: 0.813rem;
-    color: #374151;
-    background: #FFFFFF;
+.fbs-date-range-input:focus {
     outline: none;
-    font-family: inherit;
-    width: 100%;
-    cursor: pointer;
-    transition: border-color 150ms ease;
-    appearance: none;
-    -webkit-appearance: none;
-    box-sizing: border-box;
 }
 
-.fbs-date-input:focus {
-    border-color: #1E3A5F;
-    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
+.fbs-date-range.is-open .fbs-date-range-input {
+    color: #1E3A5F;
 }
 
-.fbs-date-clear {
-    display: inline-flex;
+.fbs-date-range-arrow {
+    display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 0;
-    border: none;
-    background: none;
-    font-size: 0.75rem;
-    color: #94A3B8;
-    cursor: pointer;
-    font-family: inherit;
-    margin-top: 4px;
-    text-decoration: underline;
-    text-underline-offset: 2px;
+    justify-content: center;
+    padding: 0 8px;
+    color: #CBD5E1;
+    flex-shrink: 0;
     transition: color 150ms ease;
+    height: 100%;
 }
 
-.fbs-date-clear:hover {
-    color: #DC2626;
+.fbs-date-range.is-open .fbs-date-range-arrow {
+    color: #1E3A5F;
+}
+
+.fbs-date-field-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #94A3B8;
+}
+
+.fbs-date-picker-wrap {
+    margin-top: 8px;
+    padding: 14px;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 12px;
+    background: #FFFFFF;
 }
 
 /* ── Source select ── */

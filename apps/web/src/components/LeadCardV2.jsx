@@ -37,6 +37,14 @@ function apptBadgeClass(tag) {
     return 'lc2-badge lc2-badge-amber';
 }
 
+function accentClass(salesStatus, isHotValidated) {
+    if (isHotValidated) return 'lc2--validated';
+    if (salesStatus === 'hot') return 'lc2--hot';
+    if (salesStatus === 'warm') return 'lc2--warm';
+    if (salesStatus === 'cold') return 'lc2--cold';
+    return '';
+}
+
 function PhoneIcon() {
     return (
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -71,12 +79,22 @@ function MapPinIcon() {
     );
 }
 
+function UserIcon() {
+    return (
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+        </svg>
+    );
+}
+
 export default function LeadCardV2({ lead, onClick, salesName, showSales }) {
     const isHotValidated = lead?.salesStatus === 'hot' && Boolean(lead?.validated);
+    const accent = accentClass(lead.salesStatus, isHotValidated);
 
     return (
         <div
-            className="lc2"
+            className={`lc2${accent ? ` ${accent}` : ''}`}
             role="button"
             tabIndex={0}
             onClick={onClick}
@@ -139,14 +157,19 @@ export default function LeadCardV2({ lead, onClick, salesName, showSales }) {
                 </div>
             ) : null}
 
-            <div className="lc2-note">
-                <span className="lc2-note-label">Catatan</span>
-                <span className="lc2-note-text">{lead.manualNote || '-'}</span>
-            </div>
+            {lead.manualNote ? (
+                <div className="lc2-note">
+                    <span className="lc2-note-label">Catatan</span>
+                    <span className="lc2-note-text">{lead.manualNote}</span>
+                </div>
+            ) : null}
 
             {showSales ? (
-                <div className="lc2-sales">
-                    Sales: <span className="lc2-sales-name">{salesName}</span>
+                <div className="lc2-footer">
+                    <span className="lc2-sales-chip">
+                        <UserIcon />
+                        {salesName}
+                    </span>
                 </div>
             ) : null}
         </div>

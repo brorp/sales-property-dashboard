@@ -25,6 +25,13 @@
     box-shadow: 0 2px 8px rgba(30, 58, 95, 0.06);
 }
 
+/* ── Left accent bar variants ── */
+
+.lc2--hot       { border-left: 3px solid #EF4444; }
+.lc2--warm      { border-left: 3px solid #F97316; }
+.lc2--cold      { border-left: 3px solid #0EA5E9; }
+.lc2--validated { border-left: 3px solid #D4A843; }
+
 /* ── Top row: name + time ── */
 
 .lc2-top {
@@ -159,15 +166,23 @@
 
 /* ── Sales footer ── */
 
-.lc2-sales {
-    font-size: 0.75rem;
-    color: #64748B;
+.lc2-footer {
     display: flex;
     align-items: center;
-    gap: 4px;
+    justify-content: flex-end;
+    padding-top: 6px;
+    border-top: 1px solid #F1F5F9;
 }
 
-.lc2-sales-name {
+.lc2-sales-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px 4px 8px;
+    background: #EEF3F9;
+    border: 1px solid #C7D7EA;
+    border-radius: 999px;
+    font-size: 0.72rem;
     font-weight: 600;
     color: #1E3A5F;
 }

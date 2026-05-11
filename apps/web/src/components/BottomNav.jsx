@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
@@ -128,6 +128,66 @@ function formatClientNameFromSlug(slug) {
         .join(' ');
 }
 
+function ChevronLeftIcon() {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+        </svg>
+    );
+}
+
+function ChevronRightIcon() {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+        </svg>
+    );
+}
+
+function SidebarOpenIcon() {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <line x1="9" y1="3" x2="9" y2="21"/>
+            <line x1="3" y1="7" x2="9" y2="7"/>
+            <line x1="3" y1="11" x2="9" y2="11"/>
+            <line x1="3" y1="15" x2="9" y2="15"/>
+        </svg>
+    );
+}
+
+function SidebarCloseIcon() {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <line x1="15" y1="3" x2="15" y2="21"/>
+            <line x1="15" y1="7" x2="21" y2="7"/>
+            <line x1="15" y1="11" x2="21" y2="11"/>
+            <line x1="15" y1="15" x2="21" y2="15"/>
+        </svg>
+    );
+}
+
+function WorkspacesIcon() {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="7"/>
+            <rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/>
+        </svg>
+    );
+}
+
+function getInitials(text) {
+    if (!text) return '';
+    return text
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase())
+        .join('')
+        .slice(0, 2);
+}
+
 export default function BottomNav() {
     const { user, isAdmin, logout } = useAuth();
     const tenant = useTenant();
@@ -138,6 +198,13 @@ export default function BottomNav() {
     const [seenState, setSeenState] = useState({ leads: null, logs: null });
     const [taskCounts, setTaskCounts] = useState({ totalCount: 0, newLeadCount: 0, followUpCount: 0 });
     const [supervisorTaskCount, setSupervisorTaskCount] = useState(0);
+    const [collapsed, setCollapsed] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        // Mobile: always start expanded (false)
+        if (window.innerWidth < 1024) return false;
+        // Desktop: load from localStorage
+        return localStorage.getItem('sidebar-collapsed') === '1';
+    });
 
     const loadNotificationSummary = useCallback(async () => {
         if (!user) {
@@ -175,6 +242,19 @@ export default function BottomNav() {
         }
     }, [user]);
 
+    const toggleCollapsed = () => {
+        setCollapsed((prev) => {
+            const next = !prev;
+            localStorage.setItem('sidebar-collapsed', next ? '1' : '0');
+            if (next) {
+                document.body.classList.add('sidebar-collapsed');
+            } else {
+                document.body.classList.remove('sidebar-collapsed');
+            }
+            return next;
+        });
+    };
+
     useEffect(() => {
         if (!user) {
             return;
@@ -188,6 +268,15 @@ export default function BottomNav() {
         void loadDailyTaskCounts();
         void loadSupervisorTaskCount();
     }, [loadDailyTaskCounts, loadNotificationSummary, loadSupervisorTaskCount, user]);
+
+    useEffect(() => {
+        if (collapsed) {
+            document.body.classList.add('sidebar-collapsed');
+        } else {
+            document.body.classList.remove('sidebar-collapsed');
+        }
+        return () => document.body.classList.remove('sidebar-collapsed');
+    }, [collapsed]);
 
     usePagePolling({
         enabled: Boolean(user),
@@ -250,15 +339,27 @@ export default function BottomNav() {
             : null;
 
     return (
-        <nav className="bottom-nav">
+        <nav className={`bottom-nav${collapsed ? ' is-collapsed' : ''}`}>
             <div className="bottom-nav-brand">
-                {logoUrl ? (
-                    <img src={logoUrl} alt={clientName} style={{ height: '64px', width: '100%', objectFit: 'contain', objectPosition: 'left' }} />
+                {!collapsed ? (
+                    <>
+                        {logoUrl ? (
+                            <img src={logoUrl} alt={clientName} style={{ height: '64px', width: '100%', objectFit: 'contain', objectPosition: 'left' }} />
+                        ) : (
+                            <div className="bottom-nav-brand-title">{brandTitle}</div>
+                        )}
+                        {brandSubtitle && !logoUrl ? <div className="bottom-nav-brand-subtitle">{brandSubtitle}</div> : null}
+                        <WorkspaceSwitcher variant="desktop" />
+                    </>
                 ) : (
-                    <div className="bottom-nav-brand-title">{brandTitle}</div>
+                    <>
+                        <div className="bottom-nav-initials" title={brandTitle}>
+                            {getInitials(brandTitle)}
+                        </div>
+                        <div style={{ width: '100%', height: '1px', background: '#F1F5F9', margin: '4px 0' }} />
+                        <WorkspaceSwitcher variant="collapsed" />
+                    </>
                 )}
-                {brandSubtitle && !logoUrl ? <div className="bottom-nav-brand-subtitle">{brandSubtitle}</div> : null}
-                <WorkspaceSwitcher variant="desktop" />
             </div>
 
             <div className="bottom-nav-inner">
@@ -289,6 +390,15 @@ export default function BottomNav() {
                     <span className="bottom-nav-label">Logout</span>
                 </button>
             </div>
+
+            <button
+                type="button"
+                className="sidebar-toggle"
+                onClick={toggleCollapsed}
+                aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+                {collapsed ? <SidebarOpenIcon /> : <SidebarCloseIcon />}
+            </button>
         </nav>
     );
 }

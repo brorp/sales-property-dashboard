@@ -21,12 +21,6 @@ import { usePagePolling } from '../hooks/usePagePolling';
 import { apiRequest } from '../lib/api';
 import { readLeadTransferWorkbook } from '../lib/lead-transfer-workbook';
 
-const QUICK_RANGES = [
-    { key: 'today', label: 'Hari Ini' },
-    { key: 'last7', label: '7 Hari' },
-    { key: 'last30', label: '30 Hari' },
-    { key: 'thisMonth', label: 'Bulan Ini' },
-];
 const EMPTY_DATE_RANGE = {
     dateFrom: '',
     dateTo: '',
@@ -52,13 +46,6 @@ function parseDateInput(value) {
 
     const next = new Date(year, month - 1, day);
     return Number.isNaN(next.getTime()) ? null : next;
-}
-
-function formatDateInput(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
 }
 
 function isAgentSource(value) {
@@ -100,39 +87,6 @@ function formatRangeSummary(range) {
     }
 
     return `Lead masuk ${formatter.format(start)} - ${formatter.format(end)}`;
-}
-
-function getPresetRange(key) {
-    const today = new Date();
-    const end = formatDateInput(today);
-
-    if (key === 'today') {
-        return { dateFrom: end, dateTo: end };
-    }
-
-    if (key === 'last7') {
-        const start = new Date(today);
-        start.setDate(today.getDate() - 6);
-        return {
-            dateFrom: formatDateInput(start),
-            dateTo: end,
-        };
-    }
-
-    if (key === 'last30') {
-        const start = new Date(today);
-        start.setDate(today.getDate() - 29);
-        return {
-            dateFrom: formatDateInput(start),
-            dateTo: end,
-        };
-    }
-
-    const start = new Date(today.getFullYear(), today.getMonth(), 1);
-    return {
-        dateFrom: formatDateInput(start),
-        dateTo: end,
-    };
 }
 
 function toInitialExportSelection(value) {
@@ -281,7 +235,6 @@ export default function LeadsPage() {
     const [showAddModal, setShowAddModal] = useState(false);
     const [showExportModal, setShowExportModal] = useState(false);
     const [appliedDateRange, setAppliedDateRange] = useState(EMPTY_DATE_RANGE);
-    const [draftDateRange, setDraftDateRange] = useState(EMPTY_DATE_RANGE);
     const [newLead, setNewLead] = useState({ name: '', phone: '', source: '', agentOfficeName: '', assignedTo: '', createdAt: '' });
     const [agentOfficeOptions, setAgentOfficeOptions] = useState([]);
     const [addModalTab, setAddModalTab] = useState('manual');
@@ -335,7 +288,6 @@ export default function LeadsPage() {
         setSourceFilter('all');
         setSalesFilter('all');
         setIncompleteDataFilter(false);
-        setDraftDateRange({ ...EMPTY_DATE_RANGE });
         setAppliedDateRange({ ...EMPTY_DATE_RANGE });
     };
     const availableLeadSources = useMemo(() => {
@@ -573,25 +525,21 @@ export default function LeadsPage() {
         }
     };
 
-    const openFilterSheet = () => {
-        setDraftDateRange(normalizeDateRange(appliedDateRange));
-        setFilterSheetOpen(true);
-    };
+    const openFilterSheet = () => setFilterSheetOpen(true);
 
-    const handleApplySheet = () => {
-        const nextRange = normalizeDateRange({
-            dateFrom: draftDateRange.dateFrom,
-            dateTo: draftDateRange.dateTo || draftDateRange.dateFrom,
-        });
-        setAppliedDateRange(nextRange);
-        setDraftDateRange(nextRange);
+    const handleApplySheet = ({ flowFilter: f, salesStatusFilter: ss, appointmentFilter: ap, resultFilter: res, sourceFilter: src, salesFilter: sal, incompleteDataFilter: inc, dateFrom, dateTo }) => {
+        setFlowFilter(f);
+        setSalesStatusFilter(ss);
+        setAppointmentFilter(ap);
+        setResultFilter(res);
+        setSourceFilter(src);
+        setSalesFilter(sal);
+        setIncompleteDataFilter(inc);
+        setAppliedDateRange(normalizeDateRange({ dateFrom, dateTo: dateTo || dateFrom }));
         setFilterSheetOpen(false);
     };
 
-    const handleCloseFilterSheet = () => {
-        setDraftDateRange(normalizeDateRange(appliedDateRange));
-        setFilterSheetOpen(false);
-    };
+    const handleCloseFilterSheet = () => setFilterSheetOpen(false);
 
     const openExportModal = () => {
         setExportError('');
@@ -817,23 +765,18 @@ export default function LeadsPage() {
                 open={filterSheetOpen}
                 onClose={handleCloseFilterSheet}
                 onApply={handleApplySheet}
-                dateFrom={draftDateRange.dateFrom}
-                dateTo={draftDateRange.dateTo}
-                onDateFromChange={(v) => setDraftDateRange((prev) => ({ ...prev, dateFrom: v }))}
-                onDateToChange={(v) => setDraftDateRange((prev) => ({ ...prev, dateTo: v }))}
-                quickRanges={QUICK_RANGES}
-                onQuickRange={(key) => setDraftDateRange(getPresetRange(key))}
-                onClearDate={() => setDraftDateRange({ ...EMPTY_DATE_RANGE })}
-                flowFilter={flowFilter} setFlowFilter={setFlowFilter}
-                salesStatusFilter={salesStatusFilter} setSalesStatusFilter={setSalesStatusFilter}
-                appointmentFilter={appointmentFilter} setAppointmentFilter={setAppointmentFilter}
-                resultFilter={resultFilter} setResultFilter={setResultFilter}
-                sourceFilter={sourceFilter} setSourceFilter={setSourceFilter} availableLeadSources={availableLeadSources}
-                salesFilter={salesFilter} setSalesFilter={setSalesFilter} salesUsers={salesUsers}
-                incompleteDataFilter={incompleteDataFilter} setIncompleteDataFilter={setIncompleteDataFilter}
+                flowFilter={flowFilter}
+                salesStatusFilter={salesStatusFilter}
+                appointmentFilter={appointmentFilter}
+                resultFilter={resultFilter}
+                sourceFilter={sourceFilter}
+                salesFilter={salesFilter}
+                incompleteDataFilter={incompleteDataFilter}
+                dateFrom={appliedDateRange.dateFrom}
+                dateTo={appliedDateRange.dateTo}
+                availableLeadSources={availableLeadSources}
+                salesUsers={salesUsers}
                 isAdmin={isAdmin}
-                activeFilterCount={activeFilterCount}
-                onReset={handleResetFilters}
             />
 
             {showAddModal && (

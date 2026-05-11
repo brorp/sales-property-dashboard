@@ -16,6 +16,59 @@
     min-width: 148px;
 }
 
+/* Date filter pill bar */
+
+.dash-dfbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+
+.dash-dfpills {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.dash-dfpills::-webkit-scrollbar {
+    display: none;
+}
+
+.dash-dfpill {
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-primary);
+    font-size: 0.813rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: all 150ms ease;
+}
+
+.dash-dfpill:hover {
+    background: rgba(167, 139, 250, 0.12);
+    border-color: rgba(167, 139, 250, 0.25);
+}
+
+.dash-dfpill.is-active {
+    background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
+    border-color: transparent;
+    color: #fff;
+}
+
+.dash-dfsummary {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
 .dashboard-filter-popover {
     position: absolute;
     top: calc(100% + 10px);
@@ -522,6 +575,105 @@
 
 .hold-lead-action {
     margin-top: 4px;
+}
+
+/* Dark-theme overrides for DateRangePicker inside the dashboard filter popover */
+
+.dashboard-filter-popover .drp-quick-pill {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+}
+
+.dashboard-filter-popover .drp-quick-pill:hover {
+    background: rgba(167, 139, 250, 0.14);
+    border-color: rgba(167, 139, 250, 0.3);
+    color: #fff;
+}
+
+.dashboard-filter-popover .drp-preview {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+.dashboard-filter-popover .drp-preview-label {
+    color: var(--text-muted);
+}
+
+.dashboard-filter-popover .drp-preview-val {
+    color: var(--text-primary);
+}
+
+.dashboard-filter-popover .drp-preview-arrow {
+    color: var(--text-muted);
+}
+
+.dashboard-filter-popover .drp-nav-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+}
+
+.dashboard-filter-popover .drp-nav-btn:hover {
+    background: rgba(167, 139, 250, 0.14);
+    border-color: rgba(167, 139, 250, 0.3);
+}
+
+.dashboard-filter-popover .drp-nav-label {
+    color: var(--text-primary);
+}
+
+.dashboard-filter-popover .drp-weekdays span {
+    color: var(--text-muted);
+}
+
+.dashboard-filter-popover .drp-day-inner {
+    color: var(--text-primary);
+}
+
+.dashboard-filter-popover .drp-day:hover:not(.is-outside):not(.is-start):not(.is-end) .drp-day-inner {
+    background: rgba(167, 139, 250, 0.14);
+    border-color: rgba(167, 139, 250, 0.3);
+    color: #fff;
+}
+
+.dashboard-filter-popover .drp-day.is-outside .drp-day-inner {
+    color: rgba(255, 255, 255, 0.15);
+}
+
+.dashboard-filter-popover .drp-day.is-today .drp-day-inner {
+    border-color: rgba(245, 158, 11, 0.5);
+}
+
+.dashboard-filter-popover .drp-day.is-in-range {
+    background: rgba(124, 58, 237, 0.14);
+}
+
+.dashboard-filter-popover .drp-day.is-in-range .drp-day-inner {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.dashboard-filter-popover .drp-day.is-start.has-end {
+    background: linear-gradient(to right, transparent 50%, rgba(124, 58, 237, 0.14) 50%);
+}
+
+.dashboard-filter-popover .drp-day.is-end.has-start {
+    background: linear-gradient(to left, transparent 50%, rgba(124, 58, 237, 0.14) 50%);
+}
+
+.dashboard-filter-popover .drp-day.is-start .drp-day-inner,
+.dashboard-filter-popover .drp-day.is-end .drp-day-inner {
+    background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.35);
+    border-color: transparent;
+}
+
+.dashboard-filter-popover .drp-clear {
+    color: var(--text-muted);
+}
+
+.dashboard-filter-popover .drp-clear:hover {
+    color: #F87171;
 }
 
 @media (max-width: 720px) {
