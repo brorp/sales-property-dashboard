@@ -3,7 +3,8 @@
 .drp {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 4px;
+    width: fit-content;
 }
 
 /* ── Quick range pills ── */
@@ -42,10 +43,10 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 14px;
+    padding: 7px 10px;
     background: #EEF3F9;
     border: 1.5px solid #C7D7EA;
-    border-radius: 10px;
+    border-radius: 9px;
 }
 
 .drp-preview-col {
@@ -65,7 +66,7 @@
 }
 
 .drp-preview-val {
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     font-weight: 600;
     color: #1E3A5F;
     white-space: nowrap;
@@ -84,17 +85,17 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-top: 2px;
+    margin-top: 0;
 }
 
 .drp-nav-btn {
-    width: 30px;
-    height: 30px;
+    width: 26px;
+    height: 26px;
     display: flex;
     align-items: center;
     justify-content: center;
     border: 1.5px solid #E5E7EB;
-    border-radius: 8px;
+    border-radius: 7px;
     background: #F8FAFC;
     color: #64748B;
     cursor: pointer;
@@ -113,7 +114,7 @@
 .drp-nav-label {
     flex: 1;
     text-align: center;
-    font-size: 0.875rem;
+    font-size: 0.78rem;
     font-weight: 700;
     color: #1E3A5F;
     text-transform: capitalize;
@@ -123,16 +124,17 @@
 
 .drp-weekdays {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    margin-bottom: 2px;
+    grid-template-columns: repeat(7, 34px);
+    justify-content: center;
+    margin-bottom: 0;
 }
 
 .drp-weekdays span {
-    font-size: 0.62rem;
+    font-size: 0.6rem;
     font-weight: 700;
     color: #94A3B8;
     text-align: center;
-    padding: 3px 0 4px;
+    padding: 2px 0 2px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
@@ -141,7 +143,8 @@
 
 .drp-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, 34px);
+    justify-content: center;
 }
 
 .drp-day {
@@ -149,13 +152,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    aspect-ratio: 1;
+    height: 32px;
     border: none;
     background: transparent;
     cursor: pointer;
     font-family: inherit;
     padding: 0;
-    /* range band covers full cell */
 }
 
 /* Range band: half-bands for start/end, full band for in-range */
@@ -179,11 +181,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: calc(100% - 4px);
-    height: calc(100% - 4px);
-    border-radius: 8px;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
     border: 1.5px solid transparent;
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     font-weight: 500;
     color: #374151;
     transition: background 100ms ease, color 100ms ease, border-color 100ms ease;
@@ -244,4 +246,68 @@
 
 .drp-clear:hover {
     color: #DC2626;
+}
+
+/* ── Popover wrapper ── */
+
+.drp-popover {
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid #E5E7EB;
+    background: #FFFFFF;
+    box-shadow: 0 12px 32px rgba(30, 58, 95, 0.12);
+    z-index: 9999;
+}
+
+
+/* ── Action buttons ── */
+
+.drp-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #F1F5F9;
+}
+
+.drp-action-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 7px 16px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    border: 1.5px solid transparent;
+    transition: all 150ms ease;
+}
+
+.drp-action-btn--secondary {
+    background: #F8FAFC;
+    border-color: #E5E7EB;
+    color: #64748B;
+}
+
+.drp-action-btn--secondary:hover {
+    background: #FEE2E2;
+    border-color: #FCA5A5;
+    color: #DC2626;
+}
+
+.drp-action-btn--primary {
+    background: #1E3A5F;
+    border-color: #1E3A5F;
+    color: #FFFFFF;
+}
+
+.drp-action-btn--primary:hover:not(:disabled) {
+    background: #2d5491;
+    border-color: #2d5491;
+}
+
+.drp-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }

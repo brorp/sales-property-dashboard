@@ -191,7 +191,8 @@ function getInitials(text) {
 export default function BottomNav() {
     const { user, isAdmin, logout } = useAuth();
     const tenant = useTenant();
-    const { activeWorkspace } = useWorkspace();
+    const { activeWorkspace, workspaces, switchWorkspace } = useWorkspace();
+    const [wsSheetOpen, setWsSheetOpen] = useState(false);
     const pathname = usePathname();
     const router = useRouter();
     const [summary, setSummary] = useState({ latestLeadAt: null, latestLogAt: null });
@@ -341,28 +342,61 @@ export default function BottomNav() {
     return (
         <nav className={`bottom-nav${collapsed ? ' is-collapsed' : ''}`}>
             <div className="bottom-nav-brand">
-                {!collapsed ? (
+                {logoUrl ? (
+                    <img
+                        src={logoUrl}
+                        alt={clientName}
+                        style={{ height: collapsed ? '50px' : '150px', width: '100%', objectFit: 'contain', objectPosition: 'center', display: 'block' }}
+                    />
+                ) : !collapsed ? (
+                    <div className="bottom-nav-brand-title">{brandTitle}</div>
+                ) : null}
+                {brandSubtitle && !logoUrl && !collapsed ? <div className="bottom-nav-brand-subtitle">{brandSubtitle}</div> : null}
+                {collapsed ? (
                     <>
-                        {logoUrl ? (
-                            <img src={logoUrl} alt={clientName} style={{ height: '64px', width: '100%', objectFit: 'contain', objectPosition: 'left' }} />
-                        ) : (
-                            <div className="bottom-nav-brand-title">{brandTitle}</div>
-                        )}
-                        {brandSubtitle && !logoUrl ? <div className="bottom-nav-brand-subtitle">{brandSubtitle}</div> : null}
-                        <WorkspaceSwitcher variant="desktop" />
+                        <WorkspaceSwitcher variant="collapsed" />
+                        <div style={{ width: '100%', height: '1px', background: '#F1F5F9', margin: '4px 0' }} />
                     </>
                 ) : (
                     <>
-                        <div className="bottom-nav-initials" title={brandTitle}>
-                            {getInitials(brandTitle)}
-                        </div>
+                        <WorkspaceSwitcher variant="desktop" />
                         <div style={{ width: '100%', height: '1px', background: '#F1F5F9', margin: '4px 0' }} />
-                        <WorkspaceSwitcher variant="collapsed" />
                     </>
                 )}
             </div>
 
+            {wsSheetOpen ? (
+                <>
+                    <div className="ws-sheet-backdrop" onClick={() => setWsSheetOpen(false)} />
+                    <div className="ws-sheet">
+                        <div className="ws-sheet-handle" />
+                        <div className="ws-sheet-title">Pilih Workspace</div>
+                        {workspaces.map((ws) => (
+                            <button
+                                key={ws.slug}
+                                type="button"
+                                className={`ws-sheet-item${activeWorkspace?.slug === ws.slug ? ' active' : ''}`}
+                                onClick={() => { switchWorkspace(ws.slug); setWsSheetOpen(false); }}
+                            >
+                                <span>{ws.name}</span>
+                                {activeWorkspace?.slug === ws.slug ? (
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                ) : null}
+                            </button>
+                        ))}
+                    </div>
+                </>
+            ) : null}
+
             <div className="bottom-nav-inner">
+                {workspaces.length > 1 ? (
+                    <button type="button" className="bottom-nav-tab bottom-nav-ws-btn" onClick={() => setWsSheetOpen(true)}>
+                        <span className="bottom-nav-icon"><WorkspacesIcon /></span>
+                        <span className="bottom-nav-label">Workspace</span>
+                    </button>
+                ) : null}
                 {tabs.map(tab => (
                     <button
                         key={tab.key}

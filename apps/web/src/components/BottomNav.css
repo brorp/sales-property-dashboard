@@ -1,5 +1,85 @@
 /* ── Bottom Nav / Sidebar — Navy + Gold Theme ────────────────────────────── */
 
+/* ── Mobile Workspace Sheet ──────────────────────────────────────────────── */
+
+.bottom-nav-ws-btn {
+    display: flex;
+}
+
+@media (min-width: 1024px) {
+    .bottom-nav-ws-btn { display: none !important; }
+}
+
+.ws-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 300;
+}
+
+.ws-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+    z-index: 301;
+    padding: 12px 16px;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 24px rgba(30, 58, 95, 0.12);
+    animation: wsSlideUp 0.22s ease-out;
+}
+
+@keyframes wsSlideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+.ws-sheet-handle {
+    width: 36px;
+    height: 4px;
+    background: #E5E7EB;
+    border-radius: 999px;
+    margin: 0 auto 14px;
+}
+
+.ws-sheet-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #94A3B8;
+    font-weight: 700;
+    padding: 0 4px 10px;
+}
+
+.ws-sheet-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 13px 10px;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: #374151;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+}
+
+.ws-sheet-item:hover {
+    background: #F8FAFC;
+    color: #1E3A5F;
+}
+
+.ws-sheet-item.active {
+    background: #EEF3F9;
+    color: #1E3A5F;
+    font-weight: 600;
+}
+
 /* ── Mobile: Bottom Bar ──────────────────────────────────────────────────── */
 
 .bottom-nav {
@@ -172,6 +252,7 @@
         padding: 24px 20px 16px;
         border-bottom: 1px solid #F1F5F9;
         gap: 12px;
+        background: linear-gradient(160deg, #1E3A5F 0%, #0f2240 60%, #0a1a33 100%);
     }
 
     .bottom-nav-brand-title {

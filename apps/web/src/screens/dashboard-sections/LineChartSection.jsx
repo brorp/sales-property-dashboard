@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { formatCount as fmt } from './utils';
 import './DashboardSections.css';
 
 const LINE_COLORS = ['#7C3AED', '#22C55E', '#0EA5E9', '#F59E0B', '#EF4444', '#06B6D4', '#8B5CF6'];
@@ -18,10 +19,6 @@ function buildAreaPath(points, chartBottom) {
     if (points.length === 0) return '';
     const last = points[points.length - 1];
     return `${buildSmoothPath(points)} L ${last.x} ${chartBottom} L ${points[0].x} ${chartBottom} Z`;
-}
-
-function fmt(value) {
-    return new Intl.NumberFormat('id-ID').format(Number(value || 0));
 }
 
 export default function LineChartSection({ data }) {

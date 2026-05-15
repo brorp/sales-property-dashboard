@@ -1,10 +1,7 @@
 'use client';
 
+import { formatCount as fmt } from './utils';
 import './DashboardSections.css';
-
-function fmt(value) {
-    return new Intl.NumberFormat('id-ID').format(Number(value || 0));
-}
 
 function normalizeKey(value) {
     return String(value || '').trim().toLowerCase();

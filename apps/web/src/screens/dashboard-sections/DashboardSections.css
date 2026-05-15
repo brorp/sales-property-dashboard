@@ -112,12 +112,109 @@
 }
 
 .chart-container-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
 }
 
+/* ── RankedPanel ── */
+
+.rnk-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.rnk-title {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.rnk-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.rnk-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.rnk-item-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rnk-badge {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 800;
+    background: var(--bg-input);
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+}
+
+.rnk-label {
+    flex: 1;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.rnk-count {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    flex-shrink: 0;
+}
+
+.rnk-pct {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    min-width: 34px;
+    text-align: right;
+}
+
+.rnk-bar-track {
+    height: 4px;
+    border-radius: 999px;
+    background: var(--bg-input);
+    overflow: hidden;
+    margin-left: 28px;
+}
+
+.rnk-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 400ms ease;
+}
+
+.rnk-empty {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+/* legacy chart-box kept for other usages */
 .chart-box {
     flex: 1;
     min-width: 250px;
@@ -462,6 +559,82 @@
     .dsr-date { display: none; }
 }
 
+/* ── Section card (replaces Accordion wrappers) ──────────────────── */
+
+.ds-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+
+.ds-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
+
+.ds-card-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.ds-card-summary {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+    display: block;
+}
+
+/* ── Tabs ──────────────────────────────────────────────────────────── */
+
+.ds-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 20px;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.ds-tabs::-webkit-scrollbar { display: none; }
+
+.ds-tab {
+    padding: 11px 16px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    border: none;
+    border-bottom: 2px solid transparent;
+    background: none;
+    cursor: pointer;
+    margin-bottom: -1px;
+    white-space: nowrap;
+    font-family: inherit;
+    transition: color 150ms ease, border-color 150ms ease;
+    flex-shrink: 0;
+}
+
+.ds-tab:hover { color: var(--text-primary); }
+
+.ds-tab.is-active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+
+.ds-tab-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
 @media (max-width: 768px) {
     .line-chart-controls {
         grid-template-columns: 1fr;
@@ -475,4 +648,206 @@
     .line-chart-svg {
         min-width: 560px;
     }
+}
+
+/* ── TeamPerformanceSection ────────────────────────────────────────── */
+
+.tpc-section-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+/* Sales card grid */
+.tpc-sales-grid {
+    display: grid;
+    gap: 10px;
+    /* gridTemplateColumns set via inline style, max 5 cols */
+}
+
+.tpc-sales-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.tpc-sales-card-head {
+    padding: 10px 12px 8px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tpc-sales-card-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tpc-sales-card-total {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.tpc-sales-card-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tpc-sales-stat {
+    background: var(--bg-input);
+    padding: 7px 9px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tpc-sales-stat-label {
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tpc-sales-stat-value {
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.tpc-sales-card-rates {
+    padding: 7px 12px;
+    display: flex;
+    gap: 6px;
+}
+
+.tpc-sales-rate-item {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: 1;
+    min-width: 0;
+}
+
+.tpc-sales-rate-label {
+    font-size: 0.58rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tpc-sales-rate-value {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* Supervisor group divider */
+.tpc-sup-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 2px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.tpc-sup-divider-label {
+    font-size: 0.83rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+.tpc-sup-divider-count {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.tpc-compare-btn { flex-shrink: 0; }
+
+.tpc-metric-card {
+    background: var(--bg-input);
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 100px;
+}
+
+.tpc-metric-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.tpc-metric-value {
+    font-size: 1.9rem;
+    line-height: 1;
+    font-weight: 700;
+}
+
+.tpc-metric-helper {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.tpc-rate-card {
+    background: var(--bg-input);
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 96px;
+}
+
+.tpc-rate-value {
+    font-size: 1.7rem;
+    line-height: 1;
+    font-weight: 700;
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+    .tpc-compare-btn { display: none; }
+    .tpc-compare-layout { display: none; }
+
+    .tpc-sales-grid { grid-template-columns: repeat(2, 1fr) !important; }
+    .tpc-sales-stat { padding: 5px 7px; }
+    .tpc-sales-stat-label { font-size: 0.58rem; letter-spacing: 0; }
+    .tpc-sales-stat-value { font-size: 0.82rem; }
+    .tpc-sales-card-rates { padding: 6px 8px; gap: 4px; }
+    .tpc-sales-rate-label { font-size: 0.55rem; letter-spacing: 0; }
+    .tpc-sales-rate-value { font-size: 0.72rem; }
+
+    .tpc-metric-card { padding: 10px 12px; min-height: 80px; gap: 5px; }
+    .tpc-metric-value { font-size: 1.5rem; }
+    .tpc-rate-card { padding: 10px 12px; min-height: 76px; gap: 4px; }
+    .tpc-rate-value { font-size: 1.35rem; }
+    .tpc-metric-label, .tpc-metric-helper { font-size: 0.7rem; }
+
+    .ds-card-head { padding: 12px 14px; }
+    .ds-tab-body { padding: 14px; gap: 12px; }
 }
