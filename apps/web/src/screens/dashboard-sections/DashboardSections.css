@@ -134,231 +134,335 @@
     color: var(--text-muted);
 }
 
-.daily-sales-report-shell {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-}
+/* ── Daily Sales Report ──────────────────────────────────────────────── */
 
-.daily-sales-report-top {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-}
-
-.daily-sales-report-main {
-    display: grid;
-    grid-template-columns: minmax(0, 1.45fr) minmax(240px, 0.75fr);
-    gap: 14px;
-    align-items: stretch;
-}
-
-.daily-sales-report-card,
-.daily-sales-report-metric {
+.dsr-card {
+    background: var(--bg-card);
     border: 1px solid var(--border-color);
-    background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01)),
-        var(--bg-card);
     border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
 }
 
-.daily-sales-report-metric {
-    padding: 14px;
+.dsr-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 10px;
+    gap: 12px;
+    margin-bottom: 16px;
 }
 
-.daily-sales-report-metric span {
-    color: var(--text-muted);
-    font-size: 0.85rem;
+.dsr-eyebrow {
+    display: block;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.08em;
+    color: var(--primary-light);
+    margin-bottom: 2px;
 }
 
-.daily-sales-report-metric strong {
+.dsr-title {
+    font-size: 1.05rem;
+    font-weight: 700;
     color: var(--text-primary);
-    font-size: 1.55rem;
-    line-height: 1;
+    margin: 0;
 }
 
-.daily-sales-report-metric-success {
-    border-color: rgba(34, 197, 94, 0.34);
+.dsr-date {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    flex-shrink: 0;
 }
 
-.daily-sales-report-metric-success strong {
-    color: var(--green);
+.dsr-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
 }
 
-.daily-sales-report-metric-warning {
-    border-color: rgba(245, 158, 11, 0.34);
-}
-
-.daily-sales-report-metric-warning strong {
-    color: var(--warm);
-}
-
-.daily-sales-report-card {
-    padding: 16px;
-}
-
-.daily-sales-report-card-leads {
-    min-height: 150px;
-}
-
-.daily-sales-report-card-transaction {
+.dsr-metric {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 2px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
 }
 
-.daily-sales-report-card-head,
-.daily-sales-report-sales-row {
+.dsr-metric--success { border-color: rgba(34, 197, 94, 0.3); }
+.dsr-metric--warning { border-color: rgba(245, 158, 11, 0.3); }
+
+.dsr-metric-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+}
+
+.dsr-metric-value {
+    font-size: 1.6rem;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--text-primary);
+    margin: 2px 0;
+}
+
+.dsr-metric--success .dsr-metric-value { color: #22C55E; }
+.dsr-metric--warning .dsr-metric-value { color: #F59E0B; }
+
+.dsr-metric-sub {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.dsr-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin-bottom: 14px;
+}
+
+.dsr-empty {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 8px 0 4px;
+    margin: 0;
+}
+
+.dsr-sales-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.dsr-sales-head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.daily-sales-report-card-head {
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.daily-sales-report-card-head span {
-    color: var(--text-muted);
-    font-weight: 800;
+    gap: 10px;
+    padding: 0 12px 8px;
+    font-size: 0.68rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
 }
 
-.daily-sales-report-card-head strong {
-    color: var(--text-primary);
-    font-size: 1.9rem;
-}
+.dsr-sales-head > span:first-child { flex: 1; }
 
-.daily-sales-report-sales-list {
+.dsr-sales-row {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 12px;
-}
-
-.daily-sales-report-sales-row {
-    padding: 9px 10px;
-    border-radius: 12px;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
     background: var(--bg-input);
-    color: var(--text-primary);
+    border: 1px solid var(--border-color);
 }
 
-.daily-sales-report-sales-row span {
+.dsr-sales-name {
+    flex: 1;
+    font-weight: 600;
+    font-size: 0.88rem;
+    color: var(--text-primary);
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.daily-sales-report-sales-row strong {
-    color: var(--primary-light);
-}
-
-.daily-sales-report-empty,
-.daily-sales-report-note {
-    margin: 12px 0 0;
-    color: var(--text-muted);
+.dsr-col {
+    min-width: 60px;
+    text-align: center;
     font-size: 0.88rem;
-    line-height: 1.45;
+    color: var(--text-secondary);
 }
 
-.line-chart-shell {
+.dsr-col--total {
+    font-weight: 700;
+    color: var(--primary-light) !important;
+}
+
+.dsr-sales-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px 0;
+    margin-top: 4px;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.dsr-sales-footer strong {
+    color: var(--primary-light);
+    font-weight: 700;
+}
+
+/* ── Line Chart redesign ─────────────────────────────────────────────── */
+
+.lc-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+}
+
+.lc-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.lc-eyebrow {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--primary-light);
+    margin-bottom: 2px;
+}
+
+.lc-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.lc-controls {
     display: flex;
     flex-direction: column;
-    gap: 18px;
+    gap: 6px;
+    align-items: flex-end;
 }
 
-.line-chart-controls {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 220px));
-    gap: 14px;
-}
-
-.line-chart-empty {
-    padding: 18px;
-    border-radius: 12px;
-    border: 1px dashed var(--border-color);
-    background: var(--bg-card);
-    color: var(--text-muted);
-    text-align: center;
-}
-
-.line-chart-legend {
+.lc-pill-group {
     display: flex;
+    gap: 4px;
     flex-wrap: wrap;
-    gap: 10px;
+    justify-content: flex-end;
 }
 
-.line-chart-legend-item {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
+.lc-pill {
+    padding: 5px 12px;
     border-radius: 999px;
     border: 1px solid var(--border-color);
-    background: var(--bg-card);
-    color: var(--text-primary);
-    font-size: 0.85rem;
+    background: var(--bg-input);
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
     cursor: pointer;
     font-family: inherit;
-    transition: opacity 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+    transition: all 150ms ease;
+    white-space: nowrap;
 }
 
-.line-chart-legend-item:hover {
-    transform: translateY(-1px);
-    border-color: rgba(255,255,255,0.22);
+.lc-pill:hover {
+    border-color: #C7D7EA;
+    color: var(--text-primary);
 }
 
-.line-chart-legend-item.is-hidden {
-    opacity: 0.42;
-    text-decoration: line-through;
+.lc-pill.is-active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #FFFFFF;
 }
 
-.line-chart-legend-dot {
+.lc-pill--alt.is-active {
+    background: var(--primary-light);
+    border-color: var(--primary-light);
+    color: #FFFFFF;
+}
+
+.lc-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-bottom: 14px;
+}
+
+.lc-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 11px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-input);
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 150ms ease;
+}
+
+.lc-legend-item:hover { border-color: #C7D7EA; }
+
+.lc-legend-item.is-hidden { opacity: 0.38; }
+.lc-legend-item.is-hidden .lc-legend-name { text-decoration: line-through; }
+
+.lc-legend-dot {
     width: 10px;
     height: 10px;
-    border-radius: 999px;
-    display: inline-block;
+    border-radius: 50%;
+    flex-shrink: 0;
 }
 
-.line-chart-card {
+.lc-legend-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.lc-legend-total {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.lc-chart-wrap {
     overflow-x: auto;
-    border-radius: 16px;
+    border-radius: 12px;
     border: 1px solid var(--border-color);
-    background:
-        linear-gradient(180deg, rgba(124, 77, 255, 0.08), rgba(124, 77, 255, 0.02)),
-        var(--bg-card);
-    padding: 10px;
+    background: var(--bg-input);
+    padding: 6px;
 }
 
-.line-chart-svg {
+.lc-svg {
     width: 100%;
-    min-width: 680px;
+    min-width: 640px;
     height: auto;
     display: block;
+    cursor: crosshair;
+}
+
+.lc-empty {
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    border: 1px dashed var(--border-color);
+    border-radius: 10px;
+}
+
+@media (max-width: 640px) {
+    .dsr-metrics { grid-template-columns: 1fr 1fr; }
+    .dsr-date { display: none; }
 }
 
 @media (max-width: 768px) {
-    .daily-sales-report-top,
-    .daily-sales-report-main {
-        grid-template-columns: 1fr;
-    }
-
-    .daily-sales-report-metric {
-        min-height: 56px;
-    }
-
     .line-chart-controls {
         grid-template-columns: 1fr;
     }

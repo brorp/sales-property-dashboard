@@ -316,7 +316,7 @@ export default function BottomNav() {
     const isTenantWorkspace = user?.role !== 'root_admin' && Boolean(clientName);
     const brandTitle =
         isTenantWorkspace
-            ? `${clientName} CMS Dashboard`
+            ? `CMS Dashboard`
             : 'Property Lounge';
     const brandSubtitle =
         isTenantWorkspace

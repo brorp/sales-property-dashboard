@@ -53,7 +53,7 @@ function getScopeDisplayLabel(scope) {
 function buildConicGradient(items) {
     const total = items.reduce((sum, item) => sum + (item.count || 0), 0);
     if (total <= 0) {
-        return 'rgba(255,255,255,0.06)';
+        return '#F1F5F9';
     }
 
     let cursor = 0;
@@ -110,7 +110,7 @@ function PieChartCard({ title, subtitle, total, items, emptyLabel = 'Belum ada d
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)',
+                                boxShadow: 'inset 0 0 0 1px rgba(30,58,95,0.06)',
                             }}
                         >
                             <div

@@ -2,67 +2,100 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 0 16px;
-    margin-bottom: 14px;
+    gap: 12px;
+    height: 56px;
+    padding: 0 16px;
     position: sticky;
     top: 0;
     z-index: 40;
-    background: rgba(10, 8, 21, 0.88);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    margin-left: -16px;
-    margin-right: -16px;
-    padding-left: 16px;
-    padding-right: 16px;
+    background: var(--bg-app, rgba(10, 8, 21, 0.92));
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.07));
+    margin: 0 -16px 20px;
+    flex-shrink: 0;
 }
 
 .app-header-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
 }
 
-.back-btn {
-    width: 36px;
-    height: 36px;
+.app-header-title-wrap {
+    min-width: 0;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-sm);
-    font-size: 1.25rem;
-    color: var(--text-primary);
-    background: rgba(38, 32, 59, 0.92);
-    border: 1px solid var(--border);
-    cursor: pointer;
-    transition: background var(--transition-fast);
-}
-
-.back-btn:active {
-    background: rgba(51, 42, 79, 0.95);
+    flex-direction: column;
+    gap: 1px;
 }
 
 .app-header-title {
-    font-size: 1.22rem;
+    font-size: 1.05rem;
     font-weight: 700;
-    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.app-header-subtitle {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.app-header-back {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    color: var(--text-primary);
+    background: var(--bg-input, rgba(255, 255, 255, 0.06));
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 150ms ease, border-color 150ms ease;
+}
+
+.app-header-back:hover {
+    background: var(--bg-card, rgba(255, 255, 255, 0.1));
+    border-color: var(--primary, rgba(255, 255, 255, 0.2));
 }
 
 .app-header-right {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
+}
+
+.app-header-action {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* WorkspaceSwitcher selalu tampil di dalam header, semua breakpoint */
+.app-header-ws .workspace-switcher--desktop {
+    display: block;
 }
 
 @media (min-width: 1024px) {
     .app-header {
-        margin-left: -34px;
-        margin-right: -34px;
-        padding: 18px 34px;
-        margin-bottom: 24px;
+        height: 60px;
+        padding: 0 34px;
+        margin: 0 -34px 24px;
     }
 
     .app-header-title {
-        font-size: 1.9rem;
+        font-size: 1.3rem;
     }
 }
