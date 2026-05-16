@@ -128,6 +128,7 @@ export default function DashboardPage() {
 
     const [activeSectionTab, setActiveSectionTab] = useState('transaction');
     const [globalTeamFilter, setGlobalTeamFilter] = useState('all');
+    const [showFilterDrawer, setShowFilterDrawer] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [filterLoading, setFilterLoading] = useState(false);
     const [pageAnalytics, setPageAnalytics] = useState(null);
@@ -227,6 +228,7 @@ export default function DashboardPage() {
         const nextRange = getPresetRange(key);
         setFilterLoading(true);
         setDashboardError('');
+        setShowFilterDrawer(false);
         try {
             await loadDashboardAnalytics(nextRange);
             setAppliedDateRange(nextRange);
@@ -241,6 +243,7 @@ export default function DashboardPage() {
         const nextRange = normalizeDateRange(range);
         setFilterLoading(true);
         setDashboardError('');
+        setShowFilterDrawer(false);
         try {
             await loadDashboardAnalytics(nextRange);
             setAppliedDateRange(nextRange);
@@ -477,82 +480,111 @@ export default function DashboardPage() {
                 </div>
             ) : null}
 
-            {/* ── Sticky bar: tabs + filter ── */}
+            {/* ── Sticky bar: tabs + filter btn ── */}
             <div className="dash-sticky-bar">
-                <div className="dash-section-tabs">
-                    {showDailyReport ? (
-                        <button type="button" className={`dash-section-tab${activeSectionTab === 'daily-report' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('daily-report')}>Daily Report</button>
+                <div className="dash-sticky-bar-row">
+                    <div className="dash-section-tabs">
+                        {showDailyReport ? (
+                            <button type="button" className={`dash-section-tab${activeSectionTab === 'daily-report' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('daily-report')}>Daily Report</button>
+                        ) : null}
+                        <button type="button" className={`dash-section-tab${activeSectionTab === 'transaction' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('transaction')}>Transaction</button>
+                        <button type="button" className={`dash-section-tab${activeSectionTab === 'team' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('team')}>Team Performance</button>
+                        <button type="button" className={`dash-section-tab${activeSectionTab === 'database' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('database')}>Database</button>
+                        <button type="button" className={`dash-section-tab${activeSectionTab === 'chart' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('chart')}>Line Chart</button>
+                    </div>
+
+                    {showDateFilter ? (
+                        <button
+                            type="button"
+                            className={`dash-filter-toggle${isCustomActive || globalTeamFilter !== 'all' ? ' has-filter' : ''}`}
+                            onClick={() => setShowFilterDrawer(true)}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/>
+                            </svg>
+                            {globalTeamFilter !== 'all' ? <span className="dash-filter-toggle-dot" /> : null}
+                        </button>
                     ) : null}
-                    <button type="button" className={`dash-section-tab${activeSectionTab === 'transaction' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('transaction')}>Transaction</button>
-                    <button type="button" className={`dash-section-tab${activeSectionTab === 'team' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('team')}>Team Performance</button>
-                    <button type="button" className={`dash-section-tab${activeSectionTab === 'database' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('database')}>Database</button>
-                    <button type="button" className={`dash-section-tab${activeSectionTab === 'chart' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('chart')}>Line Chart</button>
                 </div>
+            </div>
 
-                {showDateFilter ? (
-                    <div className="dash-filter-bar">
-                        <div className="dash-filter-pills">
-                            {QUICK_RANGES.map((preset) => {
-                                const pr = getPresetRange(preset.key);
-                                const isActive = pr.dateFrom === appliedDateRange.dateFrom && pr.dateTo === appliedDateRange.dateTo;
-                                return (
-                                    <button key={preset.key} type="button" className={`dash-filter-pill${isActive ? ' is-active' : ''}`} onClick={() => void applyPreset(preset.key)}>
-                                        {isActive && filterLoading ? 'Memuat...' : preset.label}
-                                    </button>
-                                );
-                            })}
-                            <DateRangePicker
-                                value={appliedDateRange}
-                                onApply={(range) => void handleApplyDateFilter(range)}
-                                onReset={() => void handleClearDateFilter()}
-                                loading={filterLoading}
-                                trigger={({ open }) => (
-                                    <button
-                                        type="button"
-                                        className={`dash-filter-pill dash-filter-pill--custom${isCustomActive ? ' is-active' : ''}`}
-                                        onClick={open}
-                                    >
-                                        {isCustomActive ? formatRangeButtonLabel(appliedDateRange) : 'Custom'}
-                                    </button>
-                                )}
-                            />
+            {/* ── Filter drawer ── */}
+            {showFilterDrawer ? (
+                <div className="dash-drawer-overlay" onClick={() => setShowFilterDrawer(false)}>
+                    <div className="dash-drawer" onClick={(e) => e.stopPropagation()}>
+                        <div className="dash-drawer-header">
+                            <span className="dash-drawer-title">Filter</span>
+                            <button type="button" className="dash-drawer-close" onClick={() => setShowFilterDrawer(false)}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
                         </div>
-
-                        <p className="dash-filter-summary">
-                            {filterLoading ? 'Memuat data...' : formatRangeSummary(appliedDateRange)}
-                        </p>
-
-                        {canUseTeamFilters && globalTeamList.length > 0 ? (
-                            <div className="dash-filter-spv-row">
-                                <span className="dash-filter-spv-label">SPV</span>
-                                <div className="dash-filter-pills">
-                                    <button
-                                        type="button"
-                                        className={`dash-filter-pill dash-filter-pill--spv${globalTeamFilter === 'all' ? ' is-active' : ''}`}
-                                        onClick={() => setGlobalTeamFilter('all')}
-                                    >
-                                        Semua
-                                    </button>
-                                    {globalTeamList.map((team) => {
-                                        const label = team.teamId === 'unassigned_sup' || team.teamName === 'Unassigned Supervisor' ? 'PIC Agent' : team.teamName;
+                        <div className="dash-drawer-body">
+                            <div className="dash-drawer-section">
+                                <span className="dash-drawer-section-label">Periode</span>
+                                <div className="dash-filter-pills" style={{ flexWrap: 'wrap' }}>
+                                    {QUICK_RANGES.map((preset) => {
+                                        const pr = getPresetRange(preset.key);
+                                        const isActive = pr.dateFrom === appliedDateRange.dateFrom && pr.dateTo === appliedDateRange.dateTo;
                                         return (
-                                            <button
-                                                key={team.teamId}
-                                                type="button"
-                                                className={`dash-filter-pill dash-filter-pill--spv${globalTeamFilter === team.teamId ? ' is-active' : ''}`}
-                                                onClick={() => setGlobalTeamFilter(team.teamId)}
-                                            >
-                                                {label}
+                                            <button key={preset.key} type="button" className={`dash-filter-pill${isActive ? ' is-active' : ''}`} onClick={() => void applyPreset(preset.key)}>
+                                                {preset.label}
                                             </button>
                                         );
                                     })}
+                                    <DateRangePicker
+                                        value={appliedDateRange}
+                                        onApply={(range) => void handleApplyDateFilter(range)}
+                                        onReset={() => void handleClearDateFilter()}
+                                        loading={filterLoading}
+                                        trigger={({ open }) => (
+                                            <button
+                                                type="button"
+                                                className={`dash-filter-pill dash-filter-pill--custom${isCustomActive ? ' is-active' : ''}`}
+                                                onClick={open}
+                                            >
+                                                {isCustomActive ? formatRangeButtonLabel(appliedDateRange) : 'Custom'}
+                                            </button>
+                                        )}
+                                    />
                                 </div>
+                                <p className="dash-filter-summary" style={{ margin: '10px 0 0' }}>
+                                    {filterLoading ? 'Memuat data...' : formatRangeSummary(appliedDateRange)}
+                                </p>
                             </div>
-                        ) : null}
 
+                            {canUseTeamFilters && globalTeamList.length > 0 ? (
+                                <div className="dash-drawer-section">
+                                    <span className="dash-drawer-section-label">Tim (SPV)</span>
+                                    <div className="dash-filter-pills" style={{ flexWrap: 'wrap' }}>
+                                        <button
+                                            type="button"
+                                            className={`dash-filter-pill dash-filter-pill--spv${globalTeamFilter === 'all' ? ' is-active' : ''}`}
+                                            onClick={() => setGlobalTeamFilter('all')}
+                                        >
+                                            Semua
+                                        </button>
+                                        {globalTeamList.map((team) => {
+                                            const label = team.teamId === 'unassigned_sup' || team.teamName === 'Unassigned Supervisor' ? 'PIC Agent' : team.teamName;
+                                            return (
+                                                <button
+                                                    key={team.teamId}
+                                                    type="button"
+                                                    className={`dash-filter-pill dash-filter-pill--spv${globalTeamFilter === team.teamId ? ' is-active' : ''}`}
+                                                    onClick={() => setGlobalTeamFilter(team.teamId)}
+                                                >
+                                                    {label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ) : null}
+                        </div>
                     </div>
-                ) : null}
-            </div>
+                </div>
+            ) : null}
 
             {/* ── Tab content ── */}
             {activeSectionTab === 'daily-report' && showDailyReport ? (

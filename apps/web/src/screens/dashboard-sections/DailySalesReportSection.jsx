@@ -3,8 +3,48 @@
 import { formatCount as fmt } from './utils';
 import './DashboardSections.css';
 
+const SOURCE_COLORS = [
+    'var(--primary)',
+    '#f59e0b',
+    'var(--green)',
+    'var(--purple)',
+    '#ef4444',
+    '#06b6d4',
+];
+
 function normalizeKey(value) {
     return String(value || '').trim().toLowerCase();
+}
+
+function SalesSourceCard({ grp, sourceColumns }) {
+    const srcMap = new Map(
+        (Array.isArray(grp.bySource) ? grp.bySource : [])
+            .map((i) => [normalizeKey(i.source), i.count || 0])
+    );
+
+    return (
+        <div className="tpc-sales-card">
+            <div className="tpc-sales-card-head">
+                <span className="tpc-sales-card-name">{grp.salesName || 'Unassigned'}</span>
+                <span className="tpc-sales-card-total">{fmt(grp.total)} leads hari ini</span>
+            </div>
+            {sourceColumns.length > 0 ? (
+                <div className="tpc-sales-card-stats">
+                    {sourceColumns.map((src, i) => (
+                        <div key={src} className="tpc-sales-stat">
+                            <span className="tpc-sales-stat-label">{src}</span>
+                            <strong
+                                className="tpc-sales-stat-value"
+                                style={{ color: SOURCE_COLORS[i % SOURCE_COLORS.length] }}
+                            >
+                                {fmt(srcMap.get(normalizeKey(src)) || 0)}
+                            </strong>
+                        </div>
+                    ))}
+                </div>
+            ) : null}
+        </div>
+    );
 }
 
 export default function DailySalesReportSection({ data }) {
@@ -23,6 +63,7 @@ export default function DailySalesReportSection({ data }) {
 
     const totalAssigned = salesRows.reduce((s, g) => s + (g.total || 0), 0);
     const activeSalesRows = salesRows.filter((g) => (g.total || 0) > 0);
+    const cols = Math.min(activeSalesRows.length, 5);
 
     return (
         <div className="dsr-card">
@@ -57,31 +98,19 @@ export default function DailySalesReportSection({ data }) {
             {activeSalesRows.length === 0 ? (
                 <p className="dsr-empty">Tidak ada lead yang assigned hari ini.</p>
             ) : (
-                <div className="dsr-sales-list">
-                    <div className="dsr-sales-head">
-                        <span>Sales</span>
-                        {sourceColumns.map((src) => (
-                            <span key={src} className="dsr-col">{src}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div
+                        className="tpc-sales-grid"
+                        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
+                    >
+                        {activeSalesRows.map((grp) => (
+                            <SalesSourceCard
+                                key={grp.salesId || grp.salesName}
+                                grp={grp}
+                                sourceColumns={sourceColumns}
+                            />
                         ))}
-                        <span className="dsr-col dsr-col--total">Total</span>
                     </div>
-                    {activeSalesRows.map((grp) => {
-                        const srcMap = new Map(
-                            (Array.isArray(grp.bySource) ? grp.bySource : [])
-                                .map((i) => [normalizeKey(i.source), i.count || 0])
-                        );
-                        return (
-                            <div key={grp.salesId || grp.salesName} className="dsr-sales-row">
-                                <span className="dsr-sales-name">{grp.salesName || 'Unassigned'}</span>
-                                {sourceColumns.map((src) => (
-                                    <span key={src} className="dsr-col">
-                                        {fmt(srcMap.get(normalizeKey(src)) || 0)}
-                                    </span>
-                                ))}
-                                <strong className="dsr-col dsr-col--total">{fmt(grp.total)}</strong>
-                            </div>
-                        );
-                    })}
                     <div className="dsr-sales-footer">
                         <span>Total assigned hari ini</span>
                         <strong>{fmt(totalAssigned)}</strong>

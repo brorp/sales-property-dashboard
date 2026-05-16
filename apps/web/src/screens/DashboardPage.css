@@ -65,9 +65,175 @@ body.dash-body {
     }
 }
 
-/* Remove extra bottom margin when filter bar is inside sticky */
-.dash-sticky-bar .dash-filter-bar {
+/* ── Sticky bar inner row ────────────────────────────────────────────── */
+
+.dash-sticky-bar-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding-bottom: 2px;
+}
+
+.dash-sticky-bar-row .dash-section-tabs {
+    flex: 1;
+    min-width: 0;
     margin-bottom: 0;
+}
+
+/* ── Filter toggle button ────────────────────────────────────────────── */
+
+.dash-filter-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 10px;
+    border: 1.5px solid #E5E7EB;
+    background: #F9FAFB;
+    color: #6B7280;
+    font-size: 0.813rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    margin-bottom: 4px;
+    position: relative;
+    transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.dash-filter-toggle:hover {
+    border-color: #CBD5E1;
+    background: #F1F5F9;
+    color: #1E3A5F;
+}
+
+.dash-filter-toggle.has-filter {
+    border-color: #1E3A5F;
+    background: #EFF6FF;
+    color: #1E3A5F;
+}
+
+.dash-filter-toggle-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #D4A843;
+    flex-shrink: 0;
+}
+
+/* ── Filter drawer ───────────────────────────────────────────────────── */
+
+.dash-drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    z-index: 300;
+    display: flex;
+    justify-content: flex-end;
+    animation: dashOverlayIn 180ms ease;
+}
+
+@keyframes dashOverlayIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.dash-drawer {
+    width: 300px;
+    height: 100%;
+    background: #FFFFFF;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -4px 0 24px rgba(15, 23, 42, 0.12);
+    animation: dashDrawerIn 220ms ease;
+    overflow: hidden;
+}
+
+@keyframes dashDrawerIn {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+
+.dash-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid #F1F5F9;
+    flex-shrink: 0;
+}
+
+.dash-drawer-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1E3A5F;
+}
+
+.dash-drawer-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: #F1F5F9;
+    color: #64748B;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 150ms ease, color 150ms ease;
+}
+
+.dash-drawer-close:hover {
+    background: #E2E8F0;
+    color: #1E3A5F;
+}
+
+.dash-drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.dash-drawer-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.dash-drawer-section-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #94A3B8;
+}
+
+@media (max-width: 640px) {
+    .dash-drawer-overlay {
+        align-items: flex-end;
+        justify-content: stretch;
+    }
+
+    .dash-drawer {
+        width: 100%;
+        height: auto;
+        max-height: 80dvh;
+        border-radius: 20px 20px 0 0;
+        box-shadow: 0 -4px 24px rgba(15, 23, 42, 0.12);
+        animation: dashDrawerUp 220ms ease;
+    }
+
+    @keyframes dashDrawerUp {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
 }
 
 /* ── Section tab bar ──────────────────────────────────────────────────── */
