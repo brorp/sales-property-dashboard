@@ -6,27 +6,55 @@ import PickerTriggerField from '../components/PickerTriggerField';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { apiRequest, getApiBaseUrl } from '../lib/api';
+import './SettingsPage.css';
 
 function statusLabel(status) {
     switch (status) {
-        case 'connected':
-            return 'Connected';
-        case 'awaiting_qr':
-            return 'Waiting QR';
-        case 'awaiting_pairing_code':
-            return 'Waiting Pairing Code';
-        case 'starting':
-            return 'Starting';
-        case 'disconnected':
-            return 'Disconnected';
-        case 'error':
-            return 'Error';
-        case 'disabled':
-            return 'Disabled';
-        default:
-            return 'Idle';
+        case 'connected': return 'Connected';
+        case 'awaiting_qr': return 'Waiting QR';
+        case 'awaiting_pairing_code': return 'Waiting Pairing Code';
+        case 'starting': return 'Starting';
+        case 'disconnected': return 'Disconnected';
+        case 'error': return 'Error';
+        case 'disabled': return 'Disabled';
+        default: return 'Idle';
     }
 }
+
+const IconWifi = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 12.55a11 11 0 0 1 14.08 0" /><path d="M1.42 9a16 16 0 0 1 21.16 0" />
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><circle cx="12" cy="20" r="1" fill="currentColor" />
+    </svg>
+);
+
+const IconSmartphone = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="5" y="2" width="14" height="20" rx="2" /><line x1="12" y1="18" x2="12.01" y2="18" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+);
+
+const IconZap = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+);
+
+const IconAlertTriangle = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+);
+
+const IconSliders = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" />
+        <line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" />
+        <line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" />
+        <line x1="1" y1="14" x2="7" y2="14" /><line x1="9" y1="8" x2="15" y2="8" /><line x1="17" y1="16" x2="23" y2="16" />
+    </svg>
+);
 
 export default function SettingsPage() {
     const { user } = useAuth();
@@ -59,6 +87,11 @@ export default function SettingsPage() {
         insideOfficeReply: '',
     });
 
+    useEffect(() => {
+        document.body.classList.add('light-page');
+        return () => document.body.classList.remove('light-page');
+    }, []);
+
     const request = useCallback(
         async (path, method = 'GET') => {
             const res = await fetch(`${apiBase}/api/whatsapp-admin${path}`, {
@@ -68,7 +101,6 @@ export default function SettingsPage() {
                     ...(adminToken ? { 'x-admin-token': adminToken } : {}),
                 },
             });
-
             if (!res.ok) {
                 const body = await res.text();
                 throw new Error(body || `HTTP ${res.status}`);
@@ -79,10 +111,7 @@ export default function SettingsPage() {
     );
 
     const loadStatus = useCallback(async (options = { silent: false }) => {
-        if (!options.silent) {
-            setStatusLoading(true);
-            setActiveAction('status');
-        }
+        if (!options.silent) { setStatusLoading(true); setActiveAction('status'); }
         try {
             const data = await request('/status');
             setState(data);
@@ -98,29 +127,21 @@ export default function SettingsPage() {
                 setActionFeedbackType('error');
             }
         } finally {
-            if (!options.silent) {
-                setStatusLoading(false);
-                setActiveAction('');
-            }
+            if (!options.silent) { setStatusLoading(false); setActiveAction(''); }
             setLoading(false);
         }
     }, [request]);
 
-    useEffect(() => {
-        void loadStatus({ silent: true });
-    }, [loadStatus]);
+    useEffect(() => { void loadStatus({ silent: true }); }, [loadStatus]);
 
     const loadSystemSettings = useCallback(async () => {
-        if (!user) {
-            return;
-        }
+        if (!user) return;
         setSystemSettingsLoading(true);
         setSystemSettingsError('');
         try {
-            const targetPath =
-                user.role === 'root_admin' && activeClientId
-                    ? `/api/settings/system?clientId=${encodeURIComponent(activeClientId)}`
-                    : '/api/settings/system';
+            const targetPath = user.role === 'root_admin' && activeClientId
+                ? `/api/settings/system?clientId=${encodeURIComponent(activeClientId)}`
+                : '/api/settings/system';
             const data = await apiRequest(targetPath, { user });
             setSystemSettingsForm({
                 distributionAckTimeoutMinutes: Number(data?.distributionAckTimeoutMinutes || 5),
@@ -137,28 +158,13 @@ export default function SettingsPage() {
         }
     }, [activeClientId, user]);
 
-    useEffect(() => {
-        void loadSystemSettings();
-    }, [loadSystemSettings]);
-
+    useEffect(() => { void loadSystemSettings(); }, [loadSystemSettings]);
 
     useEffect(() => {
-        if (!state?.status) {
-            return;
-        }
-
-        const shouldPoll =
-            state.status === 'starting' ||
-            state.status === 'awaiting_qr' ||
-            state.status === 'awaiting_pairing_code';
-
-        if (!shouldPoll) {
-            return;
-        }
-
-        const timer = setInterval(() => {
-            void loadStatus({ silent: true });
-        }, 2500);
+        if (!state?.status) return;
+        const shouldPoll = state.status === 'starting' || state.status === 'awaiting_qr' || state.status === 'awaiting_pairing_code';
+        if (!shouldPoll) return;
+        const timer = setInterval(() => { void loadStatus({ silent: true }); }, 2500);
         return () => clearInterval(timer);
     }, [state?.status, loadStatus]);
 
@@ -184,10 +190,7 @@ export default function SettingsPage() {
 
     const stopAllDistribution = async () => {
         const confirmed = window.confirm('Stop semua distribusi lead yang sedang aktif?');
-        if (!confirmed) {
-            return;
-        }
-
+        if (!confirmed) return;
         setDistributionStopLoading(true);
         setDistributionFeedback('');
         try {
@@ -208,10 +211,7 @@ export default function SettingsPage() {
 
     const saveSystemSettings = async (event) => {
         event.preventDefault();
-        if (!user) {
-            setSystemSettingsError('Unauthorized');
-            return;
-        }
+        if (!user) { setSystemSettingsError('Unauthorized'); return; }
         setSystemSettingsSaving(true);
         setSystemSettingsError('');
         setSystemSettingsFeedback('');
@@ -241,61 +241,88 @@ export default function SettingsPage() {
     const isBusy = loading || actionLoading || statusLoading;
 
     return (
-        <div className="page-container">
-            <Header title="WhatsApp Settings" showBack />
+        <div className="page-container set-page">
+            <Header title="Settings" showBack />
 
-            <div className="card settings-card">
+            {/* ── Session Status ─────────────────────────────── */}
+            <div className="set-card">
                 <div className="settings-header">
-                    <h3>Session Status</h3>
-                    <span className={`badge ${state?.status === 'connected' ? 'badge-success' : 'badge-purple'}`}>
+                    <h3 className="set-card-title">
+                        <span className="set-card-icon"><IconWifi /></span>
+                        Session Status
+                    </h3>
+                    <span className={`badge ${state?.status === 'connected' ? 'badge-success' : 'badge-neutral'}`}>
                         {statusLabel(state?.status)}
                     </span>
                 </div>
-
-                <p className="settings-meta"><strong>Provider:</strong> {state?.provider || '-'}</p>
-                <p className="settings-meta"><strong>WA Tenant:</strong> {state?.activeClientSlug || tenant.whatsapp?.activeClientSlug || '-'}</p>
-                <p className="settings-meta"><strong>Active WA Number:</strong> {state?.activeWaNumber || '-'}</p>
+                <div className="set-meta-list">
+                    <div className="set-meta-item">
+                        <span className="set-meta-key">Provider</span>
+                        <span className="set-meta-val">{state?.provider || '-'}</span>
+                    </div>
+                    <div className="set-meta-item">
+                        <span className="set-meta-key">WA Tenant</span>
+                        <span className="set-meta-val">{state?.activeClientSlug || tenant.whatsapp?.activeClientSlug || '-'}</span>
+                    </div>
+                    <div className="set-meta-item">
+                        <span className="set-meta-key">Active WA Number</span>
+                        <span className="set-meta-val">{state?.activeWaNumber || '-'}</span>
+                    </div>
+                    <div className="set-meta-item">
+                        <span className="set-meta-key">Auth Path</span>
+                        <span className="set-meta-val">{state?.authPath || '-'}</span>
+                    </div>
+                    <div className="set-meta-item">
+                        <span className="set-meta-key">Updated</span>
+                        <span className="set-meta-val">{state?.updatedAt || '-'}</span>
+                    </div>
+                    {state?.lastDisconnectCode ? (
+                        <div className="set-meta-item">
+                            <span className="set-meta-key">Last Disconnect</span>
+                            <span className="set-meta-val">{state.lastDisconnectCode}</span>
+                        </div>
+                    ) : null}
+                </div>
                 {tenant.whatsapp?.mode === 'shared_single_client' ? (
                     <p className="settings-help">
                         Local QR saat ini masih shared singleton dan diikat ke tenant <strong>{tenant.whatsapp?.activeClientSlug || '-'}</strong>.
                     </p>
                 ) : null}
-                <p className="settings-meta"><strong>Auth Path:</strong> {state?.authPath || '-'}</p>
-                <p className="settings-meta"><strong>Updated:</strong> {state?.updatedAt || '-'}</p>
-                {state?.lastDisconnectCode ? (
-                    <p className="settings-meta"><strong>Last Disconnect Code:</strong> {state.lastDisconnectCode}</p>
-                ) : null}
-                {state?.lastError ? (
-                    <p className="settings-error">Error: {state.lastError}</p>
-                ) : null}
+                {state?.lastError ? <p className="settings-error">Error: {state.lastError}</p> : null}
                 {error ? <p className="settings-error">{error}</p> : null}
             </div>
 
-            <div className="card settings-card">
-                <h3>Link WhatsApp Device</h3>
+            {/* ── Link WhatsApp Device ───────────────────────── */}
+            <div className="set-card">
+                <h3 className="set-card-title">
+                    <span className="set-card-icon"><IconSmartphone /></span>
+                    Link WhatsApp Device
+                </h3>
                 {!loading && state?.qrImageUrl ? (
                     <div className="settings-qr-wrap">
                         <img src={state.qrImageUrl} alt="WhatsApp QR" className="settings-qr-image" />
-                        <p className="settings-help">Scan QR ini dari WhatsApp {'>'} Linked Devices.</p>
+                        <p className="settings-help">Scan QR ini dari WhatsApp › Linked Devices.</p>
                     </div>
                 ) : null}
-
                 {!loading && !state?.qrImageUrl && state?.pairingCode ? (
                     <div className="settings-pairing-wrap">
                         <p className="settings-help">Pairing code (Link with phone number):</p>
                         <div className="settings-pairing-code">{state.pairingCode}</div>
                     </div>
                 ) : null}
-
                 {!loading && !state?.qrImageUrl && !state?.pairingCode ? (
                     <p className="settings-help">Belum ada QR aktif. Klik Restart Session lalu tunggu QR muncul di sini.</p>
                 ) : null}
             </div>
 
-            <div className="card settings-card">
-                <h3>Session Actions</h3>
+            {/* ── Session Actions ────────────────────────────── */}
+            <div className="set-card">
+                <h3 className="set-card-title">
+                    <span className="set-card-icon"><IconZap /></span>
+                    Session Actions
+                </h3>
                 <div className="settings-actions">
-                    <button className="btn btn-primary" disabled={isBusy} onClick={() => void loadStatus()}>
+                    <button className="btn btn-secondary" disabled={isBusy} onClick={() => void loadStatus()}>
                         {statusLoading && activeAction === 'status' ? 'Checking...' : 'Status Check'}
                     </button>
                     <button className="btn btn-secondary" disabled={isBusy} onClick={() => void runAction('/restart', 'restart')}>
@@ -305,42 +332,41 @@ export default function SettingsPage() {
                         {actionLoading && activeAction === 'stop' ? 'Stopping...' : 'Stop'}
                     </button>
                 </div>
-                <p className="settings-help">
-                    Restart Session akan reset auth lama lalu memulai sesi baru.
-                </p>
+                <p className="settings-help">Restart Session akan reset auth lama lalu memulai sesi baru.</p>
                 {actionFeedback ? (
-                    <p className={actionFeedbackType === 'error' ? 'settings-error' : 'settings-success'}>
-                        {actionFeedback}
-                    </p>
+                    <p className={actionFeedbackType === 'error' ? 'settings-error' : 'settings-success'}>{actionFeedback}</p>
                 ) : null}
             </div>
 
-            <div className="card settings-card">
-                <h3>Distribution Control</h3>
+            {/* ── Distribution Control ───────────────────────── */}
+            <div className="set-card">
+                <h3 className="set-card-title">
+                    <span className="set-card-icon set-card-icon--danger"><IconAlertTriangle /></span>
+                    Distribution Control
+                </h3>
                 <button className="btn btn-danger btn-full" onClick={stopAllDistribution} disabled={distributionStopLoading}>
                     {distributionStopLoading ? 'Stopping...' : 'Stop Distribution'}
                 </button>
                 <p className="settings-help">Tombol ini untuk emergency stop distribusi lead yang sedang berjalan.</p>
                 {distributionFeedback ? (
-                    <p className={distributionFeedbackType === 'error' ? 'settings-error' : 'settings-success'}>
-                        {distributionFeedback}
-                    </p>
+                    <p className={distributionFeedbackType === 'error' ? 'settings-error' : 'settings-success'}>{distributionFeedback}</p>
                 ) : null}
             </div>
 
-            <form className="card settings-card" onSubmit={saveSystemSettings}>
-                <h3>Distribution Timeout</h3>
+            {/* ── System Settings ────────────────────────────── */}
+            <form className="set-card" onSubmit={saveSystemSettings}>
+                <h3 className="set-card-title">
+                    <span className="set-card-icon"><IconSliders /></span>
+                    System Settings
+                </h3>
+
+                <div className="set-section-label">Distribution Timeout</div>
                 <div className="input-group">
                     <label>Batas waktu claim OK (menit)</label>
                     <select
                         className="input-field"
                         value={systemSettingsForm.distributionAckTimeoutMinutes}
-                        onChange={(event) =>
-                            setSystemSettingsForm((prev) => ({
-                                ...prev,
-                                distributionAckTimeoutMinutes: Number(event.target.value),
-                            }))
-                        }
+                        onChange={(e) => setSystemSettingsForm((prev) => ({ ...prev, distributionAckTimeoutMinutes: Number(e.target.value) }))}
                         disabled={systemSettingsLoading || systemSettingsSaving}
                     >
                         <option value={5}>5 menit</option>
@@ -349,85 +375,57 @@ export default function SettingsPage() {
                     </select>
                 </div>
 
-                <h3 style={{ marginTop: 12 }}>Operational Hours</h3>
+                <div className="set-section-label" style={{ marginTop: 16 }}>Operational Hours</div>
                 <PickerTriggerField
                     label="Jam buka"
                     type="time"
                     value={systemSettingsForm.operationalStart}
-                    onChange={(event) =>
-                        setSystemSettingsForm((prev) => ({
-                            ...prev,
-                            operationalStart: event.target.value,
-                        }))
-                    }
+                    onChange={(e) => setSystemSettingsForm((prev) => ({ ...prev, operationalStart: e.target.value }))}
                     disabled={systemSettingsLoading || systemSettingsSaving}
                 />
-
                 <PickerTriggerField
                     label="Jam tutup"
                     type="time"
                     value={systemSettingsForm.operationalEnd}
-                    onChange={(event) =>
-                        setSystemSettingsForm((prev) => ({
-                            ...prev,
-                            operationalEnd: event.target.value,
-                        }))
-                    }
+                    onChange={(e) => setSystemSettingsForm((prev) => ({ ...prev, operationalEnd: e.target.value }))}
                     disabled={systemSettingsLoading || systemSettingsSaving}
                 />
-
                 <div className="input-group">
                     <label>Timezone</label>
                     <input
                         type="text"
                         className="input-field"
                         value={systemSettingsForm.operationalTimezone}
-                        onChange={(event) =>
-                            setSystemSettingsForm((prev) => ({
-                                ...prev,
-                                operationalTimezone: event.target.value,
-                            }))
-                        }
+                        onChange={(e) => setSystemSettingsForm((prev) => ({ ...prev, operationalTimezone: e.target.value }))}
                         disabled={systemSettingsLoading || systemSettingsSaving}
                     />
                 </div>
 
+                <div className="set-section-label" style={{ marginTop: 16 }}>Auto Reply</div>
                 <div className="input-group">
-                    <label>Auto reply di luar jam operasional</label>
+                    <label>Di luar jam operasional</label>
                     <textarea
                         className="input-field"
                         rows={4}
                         value={systemSettingsForm.outsideOfficeReply}
-                        onChange={(event) =>
-                            setSystemSettingsForm((prev) => ({
-                                ...prev,
-                                outsideOfficeReply: event.target.value,
-                            }))
-                        }
+                        onChange={(e) => setSystemSettingsForm((prev) => ({ ...prev, outsideOfficeReply: e.target.value }))}
                         disabled={systemSettingsLoading || systemSettingsSaving}
                     />
                     <p className="settings-help">
-                        Placeholder dinamis: <code>{'{{leadCode}}'}</code> untuk kode lead dan <code>{'{{leadName}}'}</code> untuk nama customer.
-                        Jika <code>{'{{leadCode}}'}</code> tidak ditulis, sistem otomatis menambahkan Kode Lead di atas pesan.
+                        Placeholder: <code>{'{{leadCode}}'}</code> untuk kode lead, <code>{'{{leadName}}'}</code> untuk nama customer.
                     </p>
                 </div>
-
                 <div className="input-group">
-                    <label>Auto reply saat jam operasional</label>
+                    <label>Saat jam operasional</label>
                     <textarea
                         className="input-field"
-                        rows={3}
+                        rows={4}
                         value={systemSettingsForm.insideOfficeReply}
-                        onChange={(event) =>
-                            setSystemSettingsForm((prev) => ({
-                                ...prev,
-                                insideOfficeReply: event.target.value,
-                            }))
-                        }
+                        onChange={(e) => setSystemSettingsForm((prev) => ({ ...prev, insideOfficeReply: e.target.value }))}
                         disabled={systemSettingsLoading || systemSettingsSaving}
                     />
                     <p className="settings-help">
-                        Contoh: <code>{'Kode Lead: {{leadCode}}'}</code>. Kode ini tersimpan di database dan ikut dikirim agar pesan tidak repetitif.
+                        Contoh: <code>{'Kode Lead: {{leadCode}}'}</code>.
                     </p>
                 </div>
 
@@ -438,12 +436,11 @@ export default function SettingsPage() {
                     type="submit"
                     className="btn btn-primary btn-full"
                     disabled={systemSettingsLoading || systemSettingsSaving}
-                    style={{ marginTop: 10 }}
+                    style={{ marginTop: 12 }}
                 >
                     {systemSettingsSaving ? 'Menyimpan...' : 'Simpan Settings'}
                 </button>
             </form>
-
         </div>
     );
 }

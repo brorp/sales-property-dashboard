@@ -1,6 +1,196 @@
+/* ── SettingsPage — Navy/light theme ────────────────────────────────── */
+
+.set-page {
+    background: #F8FAFC;
+    --bg-app: rgba(248, 250, 252, 0.96);
+    --bg-card: #FFFFFF;
+    --bg-input: #F3F4F6;
+    --border-color: #E5E7EB;
+    --border: #E5E7EB;
+    --text-primary: #0F172A;
+    --text-secondary: #374151;
+    --text-muted: #9CA3AF;
+    --primary: #1E3A5F;
+}
+
+.set-card {
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 4px rgba(30, 58, 95, 0.05);
+}
+
+.set-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: #1E3A5F;
+    margin: 0 0 14px;
+}
+
+.set-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: #EFF6FF;
+    color: #1E3A5F;
+    flex-shrink: 0;
+}
+
+.set-card-icon--danger {
+    background: #FEF2F2;
+    color: #DC2626;
+}
+
+.set-meta-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.set-meta-item {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.8125rem;
+}
+
+.set-meta-key {
+    color: #94A3B8;
+    font-weight: 500;
+    min-width: 120px;
+    flex-shrink: 0;
+    font-size: 0.775rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.set-meta-val {
+    color: #374151;
+    font-weight: 500;
+    word-break: break-all;
+}
+
+.set-section-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #94A3B8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #F1F5F9;
+}
+
+/* ── Button overrides ───────────────────────────────────────────────── */
+
+.set-page .btn-secondary {
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    color: #374151;
+    box-shadow: none;
+}
+
+.set-page .btn-secondary:hover {
+    background: #F9FAFB;
+    border-color: #D1D5DB;
+    transform: none;
+}
+
+.set-page .btn-primary {
+    background: #1E3A5F;
+    color: #FFFFFF;
+    border: none;
+    box-shadow: none;
+}
+
+.set-page .btn-primary:hover {
+    background: #162d4a;
+    transform: none;
+    box-shadow: none;
+}
+
+/* ── Input override ─────────────────────────────────────────────────── */
+
+.set-page .input-field {
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 10px;
+    color: #111827;
+    font-size: 0.875rem;
+}
+
+.set-page .input-field:focus {
+    border-color: #1E3A5F;
+    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
+    outline: none;
+}
+
+.set-page textarea.input-field {
+    height: auto;
+    resize: vertical;
+    padding: 10px 14px;
+}
+
+/* ── PickerTriggerField override ────────────────────────────────────── */
+
+.set-page .picker-trigger-caption {
+    color: #374151;
+}
+
+.set-page .picker-trigger-button {
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 10px;
+    min-height: 42px;
+    color: #111827;
+}
+
+.set-page .picker-trigger-field:hover .picker-trigger-button {
+    background: #F9FAFB;
+    border-color: #D1D5DB;
+}
+
+.set-page .picker-trigger-field:focus-within .picker-trigger-button {
+    border-color: #1E3A5F;
+    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
+}
+
+.set-page .picker-trigger-value {
+    font-size: 0.875rem;
+    color: #111827;
+}
+
+.set-page .picker-trigger-value.is-placeholder {
+    color: #9CA3AF;
+}
+
+.set-page .picker-trigger-icon {
+    color: #9CA3AF;
+}
+
+/* ── Pairing code override ──────────────────────────────────────────── */
+
+.set-page .settings-pairing-code {
+    background: #F8FAFC;
+    border-color: #E5E7EB;
+    color: #1E3A5F;
+}
+
+/* ── Legacy ─────────────────────────────────────────────────────────── */
+
 .settings-card {
     margin-bottom: 12px;
 }
+
 
 .settings-header {
     display: flex;
