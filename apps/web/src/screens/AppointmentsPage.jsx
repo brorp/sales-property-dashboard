@@ -28,10 +28,12 @@ export default function AppointmentsPage() {
     const { appointments, refreshAppointments, getSalesUsers } = useLeads();
     const router = useRouter();
     const [search, setSearch] = useState('');
-    const [tagFilter, setTagFilter] = useState('active');
+    const [tagFilter, setTagFilter] = useState('');
     const [salesFilter, setSalesFilter] = useState('');
     const salesUsers = getSalesUsers();
     const canFilterBySales = user?.role === 'root_admin' || user?.role === 'client_admin' || user?.role === 'supervisor';
+    const hasAnyFilter = Boolean(search || tagFilter !== '' || salesFilter);
+    const resetAllFilters = () => { setSearch(''); setTagFilter(''); setSalesFilter(''); };
 
     useEffect(() => {
         document.body.classList.add('light-page');
@@ -72,7 +74,7 @@ export default function AppointmentsPage() {
             />
 
             <div className="ap-filter-bar">
-                <div className="input-icon-wrapper">
+                <div className="input-icon-wrapper ap-search-wrap">
                     <span className="input-icon">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
@@ -86,7 +88,6 @@ export default function AppointmentsPage() {
                         onChange={(e) => setSearch(e.target.value)}
                     />
                 </div>
-
                 <div className="ap-selects-row">
                     <SelectFilter
                         placeholder="Status Appointment"
@@ -103,6 +104,9 @@ export default function AppointmentsPage() {
                         />
                     ) : null}
                 </div>
+                {hasAnyFilter ? (
+                    <button type="button" className="ap-reset-all" onClick={resetAllFilters}>Reset</button>
+                ) : null}
             </div>
 
             {filtered.length > 0 ? (
