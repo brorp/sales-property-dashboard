@@ -235,23 +235,33 @@ function matchesMultiValueFilter(selectedValues, actualValue, fallbackValue = ''
 }
 
 function matchesResultStatusFilter(actualValue, selectedValue) {
-    if (selectedValue === 'all') {
+    const selected = String(selectedValue || 'all').trim().toLowerCase();
+    const actual = String(actualValue || '').trim().toLowerCase();
+
+    if (selected === 'all') {
         return true;
     }
-    if (selectedValue === 'cancel' || selectedValue === 'cancel_transaksi') {
-        return actualValue === 'cancel_transaksi' || actualValue === 'cancel' || actualValue === 'cancel_minat';
+    if (selected === 'cancel') {
+        return actual === 'cancel_transaksi' || actual === 'cancel' || actual === 'cancel_minat';
     }
-    return actualValue === selectedValue;
+    if (selected === 'cancel_transaksi') {
+        return actual === 'cancel_transaksi' || actual === 'cancel';
+    }
+    return actual === selected;
 }
 
 function matchesResultStatusMultiFilter(selectedValues, actualValue, fallbackValue = 'unfilled') {
     if (!Array.isArray(selectedValues) || selectedValues.length === 0) {
         return true;
     }
-    if (selectedValues.includes('cancel_transaksi') && (actualValue === 'cancel' || actualValue === 'cancel_transaksi')) {
+    const actual = String(actualValue ?? fallbackValue).trim().toLowerCase();
+    if (selectedValues.includes('cancel') && (actual === 'cancel' || actual === 'cancel_transaksi' || actual === 'cancel_minat')) {
         return true;
     }
-    return selectedValues.includes(actualValue ?? fallbackValue);
+    if (selectedValues.includes('cancel_transaksi') && (actual === 'cancel' || actual === 'cancel_transaksi')) {
+        return true;
+    }
+    return selectedValues.includes(actual);
 }
 
 function isHotValidatedLead(lead) {

@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { db } from "../db/index";
 import {
     activity,
@@ -9,6 +9,7 @@ import {
     waMessage,
 } from "../db/schema";
 import { generateId } from "../utils/id";
+import { normalizePhone } from "../utils/phone";
 import {
     resolveAppointmentTag,
     toAppointmentDateTime,
@@ -245,7 +246,15 @@ export async function findAll(
     }
 
     if (filters.resultStatus && filters.resultStatus !== "all") {
-        if (filters.resultStatus === "cancel_transaksi") {
+        if (filters.resultStatus === "cancel") {
+            conditions.push(
+                or(
+                    eq(lead.resultStatus, "cancel_transaksi"),
+                    eq(lead.resultStatus, "cancel_minat"),
+                    eq(lead.resultStatus, "cancel")
+                )
+            );
+        } else if (filters.resultStatus === "cancel_transaksi") {
             conditions.push(or(eq(lead.resultStatus, "cancel_transaksi"), eq(lead.resultStatus, "cancel")));
         } else {
             conditions.push(eq(lead.resultStatus, filters.resultStatus));
@@ -266,8 +275,20 @@ export async function findAll(
 
     if (filters.search) {
         const searchPattern = `%${filters.search}%`;
+        const searchDigits = filters.search.replace(/[^\d]/g, "");
+        const searchConditions = [
+            ilike(lead.name, searchPattern),
+            ilike(lead.phone, searchPattern),
+        ];
+
+        if (searchDigits.length >= 3) {
+            searchConditions.push(
+                sql`regexp_replace(${lead.phone}, '[^0-9]', '', 'g') ilike ${`%${searchDigits}%`}`
+            );
+        }
+
         conditions.push(
-            or(ilike(lead.name, searchPattern), ilike(lead.phone, searchPattern))
+            or(...searchConditions)
         );
     }
 
@@ -466,6 +487,10 @@ export async function create(data: {
         : new Date();
     const assignedTo = data.assignedTo || null;
     let resolvedClientId = data.clientId || null;
+    const normalizedPhone = normalizePhone(data.phone);
+    if (normalizedPhone.replace(/[^\d]/g, "").length < 8) {
+        throw new Error("INVALID_PHONE");
+    }
     const normalizedSource = await leadSourcesService.resolveLeadSourceValue(
         resolvedClientId,
         data.source || "Online"
@@ -501,7 +526,7 @@ export async function create(data: {
             id,
             leadCode: buildLeadCode(`${resolvedClientId || "global"}:${id}`),
             name: data.name,
-            phone: data.phone,
+            phone: normalizedPhone,
             source: normalizedSource,
             manualNote: null,
             agentOfficeName:
