@@ -5,53 +5,45 @@ import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { apiRequest } from '../lib/api';
+import SelectFilter from '../components/SelectFilter';
+import './PenaltiesPage.css';
 
 function formatDateTime(value) {
-    if (!value) {
-        return '-';
-    }
-
+    if (!value) return '-';
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-        return '-';
-    }
-
+    if (Number.isNaN(date.getTime())) return '-';
     return date.toLocaleString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
+        day: 'numeric', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
     });
 }
 
 function formatDuration(hours) {
     const safeHours = Math.max(0, Number(hours || 0));
-    if (safeHours % 24 === 0) {
-        return `${safeHours / 24} hari`;
-    }
+    if (safeHours % 24 === 0) return `${safeHours / 24} hari`;
     return `${safeHours} jam`;
 }
 
-function getStatusBadge(status) {
-    if (status === 'active') {
-        return 'badge-danger';
-    }
-    if (status === 'compensated') {
-        return 'badge-info';
-    }
-    if (status === 'expired') {
-        return 'badge-neutral';
-    }
+function getStatusBadgeClass(status) {
+    if (status === 'active') return 'badge-danger';
+    if (status === 'compensated') return 'badge-info';
     return 'badge-neutral';
 }
+
+const STATUS_OPTIONS = [
+    { value: 'active', label: 'Active' },
+    { value: 'compensated', label: 'Compensated' },
+    { value: 'expired', label: 'Expired' },
+];
 
 export default function PenaltiesPage() {
     const { user } = useAuth();
     const isAdmin = user?.role === 'client_admin' || user?.role === 'root_admin';
     const [penalties, setPenalties] = useState([]);
     const [salesOptions, setSalesOptions] = useState([]);
-    const [salesFilter, setSalesFilter] = useState('all');
+    const [search, setSearch] = useState('');
+    const [salesFilter, setSalesFilter] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -59,75 +51,50 @@ export default function PenaltiesPage() {
     const [compensationReason, setCompensationReason] = useState('');
     const [submittingCompensation, setSubmittingCompensation] = useState(false);
 
+    const hasAnyFilter = Boolean(search || salesFilter || statusFilter);
+    const resetAllFilters = () => { setSearch(''); setSalesFilter(''); setStatusFilter(''); };
+
+    useEffect(() => {
+        document.body.classList.add('light-page');
+        return () => document.body.classList.remove('light-page');
+    }, []);
+
     const loadPenalties = useCallback(async ({ silent = false } = {}) => {
-        if (!user) {
-            return;
-        }
-
-        if (!silent) {
-            setLoading(true);
-            setError('');
-        }
-
+        if (!user) return;
+        if (!silent) { setLoading(true); setError(''); }
         try {
             const [rows, salesRows] = await Promise.all([
-                apiRequest(
-                    `/api/penalties${salesFilter !== 'all' ? `?salesId=${encodeURIComponent(salesFilter)}` : ''}`,
-                    { user }
-                ),
-                user.role === 'sales'
-                    ? Promise.resolve([])
-                    : apiRequest('/api/sales', { user }),
+                apiRequest('/api/penalties', { user }),
+                user.role === 'sales' ? Promise.resolve([]) : apiRequest('/api/sales', { user }),
             ]);
-
             setPenalties(Array.isArray(rows) ? rows : []);
             setSalesOptions(Array.isArray(salesRows) ? salesRows : []);
         } catch (err) {
-            if (!silent) {
-                setError(err instanceof Error ? err.message : 'Gagal memuat penalties');
-            }
+            if (!silent) setError(err instanceof Error ? err.message : 'Gagal memuat penalties');
         } finally {
-            if (!silent) {
-                setLoading(false);
-            }
+            if (!silent) setLoading(false);
         }
-    }, [salesFilter, user]);
+    }, [user]);
 
-    useEffect(() => {
-        void loadPenalties();
-    }, [loadPenalties]);
+    useEffect(() => { void loadPenalties(); }, [loadPenalties]);
 
     usePagePolling({
         enabled: Boolean(user),
         intervalMs: 3000,
         run: async () => {
-            if (submittingCompensation) {
-                return;
-            }
+            if (submittingCompensation) return;
             await loadPenalties({ silent: true });
         },
     });
 
     const handleCompensatePenalty = async () => {
-        if (!user || !compensatingPenalty) {
-            return;
-        }
-
-        if (!compensationReason.trim()) {
-            setError('Alasan kompensasi wajib diisi.');
-            return;
-        }
-
+        if (!user || !compensatingPenalty) return;
+        if (!compensationReason.trim()) { setError('Alasan kompensasi wajib diisi.'); return; }
         setSubmittingCompensation(true);
-        setError('');
-        setSuccess('');
+        setError(''); setSuccess('');
         try {
             await apiRequest(`/api/penalties/${compensatingPenalty.id}/compensate`, {
-                method: 'POST',
-                user,
-                body: {
-                    reason: compensationReason.trim(),
-                },
+                method: 'POST', user, body: { reason: compensationReason.trim() },
             });
             setSuccess('Penalty berhasil dikompensasi.');
             setCompensatingPenalty(null);
@@ -140,144 +107,197 @@ export default function PenaltiesPage() {
         }
     };
 
-    const filteredSalesOptions = useMemo(() => {
-        return salesOptions.sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')));
-    }, [salesOptions]);
+    const salesSelectOptions = useMemo(() =>
+        salesOptions
+            .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')))
+            .map((s) => ({ value: s.id, label: s.name })),
+        [salesOptions]
+    );
+
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return penalties.filter((item) => {
+            if (salesFilter && item.salesId !== salesFilter) return false;
+            if (statusFilter && item.status !== statusFilter) return false;
+            if (!q) return true;
+            return (
+                String(item.salesName || '').toLowerCase().includes(q) ||
+                String(item.leadName || '').toLowerCase().includes(q) ||
+                String(item.reason || '').toLowerCase().includes(q)
+            );
+        });
+    }, [penalties, salesFilter, statusFilter, search]);
 
     return (
-        <div className="page-container">
-            <Header title="Penalties" />
+        <div className="page-container pen-page">
+            <Header
+                title="Penalties"
+                rightAction={
+                    <button className="btn btn-sm btn-secondary" onClick={() => void loadPenalties()} disabled={loading}>
+                        {loading ? 'Loading...' : 'Refresh'}
+                    </button>
+                }
+            />
 
-            <div className="card penalties-summary-card">
-                <div>
-                    <div className="section-title" style={{ marginBottom: 6 }}>Riwayat Penalty Daily Task</div>
-                    <div className="settings-help" style={{ margin: 0 }}>
-                        Admin melihat semua penalty. Supervisor hanya melihat sales di bawah hirarki mereka, dan sales hanya melihat penalti miliknya sendiri.
-                    </div>
+            <div className="pen-filter-bar">
+                <div className="input-icon-wrapper pen-search-wrap">
+                    <span className="input-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+                        </svg>
+                    </span>
+                    <input
+                        type="text"
+                        className="input-field"
+                        placeholder="Cari sales atau lead..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                    />
                 </div>
-
-                {user?.role !== 'sales' ? (
-                    <div className="input-group penalties-filter-group">
-                        <label>Filter Sales</label>
-                        <select
-                            className="input-field"
+                <div className="pen-selects-row">
+                    <SelectFilter
+                        placeholder="Semua Status"
+                        options={STATUS_OPTIONS}
+                        value={statusFilter}
+                        onChange={setStatusFilter}
+                    />
+                    {user?.role !== 'sales' ? (
+                        <SelectFilter
+                            placeholder="Semua Sales"
+                            options={salesSelectOptions}
                             value={salesFilter}
-                            onChange={(event) => setSalesFilter(event.target.value)}
-                        >
-                            <option value="all">Semua Sales</option>
-                            {filteredSalesOptions.map((item) => (
-                                <option key={item.id} value={item.id}>{item.name}</option>
-                            ))}
-                        </select>
-                    </div>
+                            onChange={setSalesFilter}
+                        />
+                    ) : null}
+                </div>
+                {hasAnyFilter ? (
+                    <button type="button" className="pen-reset-all" onClick={resetAllFilters}>Reset</button>
                 ) : null}
             </div>
 
             {error ? <div className="settings-error">{error}</div> : null}
             {success ? <div className="settings-success">{success}</div> : null}
 
+            {filtered.length > 0 ? (
+                <p className="pen-result-count">{filtered.length} penalty</p>
+            ) : null}
+
             {loading ? (
-                <div className="card"><p className="settings-help">Loading penalties...</p></div>
-            ) : null}
-
-            {!loading && penalties.length === 0 ? (
-                <div className="empty-state">
-                    <div className="empty-title">Belum ada penalty</div>
-                    <div className="empty-subtitle">Penalty akan muncul ketika Daily Task melewati batas 24 jam tanpa action.</div>
+                <div className="pen-empty">
+                    <p className="pen-empty-title">Memuat data...</p>
                 </div>
-            ) : null}
-
-            <div className="penalties-list">
-                {penalties.map((item) => (
-                    <div key={item.id} className="card penalty-card">
-                        <div className="penalty-card-top">
-                            <div>
-                                <div className="penalty-card-title">{item.salesName || 'Sales'}</div>
-                                <div className="penalty-card-subtitle">{item.taskLabel} • {item.leadName || '-'}</div>
+            ) : filtered.length === 0 ? (
+                <div className="pen-empty">
+                    <div className="pen-empty-icon">
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                            <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                    </div>
+                    <p className="pen-empty-title">{hasAnyFilter ? 'Tidak ada hasil' : 'Belum ada penalty'}</p>
+                    <p className="pen-empty-desc">
+                        {hasAnyFilter
+                            ? 'Coba ubah atau hapus filter yang aktif.'
+                            : 'Penalty muncul ketika Daily Task melewati batas 24 jam tanpa action.'}
+                    </p>
+                    {hasAnyFilter ? (
+                        <button className="pen-empty-reset" onClick={resetAllFilters}>Hapus semua filter</button>
+                    ) : null}
+                </div>
+            ) : (
+                <div className="pen-list">
+                    {filtered.map((item) => (
+                        <div key={item.id} className="pen-card">
+                            <div className="pen-card-head">
+                                <div className="pen-card-head-info">
+                                    <div className="pen-card-name">{item.salesName || 'Sales'}</div>
+                                    <div className="pen-card-sub">{item.taskLabel} · {item.leadName || '-'}</div>
+                                </div>
+                                <div className="pen-card-badges">
+                                    <span className="badge badge-danger">#{item.penaltySequence}</span>
+                                    <span className={`badge ${getStatusBadgeClass(item.status)}`}>{item.status}</span>
+                                    {item.spLevel && item.spLevel !== 'none' ? (
+                                        <span className="badge badge-purple">{String(item.spLevel).toUpperCase()}</span>
+                                    ) : null}
+                                </div>
                             </div>
-                            <div className="penalty-card-badges">
-                                <span className="badge badge-danger">#{item.penaltySequence}</span>
-                                <span className={`badge ${getStatusBadge(item.status)}`}>{item.status}</span>
-                                {item.spLevel && item.spLevel !== 'none' ? (
-                                    <span className="badge badge-purple">{String(item.spLevel).toUpperCase()}</span>
-                                ) : null}
+
+                            <div className="pen-card-grid">
+                                <div className="pen-card-cell">
+                                    <span className="pen-card-key">Task</span>
+                                    <span className="pen-card-val">{item.taskType === 'follow_up' ? `Follow Up ${item.followupStage}` : 'New Lead'}</span>
+                                </div>
+                                <div className="pen-card-cell">
+                                    <span className="pen-card-key">Durasi</span>
+                                    <span className="pen-card-val">{formatDuration(item.durationHours)}</span>
+                                </div>
+                                <div className="pen-card-cell">
+                                    <span className="pen-card-key">Mulai blok</span>
+                                    <span className="pen-card-val">{formatDateTime(item.blockedFrom)}</span>
+                                </div>
+                                <div className="pen-card-cell">
+                                    <span className="pen-card-key">Selesai blok</span>
+                                    <span className="pen-card-val">{formatDateTime(item.blockedUntil)}</span>
+                                </div>
+                                <div className="pen-card-cell">
+                                    <span className="pen-card-key">SP</span>
+                                    <span className="pen-card-val">{item.spLevel === 'none' ? '-' : String(item.spLevel).toUpperCase()}</span>
+                                </div>
+                                <div className="pen-card-cell">
+                                    <span className="pen-card-key">Dibuat</span>
+                                    <span className="pen-card-val">{formatDateTime(item.createdAt)}</span>
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="penalty-grid">
-                            <div><strong>Task:</strong> {item.taskType === 'follow_up' ? `Follow Up ${item.followupStage}` : 'New Lead'}</div>
-                            <div><strong>Lead:</strong> {item.leadName || '-'}</div>
-                            <div><strong>Mulai blok:</strong> {formatDateTime(item.blockedFrom)}</div>
-                            <div><strong>Selesai blok:</strong> {formatDateTime(item.blockedUntil)}</div>
-                            <div><strong>Durasi:</strong> {formatDuration(item.durationHours)}</div>
-                            <div><strong>SP:</strong> {item.spLevel === 'none' ? '-' : String(item.spLevel).toUpperCase()}</div>
-                            <div><strong>Dibuat:</strong> {formatDateTime(item.createdAt)}</div>
-                            <div><strong>Diupdate:</strong> {formatDateTime(item.updatedAt)}</div>
-                        </div>
+                            {item.reason ? (
+                                <div className="pen-card-reason">
+                                    <span className="pen-card-key">Reason</span>
+                                    <div className="pen-card-reason-text">{item.reason}</div>
+                                    {item.compensationReason ? (
+                                        <div className="pen-card-reason-comp">Kompensasi: {item.compensationReason}</div>
+                                    ) : null}
+                                </div>
+                            ) : null}
 
-                        <div className="penalty-reason-box">
-                            <strong>Reason</strong>
-                            <div>{item.reason || '-'}</div>
-                            {item.compensationReason ? (
-                                <div className="settings-help" style={{ marginTop: 8 }}>
-                                    Kompensasi: {item.compensationReason}
+                            {isAdmin && item.status !== 'compensated' && item.status !== 'invalid' ? (
+                                <div className="pen-card-actions">
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-secondary"
+                                        onClick={() => { setCompensatingPenalty(item); setCompensationReason(''); setError(''); }}
+                                    >
+                                        Kompensasi Penalty
+                                    </button>
                                 </div>
                             ) : null}
                         </div>
-
-                        {isAdmin && item.status !== 'compensated' && item.status !== 'invalid' ? (
-                            <div className="penalty-actions">
-                                <button
-                                    type="button"
-                                    className="btn btn-secondary"
-                                    onClick={() => {
-                                        setCompensatingPenalty(item);
-                                        setCompensationReason('');
-                                        setError('');
-                                    }}
-                                >
-                                    Kompensasi Penalty
-                                </button>
-                            </div>
-                        ) : null}
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
 
             {compensatingPenalty ? (
                 <div className="modal-overlay" onClick={() => setCompensatingPenalty(null)}>
-                    <div className="modal-content" onClick={(event) => event.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3>Kompensasi Penalty</h3>
-                        </div>
+                    <div className="bottom-sheet" onClick={(event) => event.stopPropagation()}>
+                        <div className="sheet-handle" />
+                        <h2>Kompensasi Penalty</h2>
                         <p className="settings-help">
                             Penalty untuk <strong>{compensatingPenalty.salesName}</strong> akan tetap tersimpan di history, tetapi tidak lagi dihitung untuk blocking dan eskalasi.
                         </p>
-                        <div className="input-group">
+                        <div className="input-group" style={{ marginTop: 16 }}>
                             <label>Alasan Kompensasi</label>
                             <textarea
                                 className="input-field"
-                                rows={3}
+                                rows={5}
                                 value={compensationReason}
                                 onChange={(event) => setCompensationReason(event.target.value)}
                                 placeholder="Contoh: kesalahan sistem / kondisi darurat"
                             />
                         </div>
-                        <div className="modal-actions">
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={() => setCompensatingPenalty(null)}
-                                disabled={submittingCompensation}
-                            >
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+                            <button type="button" className="btn btn-secondary" onClick={() => setCompensatingPenalty(null)} disabled={submittingCompensation}>
                                 Batal
                             </button>
-                            <button
-                                type="button"
-                                className="btn btn-primary"
-                                onClick={() => void handleCompensatePenalty()}
-                                disabled={submittingCompensation}
-                            >
+                            <button type="button" className="btn btn-primary" onClick={() => void handleCompensatePenalty()} disabled={submittingCompensation}>
                                 {submittingCompensation ? 'Menyimpan...' : 'Kompensasi'}
                             </button>
                         </div>
