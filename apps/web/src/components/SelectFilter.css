@@ -113,10 +113,6 @@
 /* ── Dropdown ───────────────────────────────────────────────────────── */
 
 .sf-dropdown {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    min-width: 100%;
     background: #FFFFFF;
     border: 1.5px solid #E5E7EB;
     border-radius: 12px;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
@@ -19,6 +19,7 @@ import {
 import Header from '../components/Header';
 import CustomerPipelineProgress from '../components/CustomerPipelineProgress';
 import DateRangePicker from '../components/DateRangePicker';
+import SelectFilter from '../components/SelectFilter';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { apiRequest } from '../lib/api';
 import { readLeadTransferWorkbook } from '../lib/lead-transfer-workbook';
@@ -222,8 +223,8 @@ export default function LeadsPage() {
     const [exportFilters, setExportFilters] = useState({ dateFrom: '', dateTo: '', flowStatuses: [], salesStatuses: [], hotValidatedOnly: false, appointmentTags: [], resultStatuses: [], salesIds: [] });
 
     useEffect(() => {
-        document.body.classList.add('dash-body');
-        return () => document.body.classList.remove('dash-body');
+        document.body.classList.add('light-page');
+        return () => document.body.classList.remove('light-page');
     }, []);
 
     const allLeads = getLeadsForUser(user.id, user.role);
@@ -239,6 +240,38 @@ export default function LeadsPage() {
         return appliedDateRange.dateFrom === preset.dateFrom && appliedDateRange.dateTo === preset.dateTo;
     };
     const isCustomActive = hasActiveDateFilter && !QUICK_RANGES.some((r) => isPresetActive(r.key));
+
+    const openDatePickerRef = useRef(null);
+    const activePreset = QUICK_RANGES.find((r) => isPresetActive(r.key));
+    const currentDateSelectValue = hasActiveDateFilter ? (activePreset?.key ?? 'custom') : '';
+    const dateSelectOptions = [
+        ...QUICK_RANGES.map((r) => ({ value: r.key, label: r.label })),
+        { value: 'custom', label: isCustomActive ? formatRangeButtonLabel(appliedDateRange) : 'Custom' },
+    ];
+    const handleDateSelectChange = (v) => {
+        if (!v) { setAppliedDateRange(EMPTY_DATE_RANGE); return; }
+        if (v === 'custom') { openDatePickerRef.current?.(); return; }
+        setAppliedDateRange(getPresetRange(v));
+    };
+
+    const hasAnyFilter = Boolean(
+        search || hasActiveDateFilter ||
+        flowFilter !== 'all' || salesStatusFilter !== 'all' ||
+        resultFilter !== 'all' || appointmentFilter !== 'all' ||
+        salesFilter !== 'all' || sourceFilter !== 'all' || incompleteDataFilter
+    );
+
+    const resetAllFilters = () => {
+        setSearch('');
+        setAppliedDateRange(EMPTY_DATE_RANGE);
+        setFlowFilter('all');
+        setSalesStatusFilter('all');
+        setResultFilter('all');
+        setAppointmentFilter('all');
+        setSalesFilter('all');
+        setSourceFilter('all');
+        setIncompleteDataFilter(false);
+    };
 
     const availableLeadSources = useMemo(() => {
         const values = new Set();
@@ -479,98 +512,74 @@ export default function LeadsPage() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
-                </div>
-
-                {/* Date range */}
-                <div className="leads-filter-row">
-                    {QUICK_RANGES.map((preset) => (
-                        <button
-                            key={preset.key}
-                            type="button"
-                            className={`dash-filter-pill${isPresetActive(preset.key) ? ' is-active' : ''}`}
-                            onClick={() => setAppliedDateRange(getPresetRange(preset.key))}
-                        >
-                            {preset.label}
+                    {hasAnyFilter ? (
+                        <button type="button" className="leads-reset-all" onClick={resetAllFilters}>
+                            Reset
                         </button>
-                    ))}
-                    <DateRangePicker
-                        value={appliedDateRange}
-                        onApply={(range) => setAppliedDateRange(normalizeDateRange(range))}
-                        onReset={() => setAppliedDateRange(EMPTY_DATE_RANGE)}
-                        trigger={({ open }) => (
-                            <button
-                                type="button"
-                                className={`dash-filter-pill${isCustomActive ? ' is-active' : ''}`}
-                                onClick={open}
-                            >
-                                {isCustomActive ? formatRangeButtonLabel(appliedDateRange) : 'Custom'}
-                            </button>
-                        )}
-                    />
-                    {hasActiveDateFilter ? (
-                        <span className="leads-date-summary">{formatRangeSummary(appliedDateRange)}</span>
                     ) : null}
                 </div>
 
-                {/* Flow status */}
-                <div className="leads-filter-row">
-                    <button type="button" className={`dash-filter-pill${flowFilter === 'all' ? ' is-active' : ''}`} onClick={() => setFlowFilter('all')}>Semua Distribusi</button>
-                    {FLOW_STATUSES.map((item) => (
-                        <button key={item.key} type="button" className={`dash-filter-pill${flowFilter === item.key ? ' is-active' : ''}`} onClick={() => setFlowFilter(item.key)}>{item.label}</button>
-                    ))}
-                </div>
+                <DateRangePicker
+                    value={appliedDateRange}
+                    onApply={(range) => setAppliedDateRange(normalizeDateRange(range))}
+                    onReset={() => setAppliedDateRange(EMPTY_DATE_RANGE)}
+                    trigger={({ open }) => { openDatePickerRef.current = open; return null; }}
+                />
 
-                {/* Sales status */}
-                <div className="leads-filter-row">
-                    <button type="button" className={`dash-filter-pill${salesStatusFilter === 'all' ? ' is-active' : ''}`} onClick={() => setSalesStatusFilter('all')}>Semua Status</button>
-                    {SPECIAL_SALES_STATUS_FILTERS.map((item) => (
-                        <button key={item.key} type="button" className={`dash-filter-pill${salesStatusFilter === item.key ? ' is-active' : ''}`} onClick={() => setSalesStatusFilter(item.key)}>{item.label}</button>
-                    ))}
-                    {SALES_STATUSES.map((item) => (
-                        <button key={item.key} type="button" className={`dash-filter-pill${salesStatusFilter === item.key ? ' is-active' : ''}`} onClick={() => setSalesStatusFilter(item.key)}>{item.label}</button>
-                    ))}
-                </div>
-
-                {/* Result status */}
-                <div className="leads-filter-row">
-                    <button type="button" className={`dash-filter-pill${resultFilter === 'all' ? ' is-active' : ''}`} onClick={() => setResultFilter('all')}>Semua Result</button>
-                    {RESULT_STATUSES.map((item) => (
-                        <button key={item.key} type="button" className={`dash-filter-pill${resultFilter === item.key ? ' is-active' : ''}`} onClick={() => setResultFilter(item.key)}>{item.label}</button>
-                    ))}
-                </div>
-
-                {/* Appointment */}
-                <div className="leads-filter-row">
-                    <button type="button" className={`dash-filter-pill${appointmentFilter === 'all' ? ' is-active' : ''}`} onClick={() => setAppointmentFilter('all')}>Semua Appt</button>
-                    {APPOINTMENT_TAGS.map((item) => (
-                        <button key={item.key} type="button" className={`dash-filter-pill${appointmentFilter === item.key ? ' is-active' : ''}`} onClick={() => setAppointmentFilter(item.key)}>{item.label}</button>
-                    ))}
-                </div>
-
-                {/* Source */}
-                {availableLeadSources.length > 0 ? (
-                    <div className="leads-filter-row">
-                        <button type="button" className={`dash-filter-pill${sourceFilter === 'all' ? ' is-active' : ''}`} onClick={() => setSourceFilter('all')}>Semua Source</button>
-                        {availableLeadSources.map((value) => (
-                            <button key={value} type="button" className={`dash-filter-pill${sourceFilter === value ? ' is-active' : ''}`} onClick={() => setSourceFilter(value)}>{value}</button>
-                        ))}
-                    </div>
-                ) : null}
-
-                {/* Sales (admin) */}
-                {isAdmin ? (
-                    <div className="leads-filter-row">
-                        <button type="button" className={`dash-filter-pill${salesFilter === 'all' ? ' is-active' : ''}`} onClick={() => setSalesFilter('all')}>Semua Sales</button>
-                        {salesUsers.map((sales) => (
-                            <button key={sales.id} type="button" className={`dash-filter-pill${salesFilter === sales.id ? ' is-active' : ''}`} onClick={() => setSalesFilter(sales.id)}>{sales.name.split(' ')[0]}</button>
-                        ))}
-                    </div>
-                ) : null}
-
-                {/* Data completeness toggle */}
-                <div className="leads-filter-row">
-                    <button type="button" className={`dash-filter-pill${!incompleteDataFilter ? ' is-active' : ''}`} onClick={() => setIncompleteDataFilter(false)}>All Data</button>
-                    <button type="button" className={`dash-filter-pill${incompleteDataFilter ? ' is-active' : ''}`} onClick={() => setIncompleteDataFilter(true)}>Data Tidak Lengkap</button>
+                {/* Filters */}
+                <div className="leads-selects-row">
+                    <SelectFilter
+                        placeholder="Tanggal"
+                        value={currentDateSelectValue}
+                        onChange={handleDateSelectChange}
+                        options={dateSelectOptions}
+                    />
+                    <SelectFilter
+                        placeholder="Distribusi"
+                        value={flowFilter === 'all' ? '' : flowFilter}
+                        onChange={(v) => setFlowFilter(v || 'all')}
+                        options={FLOW_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
+                    />
+                    <SelectFilter
+                        placeholder="Sales Status"
+                        value={salesStatusFilter === 'all' ? '' : salesStatusFilter}
+                        onChange={(v) => setSalesStatusFilter(v || 'all')}
+                        options={[...SPECIAL_SALES_STATUS_FILTERS, ...SALES_STATUSES].map((item) => ({ value: item.key, label: item.label }))}
+                    />
+                    <SelectFilter
+                        placeholder="Result"
+                        value={resultFilter === 'all' ? '' : resultFilter}
+                        onChange={(v) => setResultFilter(v || 'all')}
+                        options={RESULT_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
+                    />
+                    <SelectFilter
+                        placeholder="Appointment"
+                        value={appointmentFilter === 'all' ? '' : appointmentFilter}
+                        onChange={(v) => setAppointmentFilter(v || 'all')}
+                        options={APPOINTMENT_TAGS.map((item) => ({ value: item.key, label: item.label }))}
+                    />
+                    {availableLeadSources.length > 0 ? (
+                        <SelectFilter
+                            placeholder="Source"
+                            value={sourceFilter === 'all' ? '' : sourceFilter}
+                            onChange={(v) => setSourceFilter(v || 'all')}
+                            options={availableLeadSources.map((s) => ({ value: s, label: s }))}
+                        />
+                    ) : null}
+                    {isAdmin ? (
+                        <SelectFilter
+                            placeholder="Sales"
+                            value={salesFilter === 'all' ? '' : salesFilter}
+                            onChange={(v) => setSalesFilter(v || 'all')}
+                            options={salesUsers.map((s) => ({ value: s.id, label: s.name }))}
+                        />
+                    ) : null}
+                    <SelectFilter
+                        placeholder="Kelengkapan Data"
+                        value={incompleteDataFilter ? 'incomplete' : ''}
+                        onChange={(v) => setIncompleteDataFilter(v === 'incomplete')}
+                        options={[{ value: 'incomplete', label: 'Data Tidak Lengkap' }]}
+                    />
                 </div>
             </div>
 

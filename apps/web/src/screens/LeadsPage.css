@@ -77,6 +77,7 @@
     position: relative;
     display: flex;
     align-items: center;
+    gap: 8px;
 }
 
 .leads-search-icon {
@@ -88,7 +89,8 @@
 }
 
 .leads-search-input {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     padding: 9px 12px 9px 34px;
     border: 1px solid #E5E7EB;
     border-radius: 10px;
@@ -107,6 +109,27 @@
 
 .leads-search-input::placeholder {
     color: #94A3B8;
+}
+
+.leads-reset-all {
+    flex-shrink: 0;
+    padding: 9px 12px;
+    background: transparent;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 10px;
+    font-size: 0.813rem;
+    font-weight: 500;
+    color: #6B7280;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+    transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.leads-reset-all:hover {
+    background: #FEF2F2;
+    border-color: #FCA5A5;
+    color: #DC2626;
 }
 
 .leads-filter-row {
@@ -130,6 +153,24 @@
     align-self: center;
     flex-shrink: 0;
     padding: 0 4px;
+}
+
+.leads-selects-row {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+}
+
+.leads-selects-row::-webkit-scrollbar {
+    display: none;
+}
+
+.leads-selects-row > * {
+    flex: 0 0 auto;
+    min-width: 130px;
 }
 
 /* ── Result count ──────────────────────────────────────────────────── */
@@ -487,7 +528,7 @@
         padding: 12px;
     }
 
-    .export-checklist {
+.export-checklist {
         grid-template-columns: 1fr;
     }
 

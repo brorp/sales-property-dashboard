@@ -38,6 +38,7 @@ function ClearIcon() {
  */
 export default function SelectFilter({ options, value, onChange, placeholder = 'Pilih...', className = '' }) {
     const [open, setOpen] = useState(false);
+    const [dropdownStyle, setDropdownStyle] = useState({});
     const wrapRef = useRef(null);
 
     const selected = options.find((opt) => opt.value === value) || null;
@@ -51,9 +52,33 @@ export default function SelectFilter({ options, value, onChange, placeholder = '
             }
         };
 
+        const handleScroll = () => setOpen(false);
+
         document.addEventListener('mousedown', handleClick);
-        return () => document.removeEventListener('mousedown', handleClick);
+        window.addEventListener('scroll', handleScroll, true);
+        return () => {
+            document.removeEventListener('mousedown', handleClick);
+            window.removeEventListener('scroll', handleScroll, true);
+        };
     }, [open]);
+
+    const handleToggle = () => {
+        if (!open) {
+            const rect = wrapRef.current?.getBoundingClientRect();
+            if (rect) {
+                const MARGIN = 8;
+                const left = Math.min(rect.left, window.innerWidth - rect.width - MARGIN);
+                setDropdownStyle({
+                    position: 'fixed',
+                    top: rect.bottom + 6,
+                    left: Math.max(MARGIN, left),
+                    minWidth: rect.width,
+                    zIndex: 1000,
+                });
+            }
+        }
+        setOpen((prev) => !prev);
+    };
 
     const handleSelect = (optValue) => {
         onChange(optValue);
@@ -78,7 +103,7 @@ export default function SelectFilter({ options, value, onChange, placeholder = '
             <button
                 type="button"
                 className="sf-trigger"
-                onClick={() => setOpen((prev) => !prev)}
+                onClick={handleToggle}
                 aria-haspopup="listbox"
                 aria-expanded={open}
             >
@@ -94,7 +119,7 @@ export default function SelectFilter({ options, value, onChange, placeholder = '
             </button>
 
             {open ? (
-                <div className="sf-dropdown" role="listbox">
+                <div className="sf-dropdown" style={dropdownStyle} role="listbox">
                     {options.map((opt) => (
                         <button
                             key={opt.value}
