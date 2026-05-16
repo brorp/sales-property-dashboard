@@ -13,7 +13,17 @@ type WebJsClient = {
     initialize: () => Promise<void>;
     destroy: () => Promise<void>;
     sendMessage: (chatId: string, content: any, options?: any) => Promise<any>;
+    getChats?: () => Promise<WebJsChat[]>;
     on: (event: string, listener: (...args: any[]) => void) => void;
+};
+
+type WebJsChat = {
+    id?: { _serialized?: string } | string;
+    isGroup?: boolean;
+    unreadCount?: number;
+    timestamp?: number;
+    lastMessage?: any;
+    fetchMessages?: (options: { limit: number }) => Promise<any[]>;
 };
 
 type WebJsMessageMediaCtor = new (
@@ -65,7 +75,12 @@ let isStarting = false;
 let reconnectEnabled = true;
 let sessionGeneration = 0;
 let runtimeGuardInstalled = false;
+let missedMessageRecoveryTimer: NodeJS.Timeout | null = null;
+let missedMessageRecoveryRunning = false;
+let missedMessageRecoveryWatermarkMs = Date.now();
 const RECENT_INBOUND_EVENT_WINDOW_MS = 5 * 60 * 1000;
+const MISSED_MESSAGE_RECOVERY_STARTUP_GRACE_MS = 5 * 60 * 1000;
+const MISSED_MESSAGE_RECOVERY_SCAN_OVERLAP_MS = 2 * 60 * 1000;
 const recentInboundEventIds = new Map<string, number>();
 
 const waQrLogger = createComponentLogger("wa:qr");
@@ -156,6 +171,52 @@ function describeSessionIsolation() {
 
 function isQrDebugEnabled() {
     return process.env.WA_QR_DEBUG === "true";
+}
+
+function envNumber(name: string, fallback: number, options: { min?: number; max?: number } = {}) {
+    const raw = Number(process.env[name]);
+    if (!Number.isFinite(raw)) {
+        return fallback;
+    }
+
+    const min = options.min ?? Number.NEGATIVE_INFINITY;
+    const max = options.max ?? Number.POSITIVE_INFINITY;
+    return Math.min(Math.max(raw, min), max);
+}
+
+function isMissedMessageRecoveryEnabled() {
+    const raw = String(process.env.WA_MISSED_MESSAGE_RECOVERY_ENABLED || "true")
+        .trim()
+        .toLowerCase();
+    return raw !== "false" && raw !== "0" && raw !== "off";
+}
+
+function currentMissedMessageRecoveryIntervalMs() {
+    return envNumber("WA_MISSED_MESSAGE_RECOVERY_INTERVAL_MS", 90_000, {
+        min: 30_000,
+        max: 10 * 60 * 1000,
+    });
+}
+
+function currentMissedMessageRecoveryLookbackMs() {
+    return envNumber("WA_MISSED_MESSAGE_RECOVERY_LOOKBACK_MS", 6 * 60 * 60 * 1000, {
+        min: 5 * 60 * 1000,
+        max: 24 * 60 * 60 * 1000,
+    });
+}
+
+function currentMissedMessageRecoveryChatLimit() {
+    return Math.floor(envNumber("WA_MISSED_MESSAGE_RECOVERY_CHAT_LIMIT", 40, {
+        min: 5,
+        max: 200,
+    }));
+}
+
+function currentMissedMessageRecoveryMessageLimit() {
+    return Math.floor(envNumber("WA_MISSED_MESSAGE_RECOVERY_MESSAGE_LIMIT", 5, {
+        min: 1,
+        max: 20,
+    }));
 }
 
 function writeWaStdout(level: "info" | "warn" | "error", message: string, meta: Record<string, unknown>) {
@@ -524,6 +585,49 @@ function rememberRecentInboundEventId(providerMessageId: string | null | undefin
 
     pruneRecentInboundEventIds();
     recentInboundEventIds.set(providerMessageId, Date.now());
+}
+
+function toEpochMs(value: unknown) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+        return null;
+    }
+    return numeric > 1_000_000_000_000 ? numeric : numeric * 1000;
+}
+
+function getMessageTimestampMs(message: any) {
+    return (
+        toEpochMs(message?.timestamp) ||
+        toEpochMs(message?._data?.timestamp) ||
+        toEpochMs(message?._data?.t) ||
+        null
+    );
+}
+
+function getChatTimestampMs(chat: WebJsChat) {
+    return (
+        toEpochMs(chat?.timestamp) ||
+        getMessageTimestampMs(chat?.lastMessage) ||
+        null
+    );
+}
+
+function getChatSerializedId(chat: WebJsChat) {
+    const id = chat?.id;
+    if (typeof id === "string") {
+        return normalizeChatId(id);
+    }
+    if (typeof id?._serialized === "string") {
+        return normalizeChatId(id._serialized);
+    }
+    return getEventChatId(chat?.lastMessage);
+}
+
+function isRecoverablePrivateChat(chat: WebJsChat) {
+    if (chat?.isGroup) {
+        return false;
+    }
+    return isPrivateUserChat(getChatSerializedId(chat));
 }
 
 function plainToPhone(value: unknown) {
@@ -951,6 +1055,156 @@ async function handleIncomingMessageEvent(eventName: string, generation: number,
     }
 }
 
+async function fetchRecoveryMessages(chat: WebJsChat) {
+    if (typeof chat.fetchMessages === "function") {
+        return chat.fetchMessages({ limit: currentMissedMessageRecoveryMessageLimit() });
+    }
+    return chat.lastMessage ? [chat.lastMessage] : [];
+}
+
+async function runMissedMessageRecovery(generation: number, client: WebJsClient) {
+    if (
+        missedMessageRecoveryRunning ||
+        generation !== sessionGeneration ||
+        clientRef !== client ||
+        runtimeState.status !== "connected"
+    ) {
+        return;
+    }
+
+    if (typeof client.getChats !== "function") {
+        return;
+    }
+
+    missedMessageRecoveryRunning = true;
+    const scanStartedAt = Date.now();
+    const lookbackCutoffMs = scanStartedAt - currentMissedMessageRecoveryLookbackMs();
+    const watermarkCutoffMs = missedMessageRecoveryWatermarkMs - MISSED_MESSAGE_RECOVERY_SCAN_OVERLAP_MS;
+    const cutoffMs = Math.max(lookbackCutoffMs, watermarkCutoffMs);
+    let scannedChats = 0;
+    let scannedMessages = 0;
+    let recoveredMessages = 0;
+
+    try {
+        const chats = await client.getChats();
+        const candidates = chats
+            .map((chat) => ({
+                chat,
+                lastMessageAt: getChatTimestampMs(chat),
+                unreadCount: Math.max(0, Number(chat?.unreadCount || 0)),
+            }))
+            .filter((item) => {
+                if (!isRecoverablePrivateChat(item.chat)) {
+                    return false;
+                }
+                if (!item.lastMessageAt || item.lastMessageAt < lookbackCutoffMs) {
+                    return false;
+                }
+                return item.unreadCount > 0 || item.lastMessageAt >= cutoffMs;
+            })
+            .sort((a, b) => (b.lastMessageAt || 0) - (a.lastMessageAt || 0))
+            .slice(0, currentMissedMessageRecoveryChatLimit());
+
+        for (const item of candidates) {
+            scannedChats += 1;
+            let messages: any[] = [];
+            try {
+                messages = await fetchRecoveryMessages(item.chat);
+            } catch (error) {
+                if (isQrDebugEnabled()) {
+                    logWaQrWarn("Missed-message recovery failed fetching chat messages", {
+                        chatId: getChatSerializedId(item.chat),
+                        error,
+                    });
+                }
+                continue;
+            }
+
+            const orderedMessages = messages
+                .filter(Boolean)
+                .sort((a, b) => (getMessageTimestampMs(a) || 0) - (getMessageTimestampMs(b) || 0));
+            const messageCutoffMs = item.unreadCount > 0 ? lookbackCutoffMs : cutoffMs;
+
+            for (const message of orderedMessages) {
+                const messageAt = getMessageTimestampMs(message) || item.lastMessageAt;
+                if (!messageAt || messageAt < messageCutoffMs) {
+                    continue;
+                }
+                if (!getInboundProviderMessageId(message)) {
+                    continue;
+                }
+
+                const ignoreDecision = shouldIgnoreWhatsAppEvent(message);
+                if (ignoreDecision.ignore) {
+                    continue;
+                }
+
+                scannedMessages += 1;
+                await handleIncomingMessage(message);
+                recoveredMessages += 1;
+            }
+        }
+
+        missedMessageRecoveryWatermarkMs = Math.max(missedMessageRecoveryWatermarkMs, scanStartedAt);
+        if (recoveredMessages > 0 || isQrDebugEnabled()) {
+            logWaQrInfo("Missed-message recovery scan completed", {
+                scannedChats,
+                scannedMessages,
+                recoveredMessages,
+                cutoffAt: new Date(cutoffMs).toISOString(),
+            });
+        }
+    } catch (error) {
+        logWaQrWarn("Missed-message recovery scan failed", { error });
+    } finally {
+        missedMessageRecoveryRunning = false;
+    }
+}
+
+function stopMissedMessageRecovery() {
+    if (!missedMessageRecoveryTimer) {
+        return;
+    }
+    clearInterval(missedMessageRecoveryTimer);
+    missedMessageRecoveryTimer = null;
+    missedMessageRecoveryRunning = false;
+}
+
+function startMissedMessageRecovery(generation: number, client: WebJsClient) {
+    stopMissedMessageRecovery();
+
+    if (!isMissedMessageRecoveryEnabled()) {
+        return;
+    }
+
+    if (typeof client.getChats !== "function") {
+        logWaQrWarn("Missed-message recovery disabled: getChats is unavailable");
+        return;
+    }
+
+    missedMessageRecoveryWatermarkMs = Math.max(
+        missedMessageRecoveryWatermarkMs,
+        Date.now() - MISSED_MESSAGE_RECOVERY_STARTUP_GRACE_MS
+    );
+
+    const intervalMs = currentMissedMessageRecoveryIntervalMs();
+    missedMessageRecoveryTimer = setInterval(() => {
+        void runMissedMessageRecovery(generation, client);
+    }, intervalMs);
+    missedMessageRecoveryTimer.unref?.();
+
+    setTimeout(() => {
+        void runMissedMessageRecovery(generation, client);
+    }, Math.min(15_000, intervalMs)).unref?.();
+
+    logWaQrInfo("Missed-message recovery started", {
+        intervalMs,
+        lookbackMs: currentMissedMessageRecoveryLookbackMs(),
+        chatLimit: currentMissedMessageRecoveryChatLimit(),
+        messageLimit: currentMissedMessageRecoveryMessageLimit(),
+    });
+}
+
 export function getWhatsAppQrAdminState(): WhatsAppQrAdminState {
     return {
         provider: currentProvider(),
@@ -1068,6 +1322,7 @@ async function sendWhatsAppQrPayloadByJid(
 export async function stopWhatsAppQrBridge() {
     reconnectEnabled = false;
     sessionGeneration += 1;
+    stopMissedMessageRecovery();
     clearActiveWhatsAppNumber();
 
     if (!clientRef) {
@@ -1123,6 +1378,7 @@ export async function startWhatsAppQrBridge() {
     installRuntimeGuard();
 
     if (currentProvider() !== "qr_local") {
+        stopMissedMessageRecovery();
         clearActiveWhatsAppNumber();
         updateRuntimeState({
             status: "disabled",
@@ -1289,6 +1545,7 @@ export async function startWhatsAppQrBridge() {
             updateRuntimeState({ activeWaNumber });
             markConnectedState("READY");
             waQrLogger.info("WhatsApp QR connected", { activeWaNumber: activeWaNumber || null });
+            startMissedMessageRecovery(generation, client);
         });
 
         client.on("auth_failure", (message: string) => {
@@ -1312,6 +1569,7 @@ export async function startWhatsAppQrBridge() {
             }
 
             clientRef = null;
+            stopMissedMessageRecovery();
             clearActiveWhatsAppNumber();
             updateRuntimeState({
                 status: "disconnected",
@@ -1357,6 +1615,7 @@ export async function startWhatsAppQrBridge() {
         }
     } catch (error) {
         clientRef = null;
+        stopMissedMessageRecovery();
         clearActiveWhatsAppNumber();
         const message = error instanceof Error ? error.message : "Unknown error";
         const chromeMissing = /Could not find Chrome|executable file not found|Browser was not found/i.test(

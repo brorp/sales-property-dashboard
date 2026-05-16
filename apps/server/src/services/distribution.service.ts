@@ -100,11 +100,32 @@ async function getNextQueueEntry(
         rows.map((row) => row.salesId),
         executor
     );
+    const liveOfferRows = await executor
+        .select({
+            salesId: distributionAttempt.salesId,
+        })
+        .from(distributionAttempt)
+        .innerJoin(distributionCycle, eq(distributionAttempt.cycleId, distributionCycle.id))
+        .innerJoin(lead, eq(distributionAttempt.leadId, lead.id))
+        .where(
+            and(
+                eq(distributionCycle.status, "active"),
+                eq(lead.clientId, clientId),
+                eq(distributionAttempt.status, "waiting_ok"),
+                ne(distributionAttempt.cycleId, cycleId)
+            )
+        );
+    const liveOfferSalesIds = new Set(liveOfferRows.map((row) => row.salesId));
 
     return (
         rows.find(
             (row) =>
-                !suspensionMap.has(row.salesId) && !attemptedSalesIds.has(row.salesId)
+                !suspensionMap.has(row.salesId) &&
+                !attemptedSalesIds.has(row.salesId) &&
+                (
+                    Number(row.repeatOrderRemaining || 0) > 0 ||
+                    !liveOfferSalesIds.has(row.salesId)
+                )
         ) ?? null
     );
 }

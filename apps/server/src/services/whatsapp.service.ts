@@ -163,24 +163,42 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
         .limit(1);
 
     if (salesSender) {
-        const [latestAttempt] = await db
-            .select({
-                leadId: distributionAttempt.leadId,
-                status: distributionAttempt.status,
-                closeReason: distributionAttempt.closeReason,
-                clientId: lead.clientId,
-            })
+        const attemptSelection = {
+            leadId: distributionAttempt.leadId,
+            status: distributionAttempt.status,
+            closeReason: distributionAttempt.closeReason,
+            clientId: lead.clientId,
+        };
+
+        const [waitingAttempt] = await db
+            .select(attemptSelection)
             .from(distributionAttempt)
             .innerJoin(lead, eq(distributionAttempt.leadId, lead.id))
             .where(
                 and(
                     eq(distributionAttempt.salesId, salesSender.id),
+                    eq(distributionAttempt.status, "waiting_ok"),
                     payload.clientId ? eq(lead.clientId, payload.clientId) : undefined
                 )
             )
             .orderBy(desc(distributionAttempt.assignedAt))
             .limit(1);
 
+        const [latestClosedAttempt] = waitingAttempt
+            ? []
+            : await db
+                .select(attemptSelection)
+                .from(distributionAttempt)
+                .innerJoin(lead, eq(distributionAttempt.leadId, lead.id))
+                .where(
+                    and(
+                        eq(distributionAttempt.salesId, salesSender.id),
+                        payload.clientId ? eq(lead.clientId, payload.clientId) : undefined
+                    )
+                )
+                .orderBy(desc(distributionAttempt.assignedAt))
+                .limit(1);
+        const latestAttempt = waitingAttempt || latestClosedAttempt;
         const targetLeadId = latestAttempt?.leadId || null;
 
         const [message] = await db
@@ -380,6 +398,22 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
             createdAt: now,
         })
         .returning();
+
+    if (
+        clientLead.assignedTo ||
+        clientLead.flowStatus === "assigned" ||
+        clientLead.flowStatus === "accepted"
+    ) {
+        return {
+            type: "client_message" as const,
+            message,
+            lead: clientLead,
+            cycle: null,
+            firstClientMessage: false,
+            heldByOperationalHours: false,
+            autoReplyText: null,
+        };
+    }
 
     if (clientLead.flowStatus === "hold") {
         const fallbackOutsideReply = `Terima kasih sudah menghubungi kami. Jam operasional kami ${operationalWindow.operationalRangeLabel}. Tim kami akan merespons saat jam operasional.`;
