@@ -27,6 +27,7 @@ import CustomerPipelineProgress from '../components/CustomerPipelineProgress';
 import Header from '../components/Header';
 import PickerTriggerField from '../components/PickerTriggerField';
 import { apiRequest } from '../lib/api';
+import './LeadDetailPage.css';
 
 function formatExactDateTime(value) {
     if (!value) {
@@ -71,6 +72,25 @@ function addDays(value, days) {
 
 function isAgentSource(value) {
     return String(value || '').trim().toLowerCase() === 'agent';
+}
+
+function getInitials(name) {
+    if (!name) return '?';
+    const parts = String(name).trim().split(/\s+/);
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+const AVATAR_COLORS = [
+    ['#1E3A5F', '#2C5282'], ['#92400E', '#B45309'],
+    ['#065F46', '#047857'], ['#4C1D95', '#6D28D9'],
+    ['#9D174D', '#BE185D'], ['#1E3A5F', '#1E40AF'],
+];
+
+function getAvatarColor(name) {
+    let hash = 0;
+    for (let i = 0; i < (name || '').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
 function normalizeResultStatusForForm(value) {
@@ -160,6 +180,11 @@ export default function LeadDetailPage({ leadId }) {
     const [unitsLoading, setUnitsLoading] = useState(false);
     const [cancelReasons, setCancelReasons] = useState([]);
     const [cancelReasonsLoading, setCancelReasonsLoading] = useState(false);
+    useEffect(() => {
+        document.body.classList.add('dash-body');
+        return () => document.body.classList.remove('dash-body');
+    }, []);
+
     const lead = getLeadById(leadId);
     const salesUsers = getSalesUsers();
     const leadSources = getLeadSources();
@@ -383,19 +408,15 @@ export default function LeadDetailPage({ leadId }) {
 
     if (!lead) {
         return (
-            <div className="page-container">
-                <Header
-                    title="Detail Lead"
-                    showBack
-                    rightAction={(
-                        <button className="btn btn-sm btn-secondary" onClick={() => void handleRefresh()} disabled={refreshing}>
-                            {refreshing ? 'Loading...' : 'Refresh'}
-                        </button>
-                    )}
-                />
-                <div className="empty-state">
-                    <div className="empty-icon">❌</div>
-                    <div className="empty-title">Lead tidak ditemukan</div>
+            <div className="page-container dash-page leads-page">
+                <Header title="Detail Lead" showBack rightAction={(
+                    <button className="btn btn-sm btn-secondary" onClick={() => void handleRefresh()} disabled={refreshing}>
+                        {refreshing ? 'Loading...' : 'Refresh'}
+                    </button>
+                )} />
+                <div className="lc-empty">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+                    <span className="lc-empty-title">Lead tidak ditemukan</span>
                 </div>
             </div>
         );
@@ -586,17 +607,14 @@ export default function LeadDetailPage({ leadId }) {
     };
 
     return (
-        <div className="page-container">
+        <div className="page-container dash-page leads-page">
             <Header
                 title="Detail Lead"
                 showBack
                 rightAction={(
                     <>
                         {canDeleteLead ? (
-                            <button
-                                className="btn btn-sm btn-danger"
-                                onClick={() => setDeleteLeadState({ open: true, passwordConfirmation: '', submitting: false, error: '' })}
-                            >
+                            <button className="btn btn-sm btn-danger" onClick={() => setDeleteLeadState({ open: true, passwordConfirmation: '', submitting: false, error: '' })}>
                                 Hapus Lead
                             </button>
                         ) : null}
@@ -607,131 +625,140 @@ export default function LeadDetailPage({ leadId }) {
                 )}
             />
 
-            <div className="card detail-info-card">
-                <h2 className="detail-client-name">{lead.name}</h2>
-                <div className="detail-info-row"><span>📱</span><span>{lead.phone}</span></div>
-                <div className="detail-info-row"><span>📅</span><span>Masuk: {formatDate(lead.createdAt)}</span></div>
-                <div className="detail-info-row"><span>📣</span><span>{lead.source}</span></div>
-                {lead.agentOfficeName ? <div className="detail-info-row"><span>🏬</span><span>{lead.agentOfficeName}</span></div> : null}
-                <div className="detail-info-row"><span>📝</span><span>Catatan: {lead.manualNote || '-'}</span></div>
-                <div className="detail-info-row"><span>🧭</span><span>Status Distribusi: {getFlowStatusLabel(effectiveFlowStatus)}</span></div>
-                <div className="detail-info-row"><span>📌</span><span>Status Appointment: {getAppointmentTagLabel(appointmentTag)}</span></div>
-                <div className="detail-info-row">
-                    <span>👨‍💼</span>
-                    <span>
-                        Sales: {getSalesNameById(lead.assignedTo)}
-                        {canAdminAssignOpenLead ? (
-                            <button className="detail-reassign-btn" onClick={() => setShowReassign(true)}>
-                                Ubah
-                            </button>
-                        ) : null}
-                    </span>
-                </div>
-                {lead.acceptedAt ? (
-                    <div className="detail-info-row"><span>✅</span><span>Lead diterima: {formatExactDateTime(lead.acceptedAt)}</span></div>
-                ) : null}
-                {requestError ? <div className="settings-error">{requestError}</div> : null}
-                {requestSuccess ? <div className="settings-success">{requestSuccess}</div> : null}
-                {needsNewLeadTaskAcceptance ? (
-                    <div className="detail-pending-task-note">
-                        <div className="settings-help" style={{ margin: '12px 0 0' }}>
-                            Lead ini harus diterima lewat <strong>Tasks &gt; New Leads</strong>. Submit screenshot proof dan status L2 di sana untuk mengubah status lead menjadi Accepted.
+            {/* ── Profile card ─────────────────────────────────── */}
+            <div className="ldp-profile-card">
+                <div className="ldp-profile-head">
+                    <div className="lc-avatar lc-avatar-initials" style={{ background: `linear-gradient(135deg, ${getAvatarColor(lead.name)[0]}, ${getAvatarColor(lead.name)[1]})`, width: 52, height: 52, fontSize: '1rem' }}>
+                        {getInitials(lead.name)}
+                    </div>
+                    <div className="ldp-profile-identity">
+                        <h1 className="ldp-name">{lead.name}</h1>
+                        <div className="ldp-status-row">
+                            <span className={`badge ${getStatusBadgeClass('flow', effectiveFlowStatus)}`}>{getFlowStatusLabel(effectiveFlowStatus)}</span>
+                            {lead.salesStatus ? <span className={`badge ${getStatusBadgeClass('sales', lead.salesStatus)}`}>{getSalesStatusLabel(lead.salesStatus)}</span> : null}
+                            {appointmentTag !== 'none' ? <span className={`badge ${getStatusBadgeClass('appointment', appointmentTag)}`}>{getAppointmentTagLabel(appointmentTag)}</span> : null}
+                            {lead.resultStatus ? <span className={`badge ${getStatusBadgeClass('result', lead.resultStatus)}`}>{getResultStatusLabel(lead.resultStatus)}</span> : null}
                         </div>
-                        <button
-                            className="btn btn-primary btn-full"
-                            style={{ marginTop: 12 }}
-                            onClick={() => router.push('/daily-tasks')}
-                        >
+                    </div>
+                </div>
+
+                <div className="ldp-info-grid">
+                    <div className="ldp-info-item">
+                        <span className="ldp-info-label">WhatsApp</span>
+                        <span className="ldp-info-value">{lead.phone}</span>
+                    </div>
+                    <div className="ldp-info-item">
+                        <span className="ldp-info-label">Source</span>
+                        <span className="ldp-info-value">{lead.source}{lead.agentOfficeName ? ` · ${lead.agentOfficeName}` : ''}</span>
+                    </div>
+                    <div className="ldp-info-item">
+                        <span className="ldp-info-label">Tanggal Masuk</span>
+                        <span className="ldp-info-value">{formatDate(lead.createdAt)}</span>
+                    </div>
+                    <div className="ldp-info-item">
+                        <span className="ldp-info-label">Domisili</span>
+                        <span className="ldp-info-value">{lead.domicileCity || '-'}</span>
+                    </div>
+                    {lead.interestProjectType && lead.interestUnitName ? (
+                        <div className="ldp-info-item">
+                            <span className="ldp-info-label">Tipe Unit</span>
+                            <span className="ldp-info-value">{lead.interestProjectType} – {lead.interestUnitName}</span>
+                        </div>
+                    ) : null}
+                    {lead.acceptedAt ? (
+                        <div className="ldp-info-item">
+                            <span className="ldp-info-label">Diterima</span>
+                            <span className="ldp-info-value">{formatExactDateTime(lead.acceptedAt)}</span>
+                        </div>
+                    ) : null}
+                    <div className="ldp-info-item">
+                        <span className="ldp-info-label">Sales</span>
+                        <span className="ldp-info-value">
+                            {getSalesNameById(lead.assignedTo)}
+                            {canAdminAssignOpenLead ? (
+                                <button className="ldp-reassign-btn" onClick={() => setShowReassign(true)}>Ubah</button>
+                            ) : null}
+                        </span>
+                    </div>
+                </div>
+
+                {lead.manualNote ? (
+                    <div className="ldp-note-block">
+                        <span className="ldp-note-label">Catatan</span>
+                        <p className="ldp-note-text">{lead.manualNote}</p>
+                    </div>
+                ) : null}
+
+                {requestError ? <div className="ldp-alert ldp-alert-error">{requestError}</div> : null}
+                {requestSuccess ? <div className="ldp-alert ldp-alert-success">{requestSuccess}</div> : null}
+
+                {needsNewLeadTaskAcceptance ? (
+                    <div className="ldp-alert ldp-alert-info">
+                        Lead ini harus diterima lewat <strong>Tasks › New Leads</strong>. Submit screenshot proof dan status L2 di sana untuk mengubah status lead menjadi Accepted.
+                        <button className="btn btn-primary btn-full" style={{ marginTop: 10 }} onClick={() => router.push('/daily-tasks')}>
                             Buka Daily Task
                         </button>
                     </div>
                 ) : null}
-                <a href={toWaLink(lead.phone)} target="_blank" rel="noopener noreferrer" className="btn btn-whatsapp btn-full" style={{ marginTop: 12 }}>
-                    Chat WhatsApp
-                </a>
-                <button
-                    className="btn btn-secondary btn-full"
-                    onClick={() => {
-                        setNote(lead.manualNote || '');
-                        setShowNote(true);
-                    }}
-                    disabled={!canEditLead}
-                    style={{ marginTop: 10 }}
-                >
-                    {lead.manualNote ? 'Ubah Catatan' : 'Tambah Catatan'}
-                </button>
+
+                <div className="ldp-card-actions">
+                    <a href={toWaLink(lead.phone)} target="_blank" rel="noopener noreferrer" className="btn btn-whatsapp" style={{ flex: 1 }}>
+                        Chat WhatsApp
+                    </a>
+                    <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setNote(lead.manualNote || ''); setShowNote(true); }} disabled={!canEditLead}>
+                        {lead.manualNote ? 'Ubah Catatan' : 'Tambah Catatan'}
+                    </button>
+                </div>
             </div>
 
+            {/* ── Customer Pipeline ─────────────────────────────── */}
             {isAcceptedLead ? (
-                <div className="detail-section">
-                    <div className="lead-row-top" style={{ alignItems: 'flex-start', marginBottom: 12 }}>
+                <div className="ldp-section">
+                    <div className="ldp-section-head">
                         <div>
-                            <h3 className="section-title" style={{ marginBottom: 4 }}>Customer Pipeline</h3>
-                            <p className="settings-help" style={{ margin: 0 }}>
-                                Follow up sekarang digerakkan otomatis dari Daily Task. Progress di bawah akan terisi saat proof day 4, day 8, dan day 12 berhasil disubmit.
-                            </p>
+                            <h3 className="ldp-section-title">Customer Pipeline</h3>
+                            <p className="ldp-section-desc">Progress terisi otomatis saat proof day 4, 8, dan 12 disubmit di Daily Task.</p>
                         </div>
                         <CustomerPipelineProgress
                             completed={customerPipelineRows.filter((item) => item.status === 'done').length}
                             total={customerPipelineRows.length}
                         />
                     </div>
-
-                    <div className="card detail-pipeline-card">
+                    <div className="ldp-card ldp-pipeline-list">
                         {customerPipelineRows.map((step) => (
-                            <div key={step.stepNo} className={`detail-pipeline-row ${step.status === 'done' ? 'is-completed' : ''}`}>
-                                <div className="detail-pipeline-row-top">
-                                    <div className="detail-pipeline-row-main">
-                                        <div className="detail-pipeline-badges">
-                                            <span className={`badge ${step.status === 'done' ? 'badge-success' : step.status === 'overdue' ? 'badge-danger' : step.status === 'pending' ? 'badge-warm' : 'badge-neutral'}`}>
-                                                {step.label}
-                                            </span>
+                            <div key={step.stepNo} className={`ldp-pipeline-row${step.status === 'done' ? ' is-done' : ''}`}>
+                                <div className="ldp-pipeline-row-inner">
+                                    <div className="ldp-pipeline-main">
+                                        <div className="ldp-pipeline-badges">
+                                            <span className={`badge ${step.status === 'done' ? 'badge-success' : step.status === 'overdue' ? 'badge-danger' : step.status === 'pending' ? 'badge-warm' : 'badge-neutral'}`}>{step.label}</span>
                                             <span className={`badge ${step.status === 'done' ? 'badge-success' : step.status === 'overdue' ? 'badge-danger' : step.status === 'pending' ? 'badge-info' : 'badge-neutral'}`}>
-                                                {step.status === 'done'
-                                                    ? 'Done'
-                                                    : step.status === 'overdue'
-                                                        ? 'Overdue'
-                                                        : step.status === 'pending'
-                                                            ? 'Pending'
-                                                            : 'Upcoming'}
+                                                {step.status === 'done' ? 'Done' : step.status === 'overdue' ? 'Overdue' : step.status === 'pending' ? 'Pending' : 'Upcoming'}
                                             </span>
                                         </div>
-                                        <div className="detail-pipeline-summary">
+                                        <p className="ldp-pipeline-summary">
                                             {step.status === 'done'
-                                                ? `Proof follow up sudah disubmit${step.completedAt ? ` pada ${formatExactDateTime(step.completedAt)}` : ''}.`
+                                                ? `Proof disubmit${step.completedAt ? ` pada ${formatExactDateTime(step.completedAt)}` : ''}.`
                                                 : step.status === 'overdue'
-                                                    ? `Milestone ini belum disubmit. Deadline ${formatExactDateTime(step.dueAt)}.`
+                                                    ? `Belum disubmit. Deadline ${formatExactDateTime(step.dueAt)}.`
                                                     : step.status === 'pending'
-                                                        ? `Milestone aktif${step.dueAt ? ` dan perlu disubmit sebelum ${formatExactDateTime(step.dueAt)}` : ''}.`
-                                                        : `Milestone akan aktif ${formatExactDateTime(step.eligibleAt)}.`}
-                                        </div>
+                                                        ? `Aktif${step.dueAt ? `, deadline ${formatExactDateTime(step.dueAt)}` : ''}.`
+                                                        : `Aktif ${formatExactDateTime(step.eligibleAt)}.`}
+                                        </p>
                                         {step.eligibleAt ? (
-                                            <div className="detail-pipeline-meta">
-                                                <span>Target follow up: {formatExactDateTime(step.eligibleAt)}</span>
+                                            <div className="ldp-pipeline-meta">
+                                                <span>Target: {formatExactDateTime(step.eligibleAt)}</span>
                                                 {step.dueAt ? <span>Deadline: {formatExactDateTime(step.dueAt)}</span> : null}
                                             </div>
                                         ) : null}
                                     </div>
-
-                                    <div className="detail-pipeline-actions">
+                                    <div className="ldp-pipeline-proof">
                                         {step.screenshotUrl ? (
-                                            <a
-                                                className="detail-pipeline-proof-link"
-                                                href={step.screenshotUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                <img
-                                                    src={step.screenshotUrl}
-                                                    alt={`${step.label} proof`}
-                                                    className="detail-pipeline-proof-image"
-                                                />
+                                            <a className="ldp-proof-link" href={step.screenshotUrl} target="_blank" rel="noopener noreferrer">
+                                                <img src={step.screenshotUrl} alt={`${step.label} proof`} className="ldp-proof-img" />
                                                 <span className="btn btn-sm btn-secondary">Lihat Proof</span>
                                             </a>
                                         ) : (
-                                            <span className="settings-help" style={{ margin: 0 }}>
-                                                Submit lewat menu Daily Task
-                                            </span>
+                                            <span className="ldp-section-desc" style={{ margin: 0 }}>Submit lewat Daily Task</span>
                                         )}
                                     </div>
                                 </div>
@@ -741,120 +768,71 @@ export default function LeadDetailPage({ leadId }) {
                 </div>
             ) : null}
 
-            <div className="detail-section">
-                <h3 className="section-title">Update Data Sales</h3>
+            {/* ── Update Data Sales ─────────────────────────────── */}
+            <div className="ldp-section">
+                <h3 className="ldp-section-title">Update Data Sales</h3>
                 {isLockedByAkad ? (
-                    <div className="detail-rejected-summary" style={{ marginBottom: 12, backgroundColor: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-                        <strong>🔒 LEAD TERKUNCI</strong>: Lead ini telah mencapai status Akad dan datanya tidak dapat diubah lagi.
+                    <div className="ldp-alert ldp-alert-error" style={{ marginBottom: 12 }}>
+                        Lead terkunci — sudah mencapai status Akad dan tidak dapat diubah.
                     </div>
                 ) : null}
                 {!isAcceptedLead && !isLockedByAkad ? (
-                    <div className="detail-rejected-summary" style={{ marginBottom: 12 }}>
+                    <div className="ldp-alert ldp-alert-info" style={{ marginBottom: 12 }}>
                         {effectiveFlowStatus === 'assigned'
                             ? canEditLead
-                                ? 'Lead sudah assigned ke kamu. Selesaikan Tasks > New Leads dulu agar lead otomatis Accepted dan data sales/customer pipeline aktif.'
+                                ? 'Lead sudah assigned ke kamu. Selesaikan Tasks › New Leads dulu agar lead otomatis Accepted.'
                                 : 'Lead ini sudah assigned. Hanya sales owner yang bisa menerima dan mengupdate lead.'
-                            : 'Lead masih open. Menunggu assignment ke sales sebelum bisa diproses lebih lanjut.'}
+                            : 'Lead masih open. Menunggu assignment ke sales.'}
                     </div>
                 ) : null}
                 {!leadAllowsDelayedStatuses && isAcceptedLead ? (
-                    <div className="settings-help" style={{ marginBottom: 12 }}>
-                        Opsi <strong>Cold</strong> dan <strong>No Response</strong> baru terbuka setelah lead berumur lebih dari {SALES_STATUS_COLD_OPEN_DAYS} hari dari tanggal masuk.
+                    <div className="ldp-alert ldp-alert-info" style={{ marginBottom: 12 }}>
+                        Opsi <strong>Cold</strong> dan <strong>No Response</strong> baru terbuka setelah lead berumur lebih dari {SALES_STATUS_COLD_OPEN_DAYS} hari.
                     </div>
                 ) : null}
-                <form onSubmit={handleSaveFlow2} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <form onSubmit={handleSaveFlow2} className="ldp-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <div className="input-group">
                         <label>Nama Lead</label>
-                        <input
-                            type="text"
-                            className="input-field"
-                            value={flow2Form.name}
-                            onChange={(event) => setFlow2Form({ ...flow2Form, name: event.target.value })}
-                            disabled={!canEditLead}
-                        />
+                        <input type="text" className="input-field" value={flow2Form.name} onChange={(event) => setFlow2Form({ ...flow2Form, name: event.target.value })} disabled={!canEditLead} />
                     </div>
                     <div className="input-group">
                         <label>Source Lead</label>
-                        <select
-                            className="input-field"
-                            value={flow2Form.source}
-                            onChange={(event) => {
-                                const nextSource = event.target.value;
-                                setFlow2Form({
-                                    ...flow2Form,
-                                    source: nextSource,
-                                    agentOfficeName: isAgentSource(nextSource) ? flow2Form.agentOfficeName : '',
-                                });
-                            }}
-                            disabled={!canEditLead || availableLeadSources.length === 0}
-                        >
+                        <select className="input-field" value={flow2Form.source} onChange={(event) => { const nextSource = event.target.value; setFlow2Form({ ...flow2Form, source: nextSource, agentOfficeName: isAgentSource(nextSource) ? flow2Form.agentOfficeName : '' }); }} disabled={!canEditLead || availableLeadSources.length === 0}>
                             <option value="">{availableLeadSources.length === 0 ? 'Source belum tersedia' : 'Pilih source'}</option>
-                            {availableLeadSources.map((source) => (
-                                <option key={source} value={source}>{source}</option>
-                            ))}
+                            {availableLeadSources.map((source) => <option key={source} value={source}>{source}</option>)}
                         </select>
                     </div>
                     {isAgentSource(flow2Form.source) ? (
                         <div className="input-group">
                             <label>Nama Kantor Agent</label>
-                            <input
-                                type="text"
-                                className="input-field"
-                                value={flow2Form.agentOfficeName}
-                                onChange={(event) => setFlow2Form({ ...flow2Form, agentOfficeName: event.target.value })}
-                                disabled={!canEditLead}
-                                placeholder="Nama kantor agent"
-                            />
+                            <input type="text" className="input-field" value={flow2Form.agentOfficeName} onChange={(event) => setFlow2Form({ ...flow2Form, agentOfficeName: event.target.value })} disabled={!canEditLead} placeholder="Nama kantor agent" />
                         </div>
                     ) : null}
                     <div className="input-group">
                         <label>Sales Status</label>
-                        <select
-                            className="input-field"
-                            value={flow2Form.salesStatus}
-                            onChange={(event) => setFlow2Form({ ...flow2Form, salesStatus: event.target.value })}
-                            disabled={!canEditLead || !canUpdateLayer2}
-                        >
+                        <select className="input-field" value={flow2Form.salesStatus} onChange={(event) => setFlow2Form({ ...flow2Form, salesStatus: event.target.value })} disabled={!canEditLead || !canUpdateLayer2}>
                             <option value="">Pilih status</option>
-                            {visibleSalesStatuses.map((item) => (
-                                <option key={item.key} value={item.key}>{item.label}</option>
-                            ))}
+                            {visibleSalesStatuses.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
                         </select>
                     </div>
                     <div className="input-group">
                         <label>Domisili</label>
-                        <select
-                            className="input-field"
-                            value={flow2Form.domicileCity}
-                            onChange={(event) => setFlow2Form({ ...flow2Form, domicileCity: event.target.value })}
-                            disabled={!canEditLead || !canUpdateLayer2}
-                        >
+                        <select className="input-field" value={flow2Form.domicileCity} onChange={(event) => setFlow2Form({ ...flow2Form, domicileCity: event.target.value })} disabled={!canEditLead || !canUpdateLayer2}>
                             <option value="">Pilih kota</option>
-                            {INDONESIA_CITIES.map((city) => (
-                                <option key={city} value={city}>{city}</option>
-                            ))}
+                            {INDONESIA_CITIES.map((city) => <option key={city} value={city}>{city}</option>)}
                         </select>
                     </div>
                     <div className="input-group">
                         <label>Tipe Unit</label>
-                        <select
-                            className="input-field"
-                            value={flow2Form.interestUnitId}
-                            onChange={(event) => setFlow2Form({ ...flow2Form, interestUnitId: event.target.value })}
-                            disabled={!canEditLead || !canUpdateLayer2 || unitsLoading}
-                        >
+                        <select className="input-field" value={flow2Form.interestUnitId} onChange={(event) => setFlow2Form({ ...flow2Form, interestUnitId: event.target.value })} disabled={!canEditLead || !canUpdateLayer2 || unitsLoading}>
                             <option value="">{unitsLoading ? 'Loading unit...' : 'Pilih tipe unit'}</option>
-                            {unitOptions.map((item) => (
-                                <option key={item.id} value={item.id}>
-                                    {item.projectType} - {item.unitName}
-                                </option>
-                            ))}
+                            {unitOptions.map((item) => <option key={item.id} value={item.id}>{item.projectType} - {item.unitName}</option>)}
                         </select>
                     </div>
-                    <div className="lead-row-meta">
-                        <span>Current L2: {lead.salesStatus ? getSalesStatusLabel(lead.salesStatus) : '-'}</span>
-                        <span>Domisili: {lead.domicileCity || '-'}</span>
-                        <span>Unit: {lead.interestProjectType && lead.interestUnitName ? `${lead.interestProjectType} - ${lead.interestUnitName}` : '-'}</span>
+                    <div className="ldp-current-meta">
+                        <span>L2 saat ini: <strong>{lead.salesStatus ? getSalesStatusLabel(lead.salesStatus) : '-'}</strong></span>
+                        <span>Domisili: <strong>{lead.domicileCity || '-'}</strong></span>
+                        <span>Unit: <strong>{lead.interestProjectType && lead.interestUnitName ? `${lead.interestProjectType} - ${lead.interestUnitName}` : '-'}</strong></span>
                     </div>
                     <button type="submit" className="btn btn-primary btn-full" disabled={!canEditLead || !canUpdateLayer2}>
                         {isAcceptedLead ? 'Simpan Data Sales' : 'Menunggu lead di-accept'}
@@ -862,47 +840,32 @@ export default function LeadDetailPage({ leadId }) {
                 </form>
             </div>
 
-            <div className="detail-section">
-                <h3 className="section-title">Appointment</h3>
-                <div className="detail-status-grid" style={{ marginBottom: 10 }}>
+            {/* ── Appointment ───────────────────────────────────── */}
+            <div className="ldp-section">
+                <div className="ldp-section-head">
+                    <h3 className="ldp-section-title">Appointment</h3>
+                    <button className="btn btn-sm btn-primary" onClick={openCreateAppointment} disabled={!canEditLead}>+ Buat</button>
+                </div>
+                <div className="ldp-appt-status-row">
                     {APPOINTMENT_TAGS.map((tag) => (
-                        <span
-                            key={tag.key}
-                            className={`badge ${appointmentTag === tag.key ? getStatusBadgeClass('appointment', tag.key) : 'badge-neutral'}`}
-                        >
-                            {tag.label}
-                        </span>
+                        <span key={tag.key} className={`badge ${appointmentTag === tag.key ? getStatusBadgeClass('appointment', tag.key) : 'badge-neutral'}`}>{tag.label}</span>
                     ))}
                 </div>
                 {lead.appointments?.length > 0 ? (
-                    <div>
+                    <div className="ldp-appt-list">
                         {lead.appointments.map((item) => (
-                            <div key={item.id} className="card detail-appt-card">
-                                <div className="lead-row-top" style={{ marginBottom: 8 }}>
-                                    <div className="detail-appt-date">🕐 {item.date} • {item.time}</div>
-                                    <span className={`badge ${getStatusBadgeClass('appointment', item.status)}`}>
-                                        {getAppointmentTagLabel(item.status || 'mau_survey')}
-                                    </span>
+                            <div key={item.id} className="ldp-card ldp-appt-card">
+                                <div className="ldp-appt-head">
+                                    <div className="ldp-appt-datetime">{item.date} · {item.time}</div>
+                                    <span className={`badge ${getStatusBadgeClass('appointment', item.status)}`}>{getAppointmentTagLabel(item.status || 'mau_survey')}</span>
                                 </div>
-                                <div className="detail-appt-location">📍 {item.location}</div>
-                                {item.notes ? <div className="detail-appt-notes">{item.notes}</div> : null}
+                                <div className="ldp-appt-location">{item.location}</div>
+                                {item.notes ? <div className="ldp-appt-notes">{item.notes}</div> : null}
                                 {canEditLead ? (
-                                    <div className="detail-actions" style={{ marginTop: 12 }}>
-                                        <button
-                                            type="button"
-                                            className="btn btn-secondary btn-full"
-                                            onClick={() => openEditAppointment(item)}
-                                        >
-                                            Edit Appointment
-                                        </button>
+                                    <div className="ldp-appt-actions">
+                                        <button type="button" className="btn btn-sm btn-secondary" onClick={() => openEditAppointment(item)}>Edit</button>
                                         {item.status !== 'dibatalkan' ? (
-                                            <button
-                                                type="button"
-                                                className="btn btn-danger btn-full"
-                                                onClick={() => void handleCancelAppointment(item)}
-                                            >
-                                                Batalkan
-                                            </button>
+                                            <button type="button" className="btn btn-sm btn-danger" onClick={() => void handleCancelAppointment(item)}>Batalkan</button>
                                         ) : null}
                                     </div>
                                 ) : null}
@@ -910,128 +873,77 @@ export default function LeadDetailPage({ leadId }) {
                         ))}
                     </div>
                 ) : (
-                    <div className="card">Belum ada appointment.</div>
+                    <p className="ldp-section-desc">Belum ada appointment.</p>
                 )}
-                <button className="btn btn-primary btn-full" style={{ marginTop: 12 }} onClick={openCreateAppointment} disabled={!canEditLead}>
-                    Buat Appointment
-                </button>
             </div>
 
-            <div className="detail-section">
-                <h3 className="section-title">Status Hasil</h3>
-                <div className="settings-help" style={{ marginBottom: 12 }}>
-                    Result status sekarang bisa diupdate langsung tanpa harus menunggu layer sebelumnya lengkap, selama field wajib untuk status tersebut terpenuhi.
-                </div>
-                <form onSubmit={handleSaveResult} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* ── Status Hasil ──────────────────────────────────── */}
+            <div className="ldp-section">
+                <h3 className="ldp-section-title">Status Hasil</h3>
+                <p className="ldp-section-desc" style={{ marginBottom: 12 }}>Result status bisa diupdate langsung selama field wajib terpenuhi.</p>
+                <form onSubmit={handleSaveResult} className="ldp-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <div className="input-group">
                         <label>Result Status</label>
-                        <select
-                            className="input-field"
-                            value={resultForm.resultStatus}
-                            onChange={(event) => setResultForm({ ...resultForm, resultStatus: event.target.value })}
-                            disabled={!canUpdateResult}
-                        >
+                        <select className="input-field" value={resultForm.resultStatus} onChange={(event) => setResultForm({ ...resultForm, resultStatus: event.target.value })} disabled={!canUpdateResult}>
                             <option value="">Pilih status</option>
-                            {RESULT_STATUSES.map((item) => (
-                                <option key={item.key} value={item.key}>{item.label}</option>
-                            ))}
+                            {RESULT_STATUSES.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
                         </select>
                     </div>
-
                     {resultForm.resultStatus === 'akad' ? (
                         <>
                             <div className="input-group">
                                 <label>Nama Unit</label>
-                                <input
-                                    className="input-field"
-                                    value={resultForm.unitName}
-                                    onChange={(event) => setResultForm({ ...resultForm, unitName: event.target.value })}
-                                    disabled={!canUpdateResult}
-                                />
+                                <input className="input-field" value={resultForm.unitName} onChange={(event) => setResultForm({ ...resultForm, unitName: event.target.value })} disabled={!canUpdateResult} />
                             </div>
                             <div className="input-group">
                                 <label>Detail Unit</label>
-                                <textarea
-                                    className="input-field"
-                                    rows={3}
-                                    value={resultForm.unitDetail}
-                                    onChange={(event) => setResultForm({ ...resultForm, unitDetail: event.target.value })}
-                                    disabled={!canUpdateResult}
-                                    style={{ resize: 'vertical' }}
-                                />
+                                <textarea className="input-field" rows={3} value={resultForm.unitDetail} onChange={(event) => setResultForm({ ...resultForm, unitDetail: event.target.value })} disabled={!canUpdateResult} style={{ resize: 'vertical' }} />
                             </div>
                             <div className="input-group">
                                 <label>Cara Bayar</label>
-                                <input
-                                    className="input-field"
-                                    value={resultForm.paymentMethod}
-                                    onChange={(event) => setResultForm({ ...resultForm, paymentMethod: event.target.value })}
-                                    disabled={!canUpdateResult}
-                                />
+                                <input className="input-field" value={resultForm.paymentMethod} onChange={(event) => setResultForm({ ...resultForm, paymentMethod: event.target.value })} disabled={!canUpdateResult} />
                             </div>
                         </>
                     ) : null}
-
                     {isCancelResultStatus(resultForm.resultStatus) ? (
                         <>
                             <div className="input-group">
                                 <label>Alasan Cancel</label>
-                                <select
-                                    className="input-field"
-                                    value={resultForm.rejectedReason}
-                                    onChange={(event) => setResultForm({ ...resultForm, rejectedReason: event.target.value })}
-                                    disabled={!canUpdateResult || cancelReasonsLoading}
-                                >
+                                <select className="input-field" value={resultForm.rejectedReason} onChange={(event) => setResultForm({ ...resultForm, rejectedReason: event.target.value })} disabled={!canUpdateResult || cancelReasonsLoading}>
                                     <option value="">{cancelReasonsLoading ? 'Loading alasan...' : 'Pilih alasan cancel'}</option>
-                                    {cancelReasons.map((item) => (
-                                        <option key={item.id} value={item.code}>{item.label}</option>
-                                    ))}
+                                    {cancelReasons.map((item) => <option key={item.id} value={item.code}>{item.label}</option>)}
                                 </select>
                             </div>
                             <div className="input-group">
                                 <label>Catatan Cancel</label>
-                                <textarea
-                                    className="input-field"
-                                    rows={3}
-                                    value={resultForm.rejectedNote}
-                                    onChange={(event) => setResultForm({ ...resultForm, rejectedNote: event.target.value })}
-                                    disabled={!canUpdateResult}
-                                    style={{ resize: 'vertical' }}
-                                />
+                                <textarea className="input-field" rows={3} value={resultForm.rejectedNote} onChange={(event) => setResultForm({ ...resultForm, rejectedNote: event.target.value })} disabled={!canUpdateResult} style={{ resize: 'vertical' }} />
                             </div>
                         </>
                     ) : null}
-
-                    <div className="lead-row-meta">
-                        <span>Current Result: {lead.resultStatus ? getResultStatusLabel(lead.resultStatus) : '-'}</span>
-                        {isCancelResultStatus(lead.resultStatus) ? <span>Reason: {getCancelReasonLabel(lead.rejectedReason)}</span> : null}
+                    <div className="ldp-current-meta">
+                        <span>Result saat ini: <strong>{lead.resultStatus ? getResultStatusLabel(lead.resultStatus) : '-'}</strong></span>
+                        {isCancelResultStatus(lead.resultStatus) ? <span>Reason: <strong>{getCancelReasonLabel(lead.rejectedReason)}</strong></span> : null}
                     </div>
-
-                    <button type="submit" className="btn btn-primary btn-full" disabled={!canUpdateResult}>
-                        Simpan Result Status
-                    </button>
+                    <button type="submit" className="btn btn-primary btn-full" disabled={!canUpdateResult}>Simpan Result Status</button>
                 </form>
             </div>
 
-            <div className="detail-section">
-                <h3 className="section-title">Riwayat Aktivitas</h3>
-                <div className="card">
-                    <div className="activity-list">
-                        {(lead.activities || []).map((item) => (
-                            <div key={item.id} className="activity-item">
-                                <div className="activity-icon" style={{ background: 'rgba(148,163,184,0.12)' }}>📝</div>
-                                <div className="activity-content">
-                                    <div className="activity-title">{item.note}</div>
-                                    <div className="activity-time">{getTimeAgo(item.timestamp)}</div>
-                                </div>
+            {/* ── Riwayat Aktivitas ─────────────────────────────── */}
+            <div className="ldp-section">
+                <h3 className="ldp-section-title">Riwayat Aktivitas</h3>
+                <div className="ldp-card ldp-activity-list">
+                    {(lead.activities || []).length === 0 ? (
+                        <p className="ldp-section-desc" style={{ padding: '8px 0' }}>Belum ada aktivitas.</p>
+                    ) : (lead.activities || []).map((item) => (
+                        <div key={item.id} className="ldp-activity-item">
+                            <div className="ldp-activity-dot" />
+                            <div className="ldp-activity-body">
+                                <span className="ldp-activity-text">{item.note}</span>
+                                <span className="ldp-activity-time">{getTimeAgo(item.timestamp)}</span>
                             </div>
-                        ))}
-                    </div>
+                        </div>
+                    ))}
                 </div>
-            </div>
-
-            <div className="detail-actions">
-                <button className="btn btn-primary btn-full" onClick={openCreateAppointment} disabled={!canEditLead}>Buat Appointment</button>
             </div>
 
             {showNote ? (
