@@ -181,8 +181,8 @@ export default function LeadDetailPage({ leadId }) {
     const [cancelReasons, setCancelReasons] = useState([]);
     const [cancelReasonsLoading, setCancelReasonsLoading] = useState(false);
     useEffect(() => {
-        document.body.classList.add('dash-body');
-        return () => document.body.classList.remove('dash-body');
+        document.body.classList.add('light-page');
+        return () => document.body.classList.remove('light-page');
     }, []);
 
     const lead = getLeadById(leadId);

@@ -1,5 +1,16 @@
 /* ── LeadDetailPage — Navy/light theme (aligned with LoginPage) ─────── */
 
+/* ── Page background & header variables ─────────────────────────────── */
+
+.leads-page {
+    background: #F8FAFC;
+    --bg-app: rgba(248, 250, 252, 0.96);
+    --bg-input: #F3F4F6;
+    --border-color: #E5E7EB;
+    --text-primary: #0F172A;
+    --text-muted: #9CA3AF;
+}
+
 /* ── Page-level input/form overrides ───────────────────────────────── */
 
 .leads-page .input-group label {

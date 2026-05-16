@@ -1,0 +1,293 @@
+/* ── AppointmentsPage — Navy/light theme ────────────────────────────── */
+
+.ap-page {
+    background: #F8FAFC;
+    --bg-app: rgba(248, 250, 252, 0.96);
+    --bg-card: #FFFFFF;
+    --bg-input: #F3F4F6;
+    --border-color: #E5E7EB;
+    --border: #E5E7EB;
+    --text-primary: #0F172A;
+    --text-secondary: #374151;
+    --text-muted: #9CA3AF;
+    --primary: #1E3A5F;
+    --hot: #EF4444;
+    --hot-bg: #FEE2E2;
+    --warm: #F97316;
+    --warm-bg: #FFEDD5;
+    --cold: #0EA5E9;
+    --cold-bg: #E0F2FE;
+    --info: #0EA5E9;
+    --info-bg: #E0F2FE;
+    --survey: #0D9488;
+    --survey-bg: #CCFBF1;
+    --success: #16A34A;
+    --success-bg: #DCFCE7;
+    --danger: #DC2626;
+    --danger-bg: #FEE2E2;
+    --purple: #7C3AED;
+    --purple-bg: #EDE9FE;
+}
+
+/* ── Input & filter overrides ───────────────────────────────────────── */
+
+.ap-page .input-field {
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 12px;
+    color: #111827;
+    font-size: 0.9375rem;
+    padding: 11px 14px 11px 40px;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.ap-page .input-field::placeholder {
+    color: #D1D5DB;
+}
+
+.ap-page .input-field:focus {
+    border-color: #1E3A5F;
+    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
+    outline: none;
+}
+
+.ap-page .input-icon {
+    color: #9CA3AF;
+    font-style: normal;
+}
+
+.ap-page .badge-neutral {
+    background: #F1F5F9;
+    color: #64748B;
+}
+
+/* ── Filter bar ─────────────────────────────────────────────────────── */
+
+.ap-filter-bar {
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 1px 4px rgba(30, 58, 95, 0.05);
+}
+
+/* ── Clearable select ───────────────────────────────────────────────── */
+
+.ap-selects-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ap-selects-row .sf-wrap {
+    flex: 1;
+    min-width: 160px;
+}
+
+/* ── Result count ───────────────────────────────────────────────────── */
+
+.ap-result-count {
+    font-size: 0.8125rem;
+    color: #94A3B8;
+    font-weight: 500;
+    margin-bottom: 10px;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────── */
+
+.ap-page .btn-secondary {
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    color: #374151;
+}
+
+.ap-page .btn-secondary:hover {
+    background: #F9FAFB;
+    border-color: #D1D5DB;
+}
+
+/* ── Card list ──────────────────────────────────────────────────────── */
+
+.ap-list {
+    display: flex;
+    flex-direction: column;
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(30, 58, 95, 0.05);
+}
+
+@media (min-width: 1024px) {
+    .ap-list {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+        overflow: visible;
+        gap: 10px;
+    }
+}
+
+/* ── Appointment card ───────────────────────────────────────────────── */
+
+.ap-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #F1F5F9;
+    cursor: pointer;
+    transition: background 120ms ease;
+}
+
+.ap-card:last-child {
+    border-bottom: none;
+}
+
+.ap-card:hover {
+    background: #F8FAFC;
+}
+
+.ap-card:active {
+    background: #EEF3F9;
+}
+
+@media (min-width: 1024px) {
+    .ap-card {
+        background: #FFFFFF;
+        border: 1.5px solid #E5E7EB;
+        border-radius: 14px;
+        border-bottom: 1.5px solid #E5E7EB;
+    }
+
+    .ap-card:last-child {
+        border-bottom: 1.5px solid #E5E7EB;
+    }
+
+    .ap-card:hover {
+        background: #F8FAFC;
+        border-color: #C7D7EA;
+        box-shadow: 0 3px 12px rgba(30, 58, 95, 0.09);
+    }
+}
+
+.ap-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.ap-card-name {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: #1E3A5F;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+}
+
+.ap-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    font-size: 0.8125rem;
+    color: #4B5563;
+}
+
+.ap-card-meta a {
+    color: #1D4ED8;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.ap-card-meta a:hover {
+    text-decoration: underline;
+}
+
+.ap-card-sales {
+    font-size: 0.775rem;
+    color: #94A3B8;
+    font-weight: 500;
+}
+
+.ap-card-notes {
+    font-size: 0.7875rem;
+    color: #9CA3AF;
+    font-style: italic;
+    line-height: 1.45;
+    padding-top: 2px;
+    border-top: 1px solid #F1F5F9;
+}
+
+/* ── Empty state ────────────────────────────────────────────────────── */
+
+.ap-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 48px 24px 56px;
+    gap: 10px;
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 16px;
+    box-shadow: 0 1px 4px rgba(30, 58, 95, 0.05);
+}
+
+.ap-empty-icon {
+    width: 72px;
+    height: 72px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #EFF6FF, #DBEAFE);
+    border: 1.5px solid #BFDBFE;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #3B82F6;
+    margin-bottom: 8px;
+}
+
+.ap-empty-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1E3A5F;
+    margin: 0;
+}
+
+.ap-empty-desc {
+    font-size: 0.8125rem;
+    color: #94A3B8;
+    line-height: 1.6;
+    max-width: 260px;
+    margin: 0;
+}
+
+.ap-empty-reset {
+    margin-top: 6px;
+    padding: 8px 18px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #1E3A5F;
+    background: #EFF6FF;
+    border: 1.5px solid #BFDBFE;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 150ms ease, border-color 150ms ease;
+}
+
+.ap-empty-reset:hover {
+    background: #DBEAFE;
+    border-color: #93C5FD;
+}

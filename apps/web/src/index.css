@@ -127,6 +127,11 @@ body.sidebar-collapsed .page-container {
     margin-left: 76px;
 }
 
+body.light-page {
+    background-color: #F8FAFC;
+    background-image: none;
+}
+
 .card {
     background: linear-gradient(180deg, rgba(27, 22, 45, 0.95), rgba(23, 19, 38, 0.95));
     border: 1px solid var(--border);

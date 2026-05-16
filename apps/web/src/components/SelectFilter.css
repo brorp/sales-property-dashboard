@@ -1,0 +1,191 @@
+/* ── SelectFilter ────────────────────────────────────────────────────── */
+
+.sf-wrap {
+    position: relative;
+    min-width: 0;
+}
+
+/* ── Trigger ────────────────────────────────────────────────────────── */
+
+.sf-trigger {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 9px 12px;
+    background: #F9FAFB;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+    font-family: inherit;
+    text-align: left;
+    outline: none;
+    min-width: 0;
+}
+
+.sf-trigger:hover {
+    border-color: #CBD5E1;
+    background: #F1F5F9;
+}
+
+.sf-trigger:focus-visible {
+    border-color: #1E3A5F;
+    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
+}
+
+.sf-wrap.is-open .sf-trigger {
+    border-color: #1E3A5F;
+    background: #FFFFFF;
+    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
+}
+
+.sf-wrap.is-active .sf-trigger {
+    border-color: #1E3A5F;
+    background: #EFF6FF;
+}
+
+.sf-wrap.is-active.is-open .sf-trigger {
+    background: #FFFFFF;
+}
+
+.sf-label {
+    flex: 1;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #6B7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    line-height: 1.4;
+}
+
+.sf-wrap.is-active .sf-label {
+    color: #1E3A5F;
+    font-weight: 600;
+}
+
+.sf-icons {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.sf-clear {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #CBD5E1;
+    border: none;
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: background 150ms ease;
+    flex-shrink: 0;
+}
+
+.sf-clear:hover {
+    background: #DC2626;
+}
+
+.sf-chevron {
+    color: #9CA3AF;
+    display: flex;
+    align-items: center;
+    transition: transform 200ms ease, color 200ms ease;
+    flex-shrink: 0;
+}
+
+.sf-wrap.is-active .sf-chevron {
+    color: #1E3A5F;
+}
+
+.sf-wrap.is-open .sf-chevron {
+    transform: rotate(180deg);
+    color: #1E3A5F;
+}
+
+/* ── Dropdown ───────────────────────────────────────────────────────── */
+
+.sf-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 100%;
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(30, 58, 95, 0.12), 0 2px 8px rgba(30, 58, 95, 0.06);
+    z-index: 200;
+    overflow: hidden;
+    animation: sfDropIn 150ms ease;
+}
+
+@keyframes sfDropIn {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.sf-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    gap: 10px;
+    transition: background 100ms ease, color 100ms ease;
+    white-space: nowrap;
+}
+
+.sf-option:hover {
+    background: #F8FAFC;
+    color: #1E3A5F;
+}
+
+.sf-option.is-selected {
+    background: #EFF6FF;
+    color: #1E3A5F;
+    font-weight: 600;
+}
+
+.sf-option-label {
+    flex: 1;
+    text-align: left;
+}
+
+.sf-option-check {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #1E3A5F;
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sf-divider {
+    height: 1px;
+    background: #F1F5F9;
+    margin: 0;
+}
