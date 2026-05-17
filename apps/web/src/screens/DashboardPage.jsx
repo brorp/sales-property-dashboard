@@ -8,6 +8,7 @@ import { useLeads } from '../context/LeadsContext';
 import { apiRequest } from '../lib/api';
 import Header from '../components/Header';
 import DateRangePicker from '../components/DateRangePicker';
+import SelectFilter from '../components/SelectFilter';
 import { usePagePolling } from '../hooks/usePagePolling';
 import TransactionRecapSection from './dashboard-sections/TransactionRecapSection';
 import TeamPerformanceSection from './dashboard-sections/TeamPerformanceSection';
@@ -16,6 +17,24 @@ import LineChartSection from './dashboard-sections/LineChartSection';
 import DailySalesReportSection from './dashboard-sections/DailySalesReportSection';
 
 const EMPTY_DATE_RANGE = { dateFrom: '', dateTo: '' };
+
+
+const DEFAULT_TRANSACTION_CHART_STATUS_SF_OPTIONS = [
+    { value: 'all', label: 'Semua' },
+    { value: 'akad', label: 'Akad' },
+    { value: 'full_book', label: 'Full Book' },
+    { value: 'on_process', label: 'On Process' },
+    { value: 'reserve', label: 'Reserve' },
+    { value: 'cancel', label: 'Cancel' },
+];
+
+const PERIOD_SF_OPTIONS = [
+    { value: 'today', label: 'Hari Ini' },
+    { value: 'last7', label: '7 Hari Terakhir' },
+    { value: 'last30', label: '30 Hari Terakhir' },
+    { value: 'last90', label: '90 Hari Terakhir' },
+    { value: 'thisMonth', label: 'Bulan Ini' },
+];
 
 const DEFAULT_ANALYTICS = {
     hierarchySummary: null,
@@ -128,6 +147,12 @@ export default function DashboardPage() {
 
     const [activeSectionTab, setActiveSectionTab] = useState('transaction');
     const [globalTeamFilter, setGlobalTeamFilter] = useState('all');
+    const [selectedSourceFilter, setSelectedSourceFilter] = useState('all');
+    const [transactionChartStatus, setTransactionChartStatus] = useState('all');
+    const [transactionUnitType, setTransactionUnitType] = useState('');
+    const [lineChartGranularity, setLineChartGranularity] = useState('month');
+    const [lineChartDataset, setLineChartDataset] = useState('l4');
+    const [dbSelectedLayer, setDbSelectedLayer] = useState('l1');
     const [showFilterDrawer, setShowFilterDrawer] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [filterLoading, setFilterLoading] = useState(false);
@@ -153,13 +178,78 @@ export default function DashboardPage() {
         [analytics.transactionRecap, analytics.teamPerformance],
     );
 
+    const teamSourceOptions = useMemo(() => {
+        const tpData = analytics.teamPerformance;
+        if (!tpData) return [];
+        const def = { key: 'all', label: 'Semua Source', count: tpData.totalLeads || tpData.totalProspek || 0 };
+        const sbItems = (Array.isArray(tpData.sourceBreakdown) && tpData.sourceBreakdown.length > 0)
+            ? tpData.sourceBreakdown
+            : (Array.isArray(analytics.databaseControl?.sourceBreakdown) ? analytics.databaseControl.sourceBreakdown : []);
+        if (Array.isArray(tpData.sourceOptions) && tpData.sourceOptions.length > 1) {
+            return tpData.sourceOptions.some((o) => o.key === 'all') ? tpData.sourceOptions : [def, ...tpData.sourceOptions];
+        }
+        return sbItems.length > 0 ? [def, ...sbItems.map((item) => ({ key: `source:${item.source}`, label: item.source, count: item.count }))] : [def];
+    }, [analytics.teamPerformance, analytics.databaseControl?.sourceBreakdown]);
+
+    const transactionChartStatusOptions = useMemo(() => {
+        const opts = analytics.transactionRecap?.chartStatusOptions;
+        if (!opts || opts.length === 0) return DEFAULT_TRANSACTION_CHART_STATUS_SF_OPTIONS;
+        return opts.map((o) => ({ value: o.key || o.value, label: o.label }));
+    }, [analytics.transactionRecap]);
+
+    const transactionUnitOptions = useMemo(
+        () => (analytics.transactionRecap?.unitOptions || []).map((o) => ({ value: o.value, label: o.label })),
+        [analytics.transactionRecap],
+    );
+
+    const lineChartGranularityOptions = useMemo(
+        () => (analytics.lineChart?.granularityOptions || []).map((o) => ({ value: o.key, label: o.label })),
+        [analytics.lineChart],
+    );
+
+    const lineChartDatasetOptions = useMemo(
+        () => (analytics.lineChart?.datasetOptions || []).map((o) => ({ value: o.key, label: o.label })),
+        [analytics.lineChart],
+    );
+
+    const dbLayerOptions = useMemo(
+        () => (analytics.databaseControl?.statusLayerOptions || [{ key: 'l1', label: 'L1' }, { key: 'l2', label: 'L2' }, { key: 'l3', label: 'L3' }, { key: 'l4', label: 'L4' }]).map((o) => ({ value: o.key, label: o.label })),
+        [analytics.databaseControl],
+    );
+
+    useEffect(() => {
+        if (!analytics.lineChart) return;
+        const { granularityOptions, datasetOptions, defaultGranularity, defaultDataset } = analytics.lineChart;
+        setLineChartGranularity((prev) => granularityOptions?.some((o) => o.key === prev) ? prev : (defaultGranularity || 'month'));
+        setLineChartDataset((prev) => datasetOptions?.some((o) => o.key === prev) ? prev : (defaultDataset || 'l4'));
+    }, [analytics.lineChart]);
+
     const holdLeads = analytics.holdLeads;
     const holdCols = Math.min(holdLeads.length, 5);
+
+    const customPickerOpenRef = useRef(null);
 
     const isCustomActive = !QUICK_RANGES.some((r) => {
         const pr = getPresetRange(r.key);
         return pr.dateFrom === appliedDateRange.dateFrom && pr.dateTo === appliedDateRange.dateTo;
     });
+    const activePeriodKey = isCustomActive
+        ? 'custom'
+        : QUICK_RANGES.find((r) => {
+            const pr = getPresetRange(r.key);
+            return pr.dateFrom === appliedDateRange.dateFrom && pr.dateTo === appliedDateRange.dateTo;
+        })?.key ?? '';
+
+    const periodOptions = useMemo(() => [
+        ...PERIOD_SF_OPTIONS,
+        { value: 'custom', label: isCustomActive ? formatRangeButtonLabel(appliedDateRange) : 'Custom Range' },
+    ], [isCustomActive, appliedDateRange]);
+
+    const handlePeriodChange = (v) => {
+        if (!v) return;
+        if (v === 'custom') { customPickerOpenRef.current?.(); return; }
+        void applyPreset(v);
+    };
 
     const dashboardTitle = useMemo(() => {
         if (user?.role === 'sales' && user?.name) return user.name;
@@ -496,7 +586,7 @@ export default function DashboardPage() {
                     {showDateFilter ? (
                         <button
                             type="button"
-                            className={`dash-filter-toggle${isCustomActive || globalTeamFilter !== 'all' ? ' has-filter' : ''}`}
+                            className={`dash-filter-toggle${isCustomActive || globalTeamFilter !== 'all' || selectedSourceFilter !== 'all' || transactionChartStatus !== 'all' || transactionUnitType !== '' ? ' has-filter' : ''}`}
                             onClick={() => setShowFilterDrawer(true)}
                         >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -523,33 +613,23 @@ export default function DashboardPage() {
                         <div className="dash-drawer-body">
                             <div className="dash-drawer-section">
                                 <span className="dash-drawer-section-label">Periode</span>
-                                <div className="dash-filter-pills" style={{ flexWrap: 'wrap' }}>
-                                    {QUICK_RANGES.map((preset) => {
-                                        const pr = getPresetRange(preset.key);
-                                        const isActive = pr.dateFrom === appliedDateRange.dateFrom && pr.dateTo === appliedDateRange.dateTo;
-                                        return (
-                                            <button key={preset.key} type="button" className={`dash-filter-pill${isActive ? ' is-active' : ''}`} onClick={() => void applyPreset(preset.key)}>
-                                                {preset.label}
-                                            </button>
-                                        );
-                                    })}
-                                    <DateRangePicker
-                                        value={appliedDateRange}
-                                        onApply={(range) => void handleApplyDateFilter(range)}
-                                        onReset={() => void handleClearDateFilter()}
-                                        loading={filterLoading}
-                                        trigger={({ open }) => (
-                                            <button
-                                                type="button"
-                                                className={`dash-filter-pill dash-filter-pill--custom${isCustomActive ? ' is-active' : ''}`}
-                                                onClick={open}
-                                            >
-                                                {isCustomActive ? formatRangeButtonLabel(appliedDateRange) : 'Custom'}
-                                            </button>
-                                        )}
-                                    />
-                                </div>
-                                <p className="dash-filter-summary" style={{ margin: '10px 0 0' }}>
+                                <SelectFilter
+                                    options={periodOptions}
+                                    value={activePeriodKey}
+                                    onChange={handlePeriodChange}
+                                    placeholder="Pilih Periode"
+                                />
+                                <DateRangePicker
+                                    value={appliedDateRange}
+                                    onApply={(range) => void handleApplyDateFilter(range)}
+                                    onReset={() => void handleClearDateFilter()}
+                                    loading={filterLoading}
+                                    trigger={({ open }) => {
+                                        customPickerOpenRef.current = open;
+                                        return <span style={{ display: 'block', height: 0, visibility: 'hidden' }} />;
+                                    }}
+                                />
+                                <p className="dash-filter-summary" style={{ margin: '8px 0 0' }}>
                                     {filterLoading ? 'Memuat data...' : formatRangeSummary(appliedDateRange)}
                                 </p>
                             </div>
@@ -557,28 +637,88 @@ export default function DashboardPage() {
                             {canUseTeamFilters && globalTeamList.length > 0 ? (
                                 <div className="dash-drawer-section">
                                     <span className="dash-drawer-section-label">Tim (SPV)</span>
-                                    <div className="dash-filter-pills" style={{ flexWrap: 'wrap' }}>
-                                        <button
-                                            type="button"
-                                            className={`dash-filter-pill dash-filter-pill--spv${globalTeamFilter === 'all' ? ' is-active' : ''}`}
-                                            onClick={() => setGlobalTeamFilter('all')}
-                                        >
-                                            Semua
-                                        </button>
-                                        {globalTeamList.map((team) => {
-                                            const label = team.teamId === 'unassigned_sup' || team.teamName === 'Unassigned Supervisor' ? 'PIC Agent' : team.teamName;
-                                            return (
-                                                <button
-                                                    key={team.teamId}
-                                                    type="button"
-                                                    className={`dash-filter-pill dash-filter-pill--spv${globalTeamFilter === team.teamId ? ' is-active' : ''}`}
-                                                    onClick={() => setGlobalTeamFilter(team.teamId)}
-                                                >
-                                                    {label}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
+                                    <SelectFilter
+                                        options={globalTeamList.map((team) => ({
+                                            value: team.teamId,
+                                            label: team.teamId === 'unassigned_sup' || team.teamName === 'Unassigned Supervisor' ? 'PIC Agent' : team.teamName,
+                                        }))}
+                                        value={globalTeamFilter === 'all' ? '' : globalTeamFilter}
+                                        onChange={(v) => setGlobalTeamFilter(v || 'all')}
+                                        placeholder="Semua Tim"
+                                    />
+                                </div>
+                            ) : null}
+
+                            {teamSourceOptions.length > 1 ? (
+                                <div className="dash-drawer-section">
+                                    <span className="dash-drawer-section-label">Source Lead</span>
+                                    <SelectFilter
+                                        options={teamSourceOptions.filter((o) => o.key !== 'all').map((o) => ({
+                                            value: o.key,
+                                            label: o.count !== undefined ? `${o.label} (${o.count})` : o.label,
+                                        }))}
+                                        value={selectedSourceFilter === 'all' ? '' : selectedSourceFilter}
+                                        onChange={(v) => setSelectedSourceFilter(v || 'all')}
+                                        placeholder="Semua Source"
+                                    />
+                                </div>
+                            ) : null}
+
+                            <div className="dash-drawer-section">
+                                <span className="dash-drawer-section-label">Status</span>
+                                <SelectFilter
+                                    options={transactionChartStatusOptions}
+                                    value={transactionChartStatus}
+                                    onChange={(v) => setTransactionChartStatus(v || 'all')}
+                                    placeholder="Semua Status"
+                                />
+                            </div>
+
+                            {activeSectionTab === 'transaction' && transactionUnitOptions.length > 0 ? (
+                                <div className="dash-drawer-section">
+                                    <span className="dash-drawer-section-label">Tipe Unit</span>
+                                    <SelectFilter
+                                        options={transactionUnitOptions}
+                                        value={transactionUnitType}
+                                        onChange={setTransactionUnitType}
+                                        placeholder="Semua Tipe"
+                                    />
+                                </div>
+                            ) : null}
+
+                            {activeSectionTab === 'chart' && lineChartGranularityOptions.length > 0 ? (
+                                <div className="dash-drawer-section">
+                                    <span className="dash-drawer-section-label">Granularitas</span>
+                                    <SelectFilter
+                                        options={lineChartGranularityOptions}
+                                        value={lineChartGranularity}
+                                        onChange={(v) => setLineChartGranularity(v || 'month')}
+                                        placeholder="Pilih Granularitas"
+                                    />
+                                </div>
+                            ) : null}
+
+                            {activeSectionTab === 'chart' && lineChartDatasetOptions.length > 0 ? (
+                                <div className="dash-drawer-section">
+                                    <span className="dash-drawer-section-label">Dataset</span>
+                                    <SelectFilter
+                                        options={lineChartDatasetOptions}
+                                        value={lineChartDataset}
+                                        onChange={(v) => setLineChartDataset(v || 'l4')}
+                                        placeholder="Pilih Dataset"
+                                    />
+                                </div>
+                            ) : null}
+
+                            {activeSectionTab === 'database' ? (
+                                <div className="dash-drawer-section">
+                                    <span className="dash-drawer-section-label">Layer</span>
+                                    <SelectFilter
+                                        options={dbLayerOptions}
+                                        value={dbSelectedLayer}
+                                        onChange={(v) => setDbSelectedLayer(v || 'l1')}
+                                        placeholder="Pilih Layer"
+                                    />
                                 </div>
                             ) : null}
                         </div>
@@ -601,6 +741,9 @@ export default function DashboardPage() {
                     viewerId={user?.id}
                     viewerName={user?.name}
                     selectedTeam={globalTeamFilter}
+                    picAgentStatus={transactionChartStatus === 'all' ? 'akad' : transactionChartStatus}
+                    transactionChartStatus={transactionChartStatus}
+                    unitType={transactionUnitType}
                 />
             ) : null}
 
@@ -612,6 +755,8 @@ export default function DashboardPage() {
                     autoShowScopedDetails={!canUseTeamFilters}
                     scopeLabel={scopedDashboardLabel}
                     selectedTeam={globalTeamFilter}
+                    selectedSourceFilter={selectedSourceFilter}
+                    onSourceFilterChange={setSelectedSourceFilter}
                 />
             ) : null}
 
@@ -621,11 +766,18 @@ export default function DashboardPage() {
                     allowScopeFiltering={canUseTeamFilters}
                     scopeLabel={scopedDashboardLabel}
                     selectedTeam={globalTeamFilter}
+                    selectedLayer={dbSelectedLayer}
                 />
             ) : null}
 
             {activeSectionTab === 'chart' ? (
-                <LineChartSection data={analytics.lineChart} />
+                <LineChartSection
+                    data={analytics.lineChart}
+                    granularity={lineChartGranularity}
+                    onGranularityChange={setLineChartGranularity}
+                    dataset={lineChartDataset}
+                    onDatasetChange={setLineChartDataset}
+                />
             ) : null}
         </div>
     );

@@ -67,12 +67,22 @@ export default function SelectFilter({ options, value, onChange, placeholder = '
             const rect = wrapRef.current?.getBoundingClientRect();
             if (rect) {
                 const MARGIN = 8;
+                const MAX_HEIGHT = 240;
                 const left = Math.min(rect.left, window.innerWidth - rect.width - MARGIN);
+                const spaceBelow = window.innerHeight - rect.bottom - MARGIN;
+                const spaceAbove = rect.top - MARGIN;
+                const openUpward = spaceBelow < MAX_HEIGHT && spaceAbove > spaceBelow;
+                const availableSpace = openUpward ? spaceAbove : spaceBelow;
+
                 setDropdownStyle({
                     position: 'fixed',
-                    top: rect.bottom + 6,
+                    ...(openUpward
+                        ? { bottom: window.innerHeight - rect.top + 6 }
+                        : { top: rect.bottom + 6 }),
                     left: Math.max(MARGIN, left),
                     minWidth: rect.width,
+                    maxHeight: Math.min(MAX_HEIGHT, availableSpace),
+                    overflowY: 'auto',
                     zIndex: 1000,
                 });
             }

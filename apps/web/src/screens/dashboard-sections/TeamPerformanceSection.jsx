@@ -131,9 +131,10 @@ export default function TeamPerformanceSection({
     data, sourceBreakdown = [],
     allowTeamFiltering = true, autoShowScopedDetails = false,
     selectedTeam = 'all',
+    selectedSourceFilter = 'all',
+    onSourceFilterChange,
 }) {
     const [isCompare, setIsCompare] = useState(false);
-    const [selectedSourceFilter, setSelectedSourceFilter] = useState('all');
     const [selectedTeam1, setSelectedTeam1] = useState('');
     const [selectedTeam2, setSelectedTeam2] = useState('');
 
@@ -154,12 +155,6 @@ export default function TeamPerformanceSection({
     }, [data, selectedSourceFilter]);
 
     const teams = activeData?.teams || [];
-
-    useEffect(() => {
-        if (selectedSourceFilter !== 'all' && !sourceOptions.some((o) => o.key === selectedSourceFilter)) {
-            setSelectedSourceFilter('all');
-        }
-    }, [selectedSourceFilter, sourceOptions]);
 
     useEffect(() => {
         if (teams.length === 0) return;
@@ -204,14 +199,6 @@ export default function TeamPerformanceSection({
             </div>
 
             <div className="ds-tab-body">
-                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px', scrollbarWidth: 'none', flexWrap: 'nowrap' }}>
-                    {sourceOptions.map((opt) => (
-                        <button key={opt.key} type="button" onClick={() => setSelectedSourceFilter(opt.key)} style={getPillButtonStyle(selectedSourceFilter === opt.key)}>
-                            {opt.label}{opt.count !== undefined ? ` (${formatCount(opt.count)})` : ''}
-                        </button>
-                    ))}
-                </div>
-
                 {effectiveCompare ? (
                     <div className="tpc-compare-layout" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '0' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '20px' }}>

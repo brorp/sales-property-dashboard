@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { formatCount, getPillButtonStyle } from './utils';
+import { formatCount } from './utils';
 import PieChartCard from '../../components/PieChartCard';
 import './DashboardSections.css';
 
@@ -61,9 +60,8 @@ function RankedPanel({ title, items, emptyLabel, renderLabel }) {
 }
 
 export default function DatabaseControlCenterSection({
-    data, allowScopeFiltering = true, scopeLabel = 'Semua', selectedTeam = 'all',
+    data, allowScopeFiltering = true, scopeLabel = 'Semua', selectedTeam = 'all', selectedLayer = 'l1',
 }) {
-    const [selectedLayer, setSelectedLayer] = useState('l1');
 
     if (!data) return null;
 
@@ -89,16 +87,6 @@ export default function DatabaseControlCenterSection({
             </div>
 
             <div className="ds-tab-body">
-                {/* Layer filter */}
-                <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px', scrollbarWidth: 'none' }}>
-                    {layerOptions.map((layer) => (
-                        <button key={layer.key} type="button" onClick={() => setSelectedLayer(layer.key)} style={getPillButtonStyle(selectedLayer === layer.key)}>
-                            {layer.label}
-                        </button>
-                    ))}
-                </div>
-
-
                 {/* Pie chart */}
                 <PieChartCard
                     title={`Distribusi Status ${selectedLayerMeta?.label || 'L1'}`}

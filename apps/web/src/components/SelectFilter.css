@@ -12,7 +12,8 @@
     align-items: center;
     gap: 6px;
     width: 100%;
-    padding: 9px 12px;
+    height: 38px;
+    padding: 0 12px;
     background: #F9FAFB;
     border: 1.5px solid #E5E7EB;
     border-radius: 10px;
@@ -118,8 +119,9 @@
     border-radius: 12px;
     box-shadow: 0 8px 24px rgba(30, 58, 95, 0.12), 0 2px 8px rgba(30, 58, 95, 0.06);
     z-index: 200;
-    overflow: hidden;
+    overflow-y: auto;
     animation: sfDropIn 150ms ease;
+    overscroll-behavior: contain;
 }
 
 @keyframes sfDropIn {

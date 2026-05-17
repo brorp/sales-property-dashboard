@@ -21,22 +21,10 @@ function buildAreaPath(points, chartBottom) {
     return `${buildSmoothPath(points)} L ${last.x} ${chartBottom} L ${points[0].x} ${chartBottom} Z`;
 }
 
-export default function LineChartSection({ data }) {
+export default function LineChartSection({ data, granularity = 'month', onGranularityChange, dataset = 'l4', onDatasetChange }) {
     const svgRef = useRef(null);
-    const [granularity, setGranularity] = useState(data?.defaultGranularity || 'month');
-    const [dataset, setDataset] = useState(data?.defaultDataset || 'l4');
     const [hiddenSeriesKeys, setHiddenSeriesKeys] = useState([]);
     const [hoverIndex, setHoverIndex] = useState(null);
-
-    useEffect(() => {
-        if (!data) return;
-        setGranularity((prev) =>
-            data.granularityOptions?.some((o) => o.key === prev) ? prev : (data.defaultGranularity || 'month')
-        );
-        setDataset((prev) =>
-            data.datasetOptions?.some((o) => o.key === prev) ? prev : (data.defaultDataset || 'l4')
-        );
-    }, [data]);
 
     const chartPayload = data?.data?.[granularity]?.[dataset] || { periods: [], series: [] };
     const periods = Array.isArray(chartPayload.periods) ? chartPayload.periods : [];
@@ -129,36 +117,6 @@ export default function LineChartSection({ data }) {
                 <div>
                     <span className="lc-eyebrow">Tren Data</span>
                     <h2 className="lc-title">Line Chart</h2>
-                </div>
-                <div className="lc-controls">
-                    {(data.granularityOptions || []).length > 0 && (
-                        <div className="lc-pill-group">
-                            {data.granularityOptions.map((opt) => (
-                                <button
-                                    key={opt.key}
-                                    type="button"
-                                    className={`lc-pill${granularity === opt.key ? ' is-active' : ''}`}
-                                    onClick={() => setGranularity(opt.key)}
-                                >
-                                    {opt.label}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                    {(data.datasetOptions || []).length > 0 && (
-                        <div className="lc-pill-group">
-                            {data.datasetOptions.map((opt) => (
-                                <button
-                                    key={opt.key}
-                                    type="button"
-                                    className={`lc-pill lc-pill--alt${dataset === opt.key ? ' is-active' : ''}`}
-                                    onClick={() => setDataset(opt.key)}
-                                >
-                                    {opt.label}
-                                </button>
-                            ))}
-                        </div>
-                    )}
                 </div>
             </div>
 

@@ -43,15 +43,6 @@ function TransactionSalesGrid({ sales, maxCols = 5 }) {
     );
 }
 
-const DEFAULT_TRANSACTION_STATUS_OPTIONS = [
-    { key: 'all', label: 'Semua' },
-    { key: 'akad', label: 'Akad' },
-    { key: 'full_book', label: 'Full Book' },
-    { key: 'on_process', label: 'On Process' },
-    { key: 'reserve', label: 'Reserve' },
-    { key: 'cancel', label: 'Cancel' },
-];
-
 const PIC_AGENT_STATUS_OPTIONS = [
     { key: 'akad', label: 'Akad' },
     { key: 'full_book', label: 'Full Book' },
@@ -66,13 +57,13 @@ export default function TransactionRecapSection({
     allowTeamFiltering = true, showCrossTeamInsights = true,
     scopeLabel = 'Semua Supervisor', viewerRole = '', viewerId = '', viewerName = '',
     selectedTeam = 'all',
+    picAgentStatus = 'akad',
+    transactionChartStatus = 'all',
+    unitType = '',
 }) {
     const router = useRouter();
     const teams = data?.teams || [];
     const [isCompare, setIsCompare] = useState(false);
-    const [unitType, setUnitType] = useState('');
-    const [transactionChartStatus, setTransactionChartStatus] = useState('all');
-    const [picAgentStatus, setPicAgentStatus] = useState('akad');
     const [selectedTeam1, setSelectedTeam1] = useState('');
     const [selectedTeam2, setSelectedTeam2] = useState('');
 
@@ -84,7 +75,6 @@ export default function TransactionRecapSection({
 
     if (!data) return null;
 
-    const transactionStatusOptions = data.chartStatusOptions || DEFAULT_TRANSACTION_STATUS_OPTIONS;
     const effectiveCompare = allowTeamFiltering && isCompare;
     const isScopedSupervisor = !allowTeamFiltering && viewerRole === 'supervisor';
     const isScopedSales = !allowTeamFiltering && viewerRole === 'sales';
@@ -220,14 +210,7 @@ export default function TransactionRecapSection({
                 {/* PIC Agent comparison */}
                 {showCrossTeamInsights ? (
                     <div style={{ paddingTop: '8px', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                            <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>PIC Agent vs All Supervisor</h3>
-                            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', scrollbarWidth: 'none' }}>
-                                {PIC_AGENT_STATUS_OPTIONS.map((s) => (
-                                    <button key={s.key} type="button" onClick={() => setPicAgentStatus(s.key)} style={getPillButtonStyle(picAgentStatus === s.key)}>{s.label}</button>
-                                ))}
-                            </div>
-                        </div>
+                        <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>PIC Agent vs All Supervisor</h3>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
                             <div style={{ padding: '16px', borderRadius: '14px', background: 'var(--bg-card)', border: '1px solid rgba(124,77,255,0.35)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                 <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>PIC Agent</span>
@@ -245,21 +228,7 @@ export default function TransactionRecapSection({
 
                 {/* Per Status pie charts */}
                 <div style={{ paddingTop: '8px', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                        <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>Analisa Closing per Status</h3>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)' }}>Tipe Unit:</label>
-                            <select value={unitType} onChange={(e) => { setUnitType(e.target.value); onUnitTypeChange?.(e.target.value); }} style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', fontSize: '0.82rem' }}>
-                                <option value="">Semua Tipe</option>
-                                {data.unitOptions?.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
-                            </select>
-                        </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px', scrollbarWidth: 'none' }}>
-                        {transactionStatusOptions.map((s) => (
-                            <button key={s.key} type="button" onClick={() => setTransactionChartStatus(s.key)} style={getPillButtonStyle(transactionChartStatus === s.key)}>{s.label}</button>
-                        ))}
-                    </div>
+                    <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>Analisa Closing per Status</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
                         <PieChartCard title="Analisa Source Leads" subtitle="Komposisi source leads dari status transaksi terpilih." total={sourceLeadItems.reduce((s, i) => s + i.count, 0)} items={sourceLeadItems} emptyLabel="Belum ada data transaksi untuk status ini." />
                         <PieChartCard title="Komposisi Tipe Unit" subtitle="Distribusi tipe unit dari status transaksi terpilih." total={unitTypeItems.reduce((s, i) => s + i.count, 0)} items={unitTypeItems} emptyLabel="Belum ada tipe unit pada status ini." />
