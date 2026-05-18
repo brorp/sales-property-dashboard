@@ -282,15 +282,6 @@
     object-fit: cover;
 }
 
-.lc-avatar-initials {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: #FFFFFF;
-    letter-spacing: 0.02em;
-}
 
 .lc-body {
     flex: 1;

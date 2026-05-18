@@ -235,8 +235,22 @@
 .ap-card-head {
     display: flex;
     align-items: flex-start;
-    justify-content: space-between;
+    gap: 10px;
+}
+
+.ap-card-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.ap-card-name-row {
+    display: flex;
+    align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
 }
 
 .ap-card-name {
@@ -246,31 +260,44 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex: 1;
     min-width: 0;
 }
 
 .ap-card-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 14px;
-    font-size: 0.8125rem;
-    color: #4B5563;
+    gap: 4px 12px;
+    font-size: 0.8rem;
+    color: #6B7280;
 }
 
-.ap-card-meta a {
+.ap-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ap-meta-item svg {
+    flex-shrink: 0;
+    color: #9CA3AF;
+}
+
+.ap-meta-link {
     color: #1D4ED8;
     text-decoration: none;
     font-weight: 500;
 }
 
-.ap-card-meta a:hover {
+.ap-meta-link:hover {
     text-decoration: underline;
 }
 
+.ap-meta-link svg {
+    color: #1D4ED8;
+}
+
 .ap-card-sales {
-    font-size: 0.775rem;
-    color: #94A3B8;
+    color: #9CA3AF;
     font-weight: 500;
 }
 

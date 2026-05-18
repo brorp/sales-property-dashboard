@@ -23,6 +23,7 @@ import SelectFilter from '../components/SelectFilter';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { apiRequest } from '../lib/api';
 import { readLeadTransferWorkbook } from '../lib/lead-transfer-workbook';
+import UserAvatar from '../components/UserAvatar';
 import './LeadsPage.css';
 
 const QUICK_RANGES = [
@@ -102,27 +103,6 @@ function getPresetRange(key) {
     return { dateFrom: formatDateInput(start), dateTo: end };
 }
 
-function getInitials(name) {
-    if (!name) return '?';
-    const parts = String(name).trim().split(/\s+/);
-    if (parts.length === 1) return parts[0][0].toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-}
-
-const AVATAR_COLORS = [
-    ['#1E3A5F', '#2C5282'],
-    ['#92400E', '#B45309'],
-    ['#065F46', '#047857'],
-    ['#4C1D95', '#6D28D9'],
-    ['#9D174D', '#BE185D'],
-    ['#1E3A5F', '#1E40AF'],
-];
-
-function getAvatarColor(name) {
-    let hash = 0;
-    for (let i = 0; i < (name || '').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
 
 function isAgentSource(value) {
     return String(value || '').trim().toLowerCase() === 'agent';
@@ -599,13 +579,7 @@ export default function LeadsPage() {
             <div className="leads-list" style={filteredLeads.length === 0 ? { display: 'none' } : undefined}>
                 {filteredLeads.map((lead) => (
                     <div key={lead.id} className="lc" onClick={() => router.push(`/leads/${lead.id}`)}>
-                        {lead.avatarUrl ? (
-                            <img className="lc-avatar" src={lead.avatarUrl} alt={lead.name} />
-                        ) : (
-                            <div className="lc-avatar lc-avatar-initials" style={{ background: `linear-gradient(135deg, ${getAvatarColor(lead.name)[0]}, ${getAvatarColor(lead.name)[1]})` }}>
-                                {getInitials(lead.name)}
-                            </div>
-                        )}
+                        <UserAvatar name={lead.name} src={lead.avatarUrl} size="xs" shape="circle" />
                         <div className="lc-body">
                             <div className="lc-row1">
                                 <span className="lc-name">{lead.name}</span>

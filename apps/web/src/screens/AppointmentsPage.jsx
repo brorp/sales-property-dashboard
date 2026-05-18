@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
+import UserAvatar from '../components/UserAvatar';
 import { useLeads } from '../context/LeadsContext';
 import { useAuth } from '../context/AuthContext';
 import { getAppointmentTagLabel, getStatusBadgeClass, toWaLink } from '../constants/crm';
@@ -16,6 +17,33 @@ const TAG_OPTIONS = [
     { value: 'sudah_survey', label: 'Sudah Survey' },
     { value: 'dibatalkan', label: 'Dibatalkan' },
 ];
+
+const IconCalendar = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <path d="M16 2v4M8 2v4M3 10h18" />
+    </svg>
+);
+
+const IconPin = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 21c-4-4-7-7.5-7-11a7 7 0 1 1 14 0c0 3.5-3 7-7 11z" />
+        <circle cx="12" cy="10" r="2.5" />
+    </svg>
+);
+
+const IconWhatsApp = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </svg>
+);
+
+const IconUser = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+    </svg>
+);
 
 function matchesTagFilter(item, tagFilter) {
     if (!tagFilter) return true;
@@ -148,27 +176,43 @@ export default function AppointmentsPage() {
                             onClick={() => router.push(`/leads/${item.leadId}`)}
                         >
                             <div className="ap-card-head">
-                                <span className="ap-card-name">{item.leadName}</span>
-                                <span className={`badge ${getStatusBadgeClass('appointment', item.appointmentTag)}`}>
-                                    {getAppointmentTagLabel(item.appointmentTag)}
-                                </span>
-                            </div>
-
-                            <div className="ap-card-meta">
-                                <span>📅 {item.date} · {item.time}</span>
-                                <span>📍 {item.location}</span>
-                            </div>
-
-                            <div className="ap-card-meta">
-                                <a
-                                    href={toWaLink(item.leadPhone)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(event) => event.stopPropagation()}
-                                >
-                                    💬 {item.leadPhone}
-                                </a>
-                                {isAdmin ? <span className="ap-card-sales">👤 {item.salesName || '-'}</span> : null}
+                                <UserAvatar name={item.leadName} size="xs" shape="circle" />
+                                <div className="ap-card-info">
+                                    <div className="ap-card-name-row">
+                                        <span className="ap-card-name">{item.leadName}</span>
+                                        <span className={`badge ${getStatusBadgeClass('appointment', item.appointmentTag)}`}>
+                                            {getAppointmentTagLabel(item.appointmentTag)}
+                                        </span>
+                                    </div>
+                                    <div className="ap-card-meta">
+                                        <span className="ap-meta-item">
+                                            <IconCalendar />
+                                            {item.date} · {item.time}
+                                        </span>
+                                        <span className="ap-meta-item">
+                                            <IconPin />
+                                            {item.location}
+                                        </span>
+                                    </div>
+                                    <div className="ap-card-meta">
+                                        <a
+                                            className="ap-meta-item ap-meta-link"
+                                            href={toWaLink(item.leadPhone)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={(event) => event.stopPropagation()}
+                                        >
+                                            <IconWhatsApp />
+                                            {item.leadPhone}
+                                        </a>
+                                        {isAdmin ? (
+                                            <span className="ap-meta-item ap-card-sales">
+                                                <IconUser />
+                                                {item.salesName || '-'}
+                                            </span>
+                                        ) : null}
+                                    </div>
+                                </div>
                             </div>
 
                             {item.notes ? (
