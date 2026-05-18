@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Header from '../components/Header';
-import PickerTriggerField from '../components/PickerTriggerField';
+import SelectFilter from '../components/SelectFilter';
+import TimePicker from '../components/TimePicker';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { apiRequest, getApiBaseUrl } from '../lib/api';
@@ -363,41 +364,48 @@ export default function SettingsPage() {
                 <div className="set-section-label">Distribution Timeout</div>
                 <div className="input-group">
                     <label>Batas waktu claim OK (menit)</label>
-                    <select
-                        className="input-field"
-                        value={systemSettingsForm.distributionAckTimeoutMinutes}
-                        onChange={(e) => setSystemSettingsForm((prev) => ({ ...prev, distributionAckTimeoutMinutes: Number(e.target.value) }))}
+                    <SelectFilter
+                        options={[
+                            { value: '5', label: '5 menit' },
+                            { value: '10', label: '10 menit' },
+                            { value: '15', label: '15 menit' },
+                        ]}
+                        value={String(systemSettingsForm.distributionAckTimeoutMinutes)}
+                        onChange={(val) => setSystemSettingsForm((prev) => ({ ...prev, distributionAckTimeoutMinutes: Number(val) }))}
+                        clearable={false}
                         disabled={systemSettingsLoading || systemSettingsSaving}
-                    >
-                        <option value={5}>5 menit</option>
-                        <option value={10}>10 menit</option>
-                        <option value={15}>15 menit</option>
-                    </select>
+                        variant="white"
+                    />
                 </div>
 
                 <div className="set-section-label" style={{ marginTop: 16 }}>Operational Hours</div>
-                <PickerTriggerField
-                    label="Jam buka"
-                    type="time"
-                    value={systemSettingsForm.operationalStart}
-                    onChange={(e) => setSystemSettingsForm((prev) => ({ ...prev, operationalStart: e.target.value }))}
-                    disabled={systemSettingsLoading || systemSettingsSaving}
-                />
-                <PickerTriggerField
-                    label="Jam tutup"
-                    type="time"
-                    value={systemSettingsForm.operationalEnd}
-                    onChange={(e) => setSystemSettingsForm((prev) => ({ ...prev, operationalEnd: e.target.value }))}
-                    disabled={systemSettingsLoading || systemSettingsSaving}
-                />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <TimePicker
+                        label="Jam buka"
+                        value={systemSettingsForm.operationalStart}
+                        onChange={(val) => setSystemSettingsForm((prev) => ({ ...prev, operationalStart: val }))}
+                        disabled={systemSettingsLoading || systemSettingsSaving}
+                    />
+                    <TimePicker
+                        label="Jam tutup"
+                        value={systemSettingsForm.operationalEnd}
+                        onChange={(val) => setSystemSettingsForm((prev) => ({ ...prev, operationalEnd: val }))}
+                        disabled={systemSettingsLoading || systemSettingsSaving}
+                    />
+                </div>
                 <div className="input-group">
                     <label>Timezone</label>
-                    <input
-                        type="text"
-                        className="input-field"
+                    <SelectFilter
+                        options={[
+                            { value: 'Asia/Jakarta', label: 'Asia/Jakarta — WIB (UTC+7)' },
+                            { value: 'Asia/Makassar', label: 'Asia/Makassar — WITA (UTC+8)' },
+                            { value: 'Asia/Jayapura', label: 'Asia/Jayapura — WIT (UTC+9)' },
+                        ]}
                         value={systemSettingsForm.operationalTimezone}
-                        onChange={(e) => setSystemSettingsForm((prev) => ({ ...prev, operationalTimezone: e.target.value }))}
+                        onChange={(val) => setSystemSettingsForm((prev) => ({ ...prev, operationalTimezone: val }))}
+                        clearable={false}
                         disabled={systemSettingsLoading || systemSettingsSaving}
+                        variant="white"
                     />
                 </div>
 

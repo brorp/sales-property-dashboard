@@ -1,24 +1,43 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import DatePicker from '../components/DatePicker';
 import Header from '../components/Header';
-import PickerTriggerField from '../components/PickerTriggerField';
+import SelectFilter from '../components/SelectFilter';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { apiRequest } from '../lib/api';
+import './BroadcastPage.css';
+import './SettingsPage.css';
+
+const IconCheck = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+    </svg>
+);
+
+const IconUpload = () => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+);
+
+const IconFile = () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+    </svg>
+);
 
 function toReadableBroadcastStatus(value) {
     switch (value) {
-        case 'running':
-            return 'Running';
-        case 'stopped':
-            return 'Stopped';
-        case 'completed':
-            return 'Completed';
-        case 'error':
-            return 'Error';
-        default:
-            return 'Idle';
+        case 'running': return 'Running';
+        case 'stopped': return 'Stopped';
+        case 'completed': return 'Completed';
+        case 'error': return 'Error';
+        default: return 'Idle';
     }
 }
 
@@ -44,12 +63,17 @@ export default function BroadcastPage() {
     const [broadcastFeedback, setBroadcastFeedback] = useState('');
     const [broadcastError, setBroadcastError] = useState('');
     const [broadcastEstimate, setBroadcastEstimate] = useState(null);
+    const mediaInputRef = useRef(null);
+
+    useEffect(() => {
+        document.body.classList.add('light-page');
+        return () => document.body.classList.remove('light-page');
+    }, []);
 
     const buildBroadcastPayload = useCallback((includeContent = true) => {
         const salesStatuses = Object.entries(broadcastForm.statuses)
             .filter(([, checked]) => checked)
             .map(([key]) => key);
-
         return {
             ...(user?.role === 'root_admin' && activeClientId ? { clientId: activeClientId } : {}),
             salesStatuses,
@@ -65,28 +89,18 @@ export default function BroadcastPage() {
     }, [activeClientId, broadcastForm, user]);
 
     const loadBroadcastStatus = useCallback(async (silent = false) => {
-        if (!silent) {
-            setBroadcastStatusLoading(true);
-        }
-
+        if (!silent) setBroadcastStatusLoading(true);
         try {
-            const path =
-                user?.role === 'root_admin' && activeClientId
-                    ? `/api/broadcast/status?clientId=${encodeURIComponent(activeClientId)}`
-                    : '/api/broadcast/status';
+            const path = user?.role === 'root_admin' && activeClientId
+                ? `/api/broadcast/status?clientId=${encodeURIComponent(activeClientId)}`
+                : '/api/broadcast/status';
             const data = await apiRequest(path, { user });
             setBroadcastStatus(data || null);
-            if (!silent) {
-                setBroadcastFeedback(`Status: ${toReadableBroadcastStatus(data?.status || 'idle')}`);
-            }
+            if (!silent) setBroadcastFeedback(`Status: ${toReadableBroadcastStatus(data?.status || 'idle')}`);
         } catch (err) {
-            if (!silent) {
-                setBroadcastError(err instanceof Error ? err.message : 'Failed load broadcast status');
-            }
+            if (!silent) setBroadcastError(err instanceof Error ? err.message : 'Failed load broadcast status');
         } finally {
-            if (!silent) {
-                setBroadcastStatusLoading(false);
-            }
+            if (!silent) setBroadcastStatusLoading(false);
         }
     }, [activeClientId, user]);
 
@@ -95,14 +109,8 @@ export default function BroadcastPage() {
     }, [loadBroadcastStatus]);
 
     useEffect(() => {
-        if (broadcastStatus?.status !== 'running') {
-            return;
-        }
-
-        const intervalId = setInterval(() => {
-            void loadBroadcastStatus(true);
-        }, 5000);
-
+        if (broadcastStatus?.status !== 'running') return;
+        const intervalId = setInterval(() => { void loadBroadcastStatus(true); }, 5000);
         return () => clearInterval(intervalId);
     }, [broadcastStatus?.status, loadBroadcastStatus]);
 
@@ -121,70 +129,35 @@ export default function BroadcastPage() {
     const handleBroadcastMediaChange = async (event) => {
         const file = event.target.files?.[0];
         if (!file) {
-            setBroadcastForm((prev) => ({
-                ...prev,
-                mediaDataUrl: '',
-                mediaName: '',
-            }));
+            setBroadcastForm((prev) => ({ ...prev, mediaDataUrl: '', mediaName: '' }));
             return;
         }
-
         const isAllowed = file.type.startsWith('image/') || file.type.startsWith('video/');
-        if (!isAllowed) {
-            setBroadcastError('File harus image atau video');
-            return;
-        }
-
+        if (!isAllowed) { setBroadcastError('File harus image atau video'); return; }
         setBroadcastError('');
         const reader = new FileReader();
         reader.onload = () => {
             const dataUrl = typeof reader.result === 'string' ? reader.result : '';
-            setBroadcastForm((prev) => ({
-                ...prev,
-                mediaDataUrl: dataUrl,
-                mediaName: file.name,
-            }));
+            setBroadcastForm((prev) => ({ ...prev, mediaDataUrl: dataUrl, mediaName: file.name }));
         };
         reader.readAsDataURL(file);
     };
 
     const handleStartBroadcast = async (event) => {
         event.preventDefault();
-
         const { salesStatuses, ...payload } = buildBroadcastPayload();
-
-        if (salesStatuses.length === 0) {
-            setBroadcastError('Pilih minimal 1 status leads (hot/warm/cold)');
-            return;
-        }
-
-        if (!broadcastForm.message.trim() && !broadcastForm.mediaDataUrl) {
-            setBroadcastError('Isi text broadcast atau upload media');
-            return;
-        }
-
-        if (!broadcastEstimate) {
-            setBroadcastError('Check count data broadcast dulu sebelum start.');
-            return;
-        }
-
-        if (broadcastEstimate.totalTargets <= 0) {
-            setBroadcastError('Target broadcast kosong. Ubah filter lalu check count lagi.');
-            return;
-        }
-
+        if (salesStatuses.length === 0) { setBroadcastError('Pilih minimal 1 status leads (hot/warm/cold)'); return; }
+        if (!broadcastForm.message.trim() && !broadcastForm.mediaDataUrl) { setBroadcastError('Isi text broadcast atau upload media'); return; }
+        if (!broadcastEstimate) { setBroadcastError('Check count data broadcast dulu sebelum start.'); return; }
+        if (broadcastEstimate.totalTargets <= 0) { setBroadcastError('Target broadcast kosong. Ubah filter lalu check count lagi.'); return; }
         setBroadcastLoading(true);
         setBroadcastFeedback('');
         setBroadcastError('');
-
         try {
             const result = await apiRequest('/api/broadcast/start', {
                 method: 'POST',
                 user,
-                body: {
-                    salesStatuses,
-                    ...payload,
-                },
+                body: { salesStatuses, ...payload },
             });
             setBroadcastStatus(result || null);
             setBroadcastEstimate((prev) => prev || { totalTargets: result?.totalTargets || 0 });
@@ -198,24 +171,15 @@ export default function BroadcastPage() {
 
     const handleEstimateBroadcast = async () => {
         const { salesStatuses, ...payload } = buildBroadcastPayload(false);
-
-        if (salesStatuses.length === 0) {
-            setBroadcastError('Pilih minimal 1 status leads (hot/warm/cold)');
-            return;
-        }
-
+        if (salesStatuses.length === 0) { setBroadcastError('Pilih minimal 1 status leads (hot/warm/cold)'); return; }
         setBroadcastEstimating(true);
         setBroadcastError('');
         setBroadcastFeedback('');
-
         try {
             const result = await apiRequest('/api/broadcast/estimate', {
                 method: 'POST',
                 user,
-                body: {
-                    salesStatuses,
-                    ...payload,
-                },
+                body: { salesStatuses, ...payload },
             });
             setBroadcastEstimate({
                 totalTargets: Number(result?.totalTargets || 0),
@@ -250,7 +214,7 @@ export default function BroadcastPage() {
     };
 
     return (
-        <div className="page-container">
+        <div className="page-container set-page">
             <Header
                 title="WhatsApp Broadcast"
                 showBack
@@ -261,31 +225,33 @@ export default function BroadcastPage() {
                 )}
             />
 
-            <form className="card broadcast-card" onSubmit={handleStartBroadcast}>
-                <div className="lead-row-meta broadcast-status">
+            <form className="set-card broadcast-card" onSubmit={handleStartBroadcast}>
+                <div className="broadcast-status-row">
                     <span>Status: <strong>{toReadableBroadcastStatus(broadcastStatus?.status || 'idle')}</strong></span>
                     <span>Progress: <strong>{broadcastStatus?.processedTargets || 0}/{broadcastStatus?.totalTargets || 0}</strong> | Sent: {broadcastStatus?.sentCount || 0} | Failed: {broadcastStatus?.failedCount || 0}</span>
-                    {broadcastStatus?.lastError ? <span style={{ color: 'var(--danger)' }}>Last Error: {broadcastStatus.lastError}</span> : null}
+                    {broadcastStatus?.lastError ? <span className="broadcast-last-error">Last Error: {broadcastStatus.lastError}</span> : null}
                 </div>
 
                 <div className="input-group">
                     <label>Status Leads Target</label>
-                    <div className="detail-status-grid">
-                        {['hot', 'warm', 'cold'].map((status) => (
-                            <label key={status} className="filter-pill" style={{ cursor: 'pointer' }}>
+                    <div className="broadcast-status-pills">
+                        {[
+                            { key: 'hot', label: 'Hot' },
+                            { key: 'warm', label: 'Warm' },
+                            { key: 'cold', label: 'Cold' },
+                        ].map(({ key, label }) => (
+                            <label key={key} className={`broadcast-status-pill broadcast-status-pill--${key}${broadcastForm.statuses[key] ? ' is-checked' : ''}`}>
                                 <input
                                     type="checkbox"
-                                    checked={broadcastForm.statuses[status]}
-                                    onChange={(event) => setBroadcastForm((prev) => ({
+                                    checked={broadcastForm.statuses[key]}
+                                    onChange={(e) => setBroadcastForm((prev) => ({
                                         ...prev,
-                                        statuses: {
-                                            ...prev.statuses,
-                                            [status]: event.target.checked,
-                                        },
+                                        statuses: { ...prev.statuses, [key]: e.target.checked },
                                     }))}
-                                    style={{ marginRight: 6 }}
                                 />
-                                {status.toUpperCase()}
+                                <span className="broadcast-pill-dot" />
+                                {label}
+                                {broadcastForm.statuses[key] ? <IconCheck /> : null}
                             </label>
                         ))}
                     </div>
@@ -293,45 +259,66 @@ export default function BroadcastPage() {
 
                 <div className="input-group">
                     <label>Status Appointment (Opsional)</label>
-                    <select
-                        className="input-field"
+                    <SelectFilter
+                        options={[
+                            { value: 'all', label: 'Semua' },
+                            { value: 'mau_survey', label: 'Mau Survey' },
+                            { value: 'sudah_survey', label: 'Sudah Survey' },
+                            { value: 'none', label: 'Belum Ada Appointment' },
+                        ]}
                         value={broadcastForm.appointmentTag}
-                        onChange={(event) => setBroadcastForm((prev) => ({ ...prev, appointmentTag: event.target.value }))}
-                    >
-                        <option value="all">Semua</option>
-                        <option value="mau_survey">Mau Survey</option>
-                        <option value="sudah_survey">Sudah Survey</option>
-                        <option value="none">Belum Ada Appointment</option>
-                    </select>
+                        onChange={(val) => setBroadcastForm((prev) => ({ ...prev, appointmentTag: val }))}
+                        clearable={false}
+                        variant="white"
+                    />
+                </div>
+
+                <div className="broadcast-date-grid">
+                    <DatePicker
+                        label="Dari"
+                        value={broadcastForm.dateFrom}
+                        onChange={(val) => setBroadcastForm((prev) => ({ ...prev, dateFrom: val }))}
+                        placeholder="Pilih tanggal"
+                    />
+                    <DatePicker
+                        label="Sampai"
+                        value={broadcastForm.dateTo}
+                        onChange={(val) => setBroadcastForm((prev) => ({ ...prev, dateTo: val }))}
+                        placeholder="Pilih tanggal"
+                    />
                 </div>
 
                 <div className="input-group">
-                    <label>Rentang Tanggal Leads Masuk</label>
-                    <div className="broadcast-date-grid">
-                        <PickerTriggerField
-                            type="date"
-                            label="Dari"
-                            value={broadcastForm.dateFrom}
-                            onChange={(event) => setBroadcastForm((prev) => ({ ...prev, dateFrom: event.target.value }))}
-                        />
-                        <PickerTriggerField
-                            type="date"
-                            label="Sampai"
-                            value={broadcastForm.dateTo}
-                            onChange={(event) => setBroadcastForm((prev) => ({ ...prev, dateTo: event.target.value }))}
-                        />
-                    </div>
-                </div>
-
-                <div className="input-group">
-                    <label>Upload Media (1 image/video)</label>
+                    <label>Upload Media (opsional)</label>
                     <input
+                        ref={mediaInputRef}
                         type="file"
-                        className="input-field"
                         accept="image/*,video/*"
                         onChange={handleBroadcastMediaChange}
+                        style={{ display: 'none' }}
                     />
-                    {broadcastForm.mediaName ? <span className="leads-result-count">Selected: {broadcastForm.mediaName}</span> : null}
+                    {broadcastForm.mediaName ? (
+                        <div className="broadcast-file-preview">
+                            <IconFile />
+                            <span>{broadcastForm.mediaName}</span>
+                            <button
+                                type="button"
+                                className="broadcast-file-clear"
+                                onClick={() => {
+                                    setBroadcastForm((prev) => ({ ...prev, mediaDataUrl: '', mediaName: '' }));
+                                    if (mediaInputRef.current) mediaInputRef.current.value = '';
+                                }}
+                            >
+                                ×
+                            </button>
+                        </div>
+                    ) : (
+                        <button type="button" className="broadcast-upload-zone" onClick={() => mediaInputRef.current?.click()}>
+                            <IconUpload />
+                            <span>Klik untuk memilih file</span>
+                            <span className="broadcast-upload-hint">Image atau video · maks 1 file</span>
+                        </button>
+                    )}
                 </div>
 
                 <div className="input-group">
@@ -341,7 +328,7 @@ export default function BroadcastPage() {
                         rows={4}
                         placeholder="Tulis pesan broadcast..."
                         value={broadcastForm.message}
-                        onChange={(event) => setBroadcastForm((prev) => ({ ...prev, message: event.target.value }))}
+                        onChange={(e) => setBroadcastForm((prev) => ({ ...prev, message: e.target.value }))}
                     />
                 </div>
 
@@ -353,27 +340,34 @@ export default function BroadcastPage() {
                         step={1}
                         className="input-field"
                         value={broadcastForm.intervalSeconds}
-                        onChange={(event) => setBroadcastForm((prev) => ({ ...prev, intervalSeconds: Number(event.target.value || 8) }))}
+                        onChange={(e) => setBroadcastForm((prev) => ({ ...prev, intervalSeconds: Number(e.target.value || 8) }))}
                     />
-                    <span className="leads-result-count">
+                    <span className="settings-help">
                         Minimum 8 detik. Server juga menambahkan jeda acak kecil untuk mengurangi pola kirim yang terlalu bot-like.
                     </span>
                 </div>
 
-                <div className="broadcast-estimate-card">
-                    <div>
+                <div className={`broadcast-estimate-card${broadcastEstimate ? ' has-estimate' : ''}`}>
+                    <div className="broadcast-estimate-left">
                         <span className="broadcast-estimate-label">Target Broadcast</span>
                         <strong className="broadcast-estimate-count">
-                            {broadcastEstimate ? `${broadcastEstimate.totalTargets} nomor` : 'Belum dicek'}
+                            {broadcastEstimate ? `${broadcastEstimate.totalTargets} nomor` : '—'}
                         </strong>
+                        {broadcastEstimate ? (
+                            <span className="broadcast-estimate-checked">sudah dicek</span>
+                        ) : (
+                            <span className="broadcast-estimate-hint-inline">belum dicek</span>
+                        )}
                     </div>
                     <span className="broadcast-estimate-hint">
-                        Check count dulu supaya admin tahu jumlah nomor yang akan menerima broadcast.
+                        {broadcastEstimate
+                            ? `${broadcastEstimate.totalTargets} nomor akan menerima broadcast ini.`
+                            : 'Klik Check Count dulu supaya admin tahu jumlah penerima.'}
                     </span>
                 </div>
 
-                {broadcastError ? <div className="settings-error">{broadcastError}</div> : null}
-                {broadcastFeedback ? <div className="settings-success">{broadcastFeedback}</div> : null}
+                {broadcastError ? <p className="settings-error">{broadcastError}</p> : null}
+                {broadcastFeedback ? <p className="settings-success">{broadcastFeedback}</p> : null}
 
                 <div className="broadcast-actions">
                     <button
@@ -384,7 +378,12 @@ export default function BroadcastPage() {
                     >
                         {broadcastEstimating ? 'Checking...' : 'Check Count'}
                     </button>
-                    <button type="button" className="btn btn-danger" onClick={handleStopBroadcast} disabled={broadcastStopping || broadcastStatus?.status !== 'running'}>
+                    <button
+                        type="button"
+                        className="btn btn-danger"
+                        onClick={handleStopBroadcast}
+                        disabled={broadcastStopping || broadcastStatus?.status !== 'running'}
+                    >
                         {broadcastStopping ? 'Stopping...' : 'Stop'}
                     </button>
                     <button

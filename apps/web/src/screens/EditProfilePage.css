@@ -1,5 +1,95 @@
-.edit-profile-card {
+/* ── EditProfilePage — Navy/light theme ──────────────────────────────── */
+
+.ep-page {
+    background: #F8FAFC;
+    --bg-app: rgba(248, 250, 252, 0.96);
+    --bg-card: #FFFFFF;
+    --bg-input: #F3F4F6;
+    --border-color: #E5E7EB;
+    --border: #E5E7EB;
+    --text-primary: #0F172A;
+    --text-secondary: #374151;
+    --text-muted: #9CA3AF;
+    --primary: #1E3A5F;
+}
+
+.ep-card {
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 16px;
+    padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;
+    box-shadow: 0 1px 4px rgba(30, 58, 95, 0.05);
+}
+
+/* ── Input overrides ────────────────────────────────────────────────── */
+
+.ep-page .input-group label {
+    color: #374151;
+}
+
+.ep-page .input-field {
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 10px;
+    color: #111827;
+    font-size: 0.875rem;
+    padding: 10px 14px;
+}
+
+.ep-page .input-field:focus {
+    border-color: #1E3A5F;
+    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
+    outline: none;
+}
+
+.ep-page .input-field:disabled {
+    background: #F9FAFB;
+    color: #9CA3AF;
+    border-color: #E5E7EB;
+    box-shadow: none;
+}
+
+/* ── Button overrides ───────────────────────────────────────────────── */
+
+.ep-page .btn-primary {
+    background: #1E3A5F;
+    color: #FFFFFF;
+    border: none;
+    box-shadow: none;
+    margin-top: 4px;
+}
+
+.ep-page .btn-primary:hover:not(:disabled) {
+    background: #162d4a;
+    transform: none;
+    box-shadow: none;
+}
+
+.ep-page .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ── Messages ───────────────────────────────────────────────────────── */
+
+.ep-error {
+    color: #DC2626;
+    font-size: 0.8125rem;
+    margin: 0;
+}
+
+.ep-success {
+    color: #16A34A;
+    font-size: 0.8125rem;
+    margin: 0;
+}
+
+.ep-help {
+    color: #6B7280;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    margin: 2px 0 0;
 }

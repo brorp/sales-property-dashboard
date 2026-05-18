@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Header from '../components/Header';
+import SelectFilter from '../components/SelectFilter';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
 import { usePagePolling } from '../hooks/usePagePolling';
+import './SettingsPage.css';
 
 export default function DistributionOrderPage() {
     const { user } = useAuth();
@@ -26,6 +28,11 @@ export default function DistributionOrderPage() {
         hasLiveOffer: false,
         isQueueLocked: false,
     });
+
+    useEffect(() => {
+        document.body.classList.add('light-page');
+        return () => document.body.classList.remove('light-page');
+    }, []);
 
     const normalizeQueueRows = useCallback((rows) => {
         return (Array.isArray(rows) ? rows : [])
@@ -54,12 +61,8 @@ export default function DistributionOrderPage() {
         const normalizedBlocked = normalizeAvailableSales(payload?.blockedSales);
         const nextPreview = {
             isRolledByActiveDistribution: Boolean(payload?.queuePreview?.isRolledByActiveDistribution),
-            rolledSalesIds: Array.isArray(payload?.queuePreview?.rolledSalesIds)
-                ? payload.queuePreview.rolledSalesIds
-                : [],
-            liveOffers: Array.isArray(payload?.queuePreview?.liveOffers)
-                ? payload.queuePreview.liveOffers
-                : [],
+            rolledSalesIds: Array.isArray(payload?.queuePreview?.rolledSalesIds) ? payload.queuePreview.rolledSalesIds : [],
+            liveOffers: Array.isArray(payload?.queuePreview?.liveOffers) ? payload.queuePreview.liveOffers : [],
             hasLiveOffer: Boolean(payload?.queuePreview?.hasLiveOffer),
             isQueueLocked: Boolean(payload?.queuePreview?.isQueueLocked),
         };
@@ -69,35 +72,22 @@ export default function DistributionOrderPage() {
         setQueuePreview(nextPreview);
         setQueueInitialSignature(buildQueueSignature(normalizedQueue));
         setSelectedSalesId((prev) => {
-            if (!prev) {
-                return normalizedAvailable[0]?.id || '';
-            }
-            return normalizedAvailable.some((item) => item.id === prev)
-                ? prev
-                : normalizedAvailable[0]?.id || '';
+            if (!prev) return normalizedAvailable[0]?.id || '';
+            return normalizedAvailable.some((item) => item.id === prev) ? prev : normalizedAvailable[0]?.id || '';
         });
         setSelectedInsertOrder('end');
     }, [buildQueueSignature, normalizeAvailableSales, normalizeQueueRows]);
 
     const loadQueueRows = useCallback(async ({ silent = false } = {}) => {
-        if (!user) {
-            return;
-        }
-        if (!silent) {
-            setQueueLoading(true);
-            setQueueError('');
-        }
+        if (!user) return;
+        if (!silent) { setQueueLoading(true); setQueueError(''); }
         try {
             const data = await apiRequest('/api/sales/queue', { user });
             applyQueueState(data);
         } catch (err) {
-            if (!silent) {
-                setQueueError(err instanceof Error ? err.message : 'Failed loading sales queue');
-            }
+            if (!silent) setQueueError(err instanceof Error ? err.message : 'Failed loading sales queue');
         } finally {
-            if (!silent) {
-                setQueueLoading(false);
-            }
+            if (!silent) setQueueLoading(false);
         }
     }, [applyQueueState, user]);
 
@@ -109,9 +99,7 @@ export default function DistributionOrderPage() {
         enabled: Boolean(user),
         intervalMs: 3000,
         run: async () => {
-            if (queueDirty || queueSaving || queueMutating) {
-                return;
-            }
+            if (queueDirty || queueSaving || queueMutating) return;
             await loadQueueRows({ silent: true });
         },
     });
@@ -121,12 +109,9 @@ export default function DistributionOrderPage() {
             setQueueError('Distribution order sedang terkunci karena ada live offer menunggu OK.');
             return;
         }
-
         setQueueRows((prev) => {
             const nextIndex = direction === 'up' ? index - 1 : index + 1;
-            if (nextIndex < 0 || nextIndex >= prev.length) {
-                return prev;
-            }
+            if (nextIndex < 0 || nextIndex >= prev.length) return prev;
             const next = [...prev];
             const temp = next[index];
             next[index] = next[nextIndex];
@@ -138,10 +123,7 @@ export default function DistributionOrderPage() {
     };
 
     const saveQueueOrder = async () => {
-        if (!user || queueRows.length === 0) {
-            return;
-        }
-
+        if (!user || queueRows.length === 0) return;
         setQueueSaving(true);
         setQueueError('');
         setQueueFeedback('');
@@ -161,10 +143,7 @@ export default function DistributionOrderPage() {
     };
 
     const addSalesToQueue = async () => {
-        if (!user || !selectedSalesId) {
-            return;
-        }
-
+        if (!user || !selectedSalesId) return;
         setQueueMutating(true);
         setQueueError('');
         setQueueFeedback('');
@@ -187,10 +166,7 @@ export default function DistributionOrderPage() {
     };
 
     const updateRepeatOrder = async (salesId, repeatOrderRemaining) => {
-        if (!user || !salesId) {
-            return;
-        }
-
+        if (!user || !salesId) return;
         setQueueMutating(true);
         setQueueError('');
         setQueueFeedback('');
@@ -210,23 +186,14 @@ export default function DistributionOrderPage() {
     };
 
     const removeSalesFromQueue = async (salesId) => {
-        if (!user || !salesId) {
-            return;
-        }
-
+        if (!user || !salesId) return;
         const confirmed = window.confirm('Hapus sales ini dari distribution order?');
-        if (!confirmed) {
-            return;
-        }
-
+        if (!confirmed) return;
         setQueueMutating(true);
         setQueueError('');
         setQueueFeedback('');
         try {
-            const data = await apiRequest(`/api/sales/queue/${salesId}`, {
-                method: 'DELETE',
-                user,
-            });
+            const data = await apiRequest(`/api/sales/queue/${salesId}`, { method: 'DELETE', user });
             applyQueueState(data);
             setQueueFeedback('Sales berhasil dihapus dari distribution order.');
         } catch (err) {
@@ -238,40 +205,34 @@ export default function DistributionOrderPage() {
 
     const queueDirty = buildQueueSignature(queueRows) !== queueInitialSignature;
     const queueLocked = Boolean(queuePreview?.isQueueLocked);
-    const rewardOptions = [0, 1, 2, 3, 4, 5];
-    const insertOrderOptions = useMemo(() => {
-        return Array.from({ length: queueRows.length + 1 }, (_, index) => index + 1);
-    }, [queueRows.length]);
-    const queuePreviewMessage = useMemo(() => {
-        if (!queuePreview?.hasLiveOffer && !queuePreview?.isRolledByActiveDistribution) {
-            return '';
-        }
+    const rewardOptions = [0, 1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n}x` }));
 
+    const salesOptions = useMemo(() => availableSales.map((s) => ({ value: s.id, label: s.name })), [availableSales]);
+    const insertOrderOptions = useMemo(() => [
+        { value: 'end', label: 'Posisi paling bawah' },
+        ...Array.from({ length: queueRows.length }, (_, i) => ({ value: String(i + 1), label: `Sisipkan di posisi ${i + 1}` })),
+    ], [queueRows.length]);
+    const queuePreviewMessage = useMemo(() => {
+        if (!queuePreview?.hasLiveOffer && !queuePreview?.isRolledByActiveDistribution) return '';
         const liveOffers = Array.isArray(queuePreview.liveOffers) ? queuePreview.liveOffers : [];
         if (liveOffers.length === 0) {
             return queuePreview?.isQueueLocked
                 ? 'Distribution order sedang terkunci karena ada live offer menunggu OK.'
                 : 'Urutan di bawah sudah diproyeksikan sebagai sesi distribusi berikutnya.';
         }
-
         const primaryOffer = liveOffers[0];
         const deadlineLabel = primaryOffer?.ackDeadline
-            ? new Date(primaryOffer.ackDeadline).toLocaleTimeString('id-ID', {
-                hour: '2-digit',
-                minute: '2-digit',
-            })
+            ? new Date(primaryOffer.ackDeadline).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
             : null;
         const suffix = liveOffers.length > 1 ? ` dan ${liveOffers.length - 1} offer lain` : '';
-
         const rewardCopy = primaryOffer?.isRewardLocked
             ? ` Reward repeat masih aktif ${primaryOffer.repeatOrderRemaining}x, queue ditahan sampai outcome jelas.`
             : '';
-
         return `${primaryOffer?.salesName || 'Sales aktif'} sedang menunggu balasan OK${primaryOffer?.leadName ? ` untuk ${primaryOffer.leadName}` : ''}${deadlineLabel ? ` sampai ${deadlineLabel}` : ''}${suffix}. Distribution order dikunci sementara.${rewardCopy}`;
     }, [queuePreview]);
 
     return (
-        <div className="page-container">
+        <div className="page-container set-page">
             <Header title="Distribution Order" showBack />
 
             {queuePreview?.hasLiveOffer ? (
@@ -285,7 +246,7 @@ export default function DistributionOrderPage() {
                 </div>
             ) : null}
 
-            <div className="card settings-card">
+            <div className="set-card">
                 <p className="settings-help">
                     Urutan ini dipakai untuk distribusi lead otomatis. Begitu bot mengirim offer ke sales, urutan sesi berikutnya langsung diproyeksikan secara realtime.
                 </p>
@@ -295,42 +256,30 @@ export default function DistributionOrderPage() {
                     </div>
                 ) : null}
                 {blockedSales.length > 0 ? (
-                    <div className="settings-help" style={{ marginTop: 10 }}>
+                    <p className="settings-help" style={{ marginTop: 10 }}>
                         Sales yang sedang terkena penalty aktif tidak bisa ditambahkan ke queue sampai masa block berakhir.
-                    </div>
+                    </p>
                 ) : null}
 
                 <div className="input-group" style={{ marginTop: 16 }}>
                     <label>Tambah Sales ke Queue</label>
                     <div className="settings-inline-grid">
-                        <select
-                            className="input-field"
+                        <SelectFilter
+                            options={salesOptions}
                             value={selectedSalesId}
-                            onChange={(event) => setSelectedSalesId(event.target.value)}
+                            onChange={(v) => setSelectedSalesId(v || '')}
+                            placeholder={availableSales.length === 0 ? 'Semua sales sudah masuk queue' : 'Pilih sales...'}
                             disabled={queueLoading || queueSaving || queueMutating || queueLocked || availableSales.length === 0}
-                        >
-                            {availableSales.length === 0 ? (
-                                <option value="">Semua sales sudah masuk queue</option>
-                            ) : null}
-                            {availableSales.map((sales) => (
-                                <option key={sales.id} value={sales.id}>
-                                    {sales.name}
-                                </option>
-                            ))}
-                        </select>
-                        <select
-                            className="input-field"
+                            clearable={false}
+                        />
+                        <SelectFilter
+                            options={insertOrderOptions}
                             value={selectedInsertOrder}
-                            onChange={(event) => setSelectedInsertOrder(event.target.value)}
+                            onChange={(v) => setSelectedInsertOrder(v || 'end')}
+                            placeholder="Posisi paling bawah"
                             disabled={queueLoading || queueSaving || queueMutating || queueLocked}
-                        >
-                            <option value="end">Posisi paling bawah</option>
-                            {insertOrderOptions.map((order) => (
-                                <option key={order} value={String(order)}>
-                                    Sisipkan di posisi {order}
-                                </option>
-                            ))}
-                        </select>
+                            clearable={false}
+                        />
                     </div>
                     <button
                         type="button"
@@ -370,7 +319,7 @@ export default function DistributionOrderPage() {
                 ) : null}
             </div>
 
-            <div className="card settings-card">
+            <div className="set-card">
                 {queueLoading ? <p className="settings-help">Loading queue...</p> : null}
 
                 {!queueLoading && queueRows.length === 0 ? (
@@ -390,22 +339,18 @@ export default function DistributionOrderPage() {
                                     </div>
                                 </div>
                                 <div className="settings-queue-actions">
-                                    <label className="settings-queue-reward">
+                                    <div className="settings-queue-reward">
                                         <span>Repeat</span>
-                                        <select
-                                            className="input-field settings-queue-reward-select"
-                                            value={String(Number(item.repeatOrderRemaining || 0))}
-                                            onChange={(event) => void updateRepeatOrder(item.id, event.target.value)}
-                                            disabled={queueSaving || queueMutating || queueLocked}
-                                            title="Reward repeat order"
-                                        >
-                                            {rewardOptions.map((reward) => (
-                                                <option key={reward} value={String(reward)}>
-                                                    {reward}x
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </label>
+                                        <div style={{ width: 88 }}>
+                                            <SelectFilter
+                                                options={rewardOptions}
+                                                value={String(Number(item.repeatOrderRemaining || 0))}
+                                                onChange={(v) => void updateRepeatOrder(item.id, v || '0')}
+                                                disabled={queueSaving || queueMutating || queueLocked}
+                                                clearable={false}
+                                            />
+                                        </div>
+                                    </div>
                                     <button
                                         type="button"
                                         className="btn btn-secondary settings-queue-btn"

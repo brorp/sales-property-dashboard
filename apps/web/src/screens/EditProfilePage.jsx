@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
+import './EditProfilePage.css';
 
 export default function EditProfilePage() {
     const { user, updateCurrentUser } = useAuth();
@@ -11,17 +12,16 @@ export default function EditProfilePage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [form, setForm] = useState({
-        name: '',
-        email: '',
-        phone: '',
-    });
+    const [form, setForm] = useState({ name: '', email: '', phone: '' });
     const phoneReadOnly = user?.role === 'sales';
 
+    useEffect(() => {
+        document.body.classList.add('light-page');
+        return () => document.body.classList.remove('light-page');
+    }, []);
+
     const loadProfile = useCallback(async () => {
-        if (!user) {
-            return;
-        }
+        if (!user) return;
         setLoading(true);
         setError('');
         try {
@@ -49,11 +49,7 @@ export default function EditProfilePage() {
 
     const handleSubmit = async (event) => {
         event.preventDefault();
-        if (!user) {
-            setError('Unauthorized');
-            return;
-        }
-
+        if (!user) { setError('Unauthorized'); return; }
         setSaving(true);
         setError('');
         setSuccess('');
@@ -85,17 +81,17 @@ export default function EditProfilePage() {
     };
 
     return (
-        <div className="page-container">
+        <div className="page-container ep-page">
             <Header title="Ubah Profil" showBack />
 
-            <form className="card edit-profile-card" onSubmit={handleSubmit}>
+            <form className="ep-card" onSubmit={handleSubmit}>
                 <div className="input-group">
                     <label>Nama</label>
                     <input
                         type="text"
                         className="input-field"
                         value={form.name}
-                        onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+                        onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                         disabled={loading || saving}
                         required
                     />
@@ -117,19 +113,19 @@ export default function EditProfilePage() {
                         type="tel"
                         className="input-field"
                         value={form.phone}
-                        onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
+                        onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
                         disabled={loading || saving || phoneReadOnly}
                         placeholder="+6281234567890"
                     />
                     {phoneReadOnly ? (
-                        <p className="settings-help" style={{ marginTop: 6 }}>
+                        <p className="ep-help">
                             Nomor WhatsApp dikelola oleh admin dan akan otomatis mengikuti perubahan terbaru.
                         </p>
                     ) : null}
                 </div>
 
-                {error ? <div className="settings-error">{error}</div> : null}
-                {success ? <div className="settings-success">{success}</div> : null}
+                {error ? <p className="ep-error">{error}</p> : null}
+                {success ? <p className="ep-success">{success}</p> : null}
 
                 <button className="btn btn-primary btn-full" type="submit" disabled={loading || saving}>
                     {saving ? 'Menyimpan...' : 'Simpan Profil'}

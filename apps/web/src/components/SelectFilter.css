@@ -15,7 +15,7 @@
     height: 38px;
     padding: 0 12px;
     background: #F9FAFB;
-    border: 1.5px solid #E5E7EB;
+    border: 1px solid #E5E7EB;
     border-radius: 10px;
     cursor: pointer;
     transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
@@ -25,24 +25,29 @@
     min-width: 0;
 }
 
-.sf-trigger:hover {
+.sf-trigger:hover:not(:disabled) {
     border-color: #CBD5E1;
     background: #F1F5F9;
 }
 
+.sf-wrap.is-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
 .sf-trigger:focus-visible {
-    border-color: #1E3A5F;
+    border-color: #93C5FD;
     box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
 }
 
 .sf-wrap.is-open .sf-trigger {
-    border-color: #1E3A5F;
+    border-color: #93C5FD;
     background: #FFFFFF;
-    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
+    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.06);
 }
 
 .sf-wrap.is-active .sf-trigger {
-    border-color: #1E3A5F;
+    border-color: #BFDBFE;
     background: #EFF6FF;
 }
 
@@ -109,6 +114,27 @@
 .sf-wrap.is-open .sf-chevron {
     transform: rotate(180deg);
     color: #1E3A5F;
+}
+
+/* ── White variant ──────────────────────────────────────────────────── */
+
+.sf-wrap--white .sf-trigger {
+    background: #FFFFFF;
+}
+
+.sf-wrap--white .sf-trigger:hover:not(:disabled) {
+    background: #F9FAFB;
+}
+
+.sf-wrap.sf-wrap--white.is-active .sf-trigger,
+.sf-wrap.sf-wrap--white.is-active.is-open .sf-trigger {
+    background: #FFFFFF;
+    border-color: #E5E7EB;
+}
+
+.sf-wrap.sf-wrap--white.is-open .sf-trigger {
+    border-color: #D1D5DB;
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
 }
 
 /* ── Dropdown ───────────────────────────────────────────────────────── */

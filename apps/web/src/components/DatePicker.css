@@ -1,0 +1,221 @@
+.dp-wrap {
+    position: relative;
+}
+
+.dp-wrap.is-disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.dp-label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 6px;
+}
+
+.dp-trigger {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    height: 42px;
+    padding: 0 12px 0 14px;
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+    text-align: left;
+}
+
+.dp-trigger:hover {
+    border-color: #D1D5DB;
+    background: #F9FAFB;
+}
+
+.dp-wrap.is-open .dp-trigger {
+    border-color: #1E3A5F;
+    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
+}
+
+.dp-trigger-value {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #111827;
+    flex: 1;
+}
+
+.dp-trigger-value.is-placeholder {
+    color: #9CA3AF;
+    font-weight: 400;
+}
+
+.dp-trigger-icon {
+    color: #9CA3AF;
+    flex-shrink: 0;
+    display: flex;
+}
+
+/* ── Calendar popup ──────────────────────────────────────────────────── */
+
+.dp-calendar {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 600;
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 16px;
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.13), 0 2px 8px rgba(15, 23, 42, 0.06);
+    padding: 14px;
+    min-width: 272px;
+    width: 100%;
+    animation: dpFadeIn 120ms ease;
+}
+
+@keyframes dpFadeIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Header */
+
+.dp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.dp-month-label {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: #1E3A5F;
+}
+
+.dp-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    color: #6B7280;
+    transition: background 120ms ease, color 120ms ease;
+}
+
+.dp-nav:hover {
+    background: #F1F5F9;
+    color: #1E3A5F;
+}
+
+/* Weekday row */
+
+.dp-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 4px;
+}
+
+.dp-weekday {
+    text-align: center;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: #CBD5E1;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 4px 0;
+}
+
+/* Day grid */
+
+.dp-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+
+.dp-day {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+    transition: background 100ms ease, color 100ms ease;
+    position: relative;
+}
+
+.dp-day:hover:not(:disabled):not(.dp-day--selected) {
+    background: #F1F5F9;
+    color: #1E3A5F;
+}
+
+.dp-day--empty {
+    pointer-events: none;
+}
+
+.dp-day--today {
+    color: #1E3A5F;
+    font-weight: 700;
+}
+
+.dp-day--today::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #1E3A5F;
+}
+
+.dp-day--selected {
+    background: #1E3A5F;
+    color: #FFFFFF;
+    font-weight: 700;
+}
+
+.dp-day--selected.dp-day--today::after {
+    background: rgba(255, 255, 255, 0.6);
+}
+
+/* Footer */
+
+.dp-footer {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #F1F5F9;
+    display: flex;
+    justify-content: center;
+}
+
+.dp-clear {
+    font-size: 0.8125rem;
+    color: #9CA3AF;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 6px;
+    transition: color 120ms ease, background 120ms ease;
+}
+
+.dp-clear:hover {
+    color: #DC2626;
+    background: #FEF2F2;
+}

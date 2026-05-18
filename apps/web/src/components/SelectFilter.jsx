@@ -36,7 +36,7 @@ function ClearIcon() {
  *   className?: string;
  * }} props
  */
-export default function SelectFilter({ options, value, onChange, placeholder = 'Pilih...', className = '' }) {
+export default function SelectFilter({ options, value, onChange, placeholder = 'Pilih...', className = '', disabled = false, clearable = true, variant = 'default' }) {
     const [open, setOpen] = useState(false);
     const [dropdownStyle, setDropdownStyle] = useState({});
     const wrapRef = useRef(null);
@@ -63,6 +63,7 @@ export default function SelectFilter({ options, value, onChange, placeholder = '
     }, [open]);
 
     const handleToggle = () => {
+        if (disabled) return;
         if (!open) {
             const rect = wrapRef.current?.getBoundingClientRect();
             if (rect) {
@@ -103,8 +104,10 @@ export default function SelectFilter({ options, value, onChange, placeholder = '
 
     const wrapClass = [
         'sf-wrap',
+        variant === 'white' ? 'sf-wrap--white' : '',
         selected ? 'is-active' : '',
         open ? 'is-open' : '',
+        disabled ? 'is-disabled' : '',
         className,
     ].filter(Boolean).join(' ');
 
@@ -114,12 +117,13 @@ export default function SelectFilter({ options, value, onChange, placeholder = '
                 type="button"
                 className="sf-trigger"
                 onClick={handleToggle}
+                disabled={disabled}
                 aria-haspopup="listbox"
                 aria-expanded={open}
             >
                 <span className="sf-label">{selected ? selected.label : placeholder}</span>
                 <span className="sf-icons">
-                    {selected ? (
+                    {selected && clearable ? (
                         <button type="button" className="sf-clear" onClick={handleClear} aria-label="Hapus filter">
                             <ClearIcon />
                         </button>

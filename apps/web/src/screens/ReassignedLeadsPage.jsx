@@ -1,55 +1,33 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Header from '../components/Header';
+import SelectFilter from '../components/SelectFilter';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
 import { getFlowStatusLabel, getSalesStatusLabel, getStatusBadgeClass } from '../constants/crm';
+import './SettingsPage.css';
 
 function formatDateTime(value) {
-    if (!value) {
-        return '-';
-    }
-
+    if (!value) return '-';
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-        return '-';
-    }
-
+    if (Number.isNaN(date.getTime())) return '-';
     return date.toLocaleString('id-ID', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
     });
 }
 
 function leadMatchesSearch(lead, search) {
     const q = String(search || '').trim().toLowerCase();
-    if (!q) {
-        return true;
-    }
-
-    return [
-        lead.name,
-        lead.phone,
-        lead.source,
-        lead.assignedUserName,
-        lead.salesStatus,
-        lead.resultStatus,
-    ].some((value) => String(value || '').toLowerCase().includes(q));
+    if (!q) return true;
+    return [lead.name, lead.phone, lead.source, lead.assignedUserName, lead.salesStatus, lead.resultStatus]
+        .some((value) => String(value || '').toLowerCase().includes(q));
 }
 
 export default function ReassignedLeadsPage() {
     const { user } = useAuth();
-    const {
-        leads,
-        getSalesUsers,
-        reassignLead,
-        refreshLeads,
-        refreshSalesUsers,
-    } = useLeads();
+    const { leads, getSalesUsers, reassignLead, refreshLeads, refreshSalesUsers } = useLeads();
     const [search, setSearch] = useState('');
     const [selectedLeadId, setSelectedLeadId] = useState('');
     const [targetSalesId, setTargetSalesId] = useState('');
@@ -58,11 +36,14 @@ export default function ReassignedLeadsPage() {
     const [feedback, setFeedback] = useState('');
     const [error, setError] = useState('');
 
+    useEffect(() => {
+        document.body.classList.add('light-page');
+        return () => document.body.classList.remove('light-page');
+    }, []);
+
     const salesUsers = getSalesUsers();
     const assignedLeads = useMemo(
-        () => leads
-            .filter((lead) => Boolean(lead.assignedTo))
-            .filter((lead) => leadMatchesSearch(lead, search)),
+        () => leads.filter((lead) => Boolean(lead.assignedTo)).filter((lead) => leadMatchesSearch(lead, search)),
         [leads, search]
     );
     const selectedLead = useMemo(
@@ -75,24 +56,13 @@ export default function ReassignedLeadsPage() {
     );
 
     const activeLeadId = selectedLead?.id || '';
-    const effectiveTargetSalesId = targetSalesId && availableSales.some((sales) => sales.id === targetSalesId)
-        ? targetSalesId
-        : '';
+    const effectiveTargetSalesId = targetSalesId && availableSales.some((sales) => sales.id === targetSalesId) ? targetSalesId : '';
 
     const handleSubmit = async (event) => {
         event.preventDefault();
-        if (!selectedLead) {
-            setError('Pilih lead yang ingin dipindahkan.');
-            return;
-        }
-        if (!effectiveTargetSalesId) {
-            setError('Pilih sales tujuan yang berbeda dari sales saat ini.');
-            return;
-        }
-        if (!note.trim()) {
-            setError('Catatan emergency wajib diisi agar audit jelas.');
-            return;
-        }
+        if (!selectedLead) { setError('Pilih lead yang ingin dipindahkan.'); return; }
+        if (!effectiveTargetSalesId) { setError('Pilih sales tujuan yang berbeda dari sales saat ini.'); return; }
+        if (!note.trim()) { setError('Catatan emergency wajib diisi agar audit jelas.'); return; }
 
         setSubmitting(true);
         setError('');
@@ -116,26 +86,26 @@ export default function ReassignedLeadsPage() {
 
     if (user?.role !== 'client_admin' && user?.role !== 'root_admin') {
         return (
-            <div className="page-container">
-                <Header title="Reassigned Leads" />
-                <div className="card empty-state">
-                    <div className="empty-icon">🔒</div>
-                    <div className="empty-title">Khusus admin</div>
-                    <div className="empty-desc">Fitur emergency reassign hanya tersedia untuk admin.</div>
+            <div className="page-container set-page">
+                <Header title="Reassigned Leads" showBack/>
+                <div className="set-card" style={{ textAlign: 'center', padding: '32px 16px' }}>
+                    <div style={{ fontSize: '2rem', marginBottom: 8 }}>🔒</div>
+                    <div style={{ fontWeight: 600, color: '#1E3A5F', marginBottom: 4 }}>Khusus admin</div>
+                    <div style={{ fontSize: '0.875rem', color: '#6B7280' }}>Fitur emergency reassign hanya tersedia untuk admin.</div>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="page-container">
-            <Header title="Reassigned Leads" />
+        <div className="page-container set-page">
+            <Header title="Reassigned Leads" showBack/>
 
-            <section className="card settings-card">
+            <section className="set-card">
                 <div className="settings-header">
                     <div>
-                        <h2>Emergency Lead Reassign</h2>
-                        <p className="settings-meta">
+                        <h2 style={{ margin: '0 0 4px', fontSize: '1rem', color: '#1E3A5F' }}>Emergency Lead Reassign</h2>
+                        <p className="settings-help" style={{ marginTop: 0 }}>
                             Pindahkan owner lead yang sudah assigned ke sales lain. Lead akan kembali ke status Assigned dan muncul di Daily Task sales tujuan.
                         </p>
                     </div>
@@ -147,24 +117,24 @@ export default function ReassignedLeadsPage() {
             </section>
 
             <section className="settings-inline-grid reassign-layout">
-                <div className="card settings-card">
+                <div className="set-card">
                     <div className="settings-header">
                         <div>
-                            <h3>Pilih Lead</h3>
-                            <p className="settings-meta">{assignedLeads.length} lead assigned di workspace aktif</p>
+                            <h3 style={{ margin: '0 0 2px', fontSize: '0.9375rem', color: '#1E3A5F' }}>Pilih Lead</h3>
+                            <p className="settings-help" style={{ marginTop: 0 }}>{assignedLeads.length} lead assigned di workspace aktif</p>
                         </div>
                     </div>
                     <input
                         className="input-field"
                         value={search}
-                        onChange={(event) => setSearch(event.target.value)}
+                        onChange={(e) => setSearch(e.target.value)}
                         placeholder="Cari nama, nomor, source, sales..."
                     />
                     <div className="settings-queue-list reassign-lead-list">
                         {assignedLeads.length === 0 ? (
-                            <div className="empty-state reassign-empty">
-                                <div className="empty-title">Tidak ada lead assigned</div>
-                                <div className="empty-desc">Coba ubah keyword pencarian atau workspace.</div>
+                            <div className="reassign-empty" style={{ padding: '24px 12px', textAlign: 'center' }}>
+                                <div style={{ fontWeight: 600, color: '#374151', marginBottom: 4 }}>Tidak ada lead assigned</div>
+                                <div style={{ fontSize: '0.875rem', color: '#6B7280' }}>Coba ubah keyword pencarian atau workspace.</div>
                             </div>
                         ) : assignedLeads.map((lead) => (
                             <button
@@ -202,11 +172,11 @@ export default function ReassignedLeadsPage() {
                     </div>
                 </div>
 
-                <form className="card settings-card" onSubmit={handleSubmit}>
+                <form className="set-card" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div className="settings-header">
                         <div>
-                            <h3>Sales Tujuan</h3>
-                            <p className="settings-meta">Pilih owner baru dan isi alasan emergency.</p>
+                            <h3 style={{ margin: '0 0 2px', fontSize: '0.9375rem', color: '#1E3A5F' }}>Sales Tujuan</h3>
+                            <p className="settings-help" style={{ marginTop: 0 }}>Pilih owner baru dan isi alasan emergency.</p>
                         </div>
                     </div>
 
@@ -229,37 +199,36 @@ export default function ReassignedLeadsPage() {
                         <div className="settings-live-offer">Pilih lead dari daftar untuk mulai reassign.</div>
                     )}
 
-                    <label className="form-group">
-                        <span>Sales tujuan</span>
-                        <select
-                            className="input-field"
+                    <div className="input-group">
+                        <label>Sales tujuan</label>
+                        <SelectFilter
+                            options={availableSales.map((s) => ({
+                                value: s.id,
+                                label: s.name + (s.isSuspended ? ' (suspended)' : ''),
+                            }))}
                             value={effectiveTargetSalesId}
-                            onChange={(event) => setTargetSalesId(event.target.value)}
+                            onChange={(val) => setTargetSalesId(val)}
+                            placeholder="Pilih sales"
+                            clearable={false}
                             disabled={!selectedLead || submitting}
-                        >
-                            <option value="">Pilih sales</option>
-                            {availableSales.map((sales) => (
-                                <option key={sales.id} value={sales.id}>
-                                    {sales.name} {sales.isSuspended ? '(suspended)' : ''}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                            variant="white"
+                        />
+                    </div>
 
-                    <label className="form-group">
-                        <span>Catatan emergency</span>
+                    <div className="input-group">
+                        <label>Catatan emergency</label>
                         <textarea
                             className="input-field"
                             rows={4}
                             value={note}
-                            onChange={(event) => setNote(event.target.value)}
+                            onChange={(e) => setNote(e.target.value)}
                             placeholder="Contoh: salah assign, sales cuti, atau koreksi ownership."
                             disabled={!selectedLead || submitting}
                         />
-                    </label>
+                    </div>
 
-                    {error ? <div className="settings-error">{error}</div> : null}
-                    {feedback ? <div className="settings-success">{feedback}</div> : null}
+                    {error ? <p className="settings-error">{error}</p> : null}
+                    {feedback ? <p className="settings-success">{feedback}</p> : null}
 
                     <button
                         type="submit"

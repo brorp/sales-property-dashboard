@@ -1,0 +1,174 @@
+/* ── Overlay ─────────────────────────────────────────────────────────── */
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    padding: 16px;
+    animation: modalFadeIn 150ms ease;
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ── Card ───────────────────────────────────────────────────────────── */
+
+.modal-card {
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18), 0 4px 16px rgba(15, 23, 42, 0.06);
+    width: 100%;
+    max-width: 420px;
+    animation: modalSlideIn 150ms ease;
+}
+
+@keyframes modalSlideIn {
+    from { opacity: 0; transform: translateY(-10px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px 0;
+}
+
+.modal-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1E3A5F;
+    margin: 0;
+}
+
+.modal-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: #9CA3AF;
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+    flex-shrink: 0;
+}
+
+.modal-close:hover {
+    background: #F1F5F9;
+    color: #374151;
+}
+
+/* ── Body ───────────────────────────────────────────────────────────── */
+
+.modal-body {
+    padding: 16px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.modal-body form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+/* ── Footer actions ─────────────────────────────────────────────────── */
+
+.modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+/* ── Input / button overrides inside modal ──────────────────────────── */
+
+.modal-card .input-field {
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 10px;
+    color: #111827;
+    font-size: 0.875rem;
+    padding: 10px 14px;
+}
+
+.modal-card .input-field:focus {
+    border-color: #1E3A5F;
+    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
+    outline: none;
+}
+
+.modal-card .input-field:disabled {
+    background: #F9FAFB;
+    color: #9CA3AF;
+}
+
+.modal-card .input-group label {
+    color: #374151;
+    font-size: 0.8125rem;
+}
+
+.modal-card .btn {
+    height: 38px;
+    padding: 0 16px;
+    font-size: 0.875rem;
+}
+
+.modal-card .btn-primary {
+    background: #1E3A5F;
+    color: #FFFFFF;
+    border: none;
+    box-shadow: none;
+}
+
+.modal-card .btn-primary:hover:not(:disabled) {
+    background: #162d4a;
+    transform: none;
+    box-shadow: none;
+}
+
+.modal-card .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.modal-card .btn-secondary {
+    background: #FFFFFF;
+    border: 1.5px solid #E5E7EB;
+    color: #374151;
+    box-shadow: none;
+}
+
+.modal-card .btn-secondary:hover:not(:disabled) {
+    background: #F9FAFB;
+    border-color: #D1D5DB;
+    transform: none;
+}
+
+.modal-card .btn-danger {
+    box-shadow: none;
+}
+
+.modal-card .btn-danger:hover:not(:disabled) {
+    transform: none;
+    box-shadow: none;
+}
+
+.modal-card .btn-danger:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
