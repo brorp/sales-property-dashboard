@@ -125,6 +125,18 @@
     align-items: center;
 }
 
+/* ── Mobile-only nav shortcuts (hidden on desktop where sidebar shows) ─ */
+
+.pf-menu-mobile-only {
+    margin-bottom: 20px;
+}
+
+@media (min-width: 1024px) {
+    .pf-menu-mobile-only {
+        display: none;
+    }
+}
+
 /* ── Version ────────────────────────────────────────────────────────── */
 
 .pf-version {

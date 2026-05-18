@@ -88,6 +88,7 @@ function Icon({ name }) {
     );
 }
 
+// Desktop sidebar tabs (full set)
 const ADMIN_TABS = [
     { key: '/', icon: 'analytics', label: 'Analytics' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
@@ -113,6 +114,28 @@ const SALES_TABS = [
     { key: '/appointments', icon: 'appointment', label: 'Appt' },
     { key: '/', icon: 'analytics', label: 'Analytics' },
     { key: '/penalties', icon: 'warning', label: 'Penalty' },
+    { key: '/settings', icon: 'settings', label: 'Settings' },
+];
+
+// Mobile bottom bar tabs (Logs/Penalty/Teams moved to Settings)
+const ADMIN_TABS_MOBILE = [
+    { key: '/', icon: 'analytics', label: 'Analytics' },
+    { key: '/leads', icon: 'leads', label: 'Leads' },
+    { key: '/appointments', icon: 'appointment', label: 'Appt' },
+    { key: '/settings', icon: 'settings', label: 'Settings' },
+];
+
+const SUPERVISOR_TABS_MOBILE = [
+    { key: '/supervisor-tasks', icon: 'tasks', label: 'Tasks' },
+    { key: '/leads', icon: 'leads', label: 'Leads' },
+    { key: '/', icon: 'analytics', label: 'Analytics' },
+    { key: '/settings', icon: 'settings', label: 'Settings' },
+];
+
+const SALES_TABS_MOBILE = [
+    { key: '/daily-tasks', icon: 'tasks', label: 'Tasks' },
+    { key: '/leads', icon: 'leads', label: 'Leads' },
+    { key: '/appointments', icon: 'appointment', label: 'Appt' },
     { key: '/settings', icon: 'settings', label: 'Settings' },
 ];
 
@@ -206,6 +229,10 @@ export default function BottomNav() {
         // Desktop: load from localStorage
         return localStorage.getItem('sidebar-collapsed') === '1';
     });
+    const [isMobile, setIsMobile] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        return window.innerWidth < 1024;
+    });
 
     const loadNotificationSummary = useCallback(async () => {
         if (!user) {
@@ -279,6 +306,12 @@ export default function BottomNav() {
         return () => document.body.classList.remove('sidebar-collapsed');
     }, [collapsed]);
 
+    useEffect(() => {
+        const handler = () => setIsMobile(window.innerWidth < 1024);
+        window.addEventListener('resize', handler);
+        return () => window.removeEventListener('resize', handler);
+    }, []);
+
     usePagePolling({
         enabled: Boolean(user),
         intervalMs: 3000,
@@ -305,12 +338,16 @@ export default function BottomNav() {
 
     if (!user || pathname === '/login') return null;
 
-    const tabs =
-        user?.role === 'sales'
-            ? SALES_TABS
-            : user?.role === 'supervisor'
-                ? SUPERVISOR_TABS
-                : ADMIN_TABS;
+    const tabs = useMemo(() => {
+        if (isMobile) {
+            return user?.role === 'sales' ? SALES_TABS_MOBILE
+                : user?.role === 'supervisor' ? SUPERVISOR_TABS_MOBILE
+                : ADMIN_TABS_MOBILE;
+        }
+        return user?.role === 'sales' ? SALES_TABS
+            : user?.role === 'supervisor' ? SUPERVISOR_TABS
+            : ADMIN_TABS;
+    }, [isMobile, user?.role]);
     const isActive = (key) => key === '/' ? pathname === '/' : pathname.startsWith(key);
     
     const clientName = activeWorkspace?.name || tenant.tenant?.name || formatClientNameFromSlug(user?.clientSlug);
@@ -407,6 +444,7 @@ export default function BottomNav() {
                         <span className="bottom-nav-label">{tab.label}</span>
                         {tab.key === '/leads' && hasUnreadLeads && !isActive(tab.key) ? <span className="bottom-nav-unread-dot" /> : null}
                         {tab.key === '/activity-logs' && hasUnreadLogs && !isActive(tab.key) ? <span className="bottom-nav-unread-dot" /> : null}
+                        {tab.key === '/settings' && isMobile && hasUnreadLogs ? <span className="bottom-nav-unread-dot" /> : null}
                         {tab.key === '/daily-tasks' && taskCounts.totalCount > 0 ? (
                             <span className="bottom-nav-count-badge">{taskCounts.totalCount}</span>
                         ) : null}
