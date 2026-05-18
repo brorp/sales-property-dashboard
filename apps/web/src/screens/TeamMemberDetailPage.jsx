@@ -3,20 +3,28 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
+import UserAvatar from '../components/UserAvatar';
 import { useAuth } from '../context/AuthContext';
 import { getFlowStatusLabel, getResultStatusLabel, getSalesStatusLabel, getStatusBadgeClass, getTimeAgo } from '../constants/crm';
 import { apiRequest } from '../lib/api';
+import './TeamMemberDetailPage.css';
+
+const IconPhone = () => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l.77-.77a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+    </svg>
+);
+
+const IconSource = () => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 11a9 9 0 0 1 9 9" /><path d="M4 4a16 16 0 0 1 16 16" /><circle cx="5" cy="19" r="1" fill="currentColor" />
+    </svg>
+);
 
 function formatSuspensionUntil(value) {
-    if (!value) {
-        return '-';
-    }
-
+    if (!value) return '-';
     const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
-        return '-';
-    }
-
+    if (Number.isNaN(parsed.getTime())) return '-';
     return parsed.toLocaleString('id-ID', {
         day: 'numeric',
         month: 'long',
@@ -33,6 +41,11 @@ export default function TeamMemberDetailPage({ memberId }) {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState('');
+
+    useEffect(() => {
+        document.body.classList.add('light-page');
+        return () => document.body.classList.remove('light-page');
+    }, []);
 
     const loadDetail = useCallback(async (options = { silent: false }) => {
         if (!user || !memberId) {
@@ -70,7 +83,7 @@ export default function TeamMemberDetailPage({ memberId }) {
     const leads = Array.isArray(detail?.leads) ? detail.leads : [];
 
     return (
-        <div className="page-container">
+        <div className="page-container set-page">
             <Header
                 title={member ? `${member.roleLabel} Detail` : 'Detail Tim'}
                 showBack
@@ -85,12 +98,11 @@ export default function TeamMemberDetailPage({ memberId }) {
 
             {member ? (
                 <>
-                    <section className="card team-detail-hero">
+                    {/* ── Hero card ──────────────────────────── */}
+                    <section className="set-card team-detail-hero">
                         <div className="team-detail-hero-top">
                             <div className="team-member-main">
-                                <div className="team-avatar team-detail-avatar">
-                                    {String(member.name || '?').charAt(0).toUpperCase()}
-                                </div>
+                                <UserAvatar name={member.name} size="lg" shape="circle" />
                                 <div className="team-member-copy">
                                     <div className="team-member-title-row">
                                         <h2 className="team-detail-title">{member.name}</h2>
@@ -104,7 +116,7 @@ export default function TeamMemberDetailPage({ memberId }) {
                                     <p className="team-email">{member.email}</p>
                                     <p className="team-member-subtitle">{member.clientName || 'Tanpa client'}</p>
                                     {member.isSuspended ? (
-                                        <p className="team-member-subtitle" style={{ color: '#fca5a5' }}>
+                                        <p className="team-member-alert">
                                             Distribution queue diblok sampai {formatSuspensionUntil(member.suspension?.suspendedUntil)}
                                         </p>
                                     ) : null}
@@ -157,8 +169,9 @@ export default function TeamMemberDetailPage({ memberId }) {
                         </div>
                     </section>
 
+                    {/* ── Managed sales ─────────────────────── */}
                     {managedSales.length > 0 ? (
-                        <section className="card team-detail-section">
+                        <section className="set-card team-detail-section">
                             <div className="team-detail-section-head">
                                 <div>
                                     <span className="team-group-kicker">Hierarchy</span>
@@ -176,24 +189,22 @@ export default function TeamMemberDetailPage({ memberId }) {
                                             onClick={() => router.push(`/team/${sales.id}`)}
                                         >
                                             <div className="team-member-main">
-                                                <div className="team-avatar team-avatar-sm">
-                                                    {String(sales.name || '?').charAt(0).toUpperCase()}
-                                                </div>
-                                                    <div className="team-member-copy">
-                                                        <div className="team-member-title-row">
-                                                            <h4 className="team-name">{sales.name}</h4>
-                                                            <span className="badge badge-neutral">{sales.totalLeads || 0} Leads</span>
-                                                            {sales.isSuspended ? <span className="badge badge-danger">Suspended</span> : null}
-                                                        </div>
-                                                        <p className="team-email">{sales.email}</p>
-                                                        <p className="team-member-subtitle">{sales.accepted || 0} accepted • {sales.appointments || 0} appointment</p>
-                                                        {sales.isSuspended ? (
-                                                            <p className="team-member-subtitle" style={{ color: '#fca5a5' }}>
-                                                                Suspended sampai {formatSuspensionUntil(sales.suspension?.suspendedUntil)}
-                                                            </p>
-                                                        ) : null}
+                                                <UserAvatar name={sales.name} size="sm" />
+                                                <div className="team-member-copy">
+                                                    <div className="team-member-title-row">
+                                                        <h4 className="team-name">{sales.name}</h4>
+                                                        <span className="badge badge-neutral">{sales.totalLeads || 0} Leads</span>
+                                                        {sales.isSuspended ? <span className="badge badge-danger">Suspended</span> : null}
                                                     </div>
+                                                    <p className="team-email">{sales.email}</p>
+                                                    <p className="team-member-subtitle">{sales.accepted || 0} accepted · {sales.appointments || 0} appointment</p>
+                                                    {sales.isSuspended ? (
+                                                        <p className="team-member-alert">
+                                                            Suspended sampai {formatSuspensionUntil(sales.suspension?.suspendedUntil)}
+                                                        </p>
+                                                    ) : null}
                                                 </div>
+                                            </div>
                                             <span className="team-member-arrow">→</span>
                                         </button>
                                     </div>
@@ -202,7 +213,8 @@ export default function TeamMemberDetailPage({ memberId }) {
                         </section>
                     ) : null}
 
-                    <section className="team-detail-section">
+                    {/* ── Lead list ─────────────────────────── */}
+                    <section className="set-card team-detail-section">
                         <div className="team-detail-section-head">
                             <div>
                                 <span className="team-group-kicker">Owned Leads</span>
@@ -211,57 +223,63 @@ export default function TeamMemberDetailPage({ memberId }) {
                             <span className="badge badge-warm">{leads.length} Leads</span>
                         </div>
 
-                        <div className="card-list">
-                            {leads.length === 0 ? (
-                                <div className="card">
-                                    <p className="team-empty-title">Belum ada lead.</p>
-                                    <p className="team-empty-copy">Lead yang dimiliki user ini akan tampil di sini.</p>
-                                </div>
-                            ) : leads.map((lead) => (
-                                <div
-                                    key={lead.id}
-                                    className="card card-clickable team-lead-card"
-                                    onClick={() => router.push(`/leads/${lead.id}`)}
-                                >
-                                    <div className="lead-row-top">
-                                        <div className="lead-row-name">{lead.name}</div>
-                                        <span className="lead-row-ago">{getTimeAgo(lead.createdAt)}</span>
-                                    </div>
-                                    <div className="lead-row-meta">
-                                        <span>📱 {lead.phone}</span>
-                                        <span>📣 {lead.source}</span>
-                                    </div>
-                                    <div className="team-lead-badges">
-                                        <span className={`badge ${getStatusBadgeClass('flow', lead.flowStatus)}`}>
-                                            {getFlowStatusLabel(lead.flowStatus || 'open')}
-                                        </span>
-                                        {lead.salesStatus ? (
-                                            <span className={`badge ${getStatusBadgeClass('sales', lead.salesStatus)}`}>
-                                                {getSalesStatusLabel(lead.salesStatus)}
-                                            </span>
-                                        ) : null}
-                                        {lead.resultStatus ? (
-                                            <span className={`badge ${getStatusBadgeClass('result', lead.resultStatus)}`}>
-                                                {getResultStatusLabel(lead.resultStatus)}
-                                            </span>
-                                        ) : null}
-                                    </div>
-                                    {member.role !== 'sales' ? (
-                                        <div className="lead-row-meta">
-                                            <span>Assigned Sales: {lead.assignedUserName || '-'}</span>
+                        {leads.length === 0 ? (
+                            <div className="td-empty">
+                                <p className="td-empty-title">Belum ada lead.</p>
+                                <p className="td-empty-copy">Lead yang dimiliki user ini akan tampil di sini.</p>
+                            </div>
+                        ) : (
+                            <div className="td-lead-list">
+                                {leads.map((lead) => (
+                                    <div
+                                        key={lead.id}
+                                        className="td-lead-card"
+                                        onClick={() => router.push(`/leads/${lead.id}`)}
+                                    >
+                                        <div className="td-lead-head">
+                                            <span className="td-lead-name">{lead.name}</span>
+                                            <span className="td-lead-ago">{getTimeAgo(lead.createdAt)}</span>
                                         </div>
-                                    ) : null}
-                                </div>
-                            ))}
-                        </div>
+                                        <div className="td-lead-meta">
+                                            <span className="td-meta-item">
+                                                <IconPhone />
+                                                {lead.phone}
+                                            </span>
+                                            <span className="td-meta-item">
+                                                <IconSource />
+                                                {lead.source}
+                                            </span>
+                                        </div>
+                                        <div className="td-lead-badges">
+                                            <span className={`badge ${getStatusBadgeClass('flow', lead.flowStatus)}`}>
+                                                {getFlowStatusLabel(lead.flowStatus || 'open')}
+                                            </span>
+                                            {lead.salesStatus ? (
+                                                <span className={`badge ${getStatusBadgeClass('sales', lead.salesStatus)}`}>
+                                                    {getSalesStatusLabel(lead.salesStatus)}
+                                                </span>
+                                            ) : null}
+                                            {lead.resultStatus ? (
+                                                <span className={`badge ${getStatusBadgeClass('result', lead.resultStatus)}`}>
+                                                    {getResultStatusLabel(lead.resultStatus)}
+                                                </span>
+                                            ) : null}
+                                        </div>
+                                        {member.role !== 'sales' ? (
+                                            <div className="td-lead-assigned">Assigned: {lead.assignedUserName || '-'}</div>
+                                        ) : null}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </section>
                 </>
             ) : null}
 
             {!member && !loading && !error ? (
-                <div className="card">
-                    <p className="team-empty-title">Member tidak ditemukan.</p>
-                    <p className="team-empty-copy">Coba kembali ke halaman team lalu pilih ulang user yang ingin dilihat.</p>
+                <div className="set-card td-empty">
+                    <p className="td-empty-title">Member tidak ditemukan.</p>
+                    <p className="td-empty-copy">Coba kembali ke halaman team lalu pilih ulang user yang ingin dilihat.</p>
                 </div>
             ) : null}
         </div>

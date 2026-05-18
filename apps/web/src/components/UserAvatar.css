@@ -27,6 +27,14 @@
     letter-spacing: 0.02em;
 }
 
+.user-avatar--lg {
+    width: 72px;
+    height: 72px;
+    font-size: 1.75rem;
+    letter-spacing: -0.02em;
+    margin-bottom: 10px;
+}
+
 .user-avatar--rounded {
     border-radius: 14px;
 }

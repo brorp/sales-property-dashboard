@@ -25,6 +25,7 @@ import {
 import { INDONESIA_CITIES } from '../constants/indonesiaCities';
 import CustomerPipelineProgress from '../components/CustomerPipelineProgress';
 import Header from '../components/Header';
+import UserAvatar from '../components/UserAvatar';
 import PickerTriggerField from '../components/PickerTriggerField';
 import { apiRequest } from '../lib/api';
 import './LeadDetailPage.css';
@@ -72,25 +73,6 @@ function addDays(value, days) {
 
 function isAgentSource(value) {
     return String(value || '').trim().toLowerCase() === 'agent';
-}
-
-function getInitials(name) {
-    if (!name) return '?';
-    const parts = String(name).trim().split(/\s+/);
-    if (parts.length === 1) return parts[0][0].toUpperCase();
-    return (parts[0][0] + parts[1][0]).toUpperCase();
-}
-
-const AVATAR_COLORS = [
-    ['#1E3A5F', '#2C5282'], ['#92400E', '#B45309'],
-    ['#065F46', '#047857'], ['#4C1D95', '#6D28D9'],
-    ['#9D174D', '#BE185D'], ['#1E3A5F', '#1E40AF'],
-];
-
-function getAvatarColor(name) {
-    let hash = 0;
-    for (let i = 0; i < (name || '').length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
 function normalizeResultStatusForForm(value) {
@@ -628,9 +610,7 @@ export default function LeadDetailPage({ leadId }) {
             {/* ── Profile card ─────────────────────────────────── */}
             <div className="ldp-profile-card">
                 <div className="ldp-profile-head">
-                    <div className="lc-avatar lc-avatar-initials" style={{ background: `linear-gradient(135deg, ${getAvatarColor(lead.name)[0]}, ${getAvatarColor(lead.name)[1]})`, width: 52, height: 52, fontSize: '1rem' }}>
-                        {getInitials(lead.name)}
-                    </div>
+                    <UserAvatar name={lead.name} size="md" shape="circle" />
                     <div className="ldp-profile-identity">
                         <h1 className="ldp-name">{lead.name}</h1>
                         <div className="ldp-status-row">

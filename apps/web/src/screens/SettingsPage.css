@@ -11,6 +11,22 @@
     --text-secondary: #374151;
     --text-muted: #9CA3AF;
     --primary: #1E3A5F;
+    --hot: #EF4444;
+    --hot-bg: #FEE2E2;
+    --warm: #F97316;
+    --warm-bg: #FFEDD5;
+    --cold: #0EA5E9;
+    --cold-bg: #E0F2FE;
+    --info: #0EA5E9;
+    --info-bg: #E0F2FE;
+    --survey: #0D9488;
+    --survey-bg: #CCFBF1;
+    --success: #16A34A;
+    --success-bg: #DCFCE7;
+    --danger: #DC2626;
+    --danger-bg: #FEE2E2;
+    --purple: #7C3AED;
+    --purple-bg: #EDE9FE;
 }
 
 .set-card {

@@ -169,6 +169,10 @@
     font-weight: 700;
     line-height: 1.2;
     color: #0F172A;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .team-email {
@@ -340,6 +344,17 @@
     color: #4F46E5;
 }
 
+/* 5th overview card (Suspended) spans full width on mobile so it doesn't sit alone */
+@media (max-width: 767px) {
+    .team-overview-grid > :last-child:nth-child(odd):nth-child(n+3) {
+        grid-column: 1 / -1;
+    }
+
+    .team-summary-value {
+        font-size: 1.625rem;
+    }
+}
+
 @media (min-width: 768px) {
     .team-overview-grid {
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -358,14 +373,15 @@
     .team-member-row {
         flex-direction: column;
         align-items: stretch;
+        gap: 10px;
     }
 
     .team-member-action-stack {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: flex-end;
         align-self: stretch;
-    }
-
-    .team-edit-btn {
-        align-self: flex-end;
     }
 
     .team-lifecycle-actions {

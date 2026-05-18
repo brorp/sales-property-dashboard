@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import Header from '../components/Header';
+import UserAvatar from '../components/UserAvatar';
 import './ProfilePage.css';
 
 function formatClientNameFromSlug(slug) {
@@ -113,7 +114,7 @@ export default function ProfilePage() {
 
             {/* ── Profile Card ──────────────────────────────── */}
             <div className="pf-card">
-                <div className="pf-avatar">{user.name.charAt(0).toUpperCase()}</div>
+                <UserAvatar name={user.name} size="lg" shape="circle" />
                 <div className="pf-info">
                     <h2 className="pf-name">{user.name}</h2>
                     <p className="pf-email">{user.email}</p>

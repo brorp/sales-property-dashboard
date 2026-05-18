@@ -1,20 +1,14 @@
+/* ── TeamMemberDetailPage — light theme ──────────────────────────────── */
+
+/* ── Hero card ──────────────────────────────────────────────────────── */
+
 .team-detail-hero {
-    padding: 18px;
-    margin-bottom: 16px;
+    padding: 20px;
+    margin-bottom: 14px;
 }
 
 .team-detail-hero-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px;
-}
-
-.team-detail-avatar {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
-    font-size: 1.15rem;
+    margin-bottom: 16px;
 }
 
 .team-detail-title {
@@ -22,42 +16,56 @@
     font-weight: 800;
     line-height: 1.15;
     letter-spacing: -0.03em;
-    color: var(--text-primary);
+    color: #0F172A;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
+
+/* ── Meta grid ──────────────────────────────────────────────────────── */
 
 .team-detail-meta-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 8px;
     margin-top: 16px;
 }
 
 .team-detail-meta-item {
-    padding: 12px;
-    border-radius: var(--radius-md);
-    background: rgba(255, 255, 255, 0.035);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 11px 12px;
+    border-radius: 10px;
+    background: #F8FAFC;
+    border: 1px solid #E5E7EB;
 }
 
 .team-detail-meta-label {
     display: block;
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 6px;
+    color: #9CA3AF;
+    margin-bottom: 4px;
 }
 
 .team-detail-meta-item strong {
-    color: var(--text-primary);
+    font-size: 0.875rem;
+    color: #0F172A;
+    font-weight: 600;
+    word-break: break-word;
 }
+
+/* ── Stats ──────────────────────────────────────────────────────────── */
 
 .team-detail-stats {
     margin-top: 14px;
 }
 
+/* ── Section wrapper ────────────────────────────────────────────────── */
+
 .team-detail-section {
-    margin-bottom: 16px;
+    margin-bottom: 14px;
+    padding: 16px;
 }
 
 .team-detail-section-head {
@@ -65,7 +73,7 @@
     justify-content: space-between;
     align-items: flex-start;
     gap: 12px;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
 }
 
 .team-detail-sales-list {
@@ -74,26 +82,117 @@
     border-top: none;
 }
 
-.team-lead-card {
+/* ── Lead list ──────────────────────────────────────────────────────── */
+
+.td-lead-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 12px;
+    overflow: hidden;
 }
 
-.team-lead-badges {
+.td-lead-card {
     display: flex;
+    flex-direction: column;
     gap: 8px;
+    padding: 13px 14px;
+    background: #FFFFFF;
+    cursor: pointer;
+    border-bottom: 1px solid #F1F5F9;
+    transition: background 120ms ease;
+}
+
+.td-lead-card:last-child {
+    border-bottom: none;
+}
+
+.td-lead-card:hover {
+    background: #F8FAFC;
+}
+
+.td-lead-card:active {
+    background: #EEF3F9;
+}
+
+.td-lead-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.td-lead-name {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: #1E3A5F;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.td-lead-ago {
+    font-size: 0.775rem;
+    color: #9CA3AF;
+    flex-shrink: 0;
+}
+
+.td-lead-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    font-size: 0.8125rem;
+    color: #6B7280;
+}
+
+.td-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.td-meta-item svg {
+    flex-shrink: 0;
+    color: #9CA3AF;
+}
+
+.td-lead-badges {
+    display: flex;
+    gap: 6px;
     flex-wrap: wrap;
 }
+
+.td-lead-assigned {
+    font-size: 0.8rem;
+    color: #9CA3AF;
+}
+
+/* ── Empty state ────────────────────────────────────────────────────── */
+
+.td-empty {
+    padding: 32px 16px;
+    text-align: center;
+}
+
+.td-empty-title {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: #1E3A5F;
+    margin: 0 0 6px;
+}
+
+.td-empty-copy {
+    font-size: 0.8125rem;
+    color: #9CA3AF;
+    margin: 0;
+    line-height: 1.55;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────── */
 
 @media (min-width: 768px) {
     .team-detail-meta-grid {
         grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-}
-
-@media (max-width: 767px) {
-    .team-detail-meta-grid {
-        grid-template-columns: 1fr;
     }
 }
