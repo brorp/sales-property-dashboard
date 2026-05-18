@@ -5,10 +5,14 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
 import Header from '../components/Header';
+import Modal from '../components/Modal';
+import SelectFilter from '../components/SelectFilter';
+import UserAvatar from '../components/UserAvatar';
 import { apiRequest } from '../lib/api';
 import { downloadLeadTransferWorkbook } from '../lib/lead-transfer-workbook';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { useTenant } from '../context/TenantContext';
+import './SettingsPage.css';
 
 const initialForm = {
     name: '',
@@ -29,6 +33,7 @@ function isLockedTeamMember(member) {
     const email = String(member?.email || '').trim().toLowerCase();
     return LOCKED_TEAM_MEMBER_EMAILS.has(email);
 }
+
 
 function sortMembersWithLockedLast(items = []) {
     return [...items].sort((a, b) => {
@@ -128,9 +133,7 @@ function MemberButton({ member, subtitle, metaBadge, onClick, compact = false, i
             className={`team-member-trigger ${compact ? 'team-member-trigger-compact' : ''}`}
         >
             <div className="team-member-main">
-                <div className={`team-avatar ${compact ? 'team-avatar-sm' : ''}`}>
-                    {String(member?.name || '?').charAt(0).toUpperCase()}
-                </div>
+                <UserAvatar name={member?.name} size={compact ? 'sm' : 'md'} />
                 <div className="team-member-copy">
                     <div className="team-member-title-row">
                         <h3 className="team-name">{member.name}</h3>
@@ -170,6 +173,11 @@ export default function TeamPage() {
     const [lifecycleState, setLifecycleState] = useState(null);
     const [assignmentState, setAssignmentState] = useState(null);
     const [deleteSupervisorState, setDeleteSupervisorState] = useState(null);
+
+    useEffect(() => {
+        document.body.classList.add('light-page');
+        return () => document.body.classList.remove('light-page');
+    }, []);
 
     useEffect(() => {
         if (!isAdmin) {
@@ -704,7 +712,7 @@ export default function TeamPage() {
     };
 
     return (
-        <div className="page-container">
+        <div className="page-container set-page">
             <Header
                 title={`Kelola Tim ${getRoleLabel(user?.role)}`}
                 rightAction={(
@@ -732,8 +740,8 @@ export default function TeamPage() {
                 </div>
             ) : null}
 
-            {submitSuccess ? <div className="settings-success">{submitSuccess}</div> : null}
-            {submitError ? <div className="login-error">{submitError}</div> : null}
+            {submitSuccess ? <p className="settings-success">{submitSuccess}</p> : null}
+            {submitError ? <p className="settings-error">{submitError}</p> : null}
 
             <section className="team-overview-grid">
                 {overviewCards.map((item) => (
@@ -749,14 +757,14 @@ export default function TeamPage() {
 
             <div className="team-list">
                 {groups.length === 0 ? (
-                    <div className="card">
+                    <div className="set-card">
                         <p className="team-empty-title">Belum ada struktur tim.</p>
                         <p className="team-empty-copy">Supervisor dan sales yang aktif akan tampil di halaman ini.</p>
                     </div>
                 ) : null}
 
                 {groups.map((group) => (
-                    <section key={group.id} className="card team-group-shell">
+                    <section key={group.id} className="set-card team-group-shell">
                         {showClientHeader ? (
                             <div className="team-group-header">
                                 <div>
@@ -966,340 +974,216 @@ export default function TeamPage() {
                 ))}
             </div>
 
-            {createModal ? (
-                <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget) closeCreateModal(); }}>
-                    <div className="bottom-sheet">
-                        <div className="sheet-handle" />
-                        <h2>
-                            {createModal.mode === 'supervisor'
-                                ? '➕ Tambah Supervisor Baru'
-                                : `➕ Tambah Sales${createModal.supervisorName ? ` untuk ${createModal.supervisorName}` : ''}`}
-                        </h2>
-                        <form onSubmit={handleCreateSales} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <div className="input-group">
-                                <label>Nama</label>
-                                <input className="input-field" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required />
-                            </div>
-                            <div className="input-group">
-                                <label>Email</label>
-                                <input type="email" className="input-field" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required />
-                            </div>
-                            <div className="input-group">
-                                <label>No WhatsApp</label>
-                                <input className="input-field" placeholder="08xxxx / +62xxxx" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
-                            </div>
-                            <div className="input-group">
-                                <label>Password</label>
-                                <input className="input-field" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required />
-                            </div>
-                            {createModal.mode === 'sales' ? (
-                                <>
-                                    {user?.role === 'client_admin' ? (
-                                        <div className="input-group">
-                                            <label>Supervisor</label>
-                                            <select
-                                                className="input-field"
-                                                value={form.supervisorId}
-                                                onChange={(event) => setForm({ ...form, supervisorId: event.target.value })}
-                                                required
-                                            >
-                                                <option value="">Pilih supervisor</option>
-                                                {availableSupervisors.map((supervisor) => (
-                                                    <option key={supervisor.id} value={supervisor.id}>
-                                                        {supervisor.name}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    ) : null}
-                                    <div className="input-group">
-                                        <label>Queue Order (optional)</label>
-                                        <input type="number" min={1} className="input-field" value={form.queueOrder} onChange={(event) => setForm({ ...form, queueOrder: event.target.value })} />
-                                    </div>
-                                    <div className="input-group">
-                                        <label>Queue Label (optional)</label>
-                                        <input className="input-field" value={form.queueLabel} onChange={(event) => setForm({ ...form, queueLabel: event.target.value })} />
-                                    </div>
-                                </>
+            <Modal
+                isOpen={Boolean(createModal)}
+                onClose={closeCreateModal}
+                title={createModal?.mode === 'supervisor'
+                    ? 'Tambah Supervisor Baru'
+                    : `Tambah Sales${createModal?.supervisorName ? ` untuk ${createModal.supervisorName}` : ''}`}
+            >
+                <form onSubmit={handleCreateSales}>
+                    <div className="input-group">
+                        <label>Nama</label>
+                        <input className="input-field" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required autoFocus />
+                    </div>
+                    <div className="input-group">
+                        <label>Email</label>
+                        <input type="email" className="input-field" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+                    </div>
+                    <div className="input-group">
+                        <label>No WhatsApp</label>
+                        <input className="input-field" placeholder="08xxxx / +62xxxx" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                    </div>
+                    <div className="input-group">
+                        <label>Password</label>
+                        <input className="input-field" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+                    </div>
+                    {createModal?.mode === 'sales' ? (
+                        <>
+                            {user?.role === 'client_admin' ? (
+                                <div className="input-group">
+                                    <label>Supervisor</label>
+                                    <SelectFilter
+                                        options={availableSupervisors.map((s) => ({ value: s.id, label: s.name }))}
+                                        value={form.supervisorId}
+                                        onChange={(val) => setForm({ ...form, supervisorId: val })}
+                                        placeholder="Pilih supervisor"
+                                        clearable={false}
+                                    />
+                                </div>
                             ) : null}
-                            {submitError ? <div className="login-error">{submitError}</div> : null}
-                            <button type="submit" className="btn btn-primary btn-full" disabled={submitLoading}>
-                                {submitLoading
-                                    ? 'Creating...'
-                                    : createModal.mode === 'supervisor'
-                                        ? 'Create Supervisor'
-                                        : 'Create Sales'}
-                            </button>
-                            <button type="button" className="btn btn-secondary btn-full" onClick={closeCreateModal}>Batal</button>
-                        </form>
+                            <div className="input-group">
+                                <label>Queue Order (optional)</label>
+                                <input type="number" min={1} className="input-field" value={form.queueOrder} onChange={(e) => setForm({ ...form, queueOrder: e.target.value })} />
+                            </div>
+                            <div className="input-group">
+                                <label>Queue Label (optional)</label>
+                                <input className="input-field" value={form.queueLabel} onChange={(e) => setForm({ ...form, queueLabel: e.target.value })} />
+                            </div>
+                        </>
+                    ) : null}
+                    {submitError ? <p className="settings-error">{submitError}</p> : null}
+                    <div className="modal-actions">
+                        <button type="button" className="btn btn-secondary" onClick={closeCreateModal}>Batal</button>
+                        <button type="submit" className="btn btn-primary" disabled={submitLoading}>
+                            {submitLoading ? 'Menyimpan...' : createModal?.mode === 'supervisor' ? 'Tambah Supervisor' : 'Tambah Sales'}
+                        </button>
                     </div>
-                </div>
-            ) : null}
+                </form>
+            </Modal>
 
-            {assignmentState ? (
-                <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget) closeAssignmentModal(); }}>
-                    <div className="bottom-sheet">
-                        <div className="sheet-handle" />
-                        <h2>{assignmentState.mode === 'reactivate' ? 'Reactivate Sales' : 'Assign Sales ke Supervisor'}</h2>
-                        <div className="team-lifecycle-copy">
-                            <p>
-                                <strong>{assignmentState.sales?.name}</strong>
-                                {assignmentState.mode === 'reactivate'
-                                    ? ' akan diaktifkan kembali dan langsung ditempatkan ke supervisor baru.'
-                                    : ' akan dipindahkan ke supervisor yang kamu pilih.'}
-                            </p>
-                            <p className="team-modal-helper">
-                                Workspace: {groups.find((group) => group.clientId === assignmentState.clientId)?.clientName || assignmentState.sales?.clientName || '-'}
-                            </p>
-                        </div>
+            <Modal
+                isOpen={Boolean(assignmentState)}
+                onClose={closeAssignmentModal}
+                title={assignmentState?.mode === 'reactivate' ? 'Reactivate Sales' : 'Assign Sales ke Supervisor'}
+            >
+                <p style={{ margin: 0, fontSize: '0.9375rem', color: '#374151' }}>
+                    <strong style={{ color: '#1E3A5F' }}>{assignmentState?.sales?.name}</strong>
+                    {assignmentState?.mode === 'reactivate'
+                        ? ' akan diaktifkan kembali dan langsung ditempatkan ke supervisor baru.'
+                        : ' akan dipindahkan ke supervisor yang kamu pilih.'}
+                </p>
+                <div className="input-group">
+                    <label>Supervisor Tujuan</label>
+                    <SelectFilter
+                        options={(supervisorOptionsByClient.get(assignmentState?.clientId || 'no-client') || []).map((s) => ({ value: s.id, label: s.name }))}
+                        value={assignmentState?.supervisorId || ''}
+                        onChange={(val) => setAssignmentState((prev) => prev ? { ...prev, supervisorId: val, error: '' } : prev)}
+                        placeholder="Pilih supervisor"
+                        clearable={false}
+                    />
+                </div>
+                {assignmentState?.error ? <p className="settings-error">{assignmentState.error}</p> : null}
+                <div className="modal-actions">
+                    <button type="button" className="btn btn-secondary" onClick={closeAssignmentModal} disabled={assignmentState?.submitting}>
+                        Batal
+                    </button>
+                    <button type="button" className="btn btn-primary" onClick={() => void handleSubmitAssignment()} disabled={assignmentState?.submitting}>
+                        {assignmentState?.submitting ? 'Menyimpan...' : assignmentState?.mode === 'reactivate' ? 'Reactivate Sales' : 'Simpan Supervisor'}
+                    </button>
+                </div>
+            </Modal>
+
+            <Modal
+                isOpen={Boolean(deleteSupervisorState)}
+                onClose={closeDeleteSupervisor}
+                title="Hapus Supervisor"
+            >
+                <p style={{ margin: 0, fontSize: '0.9375rem', color: '#374151' }}>
+                    Supervisor <strong style={{ color: '#1E3A5F' }}>{deleteSupervisorState?.supervisor?.name}</strong> akan dinonaktifkan dan tidak bisa login lagi. Aksi ini hanya diizinkan jika tidak ada sales aktif di bawahnya.
+                </p>
+                <div className="input-group">
+                    <label>Password Admin</label>
+                    <input
+                        type="password"
+                        className="input-field"
+                        value={deleteSupervisorState?.passwordConfirmation || ''}
+                        onChange={(e) => setDeleteSupervisorState((prev) => prev ? { ...prev, passwordConfirmation: e.target.value, error: '' } : prev)}
+                        placeholder="Masukkan password admin untuk konfirmasi"
+                    />
+                </div>
+                {deleteSupervisorState?.error ? <p className="settings-error">{deleteSupervisorState.error}</p> : null}
+                <div className="modal-actions">
+                    <button type="button" className="btn btn-secondary" onClick={closeDeleteSupervisor} disabled={deleteSupervisorState?.submitting}>
+                        Batal
+                    </button>
+                    <button type="button" className="btn btn-danger" onClick={() => void handleDeleteSupervisor()} disabled={deleteSupervisorState?.submitting}>
+                        {deleteSupervisorState?.submitting ? 'Menghapus...' : 'Ya, Hapus Supervisor'}
+                    </button>
+                </div>
+            </Modal>
+
+            <Modal
+                isOpen={Boolean(editingMember)}
+                onClose={closeEditMember}
+                title={`Edit ${editingMember?.role === 'supervisor' ? 'Supervisor' : 'Sales'}`}
+            >
+                <form onSubmit={handleUpdateMember}>
+                    <div className="input-group">
+                        <label>Nama</label>
+                        <input className="input-field" value={editForm.name} onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))} required autoFocus />
+                    </div>
+                    <div className="input-group">
+                        <label>No WhatsApp</label>
+                        <input className="input-field" placeholder="08xxxx / +62xxxx" value={editForm.phone} onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value }))} />
+                    </div>
+                    {editingMember?.role === 'sales' || editingMember?.role === 'supervisor' ? (
+                        <>
+                            <div className="input-group">
+                                <label>Email Login</label>
+                                <input type="email" className="input-field" value={editForm.email} onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))} required />
+                            </div>
+                            <div className="input-group">
+                                <label>Password Baru (opsional)</label>
+                                <input className="input-field" placeholder="Kosongkan jika tidak diganti" value={editForm.password} onChange={(e) => setEditForm((prev) => ({ ...prev, password: e.target.value }))} />
+                            </div>
+                        </>
+                    ) : null}
+                    {editError ? <p className="settings-error">{editError}</p> : null}
+                    <div className="modal-actions">
+                        <button type="button" className="btn btn-secondary" onClick={closeEditMember} disabled={editLoading}>Batal</button>
+                        <button type="submit" className="btn btn-primary" disabled={editLoading}>
+                            {editLoading ? 'Menyimpan...' : 'Simpan Perubahan'}
+                        </button>
+                    </div>
+                </form>
+            </Modal>
+
+            <Modal
+                isOpen={Boolean(lifecycleState)}
+                onClose={closeLifecycleModal}
+                title={lifecycleState?.step === 'export' ? 'Export Leads Sebelum Deactivate' : 'Konfirmasi Deactivate Sales'}
+            >
+                {lifecycleState?.step === 'export' ? (
+                    <>
+                        <p style={{ margin: 0, fontSize: '0.9375rem', color: '#374151' }}>
+                            Sebelum menonaktifkan <strong style={{ color: '#1E3A5F' }}>{lifecycleState.member?.name}</strong>, export semua leads terlebih dahulu. File XLSX ini bisa dipakai untuk reassign ke sales lain tanpa duplikat.
+                        </p>
                         <div className="input-group">
-                            <label>Supervisor Tujuan</label>
-                            <select
+                            <label>Access Code Export</label>
+                            <input
+                                type="password"
                                 className="input-field"
-                                value={assignmentState.supervisorId || ''}
-                                onChange={(event) => setAssignmentState((prev) => (
-                                    prev
-                                        ? { ...prev, supervisorId: event.target.value, error: '' }
-                                        : prev
-                                ))}
-                            >
-                                <option value="">Pilih supervisor</option>
-                                {(supervisorOptionsByClient.get(assignmentState.clientId || 'no-client') || []).map((supervisor) => (
-                                    <option key={supervisor.id} value={supervisor.id}>
-                                        {supervisor.name}
-                                    </option>
-                                ))}
-                            </select>
+                                value={lifecycleState.accessCode || ''}
+                                onChange={(e) => setLifecycleState((prev) => prev ? { ...prev, accessCode: e.target.value, error: '' } : prev)}
+                                placeholder="Masukkan access code export"
+                            />
                         </div>
-                        {assignmentState.error ? <div className="login-error">{assignmentState.error}</div> : null}
-                        <div className="team-lifecycle-actions">
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={closeAssignmentModal}
-                                disabled={assignmentState.submitting}
-                            >
-                                Batal
-                            </button>
-                            <button
-                                type="button"
-                                className="btn btn-primary"
-                                onClick={() => void handleSubmitAssignment()}
-                                disabled={assignmentState.submitting}
-                            >
-                                {assignmentState.submitting
-                                    ? 'Menyimpan...'
-                                    : assignmentState.mode === 'reactivate'
-                                        ? 'Reactivate Sales'
-                                        : 'Simpan Supervisor'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
-
-            {deleteSupervisorState ? (
-                <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget) closeDeleteSupervisor(); }}>
-                    <div className="bottom-sheet">
-                        <div className="sheet-handle" />
-                        <h2>Hapus Supervisor</h2>
-                        <div className="team-lifecycle-copy">
-                            <p>
-                                Supervisor <strong>{deleteSupervisorState.supervisor?.name}</strong> akan dinonaktifkan dan tidak bisa login lagi.
-                            </p>
-                            <p className="team-modal-helper">
-                                Aksi ini hanya diizinkan jika tidak ada sales aktif di bawah supervisor tersebut.
-                            </p>
-                        </div>
+                    </>
+                ) : (
+                    <>
+                        <p style={{ margin: 0, fontSize: '0.9375rem', color: '#374151' }}>
+                            Export selesai untuk <strong style={{ color: '#1E3A5F' }}>{lifecycleState?.member?.name}</strong>
+                            {typeof lifecycleState?.exportedCount === 'number' ? ` (${lifecycleState.exportedCount} leads)` : ''}. Setelah dinonaktifkan, sales tidak bisa login hingga diaktifkan kembali.
+                        </p>
                         <div className="input-group">
                             <label>Password Admin</label>
                             <input
                                 type="password"
                                 className="input-field"
-                                value={deleteSupervisorState.passwordConfirmation || ''}
-                                onChange={(event) => setDeleteSupervisorState((prev) => (
-                                    prev
-                                        ? { ...prev, passwordConfirmation: event.target.value, error: '' }
-                                        : prev
-                                ))}
+                                value={lifecycleState?.passwordConfirmation || ''}
+                                onChange={(e) => setLifecycleState((prev) => prev ? { ...prev, passwordConfirmation: e.target.value, error: '' } : prev)}
                                 placeholder="Masukkan password admin untuk konfirmasi"
                             />
                         </div>
-                        {deleteSupervisorState.error ? <div className="login-error">{deleteSupervisorState.error}</div> : null}
-                        <div className="team-lifecycle-actions">
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={closeDeleteSupervisor}
-                                disabled={deleteSupervisorState.submitting}
-                            >
-                                Batal
-                            </button>
-                            <button
-                                type="button"
-                                className="btn btn-danger"
-                                onClick={() => void handleDeleteSupervisor()}
-                                disabled={deleteSupervisorState.submitting}
-                            >
-                                {deleteSupervisorState.submitting ? 'Menghapus...' : 'Ya, Hapus Supervisor'}
-                            </button>
-                        </div>
-                    </div>
+                    </>
+                )}
+                {lifecycleState?.error ? <p className="settings-error">{lifecycleState.error}</p> : null}
+                <div className="modal-actions">
+                    <button type="button" className="btn btn-secondary" onClick={closeLifecycleModal} disabled={lifecycleState?.exporting || lifecycleState?.submitting}>
+                        Batal
+                    </button>
+                    {lifecycleState?.step === 'export' ? (
+                        <button type="button" className="btn btn-primary" onClick={() => void handleExportSalesLeads()} disabled={lifecycleState?.exporting}>
+                            {lifecycleState?.exporting ? 'Exporting...' : 'Export Leads XLSX'}
+                        </button>
+                    ) : (
+                        <button type="button" className="btn btn-danger" onClick={() => void handleConfirmDeactivate()} disabled={lifecycleState?.submitting}>
+                            {lifecycleState?.submitting ? 'Menyimpan...' : 'Ya, Deactivate Sales'}
+                        </button>
+                    )}
                 </div>
-            ) : null}
-
-            {editingMember ? (
-                <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget) closeEditMember(); }}>
-                    <div className="bottom-sheet">
-                        <div className="sheet-handle" />
-                        <h2>✏️ Edit {editingMember.role === 'supervisor' ? 'Supervisor' : 'Sales'}</h2>
-                        <form onSubmit={handleUpdateMember} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <div className="input-group">
-                                <label>Nama</label>
-                                <input
-                                    className="input-field"
-                                    value={editForm.name}
-                                    onChange={(event) => setEditForm((prev) => ({ ...prev, name: event.target.value }))}
-                                    required
-                                />
-                            </div>
-                            <div className="input-group">
-                                <label>No WhatsApp</label>
-                                <input
-                                    className="input-field"
-                                    placeholder="08xxxx / +62xxxx"
-                                    value={editForm.phone}
-                                    onChange={(event) => setEditForm((prev) => ({ ...prev, phone: event.target.value }))}
-                                />
-                            </div>
-                            {editingMember.role === 'sales' || editingMember.role === 'supervisor' ? (
-                                <>
-                                    <div className="input-group">
-                                        <label>Email Login</label>
-                                        <input
-                                            type="email"
-                                            className="input-field"
-                                            value={editForm.email}
-                                            onChange={(event) => setEditForm((prev) => ({ ...prev, email: event.target.value }))}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="input-group">
-                                        <label>Password Baru (opsional)</label>
-                                        <input
-                                            className="input-field"
-                                            placeholder="Kosongkan jika tidak diganti"
-                                            value={editForm.password}
-                                            onChange={(event) => setEditForm((prev) => ({ ...prev, password: event.target.value }))}
-                                        />
-                                    </div>
-                                </>
-                            ) : null}
-                            {editError ? <div className="login-error">{editError}</div> : null}
-                            <button type="submit" className="btn btn-primary btn-full" disabled={editLoading}>
-                                {editLoading ? 'Menyimpan...' : 'Simpan Perubahan'}
-                            </button>
-                            <button type="button" className="btn btn-secondary btn-full" onClick={closeEditMember} disabled={editLoading}>
-                                Batal
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            ) : null}
-
-            {lifecycleState ? (
-                <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget) closeLifecycleModal(); }}>
-                    <div className="bottom-sheet">
-                        <div className="sheet-handle" />
-                        <h2>{lifecycleState.step === 'export' ? 'Export Leads Sebelum Deactivate' : 'Konfirmasi Deactivate Sales'}</h2>
-                        <div className="team-lifecycle-copy">
-                            {lifecycleState.step === 'export' ? (
-                                <>
-                                    <p>
-                                        Sebelum menonaktifkan <strong>{lifecycleState.member?.name}</strong>, export semua leads yang
-                                        masih berelasi dengan sales ini terlebih dahulu.
-                                    </p>
-                                    <p>
-                                        File XLSX hasil export ini bisa dipakai lagi di menu import leads untuk reassign ke sales lain
-                                        tanpa membuat lead duplikat.
-                                    </p>
-                                    <div className="input-group" style={{ marginTop: 12 }}>
-                                        <label>Access Code Export</label>
-                                        <input
-                                            type="password"
-                                            className="input-field"
-                                            value={lifecycleState.accessCode || ''}
-                                            onChange={(event) => setLifecycleState((prev) => (
-                                                prev
-                                                    ? { ...prev, accessCode: event.target.value, error: '' }
-                                                    : prev
-                                            ))}
-                                            placeholder="Masukkan access code export"
-                                        />
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <p>
-                                        Export selesai untuk <strong>{lifecycleState.member?.name}</strong>
-                                        {typeof lifecycleState.exportedCount === 'number' ? ` (${lifecycleState.exportedCount} leads)` : ''}.
-                                    </p>
-                                    <p>
-                                        Setelah dinonaktifkan, sales ini tidak bisa login dan tidak akan ikut distribusi lead sampai
-                                        diaktifkan kembali oleh admin.
-                                    </p>
-                                    <div className="input-group" style={{ marginTop: 12 }}>
-                                        <label>Password Admin</label>
-                                        <input
-                                            type="password"
-                                            className="input-field"
-                                            value={lifecycleState.passwordConfirmation || ''}
-                                            onChange={(event) => setLifecycleState((prev) => (
-                                                prev
-                                                    ? { ...prev, passwordConfirmation: event.target.value, error: '' }
-                                                    : prev
-                                            ))}
-                                            placeholder="Masukkan password admin untuk konfirmasi"
-                                        />
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
-                        {lifecycleState.error ? <div className="login-error">{lifecycleState.error}</div> : null}
-
-                        <div className="team-lifecycle-actions">
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={closeLifecycleModal}
-                                disabled={lifecycleState.exporting || lifecycleState.submitting}
-                            >
-                                Batal
-                            </button>
-                            {lifecycleState.step === 'export' ? (
-                                <button
-                                    type="button"
-                                    className="btn btn-primary"
-                                    onClick={() => void handleExportSalesLeads()}
-                                    disabled={lifecycleState.exporting}
-                                >
-                                    {lifecycleState.exporting ? 'Exporting...' : 'Export Leads XLSX'}
-                                </button>
-                            ) : (
-                                <button
-                                    type="button"
-                                    className="btn btn-danger"
-                                    onClick={() => void handleConfirmDeactivate()}
-                                    disabled={lifecycleState.submitting}
-                                >
-                                    {lifecycleState.submitting ? 'Menyimpan...' : 'Ya, Deactivate Sales'}
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            ) : null}
+            </Modal>
         </div>
     );
 }

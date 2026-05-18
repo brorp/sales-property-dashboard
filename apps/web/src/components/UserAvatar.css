@@ -1,0 +1,40 @@
+.user-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: #1E3A5F;
+    flex-shrink: 0;
+    object-fit: cover;
+}
+
+.user-avatar--md {
+    width: 48px;
+    height: 48px;
+    font-size: 1rem;
+}
+
+.user-avatar--sm {
+    width: 40px;
+    height: 40px;
+    font-size: 0.92rem;
+}
+
+.user-avatar--xs {
+    width: 42px;
+    height: 42px;
+    font-size: 0.8rem;
+    letter-spacing: 0.02em;
+}
+
+.user-avatar--rounded {
+    border-radius: 14px;
+}
+
+.user-avatar--rounded.user-avatar--sm {
+    border-radius: 12px;
+}
+
+.user-avatar--circle {
+    border-radius: 50%;
+}
