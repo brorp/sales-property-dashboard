@@ -483,6 +483,21 @@ body.light-page {
     height: 5px;
 }
 
+.pipeline-progress-bar.fill-warm .pipeline-progress-segment.is-filled {
+    background: #F87171;
+    border-color: rgba(248, 113, 113, 0.4);
+}
+
+.pipeline-progress-bar.fill-gradient .pipeline-progress-segment.is-filled {
+    background: #60A5FA;
+    border-color: rgba(96, 165, 250, 0.4);
+}
+
+.pipeline-progress-bar.fill-green .pipeline-progress-segment.is-filled {
+    background: #34D399;
+    border-color: rgba(52, 211, 153, 0.4);
+}
+
 .page-greeting {
     margin-bottom: 24px;
 }

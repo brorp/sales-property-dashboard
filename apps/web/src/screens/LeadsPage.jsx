@@ -582,16 +582,16 @@ export default function LeadsPage() {
                         <UserAvatar name={lead.name} src={lead.avatarUrl} size="xs" shape="circle" />
                         <div className="lc-body">
                             <div className="lc-row1">
-                                <span className="lc-name">{lead.name}</span>
+                                <span className="lc-name-wrap">
+                                    <span className="lc-name">{lead.name}</span>
+                                    {isHotValidatedLead(lead) && <span className="lc-verified-badge" title="Validated">✓</span>}
+                                </span>
                                 <span className="lc-time">{getTimeAgo(lead.createdAt)}</span>
                             </div>
                             <div className="lc-badges">
                                 <span className={`badge ${getStatusBadgeClass('flow', lead.flowStatus)}`}>{getFlowStatusLabel(lead.flowStatus)}</span>
                                 {isHotValidatedLead(lead) ? (
-                                    <>
-                                        <span className="badge badge-hot">HOT</span>
-                                        <span className="badge badge-success">✓ Val</span>
-                                    </>
+                                    <span className="badge badge-hot">HOT</span>
                                 ) : lead.salesStatus ? (
                                     <span className={`badge ${getStatusBadgeClass('sales', lead.salesStatus)}`}>{getSalesStatusLabel(lead.salesStatus)}</span>
                                 ) : null}
@@ -602,7 +602,6 @@ export default function LeadsPage() {
                                 {lead.phone}
                                 {lead.source ? <><span className="lc-dot"> · </span>{lead.source}</> : null}
                                 {lead.agentOfficeName ? <><span className="lc-dot"> · </span>{lead.agentOfficeName}</> : null}
-                                {lead.domicileCity ? <><span className="lc-dot"> · </span>{lead.domicileCity}</> : null}
                                 {isAdmin ? <><span className="lc-dot"> · </span><span className="lc-sales-inline">{getSalesNameById(lead.assignedTo)}</span></> : null}
                             </div>
                             {lead.manualNote ? <div className="lc-note">{lead.manualNote}</div> : null}

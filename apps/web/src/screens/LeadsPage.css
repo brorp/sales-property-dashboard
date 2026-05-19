@@ -31,15 +31,27 @@
     color: #64748B;
 }
 
+.leads-page .pipeline-progress {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    gap: 6px;
+}
+
+.leads-page .pipeline-progress-copy {
+    display: none;
+}
+
 .leads-page .pipeline-progress-bar {
     display: flex;
+    flex: 1;
     gap: 0;
     background: #E5E7EB;
     border-radius: 999px;
     overflow: hidden;
     height: 6px;
-    min-width: 80px;
     grid-template-columns: none;
+    position: relative;
 }
 
 .leads-page .pipeline-progress-segment {
@@ -52,6 +64,30 @@
 
 .leads-page .pipeline-progress-segment.is-filled {
     background: linear-gradient(90deg, #1E3A5F, #2563EB);
+    border: none;
+}
+
+/* fill via ::before — satu elemen mulus, tidak ada garis sambungan */
+.leads-page .pipeline-progress-bar.fill-warm::before,
+.leads-page .pipeline-progress-bar.fill-gradient::before,
+.leads-page .pipeline-progress-bar.fill-green::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: var(--fill-pct, 0%);
+    border-radius: 999px;
+    z-index: 1;
+}
+
+.leads-page .pipeline-progress-bar.fill-warm::before { background: #F87171; }
+.leads-page .pipeline-progress-bar.fill-gradient::before { background: #60A5FA; }
+.leads-page .pipeline-progress-bar.fill-green::before { background: #34D399; }
+
+/* sembunyikan warna segmen, biar fill dari ::before yang tampil */
+.leads-page .pipeline-progress-bar.fill-warm .pipeline-progress-segment,
+.leads-page .pipeline-progress-bar.fill-gradient .pipeline-progress-segment,
+.leads-page .pipeline-progress-bar.fill-green .pipeline-progress-segment {
+    background: transparent;
     border: none;
 }
 
@@ -299,6 +335,15 @@
     min-width: 0;
 }
 
+.lc-name-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
 .lc-name {
     font-size: 0.875rem;
     font-weight: 600;
@@ -306,7 +351,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex: 1;
     min-width: 0;
 }
 
@@ -344,6 +388,22 @@
 
 .lc-dot {
     color: #94A3B8;
+}
+
+.lc-verified-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #2563EB;
+    color: #FFFFFF;
+    font-size: 0.55rem;
+    font-weight: 800;
+    flex-shrink: 0;
+    line-height: 1;
+    margin-left: 2px;
 }
 
 .lc-sales-inline {

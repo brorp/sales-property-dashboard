@@ -12,9 +12,13 @@ export default function CustomerPipelineProgress({
         return null;
     }
 
+    const ratio = safeCompleted / safeTotal;
+    const fillClass = safeCompleted === 0 ? '' : ratio < 0.5 ? 'fill-warm' : ratio < 1 ? 'fill-gradient' : 'fill-green';
+    const fillStyle = fillClass ? { '--fill-pct': `${ratio * 100}%` } : {};
+
     return (
         <div className={`pipeline-progress ${compact ? 'is-compact' : ''}`}>
-            <div className="pipeline-progress-bar" aria-hidden="true">
+            <div className={`pipeline-progress-bar${fillClass ? ` ${fillClass}` : ''}`} style={fillStyle} aria-hidden="true">
                 {Array.from({ length: safeTotal }, (_, index) => (
                     <span
                         key={index}
