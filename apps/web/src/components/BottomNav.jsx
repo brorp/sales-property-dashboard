@@ -336,8 +336,6 @@ export default function BottomNav() {
         }
     }, [pathname, summary.latestLeadAt, summary.latestLogAt]);
 
-    if (!user || pathname === '/login') return null;
-
     const tabs = useMemo(() => {
         if (isMobile) {
             return user?.role === 'sales' ? SALES_TABS_MOBILE
@@ -348,6 +346,9 @@ export default function BottomNav() {
             : user?.role === 'supervisor' ? SUPERVISOR_TABS
             : ADMIN_TABS;
     }, [isMobile, user?.role]);
+
+    if (!user || pathname === '/login') return null;
+
     const isActive = (key) => key === '/' ? pathname === '/' : pathname.startsWith(key);
     
     const clientName = activeWorkspace?.name || tenant.tenant?.name || formatClientNameFromSlug(user?.clientSlug);
