@@ -1,6 +1,6 @@
 import { and, asc, eq, gte, inArray, lte, or } from "drizzle-orm";
 import { db } from "../db/index";
-import { appointment, cancelReason, client, lead, projectUnit, user } from "../db/schema";
+import { appointment, cancelReason, client, lead, projectUnit, teamGroup, teamGroupMember, user } from "../db/schema";
 import { resolveAppointmentTag, toAppointmentDateTime } from "../utils/appointment";
 import type { QueryScope } from "../middleware/rbac";
 import { isCancelResultStatus } from "../utils/lead-workflow";
@@ -78,7 +78,6 @@ const TRANSACTION_STATUS_META = [
     { key: "full_book", label: "Full Book" },
     { key: "on_process", label: "On Process" },
     { key: "reserve", label: "Reserve" },
-    { key: "cancel", label: "Cancel" },
 ] as const;
 
 const DATABASE_STATUS_LAYER_META = {
@@ -132,6 +131,8 @@ const LINE_CHART_GRANULARITY_OPTIONS = [
 ] as const;
 const LINE_CHART_DATASET_OPTIONS = [
     { key: "source", label: "Data Sumber" },
+    { key: "l1", label: "Status L1" },
+    { key: "l2", label: "Status L2" },
     { key: "l3", label: "Status L3" },
     { key: "l4", label: "Status L4" },
 ] as const;
@@ -199,8 +200,8 @@ function humanizeKey(value: string | null | undefined) {
 
 function resolveTransactionStatusKey(resultStatus: string | null | undefined) {
     const normalized = toLowerTrimmed(resultStatus);
-    if (isCancelResultStatus(normalized)) {
-        return "cancel";
+    if (isCancelTransaksiResultStatus(normalized)) {
+        return "cancel_transaksi";
     }
     if (
         normalized === "akad" ||
@@ -211,6 +212,24 @@ function resolveTransactionStatusKey(resultStatus: string | null | undefined) {
         return normalized;
     }
     return null;
+}
+
+function resolveNonCancelTransactionStatusKey(resultStatus: string | null | undefined) {
+    const normalized = toLowerTrimmed(resultStatus);
+    if (
+        normalized === "akad" ||
+        normalized === "full_book" ||
+        normalized === "on_process" ||
+        normalized === "reserve"
+    ) {
+        return normalized;
+    }
+    return null;
+}
+
+function isCancelTransaksiResultStatus(resultStatus: string | null | undefined) {
+    const normalized = toLowerTrimmed(resultStatus);
+    return normalized === "cancel_transaksi" || normalized === "cancel";
 }
 
 function resolveDatabaseResultStatusKey(resultStatus: string | null | undefined) {
@@ -229,6 +248,14 @@ function resolveDatabaseResultStatusKey(resultStatus: string | null | undefined)
         return normalized;
     }
     return null;
+}
+
+function resolveDatabaseL2StatusKey(item: Pick<LeadRow, "salesStatus" | "validated">) {
+    if (toLowerTrimmed(item.salesStatus) === "hot" && item.validated) {
+        return "hot_validated";
+    }
+
+    return item.salesStatus || "unfilled";
 }
 
 function resolveTransactionUnitType(item: Pick<
@@ -606,6 +633,106 @@ async function loadScopedLeadsAndAppointments(
     };
 }
 
+async function loadAnalyticsTeamGroups(scope?: QueryScope) {
+    const conditions: any[] = [];
+    if (scope?.clientId) {
+        conditions.push(eq(teamGroup.clientId, scope.clientId));
+    } else if (scope && scope.role !== "root_admin") {
+        return [];
+    }
+
+    const groupRows = await db
+        .select({
+            id: teamGroup.id,
+            clientId: teamGroup.clientId,
+            name: teamGroup.name,
+        })
+        .from(teamGroup)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(asc(teamGroup.name));
+
+    if (groupRows.length === 0) {
+        return [];
+    }
+
+    const memberRows = await db
+        .select({
+            groupId: teamGroupMember.groupId,
+            userId: user.id,
+            role: user.role,
+            clientId: user.clientId,
+        })
+        .from(teamGroupMember)
+        .innerJoin(user, eq(teamGroupMember.userId, user.id))
+        .where(
+            and(
+                inArray(teamGroupMember.groupId, groupRows.map((row) => row.id)),
+                eq(user.isActive, true),
+                inArray(user.role, ["supervisor", "sales"])
+            )
+        );
+
+    const supervisorIds = memberRows
+        .filter((row) => row.role === "supervisor")
+        .map((row) => row.userId);
+
+    const supervisorSalesRows = supervisorIds.length > 0
+        ? await db
+            .select({
+                supervisorId: user.supervisorId,
+                salesId: user.id,
+                clientId: user.clientId,
+            })
+            .from(user)
+            .where(
+                and(
+                    inArray(user.supervisorId, supervisorIds),
+                    eq(user.role, "sales"),
+                    eq(user.isActive, true)
+                )
+            )
+        : [];
+
+    const salesBySupervisor = new Map<string, string[]>();
+    for (const row of supervisorSalesRows) {
+        if (!row.supervisorId) {
+            continue;
+        }
+        const current = salesBySupervisor.get(row.supervisorId) || [];
+        current.push(row.salesId);
+        salesBySupervisor.set(row.supervisorId, current);
+    }
+
+    const membersByGroup = new Map<string, typeof memberRows>();
+    for (const row of memberRows) {
+        const current = membersByGroup.get(row.groupId) || [];
+        current.push(row);
+        membersByGroup.set(row.groupId, current);
+    }
+
+    return groupRows.map((groupRow) => {
+        const salesIds = new Set<string>();
+        const members = membersByGroup.get(groupRow.id) || [];
+        for (const member of members) {
+            if (member.role === "sales") {
+                salesIds.add(member.userId);
+            }
+            if (member.role === "supervisor") {
+                for (const salesId of salesBySupervisor.get(member.userId) || []) {
+                    salesIds.add(salesId);
+                }
+            }
+        }
+
+        return {
+            id: groupRow.id,
+            name: groupRow.name,
+            clientId: groupRow.clientId,
+            salesIds: Array.from(salesIds),
+        };
+    });
+}
+
 function buildLineChartData(
     decoratedLeads: Array<LeadRow & { appointmentTag: string }>,
     range?: { dateFrom: Date | null; dateTo: Date | null }
@@ -647,6 +774,8 @@ function buildLineChartData(
         const periods = buildLineChartPeriods(receivedDates, granularity.key, range);
 
         const sourceBucket = buildLineChartSeriesBucket(periods, sourceSeriesEntries);
+        const l1Bucket = buildLineChartSeriesBucket(periods, [...DATABASE_STATUS_LAYER_META.l1]);
+        const l2Bucket = buildLineChartSeriesBucket(periods, [...DATABASE_STATUS_LAYER_META.l2]);
         const l3Bucket = buildLineChartSeriesBucket(periods, [...LINE_CHART_L3_SERIES]);
         const l4Bucket = buildLineChartSeriesBucket(periods, [...LINE_CHART_L4_SERIES]);
 
@@ -670,6 +799,20 @@ function buildLineChartData(
                     sourceRow.values[sourceKey] += 1;
                     sourceBucket.totals.set(sourceKey, (sourceBucket.totals.get(sourceKey) || 0) + 1);
                 }
+            }
+
+            const l1Key = normalizeFlowStatus(item.flowStatus, item.assignedTo);
+            const l1Row = l1Bucket.rowMap.get(periodKey);
+            if (l1Row && Object.prototype.hasOwnProperty.call(l1Row.values, l1Key)) {
+                l1Row.values[l1Key] += 1;
+                l1Bucket.totals.set(l1Key, (l1Bucket.totals.get(l1Key) || 0) + 1);
+            }
+
+            const l2Key = resolveDatabaseL2StatusKey(item);
+            const l2Row = l2Bucket.rowMap.get(periodKey);
+            if (l2Row && Object.prototype.hasOwnProperty.call(l2Row.values, l2Key)) {
+                l2Row.values[l2Key] += 1;
+                l2Bucket.totals.set(l2Key, (l2Bucket.totals.get(l2Key) || 0) + 1);
             }
 
             const l3Row = l3Bucket.rowMap.get(periodKey);
@@ -696,6 +839,22 @@ function buildLineChartData(
                     key: series.key,
                     label: series.label,
                     total: sourceBucket.totals.get(series.key) || 0,
+                })),
+            },
+            l1: {
+                periods: l1Bucket.rows,
+                series: DATABASE_STATUS_LAYER_META.l1.map((series) => ({
+                    key: series.key,
+                    label: series.label,
+                    total: l1Bucket.totals.get(series.key) || 0,
+                })),
+            },
+            l2: {
+                periods: l2Bucket.rows,
+                series: DATABASE_STATUS_LAYER_META.l2.map((series) => ({
+                    key: series.key,
+                    label: series.label,
+                    total: l2Bucket.totals.get(series.key) || 0,
                 })),
             },
             l3: {
@@ -1372,6 +1531,7 @@ export async function getHomeAnalytics(
         })
         .from(user)
         .where(userConditions);
+    const analyticsTeamGroups = await loadAnalyticsTeamGroups(scope);
 
     const resolveSourceLabel = (value: string | null | undefined) => String(value || "").trim() || "Lainnya";
     const createEmptyTeamStats = (teamId: string, teamName: string) => ({
@@ -1436,7 +1596,7 @@ export async function getHomeAnalytics(
                     createEmptyTeamStats(
                         supervisorId,
                         supervisorNameMap.get(supervisorId) ||
-                            (supervisorId === "unassigned_sup" ? "Unassigned Supervisor" : "Unknown Supervisor")
+                        (supervisorId === "unassigned_sup" ? "Unassigned Supervisor" : "Unknown Supervisor")
                     )
                 );
             }
@@ -1480,13 +1640,17 @@ export async function getHomeAnalytics(
         const isFullBook = resultStatus === "full_book";
         const isAkad = resultStatus === "akad";
         const isCancel = isCancelResultStatus(resultStatus);
+        const isCancelTransaksi = isCancelTransaksiResultStatus(resultStatus);
 
         if (isAkad) {
             stats.akad += 1;
             salesStats.akad += 1;
-        } else if (isCancel) {
+        } else if (isCancelTransaksi) {
             stats.cancel += 1;
             salesStats.cancel += 1;
+            const reason = item.rejectedReason || "Lainnya";
+            stats.cancelReasons[reason] = (stats.cancelReasons[reason] || 0) + 1;
+        } else if (isCancel) {
             const reason = item.rejectedReason || "Lainnya";
             stats.cancelReasons[reason] = (stats.cancelReasons[reason] || 0) + 1;
         } else if (isHold) {
@@ -1536,6 +1700,7 @@ export async function getHomeAnalytics(
         return {
             isAkad,
             isCancel,
+            isCancelTransaksi,
             isFullBook,
             isHot,
             isHotValidated: isHot && item.validated,
@@ -1662,7 +1827,7 @@ export async function getHomeAnalytics(
     for (const s of allScopedUsers) {
         if (s.role === "sales") {
             const supId = s.supervisorId || 'unassigned_sup';
-            
+
             if (!teamStats.has(supId)) {
                 teamStats.set(supId, {
                     teamId: supId, teamName: supervisorNameMap.get(supId) || (supId === 'unassigned_sup' ? 'Unassigned Supervisor' : 'Unknown Supervisor'),
@@ -1685,7 +1850,7 @@ export async function getHomeAnalytics(
                     salesMap: new Map<string, any>()
                 });
             }
-            
+
             const stats = teamStats.get(supId)!;
             stats.salesMap.set(s.id, {
                 salesId: s.id, salesName: s.name,
@@ -1727,6 +1892,7 @@ export async function getHomeAnalytics(
     const unitTypeBreakdownMaps = new Map<string, Map<string, number>>();
     const transactionSourceBreakdownMaps = new Map<string, Map<string, number>>();
     const domicileCityBreakdownMaps = new Map<string, Map<string, number>>();
+    const transactionDomicileBreakdownMaps = new Map<string, Map<string, number>>();
     const databaseStatusScopeMap = new Map<string, ReturnType<typeof createDatabaseStatusScopeBucket>>();
 
     const ensureDatabaseStatusScope = (scopeId: string) => {
@@ -1747,7 +1913,9 @@ export async function getHomeAnalytics(
         unitTypeBreakdownMaps.set(item.key, new Map<string, number>());
         transactionSourceBreakdownMaps.set(item.key, new Map<string, number>());
         domicileCityBreakdownMaps.set(item.key, new Map<string, number>());
+        transactionDomicileBreakdownMaps.set(item.key, new Map<string, number>());
     }
+    picAgentComparisonMaps.set("cancel_transaksi", { agent: 0, others: 0 });
 
     for (const item of decoratedLeads) {
         const supervisorId = item.supervisorId || 'unassigned_sup';
@@ -1811,6 +1979,7 @@ export async function getHomeAnalytics(
         sourceCounts.set(src, (sourceCounts.get(src) || 0) + 1);
 
         const transactionStatusKey = resolveTransactionStatusKey(item.resultStatus);
+        const nonCancelTransactionStatusKey = resolveNonCancelTransactionStatusKey(item.resultStatus);
         if (transactionStatusKey) {
             const picAgentBucket = picAgentComparisonMaps.get(transactionStatusKey);
             const picAgentTotalBucket = picAgentComparisonMaps.get("all");
@@ -1824,9 +1993,11 @@ export async function getHomeAnalytics(
             if (picAgentTotalBucket) {
                 picAgentTotalBucket[targetKey] += 1;
             }
+        }
 
+        if (nonCancelTransactionStatusKey) {
             const unitType = resolveTransactionUnitType(item);
-            const statusUnitTypeMap = unitTypeBreakdownMaps.get(transactionStatusKey);
+            const statusUnitTypeMap = unitTypeBreakdownMaps.get(nonCancelTransactionStatusKey);
             const totalUnitTypeMap = unitTypeBreakdownMaps.get("all");
 
             if (statusUnitTypeMap) {
@@ -1836,7 +2007,7 @@ export async function getHomeAnalytics(
                 totalUnitTypeMap.set(unitType, (totalUnitTypeMap.get(unitType) || 0) + 1);
             }
 
-            const transactionSourceMap = transactionSourceBreakdownMaps.get(transactionStatusKey);
+            const transactionSourceMap = transactionSourceBreakdownMaps.get(nonCancelTransactionStatusKey);
             const totalTransactionSourceMap = transactionSourceBreakdownMaps.get("all");
             const sourceLabel = resolveSourceLabel(item.source);
 
@@ -1848,294 +2019,480 @@ export async function getHomeAnalytics(
             }
 
             const domicileCity = item.domicileCity || 'Tidak Diketahui';
-            const domicileStatusMap = domicileCityBreakdownMaps.get(transactionStatusKey);
+            const domicileStatusMap = domicileCityBreakdownMaps.get(transactionStatusKey as string);
             const domicileTotalMap = domicileCityBreakdownMaps.get("all");
             if (domicileStatusMap) {
                 domicileStatusMap.set(domicileCity, (domicileStatusMap.get(domicileCity) || 0) + 1);
             }
             if (domicileTotalMap) {
                 domicileTotalMap.set(domicileCity, (domicileTotalMap.get(domicileCity) || 0) + 1);
+                const domicileLabel = item.domicileCity || "Belum Diisi";
+                const transactionDomicileMap = transactionDomicileBreakdownMaps.get(nonCancelTransactionStatusKey);
+                const totalTransactionDomicileMap = transactionDomicileBreakdownMaps.get("all");
+
+                if (transactionDomicileMap) {
+                    transactionDomicileMap.set(domicileLabel, (transactionDomicileMap.get(domicileLabel) || 0) + 1);
+                }
+                if (totalTransactionDomicileMap) {
+                    totalTransactionDomicileMap.set(domicileLabel, (totalTransactionDomicileMap.get(domicileLabel) || 0) + 1);
+                }
+            }
+
+            const databaseScopeIds = ["all", supervisorId];
+            for (const scopeId of databaseScopeIds) {
+                const scopeBucket = ensureDatabaseStatusScope(scopeId);
+                scopeBucket.totalData += 1;
+                incrementStatusCount(scopeBucket, "l1", item.flowStatus, "open");
+                incrementStatusCount(scopeBucket, "l2", resolveDatabaseL2StatusKey(item), "unfilled");
+                incrementStatusCount(scopeBucket, "l3", item.appointmentTag, "none");
+                incrementStatusCount(scopeBucket, "l4", resolveDatabaseResultStatusKey(item.resultStatus), "none");
+            }
+
+            stats.prospek += 1;
+            sStats.prospek += 1;
+
+            const isHold = item.flowStatus === "hold";
+            const isSkip = item.salesStatus === "skip";
+            const isSurvey = item.appointmentTag === "sudah_survey";
+            const isMauSurvey = item.appointmentTag === "mau_survey";
+            const isHot = item.salesStatus === "hot";
+            const isPotensi = item.salesStatus === "hot" || item.salesStatus === "warm";
+
+            const rStatus = String(item.resultStatus || '').toLowerCase();
+
+            const isReserve = rStatus === 'reserve';
+            const isOnProcess = rStatus === 'on_process';
+            const isFullBook = rStatus === 'full_book';
+            const isAkad = rStatus === 'akad';
+            const isCancel = isCancelResultStatus(rStatus);
+            const isCancelTransaksi = isCancelTransaksiResultStatus(rStatus);
+
+            if (isAkad) {
+                stats.akad += 1; sStats.akad += 1;
+                totalClosing += 1;
+            } else if (isCancelTransaksi) {
+                stats.cancel += 1; sStats.cancel += 1;
+                totalBatal += 1;
+                const reason = item.rejectedReason || "Lainnya";
+                stats.cancelReasons[reason] = (stats.cancelReasons[reason] || 0) + 1;
+            } else if (isCancel) {
+                totalBatal += 1;
+                const reason = item.rejectedReason || "Lainnya";
+                stats.cancelReasons[reason] = (stats.cancelReasons[reason] || 0) + 1;
+            } else if (isHold) {
+                stats.hold += 1; sStats.hold += 1;
+            } else if (isSkip) {
+                stats.skip += 1; sStats.skip += 1;
+            } else {
+                stats.ongoing += 1; sStats.ongoing += 1;
+                totalOngoing += 1;
+            }
+
+            if (isSurvey) { stats.survey += 1; sStats.survey += 1; }
+            if (isMauSurvey) {
+                stats.mauSurvey += 1; sStats.mauSurvey += 1;
+                totalMauSurvey += 1;
+            }
+            if (isHot) {
+                stats.hot += 1; sStats.hot += 1;
+                totalHot += 1;
+                if (item.validated) {
+                    stats.hotValidated += 1; sStats.hotValidated += 1;
+                    totalHotValidated += 1;
+                }
+            }
+            if (isPotensi) {
+                stats.potensi += 1; sStats.potensi += 1;
+                totalPotensi += 1;
+            }
+
+            if (isReserve) { stats.reserve += 1; sStats.reserve += 1; }
+            if (isOnProcess) { stats.onProcess += 1; sStats.onProcess += 1; }
+            if (isFullBook) {
+                stats.fullBook += 1; sStats.fullBook += 1;
+                totalFullBook += 1;
             }
         }
 
-        const databaseScopeIds = ["all", supervisorId];
-        for (const scopeId of databaseScopeIds) {
-            const scopeBucket = ensureDatabaseStatusScope(scopeId);
-            scopeBucket.totalData += 1;
-            incrementStatusCount(scopeBucket, "l1", item.flowStatus, "open");
-            incrementStatusCount(scopeBucket, "l2", item.salesStatus, "unfilled");
-            incrementStatusCount(scopeBucket, "l3", item.appointmentTag, "none");
-            incrementStatusCount(scopeBucket, "l4", resolveDatabaseResultStatusKey(item.resultStatus), "none");
+        const teamList = buildTeamList(teamStats);
+
+        const sourceClientIds = scope?.clientId
+            ? [scope.clientId]
+            : Array.from(
+                new Set(
+                    decoratedLeads
+                        .map((item) => item.clientId)
+                        .filter((value): value is string => Boolean(value))
+                )
+            );
+        const configuredLeadSources = (
+            await Promise.all(sourceClientIds.map((clientId) => leadSourcesService.listLeadSources(clientId)))
+        ).flat();
+        const sourceOptionMap = new Map<string, string>();
+        const sourceCountByCompareKey = new Map<string, number>();
+
+        for (const [source, count] of sourceCounts.entries()) {
+            const compareKey = toLowerTrimmed(source);
+            sourceCountByCompareKey.set(compareKey, (sourceCountByCompareKey.get(compareKey) || 0) + count);
         }
 
-        stats.prospek += 1;
-        sStats.prospek += 1;
-
-        const isHold = item.flowStatus === "hold";
-        const isSkip = item.salesStatus === "skip";
-        const isSurvey = item.appointmentTag === "sudah_survey";
-        const isMauSurvey = item.appointmentTag === "mau_survey";
-        const isHot = item.salesStatus === "hot";
-        const isPotensi = item.salesStatus === "hot" || item.salesStatus === "warm";
-        
-        const rStatus = String(item.resultStatus || '').toLowerCase();
-
-        const isReserve = rStatus === 'reserve';
-        const isOnProcess = rStatus === 'on_process';
-        const isFullBook = rStatus === 'full_book';
-        const isAkad = rStatus === 'akad';
-        const isCancel = isCancelResultStatus(rStatus);
-
-        if (isAkad) {
-            stats.akad += 1; sStats.akad += 1;
-            totalClosing += 1;
-        } else if (isCancel) {
-            stats.cancel += 1; sStats.cancel += 1;
-            totalBatal += 1;
-            const reason = item.rejectedReason || "Lainnya";
-            stats.cancelReasons[reason] = (stats.cancelReasons[reason] || 0) + 1;
-        } else if (isHold) {
-            stats.hold += 1; sStats.hold += 1;
-        } else if (isSkip) {
-            stats.skip += 1; sStats.skip += 1;
-        } else {
-            stats.ongoing += 1; sStats.ongoing += 1;
-            totalOngoing += 1;
+        for (const item of configuredLeadSources) {
+            const sourceValue = resolveSourceLabel(item.value);
+            sourceOptionMap.set(toLowerTrimmed(sourceValue), sourceValue);
         }
 
-        if (isSurvey) { stats.survey += 1; sStats.survey += 1; }
-        if (isMauSurvey) {
-            stats.mauSurvey += 1; sStats.mauSurvey += 1;
-            totalMauSurvey += 1;
-        }
-        if (isHot) {
-            stats.hot += 1; sStats.hot += 1;
-            totalHot += 1;
-            if (item.validated) {
-                stats.hotValidated += 1; sStats.hotValidated += 1;
-                totalHotValidated += 1;
+        for (const source of sourceCounts.keys()) {
+            const sourceValue = resolveSourceLabel(source);
+            const compareKey = toLowerTrimmed(sourceValue);
+            if (!sourceOptionMap.has(compareKey)) {
+                sourceOptionMap.set(compareKey, sourceValue);
             }
         }
-        if (isPotensi) {
-            stats.potensi += 1; sStats.potensi += 1;
-            totalPotensi += 1;
-        }
 
-        if (isReserve) { stats.reserve += 1; sStats.reserve += 1; }
-        if (isOnProcess) { stats.onProcess += 1; sStats.onProcess += 1; }
-        if (isFullBook) {
-            stats.fullBook += 1; sStats.fullBook += 1;
-            totalFullBook += 1;
-        }
-    }
+        const sourceOptionValues = Array.from(sourceOptionMap.values())
+            .sort((a, b) => a.localeCompare(b));
+        const teamPerformanceSourceBreakdown = sourceOptionValues.map((source) => {
+            const count = sourceCountByCompareKey.get(toLowerTrimmed(source)) || 0;
+            return {
+                source,
+                count,
+                percentage: toPercent(count, totalLeads),
+            };
+        });
 
-    const teamList = buildTeamList(teamStats);
-
-    const sourceClientIds = scope?.clientId
-        ? [scope.clientId]
-        : Array.from(
-            new Set(
-                decoratedLeads
-                    .map((item) => item.clientId)
-                    .filter((value): value is string => Boolean(value))
-            )
-        );
-    const configuredLeadSources = (
-        await Promise.all(sourceClientIds.map((clientId) => leadSourcesService.listLeadSources(clientId)))
-    ).flat();
-    const sourceOptionMap = new Map<string, string>();
-    const sourceCountByCompareKey = new Map<string, number>();
-
-    for (const [source, count] of sourceCounts.entries()) {
-        const compareKey = toLowerTrimmed(source);
-        sourceCountByCompareKey.set(compareKey, (sourceCountByCompareKey.get(compareKey) || 0) + count);
-    }
-
-    for (const item of configuredLeadSources) {
-        const sourceValue = resolveSourceLabel(item.value);
-        sourceOptionMap.set(toLowerTrimmed(sourceValue), sourceValue);
-    }
-
-    for (const source of sourceCounts.keys()) {
-        const sourceValue = resolveSourceLabel(source);
-        const compareKey = toLowerTrimmed(sourceValue);
-        if (!sourceOptionMap.has(compareKey)) {
-            sourceOptionMap.set(compareKey, sourceValue);
-        }
-    }
-
-    const sourceOptionValues = Array.from(sourceOptionMap.values())
-        .sort((a, b) => a.localeCompare(b));
-    const teamPerformanceSourceBreakdown = sourceOptionValues.map((source) => {
-        const count = sourceCountByCompareKey.get(toLowerTrimmed(source)) || 0;
-        return {
+        const sourceBreakdown = Array.from(sourceCounts.entries()).map(([source, count]) => ({
             source,
             count,
-            percentage: toPercent(count, totalLeads),
+            percentage: toPercent(count, totalLeads)
+        })).sort((a, b) => b.count - a.count);
+        const databaseUnitTypeMap = new Map<string, number>();
+        for (const item of decoratedLeads) {
+            const unitType = resolveTransactionUnitType(item);
+            databaseUnitTypeMap.set(unitType, (databaseUnitTypeMap.get(unitType) || 0) + 1);
+        }
+        const databaseUnitTypeBreakdown = Array.from(databaseUnitTypeMap.entries())
+            .map(([label, count]) => ({
+                label,
+                count,
+                percentage: toPercent(count, totalLeads),
+            }))
+            .sort((a, b) => b.count - a.count);
+        const lineChart = buildLineChartData(decoratedLeads, normalizedDateRange);
+
+        const mapToBreakdown = (map: Map<string, number>) => Array.from(map.entries())
+            .map(([label, count]) => ({
+                label,
+                count,
+            }))
+            .sort((a, b) => b.count - a.count);
+
+        const buildCancelReasonBreakdownForItems = (items: Array<LeadRow & { appointmentTag: string }>) => {
+            const rows = items.filter((item) => isCancelResultStatus(item.resultStatus) && item.rejectedReason);
+            const reasonMap = new Map<string, number>();
+            for (const item of rows) {
+                const reason = item.rejectedReason || "lainnya";
+                reasonMap.set(reason, (reasonMap.get(reason) || 0) + 1);
+            }
+            return Array.from(reasonMap.entries())
+                .map(([key, count]) => ({
+                    key,
+                    label: cancelReasonLabelMap.get(key) || humanizeKey(key),
+                    count,
+                    percentage: toPercent(count, rows.length),
+                }))
+                .sort((a, b) => b.count - a.count);
         };
-    });
 
-    const sourceBreakdown = Array.from(sourceCounts.entries()).map(([source, count]) => ({
-        source,
-        count,
-        percentage: toPercent(count, totalLeads)
-    })).sort((a, b) => b.count - a.count);
-    const lineChart = buildLineChartData(decoratedLeads, normalizedDateRange);
+        const buildGroupComparisonForItems = (items: Array<LeadRow & { appointmentTag: string }>) => {
+            const comparisonKeys = [
+                "akad",
+                "full_book",
+                "on_process",
+                "reserve",
+                "cancel_transaksi",
+            ];
+            const totals = new Map(comparisonKeys.map((key) => [key, 0]));
+            const groupCountMaps = new Map(
+                comparisonKeys.map((key) => [
+                    key,
+                    new Map(analyticsTeamGroups.map((group) => [group.id, 0])),
+                ])
+            );
+            const groupSalesIdSets = new Map(
+                analyticsTeamGroups.map((group) => [group.id, new Set(group.salesIds)])
+            );
 
-    for (const team of teamList) {
-        ensureDatabaseStatusScope(team.teamId);
-    }
+            for (const item of items) {
+                const statusKey = resolveTransactionStatusKey(item.resultStatus);
+                if (!statusKey || !totals.has(statusKey)) {
+                    continue;
+                }
 
-    const transactionRecap = {
-        totalOngoing,
-        totalAkad: teamList.reduce((acc, t) => acc + t.akad, 0),
-        totalReserve: teamList.reduce((acc, t) => acc + t.reserve, 0),
-        totalOnProcess: teamList.reduce((acc, t) => acc + t.onProcess, 0),
-        totalFullBook: teamList.reduce((acc, t) => acc + t.fullBook, 0),
-        totalCancel: teamList.reduce((acc, t) => acc + t.cancel, 0),
-        teams: teamList,
-        chartStatusOptions: TRANSACTION_STATUS_META,
-        picAgentComparison: Object.fromEntries(
-            Array.from(picAgentComparisonMaps.entries()).map(([key, value]) => [
-                key,
-                {
-                    agent: value.agent,
-                    others: value.others,
-                    total: value.agent + value.others,
-                },
-            ])
-        ),
-        unitTypeBreakdown: Object.fromEntries(
-            Array.from(unitTypeBreakdownMaps.entries()).map(([key, unitTypeMap]) => [
-                key,
-                Array.from(unitTypeMap.entries())
-                    .map(([label, count]) => ({
-                        label,
-                        count,
-                    }))
-                    .sort((a, b) => b.count - a.count),
-            ])
-        ),
-        transactionSourceBreakdown: Object.fromEntries(
-            Array.from(transactionSourceBreakdownMaps.entries()).map(([key, sourceMap]) => [
-                key,
-                Array.from(sourceMap.entries())
-                    .map(([label, count]) => ({
-                        label,
-                        count,
-                    }))
-                    .sort((a, b) => b.count - a.count),
-            ])
-        ),
-        cancelReasonBreakdown: cancelReasonItems,
-        domicileCityBreakdown: Object.fromEntries(
-            Array.from(domicileCityBreakdownMaps.entries()).map(([key, cityMap]) => [
-                key,
-                Array.from(cityMap.entries())
-                    .map(([label, count]) => ({ label, count }))
-                    .sort((a, b) => b.count - a.count),
-            ])
-        ),
-        unitOptions,
-    };
+                totals.set(statusKey, (totals.get(statusKey) || 0) + 1);
+                for (const group of analyticsTeamGroups) {
+                    if (groupSalesIdSets.get(group.id)?.has(item.assignedTo || "")) {
+                        const groupMap = groupCountMaps.get(statusKey);
+                        groupMap?.set(group.id, (groupMap.get(group.id) || 0) + 1);
+                    }
+                }
+            }
 
-    const teamPerformanceSourceScopes = Object.fromEntries(
-        teamPerformanceSourceBreakdown.map((item) => {
-            const sourceKey = `source:${item.source}`;
-            const sourceLeads = decoratedLeads.filter((leadItem) => (
-                toLowerTrimmed(resolveSourceLabel(leadItem.source)) === toLowerTrimmed(item.source)
-            ));
-            return [sourceKey, buildTeamPerformanceSnapshot(sourceLeads)];
-        })
-    );
+            return Object.fromEntries(
+                comparisonKeys.map((key) => {
+                    const total = totals.get(key) || 0;
+                    const groupMap = groupCountMaps.get(key) || new Map<string, number>();
+                    return [
+                        key,
+                        {
+                            total,
+                            groups: analyticsTeamGroups.map((group) => {
+                                const count = groupMap.get(group.id) || 0;
+                                return {
+                                    id: group.id,
+                                    name: group.name,
+                                    count,
+                                    others: Math.max(0, total - count),
+                                };
+                            }),
+                        },
+                    ];
+                })
+            );
+        };
 
-    const teamPerformance = {
-        totalProspek: totalLeads,
-        totalLeads,
-        totalSurvey: surveyedLeads,
-        totalMauSurvey,
-        totalHot,
-        totalHotValidated,
-        totalFullBook,
-        totalPotensi,
-        totalBatal,
-        totalClosing: totalFullBook,
-        prospectRate: toPercent(totalHot + totalMauSurvey, totalLeads),
-        surveyRate: toPercent(surveyedLeads, totalLeads),
-        closingRate: toPercent(totalFullBook, totalLeads),
-        conversionRate: toPercent(totalClosing, surveyedLeads || totalLeads),
-        teams: teamList,
-        sourceBreakdown: teamPerformanceSourceBreakdown,
-        sourceOptions: [
-            { key: "all", label: "Semua Source", count: totalLeads },
-            ...teamPerformanceSourceBreakdown.map((item) => ({
-                key: `source:${item.source}`,
-                label: item.source,
-                count: item.count,
+        const buildTransactionRecapSnapshot = (items: Array<LeadRow & { appointmentTag: string }>) => {
+            const statsMap = createPrefilledTeamStats();
+            const unitMaps = new Map<string, Map<string, number>>();
+            const sourceMaps = new Map<string, Map<string, number>>();
+            const domicileMaps = new Map<string, Map<string, number>>();
+
+            for (const status of TRANSACTION_STATUS_META) {
+                unitMaps.set(status.key, new Map<string, number>());
+                sourceMaps.set(status.key, new Map<string, number>());
+                domicileMaps.set(status.key, new Map<string, number>());
+            }
+
+            let ongoing = 0;
+            for (const item of items) {
+                const flags = incrementTeamStatsFromLead(statsMap, item);
+                if (!flags.isAkad && !flags.isCancelTransaksi && !item.resultStatus) {
+                    ongoing += 1;
+                } else if (!flags.isAkad && !flags.isCancelTransaksi && item.resultStatus) {
+                    const statusKey = resolveNonCancelTransactionStatusKey(item.resultStatus);
+                    if (!statusKey) {
+                        ongoing += 1;
+                    }
+                }
+
+                const statusKey = resolveNonCancelTransactionStatusKey(item.resultStatus);
+                if (!statusKey) {
+                    continue;
+                }
+
+                const unitType = resolveTransactionUnitType(item);
+                const sourceLabel = resolveSourceLabel(item.source);
+                const domicileLabel = item.domicileCity || "Belum Diisi";
+                for (const key of [statusKey, "all"]) {
+                    const unitMap = unitMaps.get(key);
+                    const sourceMap = sourceMaps.get(key);
+                    const domicileMap = domicileMaps.get(key);
+                    unitMap?.set(unitType, (unitMap.get(unitType) || 0) + 1);
+                    sourceMap?.set(sourceLabel, (sourceMap.get(sourceLabel) || 0) + 1);
+                    domicileMap?.set(domicileLabel, (domicileMap.get(domicileLabel) || 0) + 1);
+                }
+            }
+
+            const teams = buildTeamList(statsMap);
+            const totalAkad = teams.reduce((acc, t) => acc + t.akad, 0);
+            return {
+                totalOngoing: ongoing,
+                totalClosing: totalAkad,
+                totalAkad,
+                totalReserve: teams.reduce((acc, t) => acc + t.reserve, 0),
+                totalOnProcess: teams.reduce((acc, t) => acc + t.onProcess, 0),
+                totalFullBook: teams.reduce((acc, t) => acc + t.fullBook, 0),
+                totalCancel: teams.reduce((acc, t) => acc + t.cancel, 0),
+                teams,
+                chartStatusOptions: TRANSACTION_STATUS_META,
+                comparisonGroups: analyticsTeamGroups.map((group) => ({
+                    id: group.id,
+                    name: group.name,
+                    salesCount: group.salesIds.length,
+                })),
+                groupComparison: buildGroupComparisonForItems(items),
+                unitTypeBreakdown: Object.fromEntries(
+                    Array.from(unitMaps.entries()).map(([key, map]) => [key, mapToBreakdown(map)])
+                ),
+                transactionSourceBreakdown: Object.fromEntries(
+                    Array.from(sourceMaps.entries()).map(([key, map]) => [key, mapToBreakdown(map)])
+                ),
+                transactionDomicileBreakdown: Object.fromEntries(
+                    Array.from(domicileMaps.entries()).map(([key, map]) => [key, mapToBreakdown(map)])
+                ),
+                cancelReasonBreakdown: buildCancelReasonBreakdownForItems(items),
+                unitOptions,
+            };
+        };
+
+        for (const team of teamList) {
+            ensureDatabaseStatusScope(team.teamId);
+        }
+
+        const transactionRecap = {
+            ...buildTransactionRecapSnapshot(decoratedLeads),
+            sourceOptions: [
+                { key: "all", label: "Semua Source", count: decoratedLeads.length },
+                ...sourceOptionValues.map((source) => ({
+                    key: `source:${source}`,
+                    label: source,
+                    count: decoratedLeads.filter((item) => (
+                        toLowerTrimmed(resolveSourceLabel(item.source)) === toLowerTrimmed(source)
+                    )).length,
+                })),
+            ],
+            sourceScopes: Object.fromEntries(
+                sourceOptionValues.map((source) => {
+                    const sourceKey = `source:${source}`;
+                    const sourceLeads = decoratedLeads.filter((item) => (
+                        toLowerTrimmed(resolveSourceLabel(item.source)) === toLowerTrimmed(source)
+                    ));
+                    return [sourceKey, buildTransactionRecapSnapshot(sourceLeads)];
+                })
+            ),
+            unitTypeBreakdown: Object.fromEntries(
+                Array.from(unitTypeBreakdownMaps.entries()).map(([key, unitTypeMap]) => [
+                    key,
+                    Array.from(unitTypeMap.entries())
+                        .map(([label, count]) => ({
+                            label,
+                            count,
+                        }))
+                        .sort((a, b) => b.count - a.count),
+                ])
+            ),
+            transactionSourceBreakdown: Object.fromEntries(
+                Array.from(transactionSourceBreakdownMaps.entries()).map(([key, sourceMap]) => [
+                    key,
+                    Array.from(sourceMap.entries())
+                        .map(([label, count]) => ({
+                            label,
+                            count,
+                        }))
+                        .sort((a, b) => b.count - a.count),
+                ])
+            ),
+            cancelReasonBreakdown: cancelReasonItems,
+            domicileCityBreakdown: Object.fromEntries(
+                Array.from(domicileCityBreakdownMaps.entries()).map(([key, cityMap]) => [
+                    key,
+                    Array.from(cityMap.entries())
+                        .map(([label, count]) => ({ label, count }))
+                        .sort((a, b) => b.count - a.count),
+                ])
+            ),
+            unitOptions,
+        };
+
+        const teamPerformanceSourceScopes = Object.fromEntries(
+            teamPerformanceSourceBreakdown.map((item) => {
+                const sourceKey = `source:${item.source}`;
+                const sourceLeads = decoratedLeads.filter((leadItem) => (
+                    toLowerTrimmed(resolveSourceLabel(leadItem.source)) === toLowerTrimmed(item.source)
+                ));
+                return [sourceKey, buildTeamPerformanceSnapshot(sourceLeads)];
+            })
+        );
+
+        const teamPerformance = {
+            totalProspek: totalLeads,
+            totalLeads,
+            totalSurvey: surveyedLeads,
+            totalMauSurvey,
+            totalHot,
+            totalHotValidated,
+            totalFullBook,
+            totalPotensi,
+            totalBatal,
+            totalClosing: totalFullBook,
+            prospectRate: toPercent(totalHot + totalMauSurvey, totalLeads),
+            surveyRate: toPercent(surveyedLeads, totalLeads),
+            closingRate: toPercent(totalFullBook, totalLeads),
+            conversionRate: toPercent(totalClosing, surveyedLeads || totalLeads),
+            teams: teamList,
+            sourceBreakdown: teamPerformanceSourceBreakdown,
+            sourceOptions: [
+                { key: "all", label: "Semua Source", count: totalLeads },
+                ...teamPerformanceSourceBreakdown.map((item) => ({
+                    key: `source:${item.source}`,
+                    label: item.source,
+                    count: item.count,
+                })),
+            ],
+            sourceScopes: teamPerformanceSourceScopes,
+        };
+
+        const databaseControl = {
+            totalData: totalLeads,
+            closingRate: toPercent(totalClosing, totalLeads),
+            surveyRate: toPercent(surveyedLeads, totalLeads),
+            prospectRate: toPercent(totalPotensi, totalLeads),
+            sourceBreakdown,
+            domicileBreakdown: domicileBars,
+            unitTypeBreakdown: databaseUnitTypeBreakdown,
+            cancelReasonBreakdown: cancelReasonItems,
+            statusBreakdown: statusPieItems,
+            scopeOptions: teamList.map((team) => ({
+                key: team.teamId,
+                label: team.teamName,
             })),
-        ],
-        sourceScopes: teamPerformanceSourceScopes,
-    };
+            statusLayerOptions: DATABASE_STATUS_LAYER_OPTIONS,
+            statusLayerBreakdown: Object.fromEntries(
+                Array.from(databaseStatusScopeMap.entries()).map(([scopeId, bucket]) => [
+                    scopeId,
+                    {
+                        totalData: bucket.totalData,
+                        layers: Object.fromEntries(
+                            Object.entries(bucket.layers).map(([layerKey, layerMap]) => [
+                                layerKey,
+                                DATABASE_STATUS_LAYER_META[layerKey as keyof typeof DATABASE_STATUS_LAYER_META].map((status) => ({
+                                    key: status.key,
+                                    label: status.label,
+                                    count: layerMap.get(status.key) || 0,
+                                })),
+                            ])
+                        ),
+                    },
+                ])
+            ),
+            lineChart,
+        };
 
-    const databaseControl = {
-        totalData: totalLeads,
-        closingRate: toPercent(totalClosing, totalLeads),
-        surveyRate: toPercent(surveyedLeads, totalLeads),
-        prospectRate: toPercent(totalPotensi, totalLeads),
-        sourceBreakdown,
-        domicileBreakdown: domicileBars,
-        cancelReasonBreakdown: cancelReasonItems,
-        statusBreakdown: statusPieItems,
-        scopeOptions: teamList.map((team) => ({
-            key: team.teamId,
-            label: team.teamName,
-        })),
-        statusLayerOptions: DATABASE_STATUS_LAYER_OPTIONS,
-        statusLayerBreakdown: Object.fromEntries(
-            Array.from(databaseStatusScopeMap.entries()).map(([scopeId, bucket]) => [
-                scopeId,
-                {
-                    totalData: bucket.totalData,
-                    layers: Object.fromEntries(
-                        Object.entries(bucket.layers).map(([layerKey, layerMap]) => [
-                            layerKey,
-                            DATABASE_STATUS_LAYER_META[layerKey as keyof typeof DATABASE_STATUS_LAYER_META].map((status) => ({
-                                key: status.key,
-                                label: status.label,
-                                count: layerMap.get(status.key) || 0,
-                            })),
-                        ])
-                    ),
-                },
-            ])
-        ),
-    };
-
-    return {
-        scope: isManagerRole ? "overall" : "agent",
-        hierarchySummary: await buildHierarchySummary(userId, role, scope),
-        flowOverview,
-        surveyRatio,
-        perAgentSurveyRatio,
-        statusPie: {
-            total: totalLeads,
-            items: statusPieItems,
-        },
-        domicileBars,
-        ongoingAppointments,
-        resultRecap: {
-            total: totalLeads,
-            items: resultRecapItems,
-            cancelReasons: {
-                total: cancelledLeads.length,
-                items: cancelReasonItems,
+        return {
+            scope: isManagerRole ? "overall" : "agent",
+            hierarchySummary: await buildHierarchySummary(userId, role, scope),
+            flowOverview,
+            surveyRatio,
+            perAgentSurveyRatio,
+            statusPie: {
+                total: totalLeads,
+                items: statusPieItems,
             },
-        },
-        holdLeads,
-        dailySalesReport,
-        transactionRecap,
-        teamPerformance,
-        databaseControl,
-        lineChart,
-    };
+            domicileBars,
+            ongoingAppointments,
+            resultRecap: {
+                total: totalLeads,
+                items: resultRecapItems,
+                cancelReasons: {
+                    total: cancelledLeads.length,
+                    items: cancelReasonItems,
+                },
+            },
+            holdLeads,
+            dailySalesReport,
+            transactionRecap,
+            teamPerformance,
+            databaseControl,
+            lineChart,
+        };
+    }
 }

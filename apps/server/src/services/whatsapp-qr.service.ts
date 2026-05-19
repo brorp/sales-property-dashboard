@@ -1056,10 +1056,30 @@ async function handleIncomingMessageEvent(eventName: string, generation: number,
 }
 
 async function fetchRecoveryMessages(chat: WebJsChat) {
-    if (typeof chat.fetchMessages === "function") {
-        return chat.fetchMessages({ limit: currentMissedMessageRecoveryMessageLimit() });
+    const fallbackMessages = chat.lastMessage ? [chat.lastMessage] : [];
+
+    if (typeof chat.fetchMessages !== "function") {
+        return fallbackMessages;
     }
-    return chat.lastMessage ? [chat.lastMessage] : [];
+
+    try {
+        const messages = await chat.fetchMessages({
+            limit: currentMissedMessageRecoveryMessageLimit(),
+        });
+        return Array.isArray(messages) && messages.length > 0 ? messages : fallbackMessages;
+    } catch (error) {
+        if (fallbackMessages.length > 0) {
+            if (isQrDebugEnabled()) {
+                logWaQrWarn("Missed-message recovery using last message fallback", {
+                    chatId: getChatSerializedId(chat),
+                    errorName: error instanceof Error ? error.name : typeof error,
+                    errorMessage: error instanceof Error ? error.message : String(error),
+                });
+            }
+            return fallbackMessages;
+        }
+        throw error;
+    }
 }
 
 async function runMissedMessageRecovery(generation: number, client: WebJsClient) {
@@ -1115,6 +1135,8 @@ async function runMissedMessageRecovery(generation: number, client: WebJsClient)
                     logWaQrWarn("Missed-message recovery failed fetching chat messages", {
                         chatId: getChatSerializedId(item.chat),
                         error,
+                        errorName: error instanceof Error ? error.name : typeof error,
+                        errorMessage: error instanceof Error ? error.message : String(error),
                     });
                 }
                 continue;
@@ -1182,10 +1204,7 @@ function startMissedMessageRecovery(generation: number, client: WebJsClient) {
         return;
     }
 
-    missedMessageRecoveryWatermarkMs = Math.max(
-        missedMessageRecoveryWatermarkMs,
-        Date.now() - MISSED_MESSAGE_RECOVERY_STARTUP_GRACE_MS
-    );
+    missedMessageRecoveryWatermarkMs = Date.now() - MISSED_MESSAGE_RECOVERY_STARTUP_GRACE_MS;
 
     const intervalMs = currentMissedMessageRecoveryIntervalMs();
     missedMessageRecoveryTimer = setInterval(() => {
