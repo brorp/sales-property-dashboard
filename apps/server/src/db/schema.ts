@@ -120,6 +120,48 @@ export const supervisorSales = pgTable(
     })
 );
 
+export const teamGroup = pgTable(
+    "team_group",
+    {
+        id: text("id").primaryKey(),
+        clientId: text("client_id")
+            .notNull()
+            .references(() => client.id, { onDelete: "cascade" }),
+        name: text("name").notNull(),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        clientIdx: index("team_group_client_id_idx").on(table.clientId),
+        clientNameUnique: uniqueIndex("team_group_client_name_unique").on(
+            table.clientId,
+            table.name
+        ),
+    })
+);
+
+export const teamGroupMember = pgTable(
+    "team_group_member",
+    {
+        id: text("id").primaryKey(),
+        groupId: text("group_id")
+            .notNull()
+            .references(() => teamGroup.id, { onDelete: "cascade" }),
+        userId: text("user_id")
+            .notNull()
+            .references(() => user.id, { onDelete: "cascade" }),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        groupIdx: index("team_group_member_group_id_idx").on(table.groupId),
+        userIdx: index("team_group_member_user_id_idx").on(table.userId),
+        groupUserUnique: uniqueIndex("team_group_member_group_user_unique").on(
+            table.groupId,
+            table.userId
+        ),
+    })
+);
+
 // ─── Application Tables ──────────────────────────────────────────────────────
 
 export const projectUnit = pgTable(

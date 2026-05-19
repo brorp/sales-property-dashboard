@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Accordion from '../../components/Accordion';
 import './DashboardSections.css';
 
@@ -40,9 +41,19 @@ function getTeamDisplayLabel(team) {
     return team.teamName;
 }
 
-function MetricCard({ label, value, accent = 'var(--text-primary)', helper, displayValue = null }) {
+function MetricCard({ label, value, accent = 'var(--text-primary)', helper, displayValue = null, onClick }) {
     return (
         <div
+            role={onClick ? 'button' : undefined}
+            tabIndex={onClick ? 0 : undefined}
+            onClick={onClick}
+            onKeyDown={(event) => {
+                if (!onClick) return;
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onClick();
+                }
+            }}
             style={{
                 background: 'var(--bg-input)',
                 padding: '16px',
@@ -52,6 +63,7 @@ function MetricCard({ label, value, accent = 'var(--text-primary)', helper, disp
                 flexDirection: 'column',
                 gap: '8px',
                 minHeight: '118px',
+                cursor: onClick ? 'pointer' : 'default',
             }}
         >
             <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
@@ -94,7 +106,7 @@ function SalesRow({ sales }) {
             <div
                 style={{
                     display: 'grid',
-                    gridTemplateColumns: 'minmax(180px, 1.5fr) repeat(4, minmax(70px, 1fr)) repeat(3, minmax(88px, 1fr))',
+                    gridTemplateColumns: 'minmax(180px, 1.5fr) repeat(5, minmax(70px, 1fr)) repeat(3, minmax(88px, 1fr))',
                     gap: '10px',
                     alignItems: 'center',
                     padding: '12px 14px',
@@ -106,9 +118,10 @@ function SalesRow({ sales }) {
             >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
                     <strong style={{ color: 'var(--text-primary)', fontSize: '0.92rem' }}>{sales.salesName}</strong>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-                        Total Leads: {formatCount(sales.prospek || 0)}
-                    </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Total</span>
+                    <strong style={{ color: 'var(--text-primary)' }}>{formatCount(sales.prospek || 0)}</strong>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>Hot | Val</span>
@@ -140,6 +153,85 @@ function SalesRow({ sales }) {
                     <strong style={{ color: 'var(--text-primary)' }}>{formatPercent(sales.closingRate || 0)}</strong>
                 </div>
             </div>
+        </div>
+    );
+}
+
+function SortableSalesList({ salesRows = [] }) {
+    const [sortState, setSortState] = useState({ key: 'prospek', dir: 'desc' });
+    const { key: sortKey, dir: sortDir } = sortState;
+    const columns = [
+        { key: 'salesName', label: 'Sales' },
+        { key: 'prospek', label: 'Total Leads' },
+        { key: 'hot', label: 'HOT | Val' },
+        { key: 'mauSurvey', label: 'Mau Survey' },
+        { key: 'survey', label: 'Survey' },
+        { key: 'fullBook', label: 'Full Book' },
+        { key: 'prospectRate', label: 'Prospect %' },
+        { key: 'surveyRate', label: 'Survey %' },
+        { key: 'closingRate', label: 'Closing %' },
+    ];
+    const sortedRows = useMemo(() => {
+        return [...salesRows].sort((a, b) => {
+            const aValue = sortKey === 'salesName' ? String(a.salesName || '') : Number(a[sortKey] || 0);
+            const bValue = sortKey === 'salesName' ? String(b.salesName || '') : Number(b[sortKey] || 0);
+            const result = typeof aValue === 'string'
+                ? aValue.localeCompare(String(bValue))
+                : aValue - Number(bValue);
+            if (result !== 0) {
+                return sortDir === 'asc' ? result : -result;
+            }
+
+            return String(a.salesName || '').localeCompare(String(b.salesName || ''));
+        });
+    }, [salesRows, sortDir, sortKey]);
+    const toggleSort = (key) => {
+        setSortState((prev) => ({
+            key,
+            dir: prev.key === key
+                ? (prev.dir === 'asc' ? 'desc' : 'asc')
+                : (key === 'salesName' ? 'asc' : 'desc'),
+        }));
+    };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ overflowX: 'auto' }}>
+                <div
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'minmax(180px, 1.5fr) repeat(5, minmax(70px, 1fr)) repeat(3, minmax(88px, 1fr))',
+                        gap: '10px',
+                        minWidth: '930px',
+                        padding: '0 14px',
+                    }}
+                >
+                    {columns.map((column) => (
+                        <button
+                            key={column.key}
+                            type="button"
+                            onClick={() => toggleSort(column.key)}
+                            aria-sort={sortKey === column.key ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+                            title={`Urutkan ${column.label} ${sortKey === column.key && sortDir === 'asc' ? 'descending' : 'ascending'}`}
+                            style={{
+                                border: 'none',
+                                background: 'transparent',
+                                color: sortKey === column.key ? 'var(--text-primary)' : 'var(--text-muted)',
+                                fontSize: '0.72rem',
+                                fontWeight: 800,
+                                textTransform: 'uppercase',
+                                textAlign: column.key === 'salesName' ? 'left' : 'center',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            {column.label}{sortKey === column.key ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            {sortedRows.map((sales, index) => (
+                <SalesRow key={sales.salesId || `${sales.salesName || 'sales'}-${index}`} sales={sales} />
+            ))}
         </div>
     );
 }
@@ -179,7 +271,7 @@ function buildScopeMetrics(scope, fallbackData) {
     };
 }
 
-function TeamPerformancePanel({ title, metrics, showSalesList }) {
+function TeamPerformancePanel({ title, metrics, showSalesList, onMetricClick }) {
     return (
         <div
             style={{
@@ -208,10 +300,11 @@ function TeamPerformancePanel({ title, metrics, showSalesList }) {
                     displayValue={formatHotValidatedValue(metrics.totalHot, metrics.totalHotValidated)}
                     accent="#f59e0b"
                     helper="Format count: HOT | HOT yang sudah divalidasi supervisor."
+                    onClick={() => onMetricClick?.('hot')}
                 />
-                <MetricCard label="Mau Survey" value={metrics.totalMauSurvey} accent="var(--primary)" helper="Lead yang masih di tahap mau survey." />
-                <MetricCard label="Sudah Survey" value={metrics.totalSurvey} accent="var(--green)" helper="Lead yang appointment-nya sudah survey." />
-                <MetricCard label="Full Book" value={metrics.totalFullBook} accent="var(--purple)" helper="Lead yang sudah masuk status Full Book." />
+                <MetricCard label="Mau Survey" value={metrics.totalMauSurvey} accent="var(--primary)" helper="Lead yang masih di tahap mau survey." onClick={() => onMetricClick?.('mau_survey')} />
+                <MetricCard label="Sudah Survey" value={metrics.totalSurvey} accent="var(--green)" helper="Lead yang appointment-nya sudah survey." onClick={() => onMetricClick?.('sudah_survey')} />
+                <MetricCard label="Full Book" value={metrics.totalFullBook} accent="var(--purple)" helper="Lead yang sudah masuk status Full Book." onClick={() => onMetricClick?.('full_book')} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
@@ -239,11 +332,7 @@ function TeamPerformancePanel({ title, metrics, showSalesList }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                         <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Breakdown per Sales</h4>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {metrics.sales.map((sales) => (
-                            <SalesRow key={sales.salesId} sales={sales} />
-                        ))}
-                    </div>
+                    <SortableSalesList salesRows={metrics.sales} />
                 </div>
             ) : null}
 
@@ -260,9 +349,7 @@ function TeamPerformancePanel({ title, metrics, showSalesList }) {
                                 </span>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {(team.sales || []).map((sales) => (
-                                    <SalesRow key={sales.salesId} sales={sales} />
-                                ))}
+                                {team.sales?.length ? <SortableSalesList salesRows={team.sales} /> : null}
                                 {(!team.sales || team.sales.length === 0) && (
                                     <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Belum ada data sales.</span>
                                 )}
@@ -283,6 +370,7 @@ export default function TeamPerformanceSection({
     autoShowScopedDetails = false,
     scopeLabel = 'Semua',
 }) {
+    const router = useRouter();
     const [isCompare, setIsCompare] = useState(false);
     const [selectedSourceFilter, setSelectedSourceFilter] = useState('all');
     const [selectedTeamFilter, setSelectedTeamFilter] = useState('all');
@@ -369,6 +457,20 @@ export default function TeamPerformanceSection({
     const summaryMetrics = buildScopeMetrics(!effectiveCompare ? selectedTeamData : null, activeData);
     const summary = `${formatCount(summaryMetrics.totalSurvey)} sudah survey • ${formatCount(summaryMetrics.totalHot)} hot • ${formatCount(summaryMetrics.totalFullBook)} full book`;
 
+    const openLeadsByMetric = (metric) => {
+        const params = new URLSearchParams();
+        if (metric === 'hot') {
+            params.set('salesStatus', 'hot');
+        } else if (metric === 'hot_validated') {
+            params.set('salesStatus', 'hot_validated');
+        } else if (metric === 'mau_survey' || metric === 'sudah_survey') {
+            params.set('appointmentTag', metric);
+        } else if (metric === 'full_book') {
+            params.set('resultFilter', 'full_book');
+        }
+        router.push(`/leads?${params.toString()}`);
+    };
+
     const renderTeamPills = (value, onChange, compareKeyPrefix = 'single') => (
         <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
             {!isCompare ? (
@@ -441,6 +543,7 @@ export default function TeamPerformanceSection({
                             title={selectedTeamData ? getTeamDisplayLabel(selectedTeamData) : scopeLabel}
                             metrics={buildScopeMetrics(selectedTeamData, activeData)}
                             showSalesList={true}
+                            onMetricClick={openLeadsByMetric}
                         />
                     </>
                 ) : !allowTeamFiltering ? (
@@ -450,6 +553,7 @@ export default function TeamPerformanceSection({
                             title={scopeLabel}
                             metrics={buildScopeMetrics(selectedTeamData, activeData)}
                             showSalesList={autoShowScopedDetails && Boolean(selectedTeamData)}
+                            onMetricClick={openLeadsByMetric}
                         />
                     </>
                 ) : (
@@ -462,6 +566,7 @@ export default function TeamPerformanceSection({
                                     title={getTeamDisplayLabel(compareTeam1Data) || 'Team 1'}
                                     metrics={buildScopeMetrics(compareTeam1Data, activeData)}
                                     showSalesList={Boolean(compareTeam1Data)}
+                                    onMetricClick={openLeadsByMetric}
                                 />
                             </div>
 
@@ -471,6 +576,7 @@ export default function TeamPerformanceSection({
                                     title={getTeamDisplayLabel(compareTeam2Data) || 'Team 2'}
                                     metrics={buildScopeMetrics(compareTeam2Data, activeData)}
                                     showSalesList={Boolean(compareTeam2Data)}
+                                    onMetricClick={openLeadsByMetric}
                                 />
                             </div>
                         </div>

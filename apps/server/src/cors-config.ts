@@ -1,6 +1,7 @@
 type CorsOriginCallback = (error: Error | null, allow?: boolean) => void;
 
 const DEFAULT_DEV_ORIGINS = ["http://localhost:5173", "http://localhost:3000"];
+const DEFAULT_PRODUCTION_ORIGINS = ["https://sales-web-pink.vercel.app"];
 
 function normalizeOrigin(origin: string): string {
     return origin.trim().replace(/\/+$/, "");
@@ -64,6 +65,7 @@ const configuredOrigins = Array.from(
         ...parseCsvOrigins(process.env.CORS_ORIGINS),
         ...parseCsvOrigins(process.env.CORS_ORIGIN),
         ...DEFAULT_DEV_ORIGINS,
+        ...DEFAULT_PRODUCTION_ORIGINS,
     ])
 );
 

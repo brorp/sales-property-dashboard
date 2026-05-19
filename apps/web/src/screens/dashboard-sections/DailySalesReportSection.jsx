@@ -53,7 +53,7 @@ export default function DailySalesReportSection({ data }) {
         <Accordion
             title={data.title || `Daily Sales Report ${data.dateLabel || ''}`}
             summary={`${formatCount(totalAssigned)} Leads assigned · ${formatCount(data.totalSold)} sold bulan ini`}
-            defaultExpanded
+            defaultExpanded={false}
         >
             <div className="daily-sales-report-shell">
                 <div className="daily-sales-report-top" style={{ gridTemplateColumns: '1fr' }}>

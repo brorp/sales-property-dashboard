@@ -20,7 +20,7 @@ const DEFAULT_TRANSACTION_STATUS_OPTIONS = [
     { key: 'full_book', label: 'Full Book' },
     { key: 'on_process', label: 'On Process' },
     { key: 'reserve', label: 'Reserve' },
-    { key: 'cancel', label: 'Cancel' },
+    { key: 'cancel_transaksi', label: 'Cancel Transaksi' },
 ];
 
 const PIC_AGENT_STATUS_OPTIONS = [
@@ -80,7 +80,7 @@ function buildConicGradient(items) {
     return `conic-gradient(${segments.join(', ')})`;
 }
 
-function PieChartCard({ title, subtitle, total, items, emptyLabel = 'Belum ada data' }) {
+function ChartCard({ title, subtitle, total, items, emptyLabel = 'Belum ada data', chartType = 'pie' }) {
     const chartItems = items.filter((item) => item.count > 0);
 
     return (
@@ -111,6 +111,24 @@ function PieChartCard({ title, subtitle, total, items, emptyLabel = 'Belum ada d
                         alignItems: 'stretch',
                     }}
                 >
+                    {chartType === 'bar' ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {chartItems.map((item) => {
+                                const percentage = total > 0 ? Math.round((item.count / total) * 10000) / 100 : 0;
+                                return (
+                                    <div key={item.label} style={{ padding: '10px 12px', borderRadius: '10px', background: 'var(--bg-input)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', color: 'var(--text-primary)', fontWeight: 700 }}>
+                                            <span>{item.label}</span>
+                                            <span>{formatCount(item.count)} · {percentage}%</span>
+                                        </div>
+                                        <div className="mini-progress-bar" style={{ marginTop: 8 }}>
+                                            <div className="mini-progress-fill" style={{ width: `${Math.max(4, percentage)}%`, backgroundColor: item.color }} />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
                     <div style={{ display: 'flex', justifyContent: 'center' }}>
                         <div
                             style={{
@@ -144,6 +162,7 @@ function PieChartCard({ title, subtitle, total, items, emptyLabel = 'Belum ada d
                             </div>
                         </div>
                     </div>
+                    )}
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'stretch', textAlign: 'left' }}>
                         {chartItems.map((item) => {
@@ -195,14 +214,22 @@ export default function TransactionRecapSection({
     viewerName = '',
 }) {
     const router = useRouter();
-    const teams = data?.teams || [];
     const [isCompare, setIsCompare] = useState(false);
     const [unitType, setUnitType] = useState('');
     const [transactionChartStatus, setTransactionChartStatus] = useState('all');
-    const [picAgentStatus, setPicAgentStatus] = useState('akad');
+    const [comparisonStatus, setComparisonStatus] = useState('akad');
+    const [selectedComparisonGroup, setSelectedComparisonGroup] = useState('');
+    const [selectedSourceFilter, setSelectedSourceFilter] = useState('all');
+    const [chartType, setChartType] = useState('pie');
     const [selectedTeamFilter, setSelectedTeamFilter] = useState('all');
     const [selectedTeam1, setSelectedTeam1] = useState('');
     const [selectedTeam2, setSelectedTeam2] = useState('');
+
+    const sourceOptions = data?.sourceOptions || [{ key: 'all', label: 'Semua Source' }];
+    const activeData = selectedSourceFilter === 'all'
+        ? data
+        : data?.sourceScopes?.[selectedSourceFilter] || data;
+    const teams = activeData?.teams || [];
 
     useEffect(() => {
         if (teams.length === 0) {
@@ -223,16 +250,38 @@ export default function TransactionRecapSection({
         }
     }, [teams, selectedTeam1, selectedTeam2]);
 
+    useEffect(() => {
+        const groups = activeData?.comparisonGroups || [];
+        if (groups.length === 0) {
+            setSelectedComparisonGroup('');
+            return;
+        }
+
+        if (!groups.some((group) => group.id === selectedComparisonGroup)) {
+            setSelectedComparisonGroup(groups[0].id);
+        }
+    }, [activeData, selectedComparisonGroup]);
+
     if (!data) return null;
 
-    const summary = `${data.totalOngoing || 0} ongoing • ${data.totalClosing || 0} closing • ${data.teams?.length || 0} teams`;
-    const transactionStatusOptions = data.chartStatusOptions || DEFAULT_TRANSACTION_STATUS_OPTIONS;
+    const comparisonGroups = activeData?.comparisonGroups || [];
+    const selectedGroup =
+        comparisonGroups.find((group) => group.id === selectedComparisonGroup) ||
+        comparisonGroups[0] ||
+        null;
+    const comparisonPayload = activeData?.groupComparison?.[comparisonStatus] || { total: 0, groups: [] };
+    const selectedGroupComparison =
+        comparisonPayload.groups?.find((group) => group.id === selectedGroup?.id) ||
+        { count: 0, others: comparisonPayload.total || 0 };
+
+    const summary = `${activeData?.totalOngoing || 0} ongoing • ${activeData?.totalClosing || 0} closing • ${activeData?.teams?.length || 0} teams`;
+    const transactionStatusOptions = activeData?.chartStatusOptions || DEFAULT_TRANSACTION_STATUS_OPTIONS;
     const selectedChartStatusMeta =
         transactionStatusOptions.find((item) => item.key === transactionChartStatus) ||
         transactionStatusOptions[0] ||
         DEFAULT_TRANSACTION_STATUS_OPTIONS[0];
     const selectedPicAgentStatusMeta =
-        PIC_AGENT_STATUS_OPTIONS.find((item) => item.key === picAgentStatus) ||
+        PIC_AGENT_STATUS_OPTIONS.find((item) => item.key === comparisonStatus) ||
         PIC_AGENT_STATUS_OPTIONS[0];
     const effectiveCompare = allowTeamFiltering && isCompare;
     const isScopedSupervisor = !allowTeamFiltering && viewerRole === 'supervisor';
@@ -256,31 +305,35 @@ export default function TransactionRecapSection({
             totalCancel: selectedTeamData.cancel || 0,
         }
         : {
-            totalAkad: data.totalAkad || 0,
-            totalReserve: data.totalReserve || 0,
-            totalOnProcess: data.totalOnProcess || 0,
-            totalFullBook: data.totalFullBook || 0,
-            totalCancel: data.totalCancel || 0,
+            totalAkad: activeData?.totalAkad || 0,
+            totalReserve: activeData?.totalReserve || 0,
+            totalOnProcess: activeData?.totalOnProcess || 0,
+            totalFullBook: activeData?.totalFullBook || 0,
+            totalCancel: activeData?.totalCancel || 0,
         };
-    const picAgentComparison = data.picAgentComparison?.[picAgentStatus] || { agent: 0, others: 0, total: 0 };
-    const sourceLeadItems = (data.transactionSourceBreakdown?.[transactionChartStatus] || []).map((item, index) => ({
+    const sourceLeadItems = (activeData?.transactionSourceBreakdown?.[transactionChartStatus] || []).map((item, index) => ({
         label: item.label,
         count: item.count,
         color: PIE_COLORS[index % PIE_COLORS.length],
     }));
-    const unitTypeItems = (data.unitTypeBreakdown?.[transactionChartStatus] || []).map((item, index) => ({
+    const unitTypeItems = (activeData?.unitTypeBreakdown?.[transactionChartStatus] || []).map((item, index) => ({
         label: item.label,
         count: item.count,
         color: PIE_COLORS[index % PIE_COLORS.length],
     }));
-    const cancelReasonItems = (data.cancelReasonBreakdown || []).map((item, index) => ({
+    const domicileItems = (activeData?.transactionDomicileBreakdown?.[transactionChartStatus] || []).map((item, index) => ({
+        label: item.label,
+        count: item.count,
+        color: PIE_COLORS[index % PIE_COLORS.length],
+    }));
+    const cancelReasonItems = (activeData?.cancelReasonBreakdown || []).map((item, index) => ({
         label: item.label || item.key || 'Lainnya',
         count: item.count,
         color: PIE_COLORS[index % PIE_COLORS.length],
     }));
-    const picAgentTotal = Number(picAgentComparison.total || 0);
-    const picAgentPercentage = picAgentTotal > 0 ? Math.round(((picAgentComparison.agent || 0) / picAgentTotal) * 10000) / 100 : 0;
-    const allSupervisorPercentage = picAgentTotal > 0 ? Math.round(((picAgentComparison.others || 0) / picAgentTotal) * 10000) / 100 : 0;
+    const comparisonTotal = Number(comparisonPayload.total || 0);
+    const groupPercentage = comparisonTotal > 0 ? Math.round(((selectedGroupComparison.count || 0) / comparisonTotal) * 10000) / 100 : 0;
+    const allSupervisorPercentage = comparisonTotal > 0 ? Math.round(((selectedGroupComparison.others || 0) / comparisonTotal) * 10000) / 100 : 0;
 
     const handleUnitTypeChange = (event) => {
         setUnitType(event.target.value);
@@ -495,6 +548,36 @@ export default function TransactionRecapSection({
 
                 {dateFilterControl}
 
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-muted)' }}>Source:</label>
+                        <select
+                            value={selectedSourceFilter}
+                            onChange={(event) => setSelectedSourceFilter(event.target.value)}
+                            className="input-field"
+                            style={{ minWidth: 180, maxWidth: 260 }}
+                        >
+                            {sourceOptions.map((option) => (
+                                <option key={option.key} value={option.key}>
+                                    {option.label}{option.count !== undefined ? ` (${formatCount(option.count)})` : ''}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        {['pie', 'bar'].map((type) => (
+                            <button
+                                key={type}
+                                type="button"
+                                onClick={() => setChartType(type)}
+                                style={getPillButtonStyle(chartType === type)}
+                            >
+                                {type === 'pie' ? 'Pie Chart' : 'Bar Chart'}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 {allowTeamFiltering && !effectiveCompare ? (
                     <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
                         <button
@@ -534,7 +617,7 @@ export default function TransactionRecapSection({
                             }}
                         >
                             <option value="">Semua Tipe</option>
-                            {data.unitOptions?.map((u) => (
+                            {activeData?.unitOptions?.map((u) => (
                                 <option key={u.value} value={u.value}>{u.label}</option>
                             ))}
                         </select>
@@ -577,10 +660,10 @@ export default function TransactionRecapSection({
                             </div>
 
                             <div
-                                onClick={() => router.push('/leads?resultFilter=cancel')}
+                                onClick={() => router.push('/leads?resultFilter=cancel_transaksi')}
                                 style={{ cursor: 'pointer', background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}
                             >
-                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total Cancel</span>
+                                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Total Cancel Transaksi</span>
                                 <strong style={{ fontSize: '1.4rem', color: 'var(--danger)' }}>{summaryScope.totalCancel || 0}</strong>
                             </div>
                         </div>
@@ -591,44 +674,6 @@ export default function TransactionRecapSection({
                     scopedPrimaryContent
                 )}
             </div>
-
-            {showCrossTeamInsights ? (
-                <div style={{ marginBottom: '24px', paddingBottom: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>➤ Divisi Closing PIC Agent vs All Supervisor Data</h3>
-                            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
-                                {PIC_AGENT_STATUS_OPTIONS.map((status) => (
-                                    <button
-                                        key={status.key}
-                                        type="button"
-                                        onClick={() => setPicAgentStatus(status.key)}
-                                        style={getPillButtonStyle(picAgentStatus === status.key)}
-                                    >
-                                        {status.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                            Total data {selectedPicAgentStatusMeta?.label}: <strong style={{ color: 'var(--text-primary)' }}>{formatCount(picAgentTotal)}</strong>
-                        </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                        <div style={{ padding: '18px', borderRadius: '14px', background: 'var(--bg-card)', border: '1px solid rgba(124, 77, 255, 0.35)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>PIC Agent</span>
-                            <strong style={{ fontSize: '2rem', color: 'var(--primary)' }}>{formatCount(picAgentComparison.agent || 0)}</strong>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{picAgentPercentage}% dari total data status ini</span>
-                        </div>
-                        <div style={{ padding: '18px', borderRadius: '14px', background: 'var(--bg-card)', border: '1px solid rgba(38, 166, 154, 0.35)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>All Supervisor Data</span>
-                            <strong style={{ fontSize: '2rem', color: '#26a69a' }}>{formatCount(picAgentComparison.others || 0)}</strong>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{allSupervisorPercentage}% dari total data status ini</span>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
 
             <div style={{ marginBottom: '24px', paddingBottom: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -644,17 +689,7 @@ export default function TransactionRecapSection({
                                 key={status.key}
                                 type="button"
                                 onClick={() => setTransactionChartStatus(status.key)}
-                                style={{
-                                    cursor: 'pointer',
-                                    padding: '8px 14px',
-                                    borderRadius: '999px',
-                                    border: transactionChartStatus === status.key ? 'none' : '1px solid var(--border-color)',
-                                    background: transactionChartStatus === status.key ? 'var(--primary)' : 'var(--bg-card)',
-                                    color: transactionChartStatus === status.key ? 'white' : 'var(--text-primary)',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 600,
-                                    whiteSpace: 'nowrap',
-                                }}
+                                style={getPillButtonStyle(transactionChartStatus === status.key)}
                             >
                                 {status.label}
                             </button>
@@ -662,30 +697,97 @@ export default function TransactionRecapSection({
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
-                    <PieChartCard
+                <div className="analytics-chart-grid-four">
+                    <ChartCard
                         title="Analisa Source Leads"
-                        subtitle="Komposisi source leads dari seluruh data yang sudah masuk status transaksi terpilih."
+                        subtitle="Komposisi source leads dari data L4 non-cancel pada status transaksi terpilih."
                         total={sourceLeadItems.reduce((sum, item) => sum + item.count, 0)}
                         items={sourceLeadItems}
-                        emptyLabel="Belum ada data transaksi untuk status ini."
+                        chartType={chartType}
+                        emptyLabel="Belum ada data transaksi non-cancel untuk status ini."
                     />
-                    <PieChartCard
+                    <ChartCard
                         title="Komposisi Tipe Unit"
-                        subtitle="Distribusi tipe unit dari seluruh leads yang sudah masuk status transaksi terpilih."
+                        subtitle="Distribusi tipe unit dari leads yang sudah masuk L4 non-cancel."
                         total={unitTypeItems.reduce((sum, item) => sum + item.count, 0)}
                         items={unitTypeItems}
+                        chartType={chartType}
                         emptyLabel="Belum ada tipe unit pada status transaksi ini."
                     />
-                    <PieChartCard
+                    <ChartCard
+                        title="Domisili"
+                        subtitle="Distribusi domisili dari leads yang sudah masuk L4 non-cancel."
+                        total={domicileItems.reduce((sum, item) => sum + item.count, 0)}
+                        items={domicileItems}
+                        chartType={chartType}
+                        emptyLabel="Belum ada domisili pada status transaksi ini."
+                    />
+                    <ChartCard
                         title="Alasan Cancel"
                         subtitle="Distribusi alasan cancel dari semua transaksi cancel pada filter tanggal aktif."
                         total={cancelReasonItems.reduce((sum, item) => sum + item.count, 0)}
                         items={cancelReasonItems}
+                        chartType={chartType}
                         emptyLabel="Belum ada data alasan cancel."
                     />
                 </div>
             </div>
+
+            {showCrossTeamInsights ? (
+                <div style={{ marginBottom: '24px', paddingBottom: '24px', borderBottom: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>➤ Divisi Closing Group vs All Supervisor Data</h3>
+                            {comparisonGroups.length > 0 ? (
+                                <select
+                                    className="input-field"
+                                    value={selectedGroup?.id || ''}
+                                    onChange={(event) => setSelectedComparisonGroup(event.target.value)}
+                                    style={{ maxWidth: 280 }}
+                                >
+                                    {comparisonGroups.map((group) => (
+                                        <option key={group.id} value={group.id}>
+                                            {group.name} ({formatCount(group.salesCount || 0)} sales)
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                                    Belum ada group. Buat group di Teams untuk mengisi comparison ini.
+                                </span>
+                            )}
+                            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px', msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+                                {PIC_AGENT_STATUS_OPTIONS.map((status) => (
+                                    <button
+                                        key={status.key}
+                                        type="button"
+                                        onClick={() => setComparisonStatus(status.key)}
+                                        style={getPillButtonStyle(comparisonStatus === status.key)}
+                                    >
+                                        {status.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                            Total data {selectedPicAgentStatusMeta?.label}: <strong style={{ color: 'var(--text-primary)' }}>{formatCount(comparisonTotal)}</strong>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                        <div style={{ padding: '18px', borderRadius: '14px', background: 'var(--bg-card)', border: '1px solid rgba(124, 77, 255, 0.35)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{selectedGroup?.name || 'Group'}</span>
+                            <strong style={{ fontSize: '2rem', color: 'var(--primary)' }}>{formatCount(selectedGroupComparison.count || 0)}</strong>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{groupPercentage}% dari total data status ini</span>
+                        </div>
+                        <div style={{ padding: '18px', borderRadius: '14px', background: 'var(--bg-card)', border: '1px solid rgba(38, 166, 154, 0.35)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>All Supervisor Data</span>
+                            <strong style={{ fontSize: '2rem', color: '#26a69a' }}>{formatCount(selectedGroupComparison.others || 0)}</strong>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{allSupervisorPercentage}% dari total data status ini</span>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </Accordion>
     );
 }

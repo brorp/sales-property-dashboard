@@ -11,7 +11,6 @@ import { usePagePolling } from '../hooks/usePagePolling';
 import TransactionRecapSection from './dashboard-sections/TransactionRecapSection';
 import TeamPerformanceSection from './dashboard-sections/TeamPerformanceSection';
 import DatabaseControlCenterSection from './dashboard-sections/DatabaseControlCenterSection';
-import LineChartSection from './dashboard-sections/LineChartSection';
 import DailySalesReportSection from './dashboard-sections/DailySalesReportSection';
 
 const STATUS_COLOR_MAP = {
@@ -336,7 +335,6 @@ export default function DashboardPage() {
     const transactionFilterRef = useRef(null);
     const teamPerformanceFilterRef = useRef(null);
     const databaseControlFilterRef = useRef(null);
-    const lineChartFilterRef = useRef(null);
 
     const [refreshing, setRefreshing] = useState(false);
     const [filterLoading, setFilterLoading] = useState(false);
@@ -346,9 +344,9 @@ export default function DashboardPage() {
     const [holdActionMessage, setHoldActionMessage] = useState('');
     const [holdActionError, setHoldActionError] = useState('');
     const [filterOpenKey, setFilterOpenKey] = useState('');
-    const [appliedDateRange, setAppliedDateRange] = useState(() => getPresetRange('today'));
-    const [draftDateRange, setDraftDateRange] = useState(() => getPresetRange('today'));
-    const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(parseDateInput(getPresetRange('today').dateFrom) || new Date()));
+    const [appliedDateRange, setAppliedDateRange] = useState(() => getPresetRange('thisMonth'));
+    const [draftDateRange, setDraftDateRange] = useState(() => getPresetRange('thisMonth'));
+    const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(parseDateInput(getPresetRange('thisMonth').dateFrom) || new Date()));
 
     const showDateFilter = Boolean(user);
     const hasActiveDateFilter = Boolean(appliedDateRange.dateFrom || appliedDateRange.dateTo);
@@ -558,9 +556,7 @@ export default function DashboardPage() {
                 ? transactionFilterRef
                 : filterOpenKey === 'team-performance'
                     ? teamPerformanceFilterRef
-                    : filterOpenKey === 'line-chart'
-                        ? lineChartFilterRef
-                        : databaseControlFilterRef;
+                    : databaseControlFilterRef;
 
         const handlePointerDown = (event) => {
             if (activeFilterRef.current && !activeFilterRef.current.contains(event.target)) {
@@ -575,7 +571,7 @@ export default function DashboardPage() {
     useEffect(() => {
         if (!user) {
             setPageAnalytics(null);
-            const nextRange = getPresetRange('today');
+            const nextRange = getPresetRange('thisMonth');
             setAppliedDateRange(nextRange);
             setDraftDateRange(nextRange);
             setFilterOpenKey('');
@@ -1016,10 +1012,6 @@ export default function DashboardPage() {
                 dateFilterControl={renderDateFilterControl('database-control', databaseControlFilterRef)}
                 allowScopeFiltering={canUseTeamFilters}
                 scopeLabel={scopedDashboardLabel}
-            />
-            <LineChartSection
-                data={analytics.lineChart}
-                dateFilterControl={renderDateFilterControl('line-chart', lineChartFilterRef)}
             />
         </div>
     );

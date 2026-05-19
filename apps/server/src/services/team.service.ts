@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db/index";
-import { client, lead, session, user } from "../db/schema";
+import { client, lead, session, teamGroup, teamGroupMember, user } from "../db/schema";
 import type { QueryScope } from "../middleware/rbac";
 import { countAppointmentsForSalesIds } from "./appointments.service";
 import { getActiveSalesSuspensionMap } from "./sales-suspension.service";
@@ -76,6 +76,23 @@ function getRoleLabel(role?: string) {
             return "Supervisor";
         default:
             return "Sales";
+    }
+}
+
+function sanitizeGroupName(value: unknown) {
+    if (typeof value !== "string") {
+        return "";
+    }
+    return value.trim().replace(/\s+/g, " ");
+}
+
+function assertCanManageTeamGroups(scope?: QueryScope) {
+    if (!scope || (scope.role !== "root_admin" && scope.role !== "client_admin")) {
+        throw new Error("FORBIDDEN_TEAM_GROUP");
+    }
+
+    if (!scope.clientId) {
+        throw new Error("TEAM_GROUP_CLIENT_REQUIRED");
     }
 }
 
@@ -459,6 +476,200 @@ export async function getTeamHierarchy(scope?: QueryScope) {
     };
 }
 
+export async function listTeamGroups(scope?: QueryScope) {
+    const conditions: any[] = [];
+
+    if (scope?.clientId) {
+        conditions.push(eq(teamGroup.clientId, scope.clientId));
+    } else if (scope && scope.role !== "root_admin") {
+        return [];
+    }
+
+    const groupRows = await db
+        .select({
+            id: teamGroup.id,
+            clientId: teamGroup.clientId,
+            clientName: client.name,
+            name: teamGroup.name,
+            createdAt: teamGroup.createdAt,
+            updatedAt: teamGroup.updatedAt,
+        })
+        .from(teamGroup)
+        .leftJoin(client, eq(teamGroup.clientId, client.id))
+        .where(andAll(conditions))
+        .orderBy(asc(client.name), asc(teamGroup.name));
+
+    if (groupRows.length === 0) {
+        return [];
+    }
+
+    const memberRows = await db
+        .select({
+            id: teamGroupMember.id,
+            groupId: teamGroupMember.groupId,
+            userId: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            clientId: user.clientId,
+            supervisorId: user.supervisorId,
+            isActive: user.isActive,
+        })
+        .from(teamGroupMember)
+        .innerJoin(user, eq(teamGroupMember.userId, user.id))
+        .where(inArray(teamGroupMember.groupId, groupRows.map((row) => row.id)))
+        .orderBy(asc(user.role), asc(user.name));
+
+    const membersByGroup = new Map<string, typeof memberRows>();
+    for (const row of memberRows) {
+        const current = membersByGroup.get(row.groupId) || [];
+        current.push(row);
+        membersByGroup.set(row.groupId, current);
+    }
+
+    return groupRows.map((row) => ({
+        ...row,
+        members: (membersByGroup.get(row.id) || []).map((member) => ({
+            id: member.id,
+            userId: member.userId,
+            name: member.name,
+            email: member.email,
+            role: member.role,
+            clientId: member.clientId,
+            supervisorId: member.supervisorId,
+            isActive: member.isActive,
+        })),
+    }));
+}
+
+export async function createTeamGroup(params: {
+    name: unknown;
+    actorId: string;
+    scope?: QueryScope;
+}) {
+    assertCanManageTeamGroups(params.scope);
+    const name = sanitizeGroupName(params.name);
+    if (!name) {
+        throw new Error("TEAM_GROUP_NAME_REQUIRED");
+    }
+
+    const now = new Date();
+    const [created] = await db
+        .insert(teamGroup)
+        .values({
+            id: `tg_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+            clientId: params.scope!.clientId!,
+            name,
+            createdAt: now,
+            updatedAt: now,
+        })
+        .returning();
+
+    return created;
+}
+
+async function loadScopedTeamGroup(groupId: string, scope?: QueryScope) {
+    const conditions = [eq(teamGroup.id, groupId)];
+    if (scope?.clientId) {
+        conditions.push(eq(teamGroup.clientId, scope.clientId));
+    } else if (scope && scope.role !== "root_admin") {
+        conditions.push(eq(teamGroup.id, "__none__"));
+    }
+
+    const [row] = await db
+        .select()
+        .from(teamGroup)
+        .where(and(...conditions))
+        .limit(1);
+
+    return row || null;
+}
+
+export async function deleteTeamGroup(params: {
+    groupId: string;
+    scope?: QueryScope;
+}) {
+    assertCanManageTeamGroups(params.scope);
+    const existing = await loadScopedTeamGroup(params.groupId, params.scope);
+    if (!existing) {
+        throw new Error("TEAM_GROUP_NOT_FOUND");
+    }
+
+    const [deleted] = await db
+        .delete(teamGroup)
+        .where(eq(teamGroup.id, existing.id))
+        .returning();
+
+    return deleted;
+}
+
+export async function addTeamGroupMember(params: {
+    groupId: string;
+    userId: string;
+    scope?: QueryScope;
+}) {
+    assertCanManageTeamGroups(params.scope);
+    const existing = await loadScopedTeamGroup(params.groupId, params.scope);
+    if (!existing) {
+        throw new Error("TEAM_GROUP_NOT_FOUND");
+    }
+
+    const [member] = await db
+        .select({
+            id: user.id,
+            role: user.role,
+            clientId: user.clientId,
+            isActive: user.isActive,
+        })
+        .from(user)
+        .where(eq(user.id, params.userId))
+        .limit(1);
+
+    if (
+        !member ||
+        !member.isActive ||
+        (member.role !== "supervisor" && member.role !== "sales") ||
+        member.clientId !== existing.clientId
+    ) {
+        throw new Error("TEAM_GROUP_INVALID_MEMBER");
+    }
+
+    const [created] = await db
+        .insert(teamGroupMember)
+        .values({
+            id: `tgm_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+            groupId: existing.id,
+            userId: params.userId,
+        })
+        .onConflictDoNothing()
+        .returning();
+
+    return created || { groupId: existing.id, userId: params.userId };
+}
+
+export async function removeTeamGroupMember(params: {
+    groupId: string;
+    memberId: string;
+    scope?: QueryScope;
+}) {
+    assertCanManageTeamGroups(params.scope);
+    const existing = await loadScopedTeamGroup(params.groupId, params.scope);
+    if (!existing) {
+        throw new Error("TEAM_GROUP_NOT_FOUND");
+    }
+
+    const [deleted] = await db
+        .delete(teamGroupMember)
+        .where(and(eq(teamGroupMember.groupId, existing.id), eq(teamGroupMember.id, params.memberId)))
+        .returning();
+
+    if (!deleted) {
+        throw new Error("TEAM_GROUP_MEMBER_NOT_FOUND");
+    }
+
+    return deleted;
+}
+
 async function loadVisibleMemberById(memberId: string, scope?: QueryScope) {
     const [member] = await db
         .select({
@@ -790,5 +1001,56 @@ export async function deactivateSupervisorMember(params: {
         }
 
         return updated;
+    });
+}
+
+export async function deleteInactiveSalesMember(params: {
+    salesId: string;
+    actorId: string;
+    scope?: QueryScope;
+}) {
+    if (!params.scope || (params.scope.role !== "root_admin" && params.scope.role !== "client_admin")) {
+        throw new Error("FORBIDDEN_SALES_DELETE");
+    }
+
+    const conditions = [
+        eq(user.id, params.salesId),
+        eq(user.role, "sales"),
+        eq(user.isActive, false),
+    ];
+
+    if (params.scope.role !== "root_admin" && params.scope.clientId) {
+        conditions.push(eq(user.clientId, params.scope.clientId));
+    }
+
+    const [member] = await db
+        .select({
+            id: user.id,
+            name: user.name,
+            role: user.role,
+            isActive: user.isActive,
+        })
+        .from(user)
+        .where(and(...conditions))
+        .limit(1);
+
+    if (!member) {
+        throw new Error("INACTIVE_SALES_NOT_FOUND");
+    }
+
+    return db.transaction(async (tx) => {
+        await tx.delete(session).where(eq(session.userId, member.id));
+        await tx.delete(teamGroupMember).where(eq(teamGroupMember.userId, member.id));
+
+        const [deleted] = await tx
+            .delete(user)
+            .where(eq(user.id, member.id))
+            .returning({
+                id: user.id,
+                name: user.name,
+                role: user.role,
+            });
+
+        return deleted;
     });
 }

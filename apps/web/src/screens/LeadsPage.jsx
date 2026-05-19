@@ -369,10 +369,10 @@ export default function LeadsPage() {
     const [refreshing, setRefreshing] = useState(false);
     const [search, setSearch] = useState('');
     const [flowFilter, setFlowFilter] = useState('all');
-    const [salesStatusFilter, setSalesStatusFilter] = useState('all');
     const searchParams = useSearchParams();
+    const [salesStatusFilter, setSalesStatusFilter] = useState(searchParams?.get('salesStatus') || 'all');
     const [resultFilter, setResultFilter] = useState(searchParams?.get('resultFilter') || 'all');
-    const [appointmentFilter, setAppointmentFilter] = useState('all');
+    const [appointmentFilter, setAppointmentFilter] = useState(searchParams?.get('appointmentTag') || 'all');
     const [salesFilter, setSalesFilter] = useState('all');
     const [sourceFilter, setSourceFilter] = useState('all');
     const [incompleteDataFilter, setIncompleteDataFilter] = useState(false);

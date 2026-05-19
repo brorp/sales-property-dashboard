@@ -16,10 +16,23 @@ function formatCount(value) {
     return new Intl.NumberFormat('id-ID').format(Number(value || 0));
 }
 
-export default function LineChartSection({ data, dateFilterControl = null }) {
+export default function LineChartSection({
+    data,
+    dateFilterControl = null,
+    title = 'Line Chart',
+    defaultExpanded = false,
+    datasetOverride = '',
+    hideDatasetControl = false,
+    hiddenSeriesKeys: controlledHiddenSeriesKeys,
+    onToggleSeries,
+    inline = false,
+}) {
     const [granularity, setGranularity] = useState(data?.defaultGranularity || 'month');
     const [dataset, setDataset] = useState(data?.defaultDataset || 'l4');
-    const [hiddenSeriesKeys, setHiddenSeriesKeys] = useState([]);
+    const [internalHiddenSeriesKeys, setInternalHiddenSeriesKeys] = useState([]);
+    const hiddenSeriesKeys = Array.isArray(controlledHiddenSeriesKeys)
+        ? controlledHiddenSeriesKeys
+        : internalHiddenSeriesKeys;
 
     useEffect(() => {
         if (!data) {
@@ -32,11 +45,19 @@ export default function LineChartSection({ data, dateFilterControl = null }) {
                 : data.defaultGranularity || 'month'
         ));
         setDataset((prev) => (
-            data.datasetOptions?.some((item) => item.key === prev)
+            datasetOverride && data.datasetOptions?.some((item) => item.key === datasetOverride)
+                ? datasetOverride
+                : data.datasetOptions?.some((item) => item.key === prev)
                 ? prev
                 : data.defaultDataset || 'l4'
         ));
-    }, [data]);
+    }, [data, datasetOverride]);
+
+    useEffect(() => {
+        if (datasetOverride) {
+            setDataset(datasetOverride);
+        }
+    }, [datasetOverride]);
 
     const chartPayload = data?.data?.[granularity]?.[dataset] || { periods: [], series: [] };
     const periods = Array.isArray(chartPayload.periods) ? chartPayload.periods : [];
@@ -53,11 +74,15 @@ export default function LineChartSection({ data, dateFilterControl = null }) {
     );
 
     useEffect(() => {
-        setHiddenSeriesKeys((prev) => {
+        if (Array.isArray(controlledHiddenSeriesKeys)) {
+            return;
+        }
+
+        setInternalHiddenSeriesKeys((prev) => {
             const next = prev.filter((key) => visibleSeriesKeys.includes(key));
             return next.length === prev.length ? prev : next;
         });
-    }, [visibleSeriesKeys]);
+    }, [controlledHiddenSeriesKeys, visibleSeriesKeys]);
 
     const chartGeometry = useMemo(() => {
         const width = 720;
@@ -128,156 +153,180 @@ export default function LineChartSection({ data, dateFilterControl = null }) {
         });
     }, [chartGeometry.chartHeight, chartGeometry.maxValue, chartGeometry.padding.top]);
 
-    return (
-        <Accordion
-            title="Line Chart"
-            summary={`Tren Data`}
-            defaultExpanded={false}
-        >
-            <div className="line-chart-shell">
-                {dateFilterControl}
+    const content = (
+        <div className="line-chart-shell">
+            {dateFilterControl}
 
-                <div className="line-chart-controls">
-                    <div className="input-group">
-                        <label>Time</label>
-                        <select
-                            className="input-field"
-                            value={granularity}
-                            onChange={(event) => setGranularity(event.target.value)}
-                        >
-                            {(data?.granularityOptions || []).map((option) => (
-                                <option key={option.key} value={option.key}>{option.label}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="input-group">
-                        <label>Dataset</label>
-                        <select
-                            className="input-field"
-                            value={dataset}
-                            onChange={(event) => setDataset(event.target.value)}
-                        >
-                            {(data?.datasetOptions || []).map((option) => (
-                                <option key={option.key} value={option.key}>{option.label}</option>
-                            ))}
-                        </select>
-                    </div>
+            <div className="line-chart-controls">
+                <div className="input-group">
+                    <label>Time</label>
+                    <select
+                        className="input-field"
+                        value={granularity}
+                        onChange={(event) => setGranularity(event.target.value)}
+                    >
+                        {(data?.granularityOptions || []).map((option) => (
+                            <option key={option.key} value={option.key}>{option.label}</option>
+                        ))}
+                    </select>
                 </div>
 
-                {seriesWithColor.length === 0 || periods.length === 0 ? (
-                    <div className="line-chart-empty">Belum ada data untuk kombinasi filter ini.</div>
-                ) : (
-                    <>
-                        <div className="line-chart-legend">
-                            {seriesWithColor.map((item) => {
-                                const isHidden = hiddenSeriesKeys.includes(item.key);
-                                return (
-                                <button
-                                    key={item.key}
-                                    type="button"
-                                    className={`line-chart-legend-item${isHidden ? ' is-hidden' : ''}`}
-                                    onClick={() => {
-                                        setHiddenSeriesKeys((prev) => (
-                                            prev.includes(item.key)
-                                                ? prev.filter((key) => key !== item.key)
-                                                : [...prev, item.key]
-                                        ));
-                                    }}
-                                    aria-pressed={!isHidden}
-                                    title={`${isHidden ? 'Tampilkan' : 'Sembunyikan'} ${item.label}`}
-                                >
-                                    <span className="line-chart-legend-dot" style={{ background: item.color }} />
-                                    <span>{item.label}</span>
-                                    <strong>{formatCount(item.total)}</strong>
-                                </button>
-                                );
-                            })}
-                        </div>
-
-                        {seriesWithPoints.length === 0 ? (
-                            <div className="line-chart-empty">Semua garis sedang disembunyikan. Klik legend warna untuk menampilkan lagi.</div>
-                        ) : (
-                            <div className="line-chart-card">
-                            <svg
-                                className="line-chart-svg"
-                                viewBox={`0 0 ${chartGeometry.width} ${chartGeometry.height}`}
-                                role="img"
-                                aria-label={`${datasetLabel} berdasarkan ${granularityLabel}`}
-                            >
-                                {gridTicks.map((tick) => (
-                                    <g key={tick.y}>
-                                        <line
-                                            x1={chartGeometry.padding.left}
-                                            x2={chartGeometry.width - chartGeometry.padding.right}
-                                            y1={tick.y}
-                                            y2={tick.y}
-                                            stroke="rgba(255,255,255,0.08)"
-                                            strokeDasharray="4 4"
-                                        />
-                                        <text
-                                            x={chartGeometry.padding.left - 8}
-                                            y={tick.y + 4}
-                                            textAnchor="end"
-                                            fontSize="11"
-                                            fill="var(--text-muted)"
-                                        >
-                                            {tick.value}
-                                        </text>
-                                    </g>
-                                ))}
-
-                                {seriesWithPoints.map((seriesItem) => (
-                                    <g key={seriesItem.key}>
-                                        <path
-                                            d={seriesItem.path}
-                                            fill="none"
-                                            stroke={seriesItem.color}
-                                            strokeWidth="3"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                        />
-                                        {seriesItem.points.map((point, index) => (
-                                            <circle
-                                                key={`${seriesItem.key}-${index}`}
-                                                cx={point.x}
-                                                cy={point.y}
-                                                r="4"
-                                                fill={seriesItem.color}
-                                            />
-                                        ))}
-                                    </g>
-                                ))}
-
-                                {periods.map((period, index) => {
-                                    const shouldShowLabel =
-                                        index === 0 ||
-                                        index === periods.length - 1 ||
-                                        index % chartGeometry.xLabelEvery === 0;
-                                    if (!shouldShowLabel) {
-                                        return null;
-                                    }
-                                    const x = chartGeometry.padding.left + (periods.length > 1 ? chartGeometry.xStep * index : chartGeometry.chartWidth / 2);
-                                    return (
-                                        <text
-                                            key={period.key}
-                                            x={x}
-                                            y={chartGeometry.height - (chartGeometry.denseXAxis ? 16 : 10)}
-                                            textAnchor={chartGeometry.denseXAxis ? 'end' : 'middle'}
-                                            fontSize={chartGeometry.denseXAxis ? '8' : '11'}
-                                            fill="var(--text-muted)"
-                                            transform={chartGeometry.denseXAxis ? `rotate(-45 ${x} ${chartGeometry.height - 16})` : undefined}
-                                        >
-                                            {period.label}
-                                        </text>
-                                    );
-                                })}
-                            </svg>
-                            </div>
-                        )}
-                    </>
+                {hideDatasetControl ? null : (
+                <div className="input-group">
+                    <label>Dataset</label>
+                    <select
+                        className="input-field"
+                        value={dataset}
+                        onChange={(event) => setDataset(event.target.value)}
+                    >
+                        {(data?.datasetOptions || []).map((option) => (
+                            <option key={option.key} value={option.key}>{option.label}</option>
+                        ))}
+                    </select>
+                </div>
                 )}
             </div>
+
+            {seriesWithColor.length === 0 || periods.length === 0 ? (
+                <div className="line-chart-empty">Belum ada data untuk kombinasi filter ini.</div>
+            ) : (
+                <>
+                    <div className="line-chart-legend">
+                        {seriesWithColor.map((item) => {
+                            const isHidden = hiddenSeriesKeys.includes(item.key);
+                            return (
+                            <button
+                                key={item.key}
+                                type="button"
+                                className={`line-chart-legend-item${isHidden ? ' is-hidden' : ''}`}
+                                onClick={() => {
+                                    if (onToggleSeries) {
+                                        onToggleSeries(item.key);
+                                        return;
+                                    }
+                                    setInternalHiddenSeriesKeys((prev) => (
+                                        prev.includes(item.key)
+                                            ? prev.filter((key) => key !== item.key)
+                                            : [...prev, item.key]
+                                    ));
+                                }}
+                                aria-pressed={!isHidden}
+                                title={`${isHidden ? 'Tampilkan' : 'Sembunyikan'} ${item.label}`}
+                            >
+                                <span className="line-chart-legend-dot" style={{ background: item.color }} />
+                                <span>{item.label}</span>
+                                <strong>{formatCount(item.total)}</strong>
+                            </button>
+                            );
+                        })}
+                    </div>
+
+                    {seriesWithPoints.length === 0 ? (
+                        <div className="line-chart-empty">Semua garis sedang disembunyikan. Klik legend warna untuk menampilkan lagi.</div>
+                    ) : (
+                        <div className="line-chart-card">
+                        <svg
+                            className="line-chart-svg"
+                            viewBox={`0 0 ${chartGeometry.width} ${chartGeometry.height}`}
+                            role="img"
+                            aria-label={`${datasetLabel} berdasarkan ${granularityLabel}`}
+                        >
+                            {gridTicks.map((tick) => (
+                                <g key={tick.y}>
+                                    <line
+                                        x1={chartGeometry.padding.left}
+                                        x2={chartGeometry.width - chartGeometry.padding.right}
+                                        y1={tick.y}
+                                        y2={tick.y}
+                                        stroke="rgba(255,255,255,0.08)"
+                                        strokeDasharray="4 4"
+                                    />
+                                    <text
+                                        x={chartGeometry.padding.left - 8}
+                                        y={tick.y + 4}
+                                        textAnchor="end"
+                                        fontSize="11"
+                                        fill="var(--text-muted)"
+                                    >
+                                        {tick.value}
+                                    </text>
+                                </g>
+                            ))}
+
+                            {seriesWithPoints.map((seriesItem) => (
+                                <g key={seriesItem.key}>
+                                    <path
+                                        d={seriesItem.path}
+                                        fill="none"
+                                        stroke={seriesItem.color}
+                                        strokeWidth="3"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    />
+                                    {seriesItem.points.map((point, index) => (
+                                        <circle
+                                            key={`${seriesItem.key}-${index}`}
+                                            cx={point.x}
+                                            cy={point.y}
+                                            r="4"
+                                            fill={seriesItem.color}
+                                        />
+                                    ))}
+                                </g>
+                            ))}
+
+                            {periods.map((period, index) => {
+                                const shouldShowLabel =
+                                    index === 0 ||
+                                    index === periods.length - 1 ||
+                                    index % chartGeometry.xLabelEvery === 0;
+                                if (!shouldShowLabel) {
+                                    return null;
+                                }
+                                const x = chartGeometry.padding.left + (periods.length > 1 ? chartGeometry.xStep * index : chartGeometry.chartWidth / 2);
+                                return (
+                                    <text
+                                        key={period.key}
+                                        x={x}
+                                        y={chartGeometry.height - (chartGeometry.denseXAxis ? 16 : 10)}
+                                        textAnchor={chartGeometry.denseXAxis ? 'end' : 'middle'}
+                                        fontSize={chartGeometry.denseXAxis ? '8' : '11'}
+                                        fill="var(--text-muted)"
+                                        transform={chartGeometry.denseXAxis ? `rotate(-45 ${x} ${chartGeometry.height - 16})` : undefined}
+                                    >
+                                        {period.label}
+                                    </text>
+                                );
+                            })}
+                        </svg>
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
+    );
+
+    if (inline) {
+        return (
+            <section className="line-chart-inline">
+                <div className="chart-row-head">
+                    <div>
+                        <h3>{title}</h3>
+                        <span>Tren Data</span>
+                    </div>
+                </div>
+                {content}
+            </section>
+        );
+    }
+
+    return (
+        <Accordion
+            title={title}
+            summary={`Tren Data`}
+            defaultExpanded={defaultExpanded}
+        >
+            {content}
         </Accordion>
     );
 }

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Accordion from '../../components/Accordion';
+import LineChartSection from './LineChartSection';
 import './DashboardSections.css';
 
 const PIE_COLORS = [
@@ -14,10 +15,10 @@ const PIE_COLORS = [
 ];
 
 const DEFAULT_STATUS_LAYER_OPTIONS = [
-    { key: 'l1', label: 'L1' },
-    { key: 'l2', label: 'L2' },
-    { key: 'l3', label: 'L3' },
     { key: 'l4', label: 'L4' },
+    { key: 'l3', label: 'L3' },
+    { key: 'l2', label: 'L2' },
+    { key: 'l1', label: 'L1' },
 ];
 
 function formatCount(value) {
@@ -69,8 +70,9 @@ function buildConicGradient(items) {
     return `conic-gradient(${segments.join(', ')})`;
 }
 
-function PieChartCard({ title, subtitle, total, items, emptyLabel = 'Belum ada data' }) {
+function ChartCard({ title, subtitle, total, items, emptyLabel = 'Belum ada data', chartType = 'pie', onItemClick, activeKeys = [] }) {
     const chartItems = items.filter((item) => item.count > 0);
+    const activeSet = new Set(activeKeys || []);
 
     return (
         <div
@@ -100,6 +102,38 @@ function PieChartCard({ title, subtitle, total, items, emptyLabel = 'Belum ada d
                         alignItems: 'center',
                     }}
                 >
+                    {chartType === 'bar' ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {chartItems.map((item) => {
+                                const percentage = total > 0 ? Math.round((item.count / total) * 10000) / 100 : 0;
+                                const isActive = activeSet.size === 0 || activeSet.has(item.key);
+                                return (
+                                    <button
+                                        key={item.label}
+                                        type="button"
+                                        onClick={() => onItemClick?.(item.key)}
+                                        style={{
+                                            border: isActive ? '1px solid var(--border-color)' : '1px solid rgba(255,255,255,0.05)',
+                                            background: isActive ? 'var(--bg-input)' : 'rgba(148, 163, 184, 0.08)',
+                                            opacity: isActive ? 1 : 0.48,
+                                            padding: '10px 12px',
+                                            borderRadius: '10px',
+                                            cursor: onItemClick ? 'pointer' : 'default',
+                                            textAlign: 'left',
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', color: 'var(--text-primary)', fontWeight: 700 }}>
+                                            <span>{item.label}</span>
+                                            <span>{formatCount(item.count)} · {percentage}%</span>
+                                        </div>
+                                        <div className="mini-progress-bar" style={{ marginTop: 8 }}>
+                                            <div className="mini-progress-fill" style={{ width: `${Math.max(4, percentage)}%`, backgroundColor: item.color }} />
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    ) : (
                     <div style={{ display: 'flex', justifyContent: 'center' }}>
                         <div
                             style={{
@@ -133,13 +167,17 @@ function PieChartCard({ title, subtitle, total, items, emptyLabel = 'Belum ada d
                             </div>
                         </div>
                     </div>
+                    )}
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {chartItems.map((item) => {
                             const percentage = total > 0 ? Math.round((item.count / total) * 10000) / 100 : 0;
+                            const isActive = activeSet.size === 0 || activeSet.has(item.key);
                             return (
-                                <div
+                                <button
                                     key={item.label}
+                                    type="button"
+                                    onClick={() => onItemClick?.(item.key)}
                                     style={{
                                         display: 'grid',
                                         gridTemplateColumns: 'auto 1fr auto auto',
@@ -147,7 +185,11 @@ function PieChartCard({ title, subtitle, total, items, emptyLabel = 'Belum ada d
                                         alignItems: 'center',
                                         padding: '10px 12px',
                                         borderRadius: '10px',
-                                        background: 'var(--bg-input)',
+                                        border: isActive ? '1px solid transparent' : '1px solid rgba(255,255,255,0.05)',
+                                        background: isActive ? 'var(--bg-input)' : 'rgba(148, 163, 184, 0.08)',
+                                        opacity: isActive ? 1 : 0.48,
+                                        cursor: onItemClick ? 'pointer' : 'default',
+                                        textAlign: 'left',
                                     }}
                                 >
                                     <span
@@ -162,7 +204,7 @@ function PieChartCard({ title, subtitle, total, items, emptyLabel = 'Belum ada d
                                     <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{item.label}</span>
                                     <strong style={{ color: 'var(--text-primary)' }}>{formatCount(item.count)}</strong>
                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.82rem' }}>{percentage}%</span>
-                                </div>
+                                </button>
                             );
                         })}
                     </div>
@@ -209,8 +251,14 @@ export default function DatabaseControlCenterSection({
     allowScopeFiltering = true,
     scopeLabel = 'Semua',
 }) {
-    const [selectedLayer, setSelectedLayer] = useState('l1');
+    const [selectedLayer, setSelectedLayer] = useState('l4');
     const [selectedScope, setSelectedScope] = useState('all');
+    const [chartType, setChartType] = useState('pie');
+    const [activeLineSeriesKeys, setActiveLineSeriesKeys] = useState([]);
+
+    useEffect(() => {
+        setActiveLineSeriesKeys([]);
+    }, [selectedLayer, selectedScope]);
 
     if (!data) return null;
 
@@ -218,7 +266,12 @@ export default function DatabaseControlCenterSection({
     const topDomicile = data.domicileBreakdown?.[0]?.city || '-';
     const summary = `${data.totalData || 0} Total Data`;
     const scopeOptions = data.scopeOptions || [];
-    const layerOptions = data.statusLayerOptions || DEFAULT_STATUS_LAYER_OPTIONS;
+    const layerOptions = (data.statusLayerOptions || DEFAULT_STATUS_LAYER_OPTIONS)
+        .slice()
+        .sort((a, b) => {
+            const order = { l4: 0, l3: 1, l2: 2, l1: 3 };
+            return (order[a.key] ?? 99) - (order[b.key] ?? 99);
+        });
     const effectiveScopeKey = allowScopeFiltering ? selectedScope : 'all';
     const selectedScopeOption = scopeOptions.find((item) => item.key === effectiveScopeKey) || null;
     const selectedScopeData = data.statusLayerBreakdown?.[effectiveScopeKey] || data.statusLayerBreakdown?.all || null;
@@ -233,6 +286,26 @@ export default function DatabaseControlCenterSection({
         ...item,
         color: PIE_COLORS[index % PIE_COLORS.length],
     }));
+    const selectedLayerSeriesKeys = statusLayerItems.map((item) => item.key);
+    const hiddenLineSeriesKeys = activeLineSeriesKeys.length > 0
+        ? selectedLayerSeriesKeys.filter((key) => !activeLineSeriesKeys.includes(key))
+        : [];
+
+    const toggleLineStatus = (key) => {
+        if (!key) {
+            return;
+        }
+        setActiveLineSeriesKeys((prev) => {
+            if (prev.length === 0) {
+                return [key];
+            }
+            if (prev.includes(key)) {
+                const next = prev.filter((item) => item !== key);
+                return next.length === 0 ? [] : next;
+            }
+            return [...prev, key];
+        });
+    };
 
     return (
         <Accordion title="Database Control Center" summary={summary} defaultExpanded={false}>
@@ -242,8 +315,20 @@ export default function DatabaseControlCenterSection({
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>Analisa Status Database Leads</h3>
                             <span style={{ color: 'var(--text-muted)', fontSize: '0.84rem' }}>
-                                Pie chart mengikuti filter layer status dan supervisor yang dipilih.
+                                Chart mengikuti filter layer status dan supervisor yang dipilih.
                             </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            {['pie', 'bar'].map((type) => (
+                                <button
+                                    key={type}
+                                    type="button"
+                                    onClick={() => setChartType(type)}
+                                    style={getPillButtonStyle(chartType === type)}
+                                >
+                                    {type === 'pie' ? 'Pie Chart' : 'Bar Chart'}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
@@ -298,16 +383,30 @@ export default function DatabaseControlCenterSection({
                     </div>
                 </div>
 
-                <PieChartCard
+                <ChartCard
                     title={`Distribusi Status ${selectedLayerMeta?.label || 'L1'}`}
-                    subtitle={`Komposisi status leads untuk ${effectiveScopeLabel} berdasarkan layer ${selectedLayerMeta?.label || 'L1'}.`}
+                    subtitle={`Klik status untuk fokus line chart di bawah. Komposisi untuk ${effectiveScopeLabel} berdasarkan layer ${selectedLayerMeta?.label || 'L1'}.`}
                     total={filteredTotal}
                     items={statusLayerItems}
+                    chartType={chartType}
+                    activeKeys={activeLineSeriesKeys}
+                    onItemClick={toggleLineStatus}
                     emptyLabel="Belum ada data pada filter ini."
+                />
+
+                <LineChartSection
+                    data={data.lineChart}
+                    title={`Line Chart ${selectedLayerMeta?.label || 'L4'}`}
+                    defaultExpanded={false}
+                    datasetOverride={selectedLayer}
+                    hideDatasetControl
+                    hiddenSeriesKeys={hiddenLineSeriesKeys}
+                    onToggleSeries={toggleLineStatus}
+                    inline
                 />
             </div>
 
-            <div className="chart-container-row" style={{ marginTop: '24px' }}>
+            <div className="chart-container-row chart-container-row-four" style={{ marginTop: '24px' }}>
                 <RankedInsightPanel
                     title="Top Domisili"
                     items={data.domicileBreakdown?.slice(0, 10) || []}
@@ -320,6 +419,13 @@ export default function DatabaseControlCenterSection({
                     items={data.sourceBreakdown || []}
                     emptyLabel="Belum ada data source"
                     renderLabel={(item) => item.source}
+                />
+
+                <RankedInsightPanel
+                    title="Tipe Unit"
+                    items={data.unitTypeBreakdown || []}
+                    emptyLabel="Belum ada tipe unit"
+                    renderLabel={(item) => item.label || item.unitType}
                 />
 
                 <RankedInsightPanel

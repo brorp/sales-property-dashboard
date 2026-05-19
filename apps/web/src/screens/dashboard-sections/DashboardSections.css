@@ -118,6 +118,13 @@
     margin-top: 16px;
 }
 
+.chart-container-row-four,
+.analytics-chart-grid-four {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+}
+
 .chart-box {
     flex: 1;
     min-width: 250px;
@@ -279,6 +286,16 @@
     gap: 18px;
 }
 
+.line-chart-inline {
+    padding: 18px;
+    border-radius: 14px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
 .line-chart-controls {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 220px));
@@ -350,6 +367,11 @@
 }
 
 @media (max-width: 768px) {
+    .chart-container-row-four,
+    .analytics-chart-grid-four {
+        grid-template-columns: 1fr;
+    }
+
     .daily-sales-report-top,
     .daily-sales-report-main {
         grid-template-columns: 1fr;

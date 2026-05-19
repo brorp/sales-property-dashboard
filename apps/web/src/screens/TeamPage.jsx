@@ -76,6 +76,14 @@ function getTeamActionErrorMessage(error, fallback) {
             return 'Member tim tidak ditemukan atau sudah tidak aktif.';
         case 'TARGET_SALES_NOT_FOUND':
             return 'Sales yang mau dipindahkan tidak ditemukan pada workspace ini.';
+        case 'TEAM_GROUP_NAME_REQUIRED':
+            return 'Nama group wajib diisi.';
+        case 'TEAM_GROUP_INVALID_MEMBER':
+            return 'Member group harus supervisor atau sales aktif di workspace ini.';
+        case 'TEAM_GROUP_NOT_FOUND':
+            return 'Group tidak ditemukan.';
+        case 'INACTIVE_SALES_NOT_FOUND':
+            return 'Sales inactive tidak ditemukan atau sudah terhapus.';
         case 'ADMIN_PASSWORD_REQUIRED':
             return 'Password admin wajib diisi.';
         case 'ADMIN_PASSWORD_INVALID':
@@ -170,6 +178,11 @@ export default function TeamPage() {
     const [lifecycleState, setLifecycleState] = useState(null);
     const [assignmentState, setAssignmentState] = useState(null);
     const [deleteSupervisorState, setDeleteSupervisorState] = useState(null);
+    const [teamGroups, setTeamGroups] = useState([]);
+    const [groupName, setGroupName] = useState('');
+    const [groupError, setGroupError] = useState('');
+    const [groupLoading, setGroupLoading] = useState(false);
+    const [deleteInactiveSalesState, setDeleteInactiveSalesState] = useState(null);
 
     useEffect(() => {
         if (!isAdmin) {
@@ -179,12 +192,31 @@ export default function TeamPage() {
         void refreshTeamStats();
     }, [isAdmin, refreshTeamStats]);
 
+    const loadTeamGroups = useCallback(async () => {
+        if (!user || (user.role !== 'client_admin' && user.role !== 'root_admin' && user.role !== 'supervisor')) {
+            setTeamGroups([]);
+            return;
+        }
+
+        const rows = await apiRequest('/api/team/groups', { user });
+        setTeamGroups(Array.isArray(rows) ? rows : []);
+    }, [user]);
+
+    useEffect(() => {
+        if (!isAdmin || !user) {
+            return;
+        }
+
+        void loadTeamGroups().catch(() => {});
+    }, [isAdmin, loadTeamGroups, user]);
+
     usePagePolling({
         enabled: Boolean(isAdmin && user),
         intervalMs: 3000,
         run: useCallback(async () => {
             await refreshTeamStats();
-        }, [refreshTeamStats]),
+            await loadTeamGroups();
+        }, [loadTeamGroups, refreshTeamStats]),
     });
     const groups = Array.isArray(teamStats?.groups) ? teamStats.groups : [];
     const availableSupervisors = useMemo(() => {
@@ -192,6 +224,32 @@ export default function TeamPage() {
             .flatMap((group) => Array.isArray(group.supervisors) ? group.supervisors : [])
             .filter((supervisor) => !isLockedTeamMember(supervisor))
             .sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')));
+    }, [groups]);
+    const availableGroupMembers = useMemo(() => {
+        const rows = [];
+        for (const group of groups) {
+            for (const supervisor of group.supervisors || []) {
+                if (!isLockedTeamMember(supervisor)) {
+                    rows.push({ ...supervisor, label: `${supervisor.name} · Supervisor` });
+                }
+                for (const sales of supervisor.sales || []) {
+                    if (!isLockedTeamMember(sales)) {
+                        rows.push({ ...sales, label: `${sales.name} · Sales (${supervisor.name})` });
+                    }
+                }
+            }
+            for (const sales of group.unassignedSales || []) {
+                rows.push({ ...sales, label: `${sales.name} · Sales` });
+            }
+        }
+
+        const unique = new Map();
+        for (const row of rows) {
+            if (!unique.has(row.id)) {
+                unique.set(row.id, row);
+            }
+        }
+        return Array.from(unique.values()).sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')));
     }, [groups]);
     const supervisorOptionsByClient = useMemo(() => {
         const nextMap = new Map();
@@ -213,6 +271,7 @@ export default function TeamPage() {
     const canEditMembers = user?.role === 'client_admin';
     const canManageSalesLifecycle = user?.role === 'client_admin' || user?.role === 'root_admin';
     const canManageSalesSupervisor = user?.role === 'client_admin' || user?.role === 'root_admin';
+    const canManageTeamGroups = user?.role === 'client_admin' || user?.role === 'root_admin';
     const summary = teamStats?.summary || {
         supervisors: 0,
         sales: 0,
@@ -276,8 +335,93 @@ export default function TeamPage() {
         setRefreshing(true);
         try {
             await refreshTeamStats();
+            await loadTeamGroups();
         } finally {
             setRefreshing(false);
+        }
+    };
+
+    const handleCreateGroup = async (event) => {
+        event.preventDefault();
+        if (!user || !groupName.trim()) {
+            return;
+        }
+
+        setGroupLoading(true);
+        setGroupError('');
+        setSubmitSuccess('');
+        try {
+            await apiRequest('/api/team/groups', {
+                method: 'POST',
+                user,
+                body: { name: groupName.trim() },
+            });
+            setGroupName('');
+            await loadTeamGroups();
+            setSubmitSuccess('Group analytics berhasil dibuat.');
+        } catch (err) {
+            setGroupError(getTeamActionErrorMessage(err, 'Gagal membuat group'));
+        } finally {
+            setGroupLoading(false);
+        }
+    };
+
+    const handleDeleteGroup = async (groupId) => {
+        if (!user || !groupId) {
+            return;
+        }
+        setGroupLoading(true);
+        setGroupError('');
+        try {
+            await apiRequest(`/api/team/groups/${groupId}`, {
+                method: 'DELETE',
+                user,
+            });
+            await loadTeamGroups();
+            setSubmitSuccess('Group analytics berhasil dihapus.');
+        } catch (err) {
+            setGroupError(getTeamActionErrorMessage(err, 'Gagal menghapus group'));
+        } finally {
+            setGroupLoading(false);
+        }
+    };
+
+    const handleAddGroupMember = async (groupId, userId) => {
+        if (!user || !groupId || !userId) {
+            return;
+        }
+        setGroupLoading(true);
+        setGroupError('');
+        try {
+            await apiRequest(`/api/team/groups/${groupId}/members`, {
+                method: 'POST',
+                user,
+                body: { userId },
+            });
+            await loadTeamGroups();
+        } catch (err) {
+            setGroupError(getTeamActionErrorMessage(err, 'Gagal menambah member group'));
+        } finally {
+            setGroupLoading(false);
+        }
+    };
+
+    const handleRemoveGroupMember = async (groupId, memberId) => {
+        if (!user || !groupId || !memberId) {
+            return;
+        }
+        setGroupLoading(true);
+        setGroupError('');
+        try {
+            await apiRequest(`/api/team/groups/${groupId}/members/${memberId}`, {
+                method: 'DELETE',
+                user,
+            });
+            await loadTeamGroups();
+        } catch (err) {
+            setGroupError(getTeamActionErrorMessage(err, 'Gagal menghapus member group'));
+        } finally {
+            setGroupLoading(false);
         }
     };
 
@@ -538,6 +682,55 @@ export default function TeamPage() {
         }
     };
 
+    const openDeleteInactiveSales = (sales) => {
+        setDeleteInactiveSalesState({
+            sales,
+            passwordConfirmation: '',
+            submitting: false,
+            error: '',
+        });
+        setSubmitSuccess('');
+        setSubmitError('');
+    };
+
+    const closeDeleteInactiveSales = () => {
+        setDeleteInactiveSalesState(null);
+    };
+
+    const handleDeleteInactiveSales = async () => {
+        if (!user || !deleteInactiveSalesState?.sales?.id) {
+            return;
+        }
+        if (!String(deleteInactiveSalesState.passwordConfirmation || '').trim()) {
+            setDeleteInactiveSalesState((prev) => (prev ? {
+                ...prev,
+                error: 'Password admin wajib diisi untuk delete sales inactive.',
+            } : prev));
+            return;
+        }
+
+        setDeleteInactiveSalesState((prev) => (prev ? { ...prev, submitting: true, error: '' } : prev));
+        try {
+            await apiRequest(`/api/team/sales/${deleteInactiveSalesState.sales.id}`, {
+                method: 'DELETE',
+                user,
+                body: {
+                    passwordConfirmation: deleteInactiveSalesState.passwordConfirmation || '',
+                },
+            });
+            await refreshTeamStats();
+            await loadTeamGroups();
+            setSubmitSuccess(`Sales inactive ${deleteInactiveSalesState.sales.name} berhasil dihapus.`);
+            closeDeleteInactiveSales();
+        } catch (err) {
+            setDeleteInactiveSalesState((prev) => (prev ? {
+                ...prev,
+                submitting: false,
+                error: getTeamActionErrorMessage(err, 'Gagal delete sales inactive'),
+            } : prev));
+        }
+    };
+
     const handleCreateSales = async (event) => {
         event.preventDefault();
         if (!form.name || !form.email || !form.password) {
@@ -747,6 +940,100 @@ export default function TeamPage() {
                 ))}
             </section>
 
+            {canManageTeamGroups ? (
+                <section className="card team-group-shell">
+                    <div className="team-group-header">
+                        <div>
+                            <span className="team-group-kicker">Analytics Group</span>
+                            <h2 className="team-group-title">Kelola Group Team</h2>
+                            <p className="team-empty-copy">
+                                Group ini dipakai di analytics untuk comparison seperti PIC Agent vs All Supervisor Data.
+                            </p>
+                        </div>
+                    </div>
+
+                    <form onSubmit={handleCreateGroup} style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+                        <input
+                            className="input-field"
+                            style={{ maxWidth: 280 }}
+                            value={groupName}
+                            onChange={(event) => setGroupName(event.target.value)}
+                            placeholder="Nama group, contoh: Agent PIC"
+                        />
+                        <button type="submit" className="btn btn-sm btn-primary" disabled={groupLoading || !groupName.trim()}>
+                            Create Group
+                        </button>
+                    </form>
+
+                    {groupError ? <div className="login-error">{groupError}</div> : null}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
+                        {teamGroups.length > 0 ? teamGroups.map((group) => {
+                            const existingUserIds = new Set((group.members || []).map((member) => member.userId));
+                            const addableMembers = availableGroupMembers.filter((member) => !existingUserIds.has(member.id));
+                            return (
+                                <div key={group.id} className="team-hierarchy-card" style={{ gap: 14 }}>
+                                    <div className="team-unassigned-head">
+                                        <div>
+                                            <span className="team-group-kicker">Group</span>
+                                            <h3 className="team-group-title">{group.name}</h3>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm btn-danger"
+                                            onClick={() => void handleDeleteGroup(group.id)}
+                                            disabled={groupLoading}
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+
+                                    <div className="input-group">
+                                        <label>Tambah Member</label>
+                                        <select
+                                            className="input-field"
+                                            value=""
+                                            onChange={(event) => {
+                                                const value = event.target.value;
+                                                if (value) void handleAddGroupMember(group.id, value);
+                                            }}
+                                            disabled={groupLoading || addableMembers.length === 0}
+                                        >
+                                            <option value="">Pilih supervisor / sales</option>
+                                            {addableMembers.map((member) => (
+                                                <option key={member.id} value={member.id}>{member.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        {(group.members || []).length > 0 ? group.members.map((member) => (
+                                            <div key={member.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 10, background: 'var(--bg-input)' }}>
+                                                <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                                                    {member.name} <small style={{ color: 'var(--text-muted)' }}>· {member.role}</small>
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-sm btn-secondary"
+                                                    onClick={() => void handleRemoveGroupMember(group.id, member.id)}
+                                                    disabled={groupLoading}
+                                                >
+                                                    Remove
+                                                </button>
+                                            </div>
+                                        )) : (
+                                            <p className="team-empty-copy">Belum ada member.</p>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        }) : (
+                            <p className="team-empty-copy">Belum ada group analytics.</p>
+                        )}
+                    </div>
+                </section>
+            ) : null}
+
             <div className="team-list">
                 {groups.length === 0 ? (
                     <div className="card">
@@ -954,6 +1241,15 @@ export default function TeamPage() {
                                                         >
                                                             Reactivate
                                                         </button>
+                                                        {canManageSalesLifecycle ? (
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-sm btn-danger team-edit-btn"
+                                                                onClick={() => openDeleteInactiveSales(sales)}
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        ) : null}
                                                     </div>
                                                 </div>
                                             </div>
@@ -1142,6 +1438,56 @@ export default function TeamPage() {
                                 disabled={deleteSupervisorState.submitting}
                             >
                                 {deleteSupervisorState.submitting ? 'Menghapus...' : 'Ya, Hapus Supervisor'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {deleteInactiveSalesState ? (
+                <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget) closeDeleteInactiveSales(); }}>
+                    <div className="bottom-sheet">
+                        <div className="sheet-handle" />
+                        <h2>Delete Sales Inactive</h2>
+                        <div className="team-lifecycle-copy">
+                            <p>
+                                Sales inactive <strong>{deleteInactiveSalesState.sales?.name}</strong> akan dihapus permanen dari tim.
+                            </p>
+                            <p className="team-modal-helper">
+                                Lead historis tidak ikut dihapus, tetapi relasi sales akan dilepas sesuai constraint database.
+                            </p>
+                        </div>
+                        <div className="input-group">
+                            <label>Password Admin</label>
+                            <input
+                                type="password"
+                                className="input-field"
+                                value={deleteInactiveSalesState.passwordConfirmation || ''}
+                                onChange={(event) => setDeleteInactiveSalesState((prev) => (
+                                    prev
+                                        ? { ...prev, passwordConfirmation: event.target.value, error: '' }
+                                        : prev
+                                ))}
+                                placeholder="Masukkan password admin untuk konfirmasi"
+                            />
+                        </div>
+                        {deleteInactiveSalesState.error ? <div className="login-error">{deleteInactiveSalesState.error}</div> : null}
+                        <div className="team-lifecycle-actions">
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={closeDeleteInactiveSales}
+                                disabled={deleteInactiveSalesState.submitting}
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-danger"
+                                onClick={() => void handleDeleteInactiveSales()}
+                                disabled={deleteInactiveSalesState.submitting}
+                            >
+                                {deleteInactiveSalesState.submitting ? 'Deleting...' : 'Ya, Delete Sales'}
                             </button>
                         </div>
                     </div>

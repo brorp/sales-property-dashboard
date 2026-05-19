@@ -82,6 +82,9 @@ const knownBadRequestCodes = new Set([
     "PENALTY_COMPENSATION_REASON_REQUIRED",
     "INVALID_SUPERVISOR",
     "SUPERVISOR_HAS_ACTIVE_SALES",
+    "TEAM_GROUP_CLIENT_REQUIRED",
+    "TEAM_GROUP_NAME_REQUIRED",
+    "TEAM_GROUP_INVALID_MEMBER",
     "ADMIN_PASSWORD_REQUIRED",
     "ADMIN_PASSWORD_INVALID",
     "INSIDE_OFFICE_REPLY_REQUIRED",
@@ -98,6 +101,7 @@ const knownConflictCodes = new Set([
     "CUSTOMER_PIPELINE_MANUAL_DISABLED",
     "LEAD_SOURCE_ALREADY_EXISTS",
     "LEAD_REASSIGN_SAME_SALES",
+    "TEAM_GROUP_ALREADY_EXISTS",
 ]);
 
 const knownForbiddenCodes = new Set([
@@ -109,6 +113,8 @@ const knownForbiddenCodes = new Set([
     "FORBIDDEN_DAILY_TASK",
     "FORBIDDEN_LEAD_DELETE",
     "FORBIDDEN_LEAD_REASSIGN",
+    "FORBIDDEN_TEAM_GROUP",
+    "FORBIDDEN_SALES_DELETE",
 ]);
 
 const knownNotFoundCodes = new Set([
@@ -117,6 +123,9 @@ const knownNotFoundCodes = new Set([
     "DAILY_TASK_NOT_FOUND",
     "PENALTY_NOT_FOUND",
     "TEAM_MEMBER_NOT_FOUND",
+    "TEAM_GROUP_NOT_FOUND",
+    "TEAM_GROUP_MEMBER_NOT_FOUND",
+    "INACTIVE_SALES_NOT_FOUND",
 ]);
 
 function getRequestContext(req: Request) {
