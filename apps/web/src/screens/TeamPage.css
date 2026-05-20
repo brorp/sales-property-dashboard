@@ -24,19 +24,19 @@
 }
 
 .team-summary-default::after {
-    background: linear-gradient(90deg, rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.85));
+    background: #6366F1;
 }
 
 .team-summary-hot::after {
-    background: linear-gradient(90deg, rgba(248, 113, 113, 0.2), rgba(248, 113, 113, 0.9));
+    background: #F43F5E;
 }
 
 .team-summary-warm::after {
-    background: linear-gradient(90deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.9));
+    background: #F59E0B;
 }
 
 .team-summary-success::after {
-    background: linear-gradient(90deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.9));
+    background: #10B981;
 }
 
 .team-summary-label {
@@ -340,8 +340,8 @@
 
 /* badge-purple override for light theme */
 .set-page .badge-purple {
-    background: #EEF2FF;
-    color: #4F46E5;
+    background: #EFF6FF;
+    color: #1E40AF;
 }
 
 /* 5th overview card (Suspended) spans full width on mobile so it doesn't sit alone */

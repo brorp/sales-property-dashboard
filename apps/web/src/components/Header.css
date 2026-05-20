@@ -3,17 +3,30 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    height: 56px;
-    padding: 0 16px;
+    height: 58px;
+    padding: 0 20px;
     position: sticky;
     top: 0;
     z-index: 40;
-    background: var(--bg-app, rgba(10, 8, 21, 0.92));
+    background: rgba(255, 255, 255, 0.97);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.07));
-    margin: 0 -16px 20px;
+    border-bottom: 1px solid #E2EAF3;
+    box-shadow: 0 1px 12px rgba(30, 58, 95, 0.07);
+    margin: -16px -16px 20px;
     flex-shrink: 0;
+}
+
+
+/* Brand accent line at top */
+.app-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #1E3A5F 0%, #2563EB 55%, #60A5FA 100%);
 }
 
 .app-header-left {
@@ -34,8 +47,8 @@
 .app-header-title {
     font-size: 1.05rem;
     font-weight: 700;
-    color: var(--text-primary);
-    letter-spacing: -0.01em;
+    color: #1E3A5F;
+    letter-spacing: -0.02em;
     margin: 0;
     white-space: nowrap;
     overflow: hidden;
@@ -43,31 +56,33 @@
 }
 
 .app-header-subtitle {
-    font-size: 0.72rem;
-    color: var(--text-muted);
+    font-size: 0.71rem;
+    color: #94A3B8;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-weight: 500;
 }
 
 .app-header-back {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
-    color: var(--text-primary);
-    background: var(--bg-input, rgba(255, 255, 255, 0.06));
-    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    border-radius: 10px;
+    color: #1E3A5F;
+    background: #F0F5FB;
+    border: 1px solid #DCE8F5;
     cursor: pointer;
     flex-shrink: 0;
-    transition: background 150ms ease, border-color 150ms ease;
+    transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
 }
 
 .app-header-back:hover {
-    background: var(--bg-card, rgba(255, 255, 255, 0.1));
-    border-color: var(--primary, rgba(255, 255, 255, 0.2));
+    background: #E0EBF8;
+    border-color: #BFCFE8;
+    transform: translateX(-1px);
 }
 
 .app-header-right {
@@ -88,11 +103,46 @@
     display: block;
 }
 
+/* Workspace button di header mobile */
+.app-header-ws-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    background: #F0F5FB;
+    border: 1px solid #DCE8F5;
+    border-radius: 10px;
+    color: #1E3A5F;
+    cursor: pointer;
+    flex-shrink: 0;
+    max-width: 160px;
+    transition: background 150ms ease, border-color 150ms ease;
+}
+
+.app-header-ws-btn:hover {
+    background: #E0EBF8;
+    border-color: #BFCFE8;
+}
+
+.app-header-ws-name {
+    font-size: 0.813rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (min-width: 1024px) {
+    .app-header-ws-btn {
+        display: none;
+    }
+}
+
 @media (min-width: 1024px) {
     .app-header {
-        height: 60px;
+        height: 64px;
         padding: 0 34px;
-        margin: 0 -34px 24px;
+        margin: -26px -34px 24px;
     }
 
     .app-header-title {

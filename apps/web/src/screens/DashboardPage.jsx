@@ -242,8 +242,8 @@ export default function DashboardPage() {
         if (user?.role === 'sales' && user?.name) return user.name;
         const shortRoleLabel = user?.role === 'client_admin' ? 'Admin' : user?.role === 'root_admin' ? 'Root Admin' : getRoleLabel(user?.role);
         const clientName = analytics.hierarchySummary?.client?.name || formatClientNameFromSlug(user?.clientSlug) || '';
-        if (clientName && user?.role && user.role !== 'root_admin') return `${clientName} ${shortRoleLabel} Dashboard`;
-        return `${shortRoleLabel} Dashboard`;
+        if (clientName && user?.role && user.role !== 'root_admin') return `${shortRoleLabel} Dashboard`;
+        return ` Dashboard`;
     }, [analytics.hierarchySummary?.client?.name, getRoleLabel, user?.clientSlug, user?.role, user?.name]);
 
     const loadDashboardAnalytics = useCallback(async (range = EMPTY_DATE_RANGE) => {
@@ -349,11 +349,6 @@ export default function DashboardPage() {
         <div className="page-container dash-page">
             <Header
                 title={dashboardTitle}
-                rightAction={(
-                    <button className="btn btn-sm btn-secondary" onClick={() => void handleRefresh()} disabled={refreshing}>
-                        {refreshing ? 'Loading...' : 'Refresh'}
-                    </button>
-                )}
             />
 
             {dashboardError ? (

@@ -1,0 +1,126 @@
+.fdz-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 28px 20px;
+    border: 2px dashed #CBD5E1;
+    border-radius: 14px;
+    background: #F8FAFC;
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 150ms ease, background 150ms ease;
+    outline: none;
+}
+
+.fdz-zone:hover,
+.fdz-zone:focus-visible {
+    border-color: #93C5FD;
+    background: #EFF6FF;
+}
+
+.fdz-zone.is-dragging {
+    border-color: #2563EB;
+    background: #EFF6FF;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+.fdz-zone.is-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.fdz-icon {
+    color: #64748B;
+    margin-bottom: 2px;
+    transition: color 150ms ease;
+}
+
+.fdz-zone:hover .fdz-icon,
+.fdz-zone.is-dragging .fdz-icon {
+    color: #2563EB;
+}
+
+.fdz-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #1E3A5F;
+}
+
+.fdz-hint {
+    font-size: 0.775rem;
+    color: #94A3B8;
+}
+
+.fdz-hint--drag {
+    margin-top: -2px;
+}
+
+@keyframes fdz-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(-360deg); }
+}
+
+.fdz-spin {
+    animation: fdz-spin 700ms linear infinite;
+}
+
+/* ── Selected state ─────────────────────────────────────────────────── */
+
+.fdz-selected {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1.5px solid #BFDBFE;
+    border-radius: 12px;
+    background: #EFF6FF;
+}
+
+.fdz-selected-icon {
+    color: #2563EB;
+    flex-shrink: 0;
+    display: flex;
+}
+
+.fdz-selected-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.fdz-selected-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #1E3A5F;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fdz-selected-size {
+    font-size: 0.75rem;
+    color: #64748B;
+}
+
+.fdz-clear {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: #DBEAFE;
+    color: #1E40AF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 150ms ease;
+}
+
+.fdz-clear:hover {
+    background: #BFDBFE;
+}

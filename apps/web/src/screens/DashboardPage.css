@@ -905,11 +905,6 @@ body.dash-body {
 
 /* ── Header + button overrides ────────────────────────────────────────── */
 
-.dash-page .app-header {
-    background: rgba(248, 250, 252, 0.95);
-    border-bottom-color: #E5E7EB;
-    box-shadow: 0 1px 0 #E5E7EB;
-}
 
 .dash-page .btn-primary { background: #1E3A5F; border-color: #1E3A5F; color: #FFFFFF; }
 .dash-page .btn-primary:hover:not(:disabled) { background: #2A5080; border-color: #2A5080; }

@@ -185,9 +185,6 @@ export default function ProfilePage() {
 
             {/* ── Mobile-only nav shortcuts ──────────────────── */}
             <div className="pf-menu-list pf-menu-mobile-only">
-                {canSeeTeams ? (
-                    <MenuItem icon={<IconUsers />} label="Tim & Sales" onClick={() => router.push('/team')} iconColor="#7C3AED" />
-                ) : null}
                 {canSeeLogs ? (
                     <MenuItem icon={<IconFileText />} label="Activity Logs" onClick={() => router.push('/activity-logs')} iconColor="#0EA5E9" />
                 ) : null}

@@ -62,23 +62,61 @@
 /* ── Calendar popup ──────────────────────────────────────────────────── */
 
 .dp-calendar {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    z-index: 600;
     background: #FFFFFF;
     border: 1.5px solid #E5E7EB;
     border-radius: 16px;
     box-shadow: 0 12px 40px rgba(15, 23, 42, 0.13), 0 2px 8px rgba(15, 23, 42, 0.06);
     padding: 14px;
     min-width: 272px;
-    width: 100%;
     animation: dpFadeIn 120ms ease;
 }
 
+.dp-calendar--with-time {
+    min-width: 420px;
+}
+
 @keyframes dpFadeIn {
-    from { opacity: 0; transform: translateY(-6px); }
+    from { opacity: 0; transform: translateY(-4px); }
     to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Side-by-side body (date + time) ─────────────────────────────────── */
+
+.dp-body {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+}
+
+.dp-date-col {
+    flex: 1;
+    min-width: 0;
+}
+
+.dp-time-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding-left: 16px;
+    margin-left: 14px;
+    border-left: 1px solid #F1F5F9;
+    flex-shrink: 0;
+}
+
+.dp-time-col-label {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #CBD5E1;
+}
+
+.dp-time-drums {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 /* Header */
@@ -218,4 +256,185 @@
 .dp-clear:hover {
     color: #DC2626;
     background: #FEF2F2;
+}
+
+/* ── Time column elements ─────────────────────────────────────────────── */
+
+.dp-time-colon {
+    font-size: 1.375rem;
+    font-weight: 800;
+    color: #1E3A5F;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-bottom: 2px;
+}
+
+.dp-time-done {
+    width: 100%;
+    padding: 0 14px;
+    height: 38px;
+    border-radius: 8px;
+    background: #1E3A5F;
+    color: #FFFFFF;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: background 150ms ease;
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.dp-time-done:hover:not(:disabled) {
+    background: #2D4F7C;
+}
+
+.dp-time-done:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.dp-time-hint {
+    display: block;
+    font-size: 0.72rem;
+    color: #9CA3AF;
+    text-align: center;
+}
+
+/* ── Scroll picker drum ──────────────────────────────────────────────── */
+
+.sp-wrap {
+    position: relative;
+    width: 60px;
+    height: 180px; /* 5 × 36px */
+    overflow: hidden;
+    flex-shrink: 0;
+    border-radius: 10px;
+}
+
+.sp-band {
+    position: absolute;
+    top: 72px; /* 2 × 36px — centers on slot 3 of 5 */
+    height: 36px;
+    left: 2px;
+    right: 2px;
+    background: #EFF6FF;
+    border-radius: 8px;
+    border-top: 1.5px solid #BFDBFE;
+    border-bottom: 1.5px solid #BFDBFE;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.sp-list {
+    position: absolute;
+    inset: 0;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    z-index: 2;
+}
+
+.sp-list::-webkit-scrollbar {
+    display: none;
+}
+
+.sp-pad {
+    height: 72px; /* 2 × 36px */
+    flex-shrink: 0;
+}
+
+.sp-item {
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    scroll-snap-align: center;
+    font-size: 1.1875rem;
+    font-weight: 600;
+    color: #CBD5E1;
+    user-select: none;
+    cursor: default;
+    letter-spacing: 0.02em;
+}
+
+.sp-item.is-sel {
+    color: #1E3A5F;
+}
+
+.sp-mask {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 72px; /* 2 × 36px — covers exactly the non-selected rows */
+    z-index: 3;
+    pointer-events: none;
+}
+
+.sp-mask--t {
+    top: 0;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.96) 20%, rgba(255, 255, 255, 0) 100%);
+}
+
+.sp-mask--b {
+    bottom: 0;
+    background: linear-gradient(to top, rgba(255, 255, 255, 0.96) 20%, rgba(255, 255, 255, 0) 100%);
+}
+
+/* ── Mobile: drum lebih kecil ─────────────────────────────────────────── */
+
+@media (max-width: 480px) {
+    .dp-calendar--with-time {
+        min-width: 0;
+        width: min(340px, calc(100vw - 24px));
+    }
+
+    .dp-time-col {
+        padding-left: 10px;
+        margin-left: 10px;
+        gap: 10px;
+    }
+
+    .dp-time-drums {
+        gap: 3px;
+    }
+
+    .dp-time-colon {
+        font-size: 1.1rem;
+    }
+
+    .dp-time-done {
+        padding: 0 10px;
+        font-size: 0.75rem;
+        height: 34px;
+    }
+
+    /* drum: 3 items visible instead of 5 */
+    .sp-wrap {
+        width: 40px;
+        height: 108px; /* 3 × 36px */
+    }
+
+    .sp-band {
+        top: 36px; /* 1 × 36px */
+    }
+
+    .sp-pad {
+        height: 36px; /* 1 × 36px */
+    }
+
+    .sp-mask {
+        height: 36px;
+    }
+
+    .sp-item {
+        font-size: 0.9375rem;
+    }
+
+    /* day grid sedikit lebih compact */
+    .dp-day {
+        height: 30px;
+        font-size: 0.8125rem;
+    }
 }

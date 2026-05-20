@@ -1,5 +1,11 @@
 /* ── ProfilePage — Navy/light theme ─────────────────────────────────── */
 
+@media (max-width: 1023px) {
+    .pf-page .app-header {
+        display: none;
+    }
+}
+
 .pf-page {
     background: #F8FAFC;
     --bg-app: rgba(248, 250, 252, 0.96);

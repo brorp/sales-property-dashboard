@@ -18,6 +18,8 @@ import {
 } from '../constants/crm';
 import Header from '../components/Header';
 import CustomerPipelineProgress from '../components/CustomerPipelineProgress';
+import DatePicker from '../components/DatePicker';
+import FileDropZone from '../components/FileDropZone';
 import DateRangePicker from '../components/DateRangePicker';
 import SelectFilter from '../components/SelectFilter';
 import { usePagePolling } from '../hooks/usePagePolling';
@@ -190,6 +192,7 @@ export default function LeadsPage() {
     const [submitLoading, setSubmitLoading] = useState(false);
     const [submitError, setSubmitError] = useState('');
     const [importFileName, setImportFileName] = useState('');
+    const [importFileSize, setImportFileSize] = useState(0);
     const [importRows, setImportRows] = useState([]);
     const [importTargetSalesId, setImportTargetSalesId] = useState('');
     const [importResult, setImportResult] = useState(null);
@@ -333,7 +336,7 @@ export default function LeadsPage() {
     };
 
     const resetImportState = () => {
-        setImportFileName(''); setImportRows([]); setImportTargetSalesId('');
+        setImportFileName(''); setImportFileSize(0); setImportRows([]); setImportTargetSalesId('');
         setImportResult(null); setImportError(''); setImportSuccess('');
         setImportLoading(false); setImportCommitLoading(false);
     };
@@ -352,17 +355,18 @@ export default function LeadsPage() {
         resetImportState();
     };
 
-    const handleImportFileChange = async (event) => {
-        const file = event.target.files?.[0];
+    const handleImportFile = async (file) => {
         if (!file) { resetImportState(); return; }
         try {
             setImportLoading(true);
-            const parsed = await readLeadTransferWorkbook(file);
-            setImportFileName(parsed.fileName || 'leads-import.xlsx');
-            setImportRows(Array.isArray(parsed.rows) ? parsed.rows : []);
             setImportResult(null); setImportError(''); setImportSuccess('');
+            const parsed = await readLeadTransferWorkbook(file);
+            setImportFileName(parsed.fileName || file.name || 'leads-import.xlsx');
+            setImportFileSize(file.size || 0);
+            setImportRows(Array.isArray(parsed.rows) ? parsed.rows : []);
         } catch (err) {
             setImportError(err instanceof Error ? err.message : 'Gagal membaca file import');
+            setImportFileName(''); setImportFileSize(0);
         } finally {
             setImportLoading(false);
         }
@@ -411,6 +415,15 @@ export default function LeadsPage() {
     const setExportSelectionGroup = (field, values) => {
         setExportFilters((prev) => ({ ...prev, [field]: values }));
     };
+
+    const toggleSelectAll = (field, allKeys) => {
+        const current = exportFilters[field];
+        const allSelected = allKeys.every((k) => current.includes(k));
+        setExportSelectionGroup(field, allSelected ? [] : allKeys);
+    };
+
+    const isAllSelected = (field, allKeys) => allKeys.length > 0 && allKeys.every((k) => exportFilters[field].includes(k));
+    const isSomeSelected = (field, allKeys) => exportFilters[field].some((k) => allKeys.includes(k)) && !isAllSelected(field, allKeys);
 
     const handleExportLeads = async (event) => {
         event.preventDefault();
@@ -468,11 +481,18 @@ export default function LeadsPage() {
                 title="Leads"
                 rightAction={(
                     <>
-                        <button className="btn btn-sm btn-secondary" onClick={() => void handleRefresh()} disabled={refreshing}>
-                            {refreshing ? 'Loading...' : 'Refresh'}
+                        <button className="btn btn-sm btn-secondary btn-icon-refresh" onClick={() => void handleRefresh()} disabled={refreshing} title="Refresh">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
                         </button>
                         {canExportLeads ? (
-                            <button className="btn btn-sm btn-primary" onClick={openExportModal}>Export</button>
+                            <button className="btn btn-sm btn-primary" onClick={openExportModal} title="Export">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 5 }}>
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="7 10 12 15 17 10" />
+                                    <line x1="12" y1="15" x2="12" y2="3" />
+                                </svg>
+                                Export
+                            </button>
                         ) : null}
                     </>
                 )}
@@ -615,11 +635,23 @@ export default function LeadsPage() {
                 ))}
             </div>
 
-            <button className="fab" onClick={() => openAddLeadModal('manual')}>＋</button>
+            <div className="fab-group">
+                <button
+                    type="button"
+                    className="fab-main"
+                    onClick={() => openAddLeadModal()}
+                    title="Tambah lead"
+                >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                </button>
+            </div>
 
             {/* ── Add lead modal ─────────────────────────────── */}
             {showAddModal ? (
-                <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeAddLeadModal(); }}>
+                <div className="sheet-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeAddLeadModal(); }}>
                     <div className="bottom-sheet">
                         <div className="sheet-handle" />
                         <h2>{addModalTab === 'manual' ? 'Tambah Lead Baru' : 'Import & Reassign Leads'}</h2>
@@ -639,10 +671,14 @@ export default function LeadsPage() {
                                 </div>
                                 <div className="input-group">
                                     <label>Sumber</label>
-                                    <select className="input-field" value={newLead.source} onChange={(e) => { const nextSource = e.target.value; setNewLead({ ...newLead, source: nextSource, agentOfficeName: isAgentSource(nextSource) ? newLead.agentOfficeName : '' }); }} required>
-                                        <option value="">Pilih source lead</option>
-                                        {availableLeadSources.map((source) => <option key={source} value={source}>{source}</option>)}
-                                    </select>
+                                    <SelectFilter
+                                        placeholder="Pilih source lead"
+                                        value={newLead.source}
+                                        onChange={(v) => setNewLead({ ...newLead, source: v, agentOfficeName: isAgentSource(v) ? newLead.agentOfficeName : '' })}
+                                        options={availableLeadSources.map((s) => ({ value: s, label: s }))}
+                                        variant="white"
+                                        clearable={false}
+                                    />
                                 </div>
                                 {isAgentSource(newLead.source) ? (
                                     <div className="input-group">
@@ -655,39 +691,62 @@ export default function LeadsPage() {
                                 ) : null}
                                 {isAdmin ? (
                                     <div className="input-group">
-                                        <label>Assign ke Sales (opsional)</label>
-                                        <select className="input-field" value={newLead.assignedTo} onChange={(e) => setNewLead({ ...newLead, assignedTo: e.target.value })}>
-                                            <option value="">Biarkan Open</option>
-                                            {salesUsers.map((sales) => <option key={sales.id} value={sales.id}>{sales.name}</option>)}
-                                        </select>
+                                        <label>Assign ke Sales <span style={{ fontWeight: 400, opacity: 0.6 }}>(opsional)</span></label>
+                                        <SelectFilter
+                                            placeholder="Biarkan Open"
+                                            value={newLead.assignedTo}
+                                            onChange={(v) => setNewLead({ ...newLead, assignedTo: v })}
+                                            options={salesUsers.map((s) => ({ value: s.id, label: s.name }))}
+                                            variant="white"
+                                        />
                                     </div>
                                 ) : null}
                                 <div className="input-group">
                                     <label>Tanggal Masuk <span style={{ fontWeight: 400, opacity: 0.6 }}>(opsional)</span></label>
-                                    <input type="datetime-local" className="input-field" value={newLead.createdAt} onChange={(e) => setNewLead({ ...newLead, createdAt: e.target.value })} />
+                                    <DatePicker
+                                        value={newLead.createdAt}
+                                        onChange={(v) => setNewLead({ ...newLead, createdAt: v })}
+                                        placeholder="Pilih tanggal & waktu"
+                                        showTime
+                                    />
                                 </div>
                                 {submitError ? <div className="login-error">{submitError}</div> : null}
-                                <button type="submit" className="btn btn-primary btn-full" disabled={submitLoading}>{submitLoading ? 'Menyimpan...' : 'Tambah Lead'}</button>
-                                <button type="button" className="btn btn-secondary btn-full" onClick={closeAddLeadModal}>Batal</button>
+                                <div style={{ display: 'flex', gap: 10 }}>
+                                    <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={closeAddLeadModal}>Batal</button>
+                                    <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={submitLoading}>{submitLoading ? 'Menyimpan...' : 'Tambah Lead'}</button>
+                                </div>
                             </form>
                         ) : (
                             <div className="lead-import-stack">
                                 <div className="settings-help">Upload file XLSX hasil export sales lama, pilih sales target, lalu jalankan import.</div>
                                 <div className="input-group">
                                     <label>File XLSX Export</label>
-                                    <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="input-field" onChange={(event) => void handleImportFileChange(event)} />
-                                    {importFileName ? <div className="team-modal-helper">File dipilih: {importFileName}</div> : null}
+                                    <FileDropZone
+                                        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                        fileName={importFileName}
+                                        fileSize={importFileSize}
+                                        onChange={(file) => void handleImportFile(file)}
+                                        onClear={resetImportState}
+                                        label="Pilih file XLSX"
+                                        hint="File hasil export leads"
+                                        loading={importLoading}
+                                    />
                                     {importRows.length > 0 ? <div className="team-modal-helper">{importRows.length} rows siap diproses.</div> : null}
                                 </div>
                                 <div className="input-group">
                                     <label>Target Sales Baru</label>
-                                    <select className="input-field" value={importTargetSalesId} onChange={(event) => setImportTargetSalesId(event.target.value)}>
-                                        <option value="">Pilih sales target</option>
-                                        {salesUsers.map((sales) => <option key={sales.id} value={sales.id}>{sales.name}</option>)}
-                                    </select>
+                                    <SelectFilter
+                                        placeholder="Pilih sales target"
+                                        value={importTargetSalesId}
+                                        onChange={(v) => setImportTargetSalesId(v)}
+                                        options={salesUsers.map((s) => ({ value: s.id, label: s.name }))}
+                                        variant="white"
+                                        clearable={false}
+                                    />
                                 </div>
                                 <div className="lead-import-actions">
-                                    <button type="button" className="btn btn-primary" onClick={() => void handleCommitImport()} disabled={importCommitLoading || importLoading || !importRows.length || !importTargetSalesId}>
+                                    <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={closeAddLeadModal}>Batal</button>
+                                    <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={() => void handleCommitImport()} disabled={importCommitLoading || importLoading || !importRows.length || !importTargetSalesId}>
                                         {importCommitLoading ? 'Memproses...' : 'Import XLSX'}
                                     </button>
                                 </div>
@@ -721,7 +780,7 @@ export default function LeadsPage() {
                                         </div>
                                     </div>
                                 ) : null}
-                                <button type="button" className="btn btn-secondary btn-full" onClick={closeAddLeadModal}>Tutup</button>
+
                             </div>
                         )}
                     </div>
@@ -730,7 +789,7 @@ export default function LeadsPage() {
 
             {/* ── Export modal ───────────────────────────────── */}
             {showExportModal ? (
-                <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowExportModal(false); }}>
+                <div className="sheet-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowExportModal(false); }}>
                     <div className="bottom-sheet">
                         <div className="sheet-handle" />
                         <h2>Export Leads (XLSX)</h2>
@@ -742,23 +801,28 @@ export default function LeadsPage() {
                             <div className="input-group">
                                 <label>Tanggal Masuk (Dari - Sampai)</label>
                                 <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr' }}>
-                                    <div className="input-group" style={{ margin: 0 }}>
-                                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Dari</label>
-                                        <input type="date" className="input-field" value={exportFilters.dateFrom} onChange={(e) => setExportFilters((prev) => ({ ...prev, dateFrom: e.target.value }))} />
-                                    </div>
-                                    <div className="input-group" style={{ margin: 0 }}>
-                                        <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Sampai</label>
-                                        <input type="date" className="input-field" value={exportFilters.dateTo} onChange={(e) => setExportFilters((prev) => ({ ...prev, dateTo: e.target.value }))} />
-                                    </div>
+                                    <DatePicker
+                                        label="Dari"
+                                        value={exportFilters.dateFrom}
+                                        onChange={(val) => setExportFilters((prev) => ({ ...prev, dateFrom: val }))}
+                                        placeholder="Pilih tanggal"
+                                    />
+                                    <DatePicker
+                                        label="Sampai"
+                                        value={exportFilters.dateTo}
+                                        onChange={(val) => setExportFilters((prev) => ({ ...prev, dateTo: val }))}
+                                        placeholder="Pilih tanggal"
+                                        align="right"
+                                    />
                                 </div>
                             </div>
                             <div className="input-group">
                                 <label>Status Distribusi</label>
-                                <div className="export-filter-actions">
-                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('flowStatuses', [])}>Semua</button>
-                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('flowStatuses', FLOW_STATUSES.map((item) => item.key))}>Pilih Semua</button>
-                                </div>
                                 <div className="export-checklist">
+                                    <label className="export-checklist-item export-checklist-all">
+                                        <input type="checkbox" checked={isAllSelected('flowStatuses', FLOW_STATUSES.map((i) => i.key))} ref={(el) => { if (el) el.indeterminate = isSomeSelected('flowStatuses', FLOW_STATUSES.map((i) => i.key)); }} onChange={() => toggleSelectAll('flowStatuses', FLOW_STATUSES.map((i) => i.key))} />
+                                        <span>Pilih Semua</span>
+                                    </label>
                                     {FLOW_STATUSES.map((item) => (
                                         <label key={item.key} className="export-checklist-item">
                                             <input type="checkbox" checked={exportFilters.flowStatuses.includes(item.key)} onChange={() => toggleExportSelection('flowStatuses', item.key)} />
@@ -769,10 +833,6 @@ export default function LeadsPage() {
                             </div>
                             <div className="input-group">
                                 <label>Sales Status</label>
-                                <div className="export-filter-actions">
-                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => { setExportFilters((prev) => ({ ...prev, hotValidatedOnly: false })); setExportSelectionGroup('salesStatuses', []); }}>Semua</button>
-                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => { setExportFilters((prev) => ({ ...prev, hotValidatedOnly: false })); setExportSelectionGroup('salesStatuses', ['unfilled', ...SALES_STATUSES.map((item) => item.key)]); }}>Pilih Semua</button>
-                                </div>
                                 <div className="export-checklist" style={{ marginBottom: 10 }}>
                                     <label className="export-checklist-item">
                                         <input type="checkbox" checked={Boolean(exportFilters.hotValidatedOnly)} onChange={(event) => setExportFilters((prev) => ({ ...prev, hotValidatedOnly: event.target.checked, salesStatuses: event.target.checked ? Array.from(new Set(['hot', ...prev.salesStatuses.filter((item) => item !== 'unfilled')])) : prev.salesStatuses }))} />
@@ -780,6 +840,10 @@ export default function LeadsPage() {
                                     </label>
                                 </div>
                                 <div className="export-checklist">
+                                    <label className="export-checklist-item export-checklist-all">
+                                        <input type="checkbox" checked={isAllSelected('salesStatuses', ['unfilled', ...SALES_STATUSES.map((i) => i.key)])} ref={(el) => { if (el) el.indeterminate = isSomeSelected('salesStatuses', ['unfilled', ...SALES_STATUSES.map((i) => i.key)]); }} onChange={() => { setExportFilters((prev) => ({ ...prev, hotValidatedOnly: false })); toggleSelectAll('salesStatuses', ['unfilled', ...SALES_STATUSES.map((i) => i.key)]); }} />
+                                        <span>Pilih Semua</span>
+                                    </label>
                                     <label className="export-checklist-item">
                                         <input type="checkbox" checked={exportFilters.salesStatuses.includes('unfilled')} onChange={() => toggleExportSelection('salesStatuses', 'unfilled')} />
                                         <span>Belum Diisi</span>
@@ -794,11 +858,11 @@ export default function LeadsPage() {
                             </div>
                             <div className="input-group">
                                 <label>Status Appointment</label>
-                                <div className="export-filter-actions">
-                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('appointmentTags', [])}>Semua</button>
-                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('appointmentTags', ['none', ...APPOINTMENT_TAGS.map((item) => item.key)])}>Pilih Semua</button>
-                                </div>
                                 <div className="export-checklist">
+                                    <label className="export-checklist-item export-checklist-all">
+                                        <input type="checkbox" checked={isAllSelected('appointmentTags', ['none', ...APPOINTMENT_TAGS.map((i) => i.key)])} ref={(el) => { if (el) el.indeterminate = isSomeSelected('appointmentTags', ['none', ...APPOINTMENT_TAGS.map((i) => i.key)]); }} onChange={() => toggleSelectAll('appointmentTags', ['none', ...APPOINTMENT_TAGS.map((i) => i.key)])} />
+                                        <span>Pilih Semua</span>
+                                    </label>
                                     <label className="export-checklist-item">
                                         <input type="checkbox" checked={exportFilters.appointmentTags.includes('none')} onChange={() => toggleExportSelection('appointmentTags', 'none')} />
                                         <span>Belum Ada</span>
@@ -813,11 +877,11 @@ export default function LeadsPage() {
                             </div>
                             <div className="input-group">
                                 <label>Result Status</label>
-                                <div className="export-filter-actions">
-                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('resultStatuses', [])}>Semua</button>
-                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('resultStatuses', ['unfilled', ...RESULT_STATUSES.map((item) => item.key)])}>Pilih Semua</button>
-                                </div>
                                 <div className="export-checklist">
+                                    <label className="export-checklist-item export-checklist-all">
+                                        <input type="checkbox" checked={isAllSelected('resultStatuses', ['unfilled', ...RESULT_STATUSES.map((i) => i.key)])} ref={(el) => { if (el) el.indeterminate = isSomeSelected('resultStatuses', ['unfilled', ...RESULT_STATUSES.map((i) => i.key)]); }} onChange={() => toggleSelectAll('resultStatuses', ['unfilled', ...RESULT_STATUSES.map((i) => i.key)])} />
+                                        <span>Pilih Semua</span>
+                                    </label>
                                     <label className="export-checklist-item">
                                         <input type="checkbox" checked={exportFilters.resultStatuses.includes('unfilled')} onChange={() => toggleExportSelection('resultStatuses', 'unfilled')} />
                                         <span>Belum Diisi</span>
@@ -833,11 +897,11 @@ export default function LeadsPage() {
                             {isAdmin ? (
                                 <div className="input-group">
                                     <label>Sales</label>
-                                    <div className="export-filter-actions">
-                                        <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('salesIds', [])}>Semua</button>
-                                        <button type="button" className="btn btn-sm btn-secondary" onClick={() => setExportSelectionGroup('salesIds', ['unassigned', ...salesUsers.map((sales) => sales.id)])}>Pilih Semua</button>
-                                    </div>
                                     <div className="export-checklist">
+                                        <label className="export-checklist-item export-checklist-all">
+                                            <input type="checkbox" checked={isAllSelected('salesIds', ['unassigned', ...salesUsers.map((s) => s.id)])} ref={(el) => { if (el) el.indeterminate = isSomeSelected('salesIds', ['unassigned', ...salesUsers.map((s) => s.id)]); }} onChange={() => toggleSelectAll('salesIds', ['unassigned', ...salesUsers.map((s) => s.id)])} />
+                                            <span>Pilih Semua</span>
+                                        </label>
                                         <label className="export-checklist-item">
                                             <input type="checkbox" checked={exportFilters.salesIds.includes('unassigned')} onChange={() => toggleExportSelection('salesIds', 'unassigned')} />
                                             <span>Belum Assigned</span>

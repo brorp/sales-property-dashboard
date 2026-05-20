@@ -427,11 +427,19 @@
 
 /* ── Export modal styles ───────────────────────────────────────────── */
 
-.export-filter-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 8px;
+.export-checklist-all {
+    grid-column: 1 / -1;
+    background: #F1F5F9;
+    border-color: #CBD5E1;
+    border-style: dashed;
+    font-weight: 600;
+    color: #374151;
+}
+
+.export-checklist-all:has(input:checked) {
+    background: #DBEAFE;
+    border-color: #93C5FD;
+    border-style: solid;
 }
 
 .export-checklist {
@@ -447,10 +455,16 @@
     min-height: 46px;
     padding: 10px 12px;
     border-radius: var(--radius-md);
-    border: 1px solid var(--border);
-    background: rgba(37, 32, 58, 0.64);
-    color: var(--text-secondary);
+    border: 1px solid #E2EAF3;
+    background: #F8FAFC;
+    color: #334155;
     cursor: pointer;
+    transition: background 150ms ease, border-color 150ms ease;
+}
+
+.export-checklist-item:has(input:checked) {
+    background: #EFF6FF;
+    border-color: #BFDBFE;
 }
 
 .export-checklist-item input {
@@ -469,27 +483,33 @@
 /* ── Add lead modal styles ─────────────────────────────────────────── */
 
 .lead-modal-tabs {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    margin-bottom: 16px;
+    display: flex;
+    border-bottom: 2px solid #E5E7EB;
+    margin-bottom: 20px;
+    gap: 0;
 }
 
 .lead-modal-tab {
-    padding: 10px 14px;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border);
-    background: rgba(37, 32, 58, 0.64);
-    color: var(--text-secondary);
+    padding: 10px 20px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    background: transparent;
+    color: #9CA3AF;
     font-weight: 600;
+    font-size: 0.9rem;
     font-family: inherit;
     cursor: pointer;
+    transition: color 150ms ease, border-color 150ms ease;
+}
+
+.lead-modal-tab:hover {
+    color: #1E3A5F;
 }
 
 .lead-modal-tab.is-active {
-    background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
-    color: var(--text-on-primary);
-    border-color: rgba(139, 92, 246, 0.6);
+    color: #1E3A5F;
+    border-bottom-color: #1E3A5F;
 }
 
 .lead-import-stack {

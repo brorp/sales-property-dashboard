@@ -13,6 +13,7 @@ import { downloadLeadTransferWorkbook } from '../lib/lead-transfer-workbook';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { useTenant } from '../context/TenantContext';
 import './SettingsPage.css';
+import './TeamPage.css';
 
 const initialForm = {
     name: '',
@@ -161,6 +162,7 @@ export default function TeamPage() {
     const { tenant } = useTenant();
     const router = useRouter();
     const [refreshing, setRefreshing] = useState(false);
+    const [fabOpen, setFabOpen] = useState(false);
     const [createModal, setCreateModal] = useState(null);
     const [form, setForm] = useState(initialForm);
     const [submitLoading, setSubmitLoading] = useState(false);
@@ -716,21 +718,9 @@ export default function TeamPage() {
             <Header
                 title={`Kelola Tim ${getRoleLabel(user?.role)}`}
                 rightAction={(
-                    <>
-                        <button className="btn btn-sm btn-secondary" onClick={() => void handleRefresh()} disabled={refreshing}>
-                            {refreshing ? 'Loading...' : 'Refresh'}
-                        </button>
-                        {canCreateSupervisor ? (
-                            <button className="btn btn-sm btn-primary" onClick={openCreateSupervisor}>
-                                + Supervisor
-                            </button>
-                        ) : null}
-                        {canCreateSales ? (
-                            <button className="btn btn-sm btn-primary" onClick={() => openCreateSales(null)}>
-                                + Sales
-                            </button>
-                        ) : null}
-                    </>
+                    <button className="btn btn-sm btn-secondary btn-icon-refresh" onClick={() => void handleRefresh()} disabled={refreshing} title="Refresh">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                    </button>
                 )}
             />
 
@@ -973,6 +963,58 @@ export default function TeamPage() {
                     </section>
                 ))}
             </div>
+
+            {(canCreateSupervisor || canCreateSales) ? (
+                <>
+                    {fabOpen ? <div className="fab-backdrop" onClick={() => setFabOpen(false)} /> : null}
+                    <div className={`fab-group${fabOpen ? ' is-open' : ''}`}>
+                        {canCreateSupervisor ? (
+                            <div className="fab-item">
+                                <span className="fab-label">Supervisor</span>
+                                <button
+                                    type="button"
+                                    className="fab-action"
+                                    onClick={() => { setFabOpen(false); openCreateSupervisor(); }}
+                                >
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                                    </svg>
+                                </button>
+                            </div>
+                        ) : null}
+                        {canCreateSales ? (
+                            <div className="fab-item">
+                                <span className="fab-label">Sales</span>
+                                <button
+                                    type="button"
+                                    className="fab-action"
+                                    onClick={() => { setFabOpen(false); openCreateSales(null); }}
+                                >
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                                    </svg>
+                                </button>
+                            </div>
+                        ) : null}
+                        <button
+                            type="button"
+                            className="fab-main"
+                            onClick={() => setFabOpen((o) => !o)}
+                            title="Tambah anggota tim"
+                        >
+                            <svg
+                                width="22" height="22" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" strokeWidth="2.5"
+                                strokeLinecap="round" strokeLinejoin="round"
+                                className="fab-main-icon"
+                            >
+                                <line x1="12" y1="5" x2="12" y2="19" />
+                                <line x1="5" y1="12" x2="19" y2="12" />
+                            </svg>
+                        </button>
+                    </div>
+                </>
+            ) : null}
 
             <Modal
                 isOpen={Boolean(createModal)}

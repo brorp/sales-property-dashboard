@@ -392,8 +392,8 @@ export default function LeadDetailPage({ leadId }) {
         return (
             <div className="page-container dash-page leads-page">
                 <Header title="Detail Lead" showBack rightAction={(
-                    <button className="btn btn-sm btn-secondary" onClick={() => void handleRefresh()} disabled={refreshing}>
-                        {refreshing ? 'Loading...' : 'Refresh'}
+                    <button className="btn btn-sm btn-secondary btn-icon-refresh" onClick={() => void handleRefresh()} disabled={refreshing} title="Refresh">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
                     </button>
                 )} />
                 <div className="lc-empty">
@@ -596,12 +596,29 @@ export default function LeadDetailPage({ leadId }) {
                 rightAction={(
                     <>
                         {canDeleteLead ? (
-                            <button className="btn btn-sm btn-danger" onClick={() => setDeleteLeadState({ open: true, passwordConfirmation: '', submitting: false, error: '' })}>
-                                Hapus Lead
+                            <button
+                                className="btn btn-sm btn-danger btn-icon-only"
+                                onClick={() => setDeleteLeadState({ open: true, passwordConfirmation: '', submitting: false, error: '' })}
+                                title="Hapus Lead"
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                                    <path d="M10 11v6M14 11v6"/>
+                                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                                </svg>
                             </button>
                         ) : null}
-                        <button className="btn btn-sm btn-secondary" onClick={() => void handleRefresh()} disabled={refreshing}>
-                            {refreshing ? 'Loading...' : 'Refresh'}
+                        <button
+                            className="btn btn-sm btn-secondary btn-icon-only"
+                            onClick={() => void handleRefresh()}
+                            disabled={refreshing}
+                            title="Refresh"
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={refreshing ? { animation: 'btnSpin 0.7s linear infinite' } : {}}>
+                                <polyline points="23 4 23 10 17 10"/>
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                            </svg>
                         </button>
                     </>
                 )}
@@ -927,7 +944,7 @@ export default function LeadDetailPage({ leadId }) {
             </div>
 
             {showNote ? (
-                <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget) setShowNote(false); }}>
+                <div className="sheet-overlay" onClick={(event) => { if (event.target === event.currentTarget) setShowNote(false); }}>
                     <div className="bottom-sheet">
                         <div className="sheet-handle" />
                         <h2>{lead.manualNote ? 'Ubah Catatan' : 'Tambah Catatan'}</h2>
@@ -952,7 +969,7 @@ export default function LeadDetailPage({ leadId }) {
             ) : null}
 
             {showAppt ? (
-                <div className="modal-overlay" onClick={(event) => {
+                <div className="sheet-overlay" onClick={(event) => {
                     if (event.target === event.currentTarget) {
                         setShowAppt(false);
                         setEditingAppointment(null);
@@ -1016,7 +1033,7 @@ export default function LeadDetailPage({ leadId }) {
             ) : null}
 
             {showReassign && canAdminAssignOpenLead ? (
-                <div className="modal-overlay" onClick={(event) => { if (event.target === event.currentTarget) setShowReassign(false); }}>
+                <div className="sheet-overlay" onClick={(event) => { if (event.target === event.currentTarget) setShowReassign(false); }}>
                     <div className="bottom-sheet">
                         <div className="sheet-handle" />
                         <h2>Assign ke Sales</h2>
@@ -1051,7 +1068,7 @@ export default function LeadDetailPage({ leadId }) {
             ) : null}
 
             {deleteLeadState.open ? (
-                <div className="modal-overlay" onClick={(event) => {
+                <div className="sheet-overlay" onClick={(event) => {
                     if (event.target === event.currentTarget && !deleteLeadState.submitting) {
                         setDeleteLeadState({ open: false, passwordConfirmation: '', submitting: false, error: '' });
                     }
