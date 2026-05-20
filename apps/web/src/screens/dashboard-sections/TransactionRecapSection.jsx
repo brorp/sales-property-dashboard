@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatCount, getPillButtonStyle, getTeamDisplayLabel } from './utils';
 import PieChartCard from '../../components/PieChartCard';
+import SelectFilter from '../../components/SelectFilter';
 import './DashboardSections.css';
 
 const PIE_COLORS = ['#7c4dff', '#ff9800', '#26a69a', '#ef5350', '#42a5f5', '#ab47bc', '#9ccc65', '#ffa726'];
@@ -52,16 +53,67 @@ const PIC_AGENT_STATUS_OPTIONS = [
 ];
 
 
+const TRANSACTION_STATUS_OPTIONS = [
+    { value: 'all', label: 'Semua' },
+    { value: 'akad', label: 'Akad' },
+    { value: 'full_book', label: 'Full Book' },
+    { value: 'on_process', label: 'On Process' },
+    { value: 'reserve', label: 'Reserve' },
+    { value: 'cancel', label: 'Cancel' },
+];
+
+const PIC_AGENT_SF_OPTIONS = PIC_AGENT_STATUS_OPTIONS.map((o) => ({ value: o.key, label: o.label }));
+
+function FilterIcon() {
+    return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="4" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="16" y2="12" /><line x1="11" y1="18" x2="13" y2="18" />
+        </svg>
+    );
+}
+
+function SectionFilterDrawer({ open, onClose, title, options, value, onChange }) {
+    if (!open) return null;
+    return (
+        <div className="dash-drawer-overlay" onClick={onClose}>
+            <div className="dash-drawer" onClick={(e) => e.stopPropagation()}>
+                <div className="dash-drawer-header">
+                    <span className="dash-drawer-title">{title}</span>
+                    <button type="button" className="ds-section-filter-btn" onClick={onClose}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </button>
+                </div>
+                <div className="dash-drawer-body">
+                    <div className="dash-drawer-section">
+                        <span className="dash-drawer-section-label">Status</span>
+                        <SelectFilter
+                            options={options}
+                            value={value}
+                            onChange={(v) => { onChange(v || options[0]?.value || ''); onClose(); }}
+                            placeholder="Pilih status..."
+                            clearable={false}
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function TransactionRecapSection({
     data, onUnitTypeChange,
     allowTeamFiltering = true, showCrossTeamInsights = true,
     scopeLabel = 'Semua Supervisor', viewerRole = '', viewerId = '', viewerName = '',
     selectedTeam = 'all',
-    picAgentStatus = 'akad',
-    transactionChartStatus = 'all',
     unitType = '',
 }) {
     const router = useRouter();
+    const [picAgentStatus, setPicAgentStatus] = useState('akad');
+    const [transactionChartStatus, setTransactionChartStatus] = useState('all');
+    const [picAgentDrawerOpen, setPicAgentDrawerOpen] = useState(false);
+    const [analysisDrawerOpen, setAnalysisDrawerOpen] = useState(false);
     const teams = data?.teams || [];
     const [isCompare, setIsCompare] = useState(false);
     const [selectedTeam1, setSelectedTeam1] = useState('');
@@ -96,6 +148,7 @@ export default function TransactionRecapSection({
     const sourceLeadItems = (data.transactionSourceBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
     const unitTypeItems = (data.unitTypeBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
     const cancelReasonItems = (data.cancelReasonBreakdown || []).map((item, i) => ({ label: item.label || item.key || 'Lainnya', count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
+    const domicileItems = (data.domicileCityBreakdown?.[transactionChartStatus] || []).slice(0, 10).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
     const selectedPicAgentStatusMeta = PIC_AGENT_STATUS_OPTIONS.find((s) => s.key === picAgentStatus) || PIC_AGENT_STATUS_OPTIONS[0];
 
     const renderTeamFilterPills = (value, onChange) => (
@@ -207,13 +260,19 @@ export default function TransactionRecapSection({
                     ) : selectedTeamData ? renderTeamCard(selectedTeamData) : null
                 ) : isScopedSales ? renderSalesScopeCard(selectedSalesData) : isScopedSupervisor ? renderTeamCard(selectedTeamData) : null}
 
-                {/* PIC Agent comparison */}
+                {/* Divisi Closing Group comparison */}
                 {showCrossTeamInsights ? (
                     <div style={{ paddingTop: '8px', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>PIC Agent vs All Supervisor</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                            <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>Divisi Closing Group vs All Supervisor</h3>
+                            <button type="button" onClick={() => setPicAgentDrawerOpen(true)} className={`ds-section-filter-btn${picAgentStatus !== 'akad' ? ' is-active' : ''}`}>
+                                <FilterIcon />
+                                {picAgentStatus !== 'akad' && <span className="ds-section-filter-dot" />}
+                            </button>
+                        </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
                             <div style={{ padding: '16px', borderRadius: '14px', background: 'var(--bg-card)', border: '1px solid rgba(124,77,255,0.35)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>PIC Agent</span>
+                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Divisi Closing Group</span>
                                 <strong style={{ fontSize: '1.8rem', color: 'var(--primary)' }}>{formatCount(picAgentComparison.agent || 0)}</strong>
                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{picAgentPct}% dari total {selectedPicAgentStatusMeta?.label}</span>
                             </div>
@@ -228,14 +287,37 @@ export default function TransactionRecapSection({
 
                 {/* Per Status pie charts */}
                 <div style={{ paddingTop: '8px', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>Analisa Closing per Status</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                        <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>Analisa Closing per Status</h3>
+                        <button type="button" onClick={() => setAnalysisDrawerOpen(true)} className={`ds-section-filter-btn${transactionChartStatus !== 'all' ? ' is-active' : ''}`}>
+                            <FilterIcon />
+                            {transactionChartStatus !== 'all' && <span className="ds-section-filter-dot" />}
+                        </button>
+                    </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
                         <PieChartCard title="Analisa Source Leads" subtitle="Komposisi source leads dari status transaksi terpilih." total={sourceLeadItems.reduce((s, i) => s + i.count, 0)} items={sourceLeadItems} emptyLabel="Belum ada data transaksi untuk status ini." />
                         <PieChartCard title="Komposisi Tipe Unit" subtitle="Distribusi tipe unit dari status transaksi terpilih." total={unitTypeItems.reduce((s, i) => s + i.count, 0)} items={unitTypeItems} emptyLabel="Belum ada tipe unit pada status ini." />
+                        <PieChartCard title="Domisili" subtitle="Top 10 kota domisili dari status transaksi terpilih." total={domicileItems.reduce((s, i) => s + i.count, 0)} items={domicileItems} emptyLabel="Belum ada data domisili." />
                         <PieChartCard title="Alasan Cancel" subtitle="Distribusi alasan cancel pada filter tanggal aktif." total={cancelReasonItems.reduce((s, i) => s + i.count, 0)} items={cancelReasonItems} emptyLabel="Belum ada data alasan cancel." />
                     </div>
                 </div>
             </div>
+            <SectionFilterDrawer
+                open={picAgentDrawerOpen}
+                onClose={() => setPicAgentDrawerOpen(false)}
+                title="Filter Divisi Closing Group"
+                options={PIC_AGENT_SF_OPTIONS}
+                value={picAgentStatus}
+                onChange={setPicAgentStatus}
+            />
+            <SectionFilterDrawer
+                open={analysisDrawerOpen}
+                onClose={() => setAnalysisDrawerOpen(false)}
+                title="Filter Analisa Closing per Status"
+                options={TRANSACTION_STATUS_OPTIONS}
+                value={transactionChartStatus}
+                onChange={setTransactionChartStatus}
+            />
         </div>
     );
 }

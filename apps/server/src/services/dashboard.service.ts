@@ -1726,6 +1726,7 @@ export async function getHomeAnalytics(
     >();
     const unitTypeBreakdownMaps = new Map<string, Map<string, number>>();
     const transactionSourceBreakdownMaps = new Map<string, Map<string, number>>();
+    const domicileCityBreakdownMaps = new Map<string, Map<string, number>>();
     const databaseStatusScopeMap = new Map<string, ReturnType<typeof createDatabaseStatusScopeBucket>>();
 
     const ensureDatabaseStatusScope = (scopeId: string) => {
@@ -1745,6 +1746,7 @@ export async function getHomeAnalytics(
         });
         unitTypeBreakdownMaps.set(item.key, new Map<string, number>());
         transactionSourceBreakdownMaps.set(item.key, new Map<string, number>());
+        domicileCityBreakdownMaps.set(item.key, new Map<string, number>());
     }
 
     for (const item of decoratedLeads) {
@@ -1843,6 +1845,16 @@ export async function getHomeAnalytics(
             }
             if (totalTransactionSourceMap) {
                 totalTransactionSourceMap.set(sourceLabel, (totalTransactionSourceMap.get(sourceLabel) || 0) + 1);
+            }
+
+            const domicileCity = item.domicileCity || 'Tidak Diketahui';
+            const domicileStatusMap = domicileCityBreakdownMaps.get(transactionStatusKey);
+            const domicileTotalMap = domicileCityBreakdownMaps.get("all");
+            if (domicileStatusMap) {
+                domicileStatusMap.set(domicileCity, (domicileStatusMap.get(domicileCity) || 0) + 1);
+            }
+            if (domicileTotalMap) {
+                domicileTotalMap.set(domicileCity, (domicileTotalMap.get(domicileCity) || 0) + 1);
             }
         }
 
@@ -2016,6 +2028,14 @@ export async function getHomeAnalytics(
             ])
         ),
         cancelReasonBreakdown: cancelReasonItems,
+        domicileCityBreakdown: Object.fromEntries(
+            Array.from(domicileCityBreakdownMaps.entries()).map(([key, cityMap]) => [
+                key,
+                Array.from(cityMap.entries())
+                    .map(([label, count]) => ({ label, count }))
+                    .sort((a, b) => b.count - a.count),
+            ])
+        ),
         unitOptions,
     };
 

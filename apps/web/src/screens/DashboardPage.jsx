@@ -15,18 +15,11 @@ import TeamPerformanceSection from './dashboard-sections/TeamPerformanceSection'
 import DatabaseControlCenterSection from './dashboard-sections/DatabaseControlCenterSection';
 import LineChartSection from './dashboard-sections/LineChartSection';
 import DailySalesReportSection from './dashboard-sections/DailySalesReportSection';
+import OverviewSection from './dashboard-sections/OverviewSection';
 
 const EMPTY_DATE_RANGE = { dateFrom: '', dateTo: '' };
 
 
-const DEFAULT_TRANSACTION_CHART_STATUS_SF_OPTIONS = [
-    { value: 'all', label: 'Semua' },
-    { value: 'akad', label: 'Akad' },
-    { value: 'full_book', label: 'Full Book' },
-    { value: 'on_process', label: 'On Process' },
-    { value: 'reserve', label: 'Reserve' },
-    { value: 'cancel', label: 'Cancel' },
-];
 
 const PERIOD_SF_OPTIONS = [
     { value: 'today', label: 'Hari Ini' },
@@ -145,10 +138,9 @@ export default function DashboardPage() {
     const { dashboardAnalytics, refreshAll } = useLeads();
     const router = useRouter();
 
-    const [activeSectionTab, setActiveSectionTab] = useState('transaction');
+    const [activeSectionTab, setActiveSectionTab] = useState('overview');
     const [globalTeamFilter, setGlobalTeamFilter] = useState('all');
     const [selectedSourceFilter, setSelectedSourceFilter] = useState('all');
-    const [transactionChartStatus, setTransactionChartStatus] = useState('all');
     const [transactionUnitType, setTransactionUnitType] = useState('');
     const [lineChartGranularity, setLineChartGranularity] = useState('month');
     const [lineChartDataset, setLineChartDataset] = useState('l4');
@@ -191,11 +183,6 @@ export default function DashboardPage() {
         return sbItems.length > 0 ? [def, ...sbItems.map((item) => ({ key: `source:${item.source}`, label: item.source, count: item.count }))] : [def];
     }, [analytics.teamPerformance, analytics.databaseControl?.sourceBreakdown]);
 
-    const transactionChartStatusOptions = useMemo(() => {
-        const opts = analytics.transactionRecap?.chartStatusOptions;
-        if (!opts || opts.length === 0) return DEFAULT_TRANSACTION_CHART_STATUS_SF_OPTIONS;
-        return opts.map((o) => ({ value: o.key || o.value, label: o.label }));
-    }, [analytics.transactionRecap]);
 
     const transactionUnitOptions = useMemo(
         () => (analytics.transactionRecap?.unitOptions || []).map((o) => ({ value: o.value, label: o.label })),
@@ -574,19 +561,19 @@ export default function DashboardPage() {
             <div className="dash-sticky-bar">
                 <div className="dash-sticky-bar-row">
                     <div className="dash-section-tabs">
+                        <button type="button" className={`dash-section-tab${activeSectionTab === 'overview' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('overview')}>Overview</button>
                         {showDailyReport ? (
                             <button type="button" className={`dash-section-tab${activeSectionTab === 'daily-report' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('daily-report')}>Daily Report</button>
                         ) : null}
                         <button type="button" className={`dash-section-tab${activeSectionTab === 'transaction' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('transaction')}>Transaction</button>
                         <button type="button" className={`dash-section-tab${activeSectionTab === 'team' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('team')}>Team Performance</button>
                         <button type="button" className={`dash-section-tab${activeSectionTab === 'database' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('database')}>Database</button>
-                        <button type="button" className={`dash-section-tab${activeSectionTab === 'chart' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('chart')}>Line Chart</button>
                     </div>
 
                     {showDateFilter ? (
                         <button
                             type="button"
-                            className={`dash-filter-toggle${isCustomActive || globalTeamFilter !== 'all' || selectedSourceFilter !== 'all' || transactionChartStatus !== 'all' || transactionUnitType !== '' ? ' has-filter' : ''}`}
+                            className={`dash-filter-toggle${isCustomActive || globalTeamFilter !== 'all' || selectedSourceFilter !== 'all' || transactionUnitType !== '' ? ' has-filter' : ''}`}
                             onClick={() => setShowFilterDrawer(true)}
                         >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -664,15 +651,6 @@ export default function DashboardPage() {
                                 </div>
                             ) : null}
 
-                            <div className="dash-drawer-section">
-                                <span className="dash-drawer-section-label">Status</span>
-                                <SelectFilter
-                                    options={transactionChartStatusOptions}
-                                    value={transactionChartStatus}
-                                    onChange={(v) => setTransactionChartStatus(v || 'all')}
-                                    placeholder="Semua Status"
-                                />
-                            </div>
 
                             {activeSectionTab === 'transaction' && transactionUnitOptions.length > 0 ? (
                                 <div className="dash-drawer-section">
@@ -686,7 +664,7 @@ export default function DashboardPage() {
                                 </div>
                             ) : null}
 
-                            {activeSectionTab === 'chart' && lineChartGranularityOptions.length > 0 ? (
+                            {activeSectionTab === 'database' && lineChartGranularityOptions.length > 0 ? (
                                 <div className="dash-drawer-section">
                                     <span className="dash-drawer-section-label">Granularitas</span>
                                     <SelectFilter
@@ -698,7 +676,7 @@ export default function DashboardPage() {
                                 </div>
                             ) : null}
 
-                            {activeSectionTab === 'chart' && lineChartDatasetOptions.length > 0 ? (
+                            {activeSectionTab === 'database' && lineChartDatasetOptions.length > 0 ? (
                                 <div className="dash-drawer-section">
                                     <span className="dash-drawer-section-label">Dataset</span>
                                     <SelectFilter
@@ -727,6 +705,18 @@ export default function DashboardPage() {
             ) : null}
 
             {/* ── Tab content ── */}
+            {activeSectionTab === 'overview' ? (
+                <OverviewSection
+                    surveyRatio={analytics.surveyRatio}
+                    statusPie={analytics.statusPie}
+                    transactionRecap={analytics.transactionRecap}
+                    resultRecap={analytics.resultRecap}
+                    dailySalesReport={showDailyReport ? analytics.dailySalesReport : null}
+                    ongoingAppointments={analytics.ongoingAppointments}
+                    perAgentSurveyRatio={analytics.perAgentSurveyRatio}
+                />
+            ) : null}
+
             {activeSectionTab === 'daily-report' && showDailyReport ? (
                 <DailySalesReportSection data={analytics.dailySalesReport} />
             ) : null}
@@ -741,8 +731,6 @@ export default function DashboardPage() {
                     viewerId={user?.id}
                     viewerName={user?.name}
                     selectedTeam={globalTeamFilter}
-                    picAgentStatus={transactionChartStatus === 'all' ? 'akad' : transactionChartStatus}
-                    transactionChartStatus={transactionChartStatus}
                     unitType={transactionUnitType}
                 />
             ) : null}
@@ -761,23 +749,22 @@ export default function DashboardPage() {
             ) : null}
 
             {activeSectionTab === 'database' ? (
-                <DatabaseControlCenterSection
-                    data={analytics.databaseControl}
-                    allowScopeFiltering={canUseTeamFilters}
-                    scopeLabel={scopedDashboardLabel}
-                    selectedTeam={globalTeamFilter}
-                    selectedLayer={dbSelectedLayer}
-                />
-            ) : null}
-
-            {activeSectionTab === 'chart' ? (
-                <LineChartSection
-                    data={analytics.lineChart}
-                    granularity={lineChartGranularity}
-                    onGranularityChange={setLineChartGranularity}
-                    dataset={lineChartDataset}
-                    onDatasetChange={setLineChartDataset}
-                />
+                <>
+                    <DatabaseControlCenterSection
+                        data={analytics.databaseControl}
+                        allowScopeFiltering={canUseTeamFilters}
+                        scopeLabel={scopedDashboardLabel}
+                        selectedTeam={globalTeamFilter}
+                        selectedLayer={dbSelectedLayer}
+                    />
+                    <LineChartSection
+                        data={analytics.lineChart}
+                        granularity={lineChartGranularity}
+                        onGranularityChange={setLineChartGranularity}
+                        dataset={lineChartDataset}
+                        onDatasetChange={setLineChartDataset}
+                    />
+                </>
             ) : null}
         </div>
     );
