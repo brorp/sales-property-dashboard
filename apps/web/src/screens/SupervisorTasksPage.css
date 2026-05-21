@@ -46,97 +46,10 @@
     animation: spvSpin 1s linear infinite;
 }
 
-.daily-task-tabs {
-    display: flex;
-    flex-wrap: nowrap;
-    border-bottom: 2px solid #E5E7EB;
-    position: fixed;
-    top: 58px;
-    left: 0;
-    right: 0;
-    z-index: 39;
-    background: #F8FAFC;
-    overflow-x: auto;
-    scrollbar-width: none;
-    gap: 0;
-    padding: 5px;
-}
-
-.daily-task-tabs::-webkit-scrollbar {
-    display: none;
-}
-
 /* Spacer to push content below the fixed tabs */
 .spv-tab-spacer {
     height: 46px;
     margin-bottom: 12px;
-}
-
-@media (min-width: 1024px) {
-    .daily-task-tabs {
-        top: 64px;
-        left: 280px;
-        padding-left: 34px;
-        padding-right: 34px;
-    }
-
-    body.sidebar-collapsed .daily-task-tabs {
-        left: 76px;
-    }
-}
-
-.daily-task-tabs::-webkit-scrollbar {
-    display: none;
-}
-
-.daily-task-tab {
-    padding: 10px 14px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: #94A3B8;
-    border: none;
-    border-bottom: 2px solid transparent;
-    background: none !important;
-    cursor: pointer;
-    white-space: nowrap;
-    flex-shrink: 0;
-    position: relative;
-    margin-bottom: -2px;
-    transition: color 150ms ease, border-color 150ms ease;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    border-radius: 0 !important;
-}
-
-.daily-task-tab:hover {
-    color: #1E3A5F;
-}
-
-.daily-task-tab.is-active {
-    color: #1E3A5F;
-    border-bottom: 2px solid #1E3A5F;
-    background: transparent !important;
-    box-shadow: none !important;
-}
-
-.daily-task-tab-badge {
-    min-width: 18px;
-    height: 18px;
-    border-radius: 999px;
-    background: #EEF3F9 !important;
-    color: #1E3A5F !important;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.68rem;
-    padding: 0 5px;
-    font-weight: 800;
-}
-
-.daily-task-tab.is-active .daily-task-tab-badge {
-    background: #1E3A5F !important;
-    color: #FFFFFF !important;
 }
 
 /* ── Sales Filters ────────────────────────────────────────────────────── */
