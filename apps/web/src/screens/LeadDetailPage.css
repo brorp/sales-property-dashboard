@@ -349,6 +349,116 @@
 
 /* ── Customer Pipeline ──────────────────────────────────────────────── */
 
+.ldp-pipeline-header {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.ldp-pipeline-header-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ldp-pipeline-count-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: #F1F5F9;
+    color: #64748B;
+    white-space: nowrap;
+}
+
+.ldp-pipeline-count-badge.is-complete {
+    background: #DCFCE7;
+    color: #16A34A;
+}
+
+/* Stepper */
+.ldp-pipeline-stepper {
+    display: flex;
+    align-items: flex-start;
+    margin-top: 8px;
+}
+
+.ldp-ps-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+    min-width: 64px;
+}
+
+.ldp-ps-node {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: #F1F5F9;
+    color: #94A3B8;
+    border: 2px solid #E5E7EB;
+    flex-shrink: 0;
+}
+
+.ldp-ps-node.is-done {
+    background: #DCFCE7;
+    color: #16A34A;
+    border-color: #86EFAC;
+}
+
+.ldp-ps-node.is-pending {
+    background: #EFF6FF;
+    color: #1E3A5F;
+    border-color: #93C5FD;
+}
+
+.ldp-ps-node.is-overdue {
+    background: #FEE2E2;
+    color: #DC2626;
+    border-color: #FCA5A5;
+}
+
+.ldp-ps-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #374151;
+    white-space: nowrap;
+    text-align: center;
+}
+
+.ldp-ps-status {
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: #94A3B8;
+    white-space: nowrap;
+}
+
+.ldp-ps-status.is-done { color: #16A34A; }
+.ldp-ps-status.is-pending { color: #1E3A5F; }
+.ldp-ps-status.is-overdue { color: #DC2626; }
+
+.ldp-ps-line {
+    flex: 1;
+    height: 2px;
+    background: #E5E7EB;
+    margin-top: 14px;
+    min-width: 16px;
+    border-radius: 999px;
+}
+
+.ldp-ps-line.is-filled {
+    background: #86EFAC;
+}
+
 .ldp-pipeline-list {
     display: flex;
     flex-direction: column;

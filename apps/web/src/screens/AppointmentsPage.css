@@ -72,15 +72,19 @@
     padding: 14px 16px;
     margin-bottom: 12px;
     display: flex;
-    flex-direction: row;
-    align-items: center;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 10px;
     box-shadow: 0 1px 4px rgba(30, 58, 95, 0.05);
 }
 
-.ap-filter-bar .ap-search-wrap {
-    flex: 1 1 200px;
+.ap-search-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ap-search-row .ap-search-wrap {
+    flex: 1;
     min-width: 0;
 }
 
@@ -107,6 +111,68 @@
     color: #DC2626;
 }
 
+.ap-mobile-filter-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 12px;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 10px;
+    background: #F8FAFC;
+    color: #64748B;
+    font-family: inherit;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.ap-mobile-filter-btn:hover {
+    border-color: #CBD5E1;
+    background: #F1F5F9;
+    color: #1E3A5F;
+}
+
+.ap-mobile-filter-btn.is-active {
+    border-color: #1E3A5F;
+    background: #EEF3F9;
+    color: #1E3A5F;
+}
+
+.ap-filter-reset-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #EF4444;
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    z-index: 1;
+    transition: background 120ms ease;
+}
+
+.ap-filter-reset-badge:hover {
+    background: #DC2626;
+}
+
+.ap-filter-sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ap-filter-sheet-body .sf-wrap {
+    width: 100%;
+}
+
 .ap-selects-row {
     display: flex;
     flex-wrap: nowrap;
@@ -130,15 +196,19 @@
     box-sizing: border-box;
 }
 
-@media (min-width: 640px) {
-    .ap-filter-bar .ap-search-wrap {
-        flex: 1 1 0%;
+@media (min-width: 1024px) {
+    .ap-mobile-filter-btn {
+        display: none;
+    }
+}
+
+@media (max-width: 1023px) {
+    .ap-selects-row {
+        display: none;
     }
 
-    .ap-selects-row {
-        flex-shrink: 0;
-        overflow-x: visible;
-        flex-wrap: nowrap;
+    .ap-reset-desktop-only {
+        display: none;
     }
 }
 

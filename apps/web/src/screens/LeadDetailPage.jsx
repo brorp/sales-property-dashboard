@@ -711,16 +711,52 @@ export default function LeadDetailPage({ leadId }) {
             {/* ── Customer Pipeline ─────────────────────────────── */}
             {isAcceptedLead ? (
                 <div className="ldp-section">
-                    <div className="ldp-section-head">
-                        <div>
-                            <h3 className="ldp-section-title">Customer Pipeline</h3>
-                            <p className="ldp-section-desc">Progress terisi otomatis saat proof day 4, 8, dan 12 disubmit di Daily Task.</p>
-                        </div>
-                        <CustomerPipelineProgress
-                            completed={customerPipelineRows.filter((item) => item.status === 'done').length}
-                            total={customerPipelineRows.length}
-                        />
-                    </div>
+                    {(() => {
+                        const doneCount = customerPipelineRows.filter((r) => r.status === 'done').length;
+                        const totalCount = customerPipelineRows.length;
+                        return (
+                            <div className="ldp-pipeline-header">
+                                <div className="ldp-pipeline-header-top">
+                                    <h3 className="ldp-section-title" style={{ marginBottom: 0 }}>Customer Pipeline</h3>
+                                    <span className={`ldp-pipeline-count-badge${doneCount === totalCount ? ' is-complete' : ''}`}>
+                                        {doneCount}/{totalCount} selesai
+                                    </span>
+                                </div>
+                                <p className="ldp-section-desc">Progress terisi otomatis saat proof day 4, 8, dan 12 disubmit di Daily Task.</p>
+                                <div className="ldp-pipeline-stepper">
+                                    {customerPipelineRows.flatMap((step, idx) => {
+                                        const isDone = step.status === 'done';
+                                        const isPending = step.status === 'pending';
+                                        const isOverdue = step.status === 'overdue';
+                                        const nodeClass = `ldp-ps-node${isDone ? ' is-done' : isOverdue ? ' is-overdue' : isPending ? ' is-pending' : ''}`;
+                                        const items = [
+                                            <div key={`step-${step.stepNo}`} className="ldp-ps-item">
+                                                <div className={nodeClass}>
+                                                    {isDone ? (
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                            <polyline points="20 6 9 17 4 12" />
+                                                        </svg>
+                                                    ) : (
+                                                        <span>{step.stepNo}</span>
+                                                    )}
+                                                </div>
+                                                <span className="ldp-ps-label">{step.label}</span>
+                                                <span className={`ldp-ps-status${isDone ? ' is-done' : isOverdue ? ' is-overdue' : isPending ? ' is-pending' : ''}`}>
+                                                    {isDone ? 'Done' : isOverdue ? 'Overdue' : isPending ? 'Pending' : 'Upcoming'}
+                                                </span>
+                                            </div>,
+                                        ];
+                                        if (idx < customerPipelineRows.length - 1) {
+                                            items.push(
+                                                <div key={`line-${idx}`} className={`ldp-ps-line${isDone ? ' is-filled' : ''}`} />,
+                                            );
+                                        }
+                                        return items;
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })()}
                     <div className="ldp-card ldp-pipeline-list">
                         {customerPipelineRows.map((step) => (
                             <div key={step.stepNo} className={`ldp-pipeline-row${step.status === 'done' ? ' is-done' : ''}`}>

@@ -58,10 +58,12 @@ export default function AppointmentsPage() {
     const [search, setSearch] = useState('');
     const [tagFilter, setTagFilter] = useState('');
     const [salesFilter, setSalesFilter] = useState('');
+    const [showMobileFilter, setShowMobileFilter] = useState(false);
     const salesUsers = getSalesUsers();
     const canFilterBySales = user?.role === 'root_admin' || user?.role === 'client_admin' || user?.role === 'supervisor';
     const hasAnyFilter = Boolean(search || tagFilter !== '' || salesFilter);
     const resetAllFilters = () => { setSearch(''); setTagFilter(''); setSalesFilter(''); };
+    const activeFilterCount = [tagFilter !== '', Boolean(salesFilter)].filter(Boolean).length;
 
     useEffect(() => {
         document.body.classList.add('light-page');
@@ -102,19 +104,46 @@ export default function AppointmentsPage() {
             />
 
             <div className="ap-filter-bar">
-                <div className="input-icon-wrapper ap-search-wrap">
-                    <span className="input-icon">
+                <div className="ap-search-row">
+                    <div className="input-icon-wrapper ap-search-wrap">
+                        <span className="input-icon">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+                            </svg>
+                        </span>
+                        <input
+                            type="text"
+                            className="input-field"
+                            placeholder="Cari nama, nomor, atau lokasi..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                    </div>
+                    <button
+                        type="button"
+                        className={`ap-mobile-filter-btn${activeFilterCount > 0 ? ' is-active' : ''}`}
+                        onClick={() => setShowMobileFilter(true)}
+                        title="Filter"
+                    >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+                            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
                         </svg>
-                    </span>
-                    <input
-                        type="text"
-                        className="input-field"
-                        placeholder="Cari nama, nomor, atau lokasi..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
+                        {activeFilterCount > 0 ? (
+                            <button
+                                type="button"
+                                className="ap-filter-reset-badge"
+                                onClick={(e) => { e.stopPropagation(); resetAllFilters(); }}
+                                title="Reset filter"
+                            >
+                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
+                        ) : null}
+                    </button>
+                    {hasAnyFilter ? (
+                        <button type="button" className="ap-reset-all ap-reset-desktop-only" onClick={resetAllFilters}>Reset</button>
+                    ) : null}
                 </div>
                 <div className="ap-selects-row">
                     <SelectFilter
@@ -132,9 +161,6 @@ export default function AppointmentsPage() {
                         />
                     ) : null}
                 </div>
-                {hasAnyFilter ? (
-                    <button type="button" className="ap-reset-all" onClick={resetAllFilters}>Reset</button>
-                ) : null}
             </div>
 
             {filtered.length > 0 ? (
@@ -222,6 +248,34 @@ export default function AppointmentsPage() {
                     ))}
                 </div>
             )}
+            {showMobileFilter ? (
+                <div className="sheet-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowMobileFilter(false); }}>
+                    <div className="bottom-sheet">
+                        <div className="sheet-handle" />
+                        <h2>Filter Appointments</h2>
+                        <div className="ap-filter-sheet-body">
+                            <SelectFilter
+                                placeholder="Status Appointment"
+                                options={TAG_OPTIONS}
+                                value={tagFilter}
+                                onChange={setTagFilter}
+                            />
+                            {canFilterBySales ? (
+                                <SelectFilter
+                                    placeholder="Semua Sales"
+                                    options={salesUsers.map((s) => ({ value: s.id, label: s.name }))}
+                                    value={salesFilter}
+                                    onChange={setSalesFilter}
+                                />
+                            ) : null}
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                            <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={() => { resetAllFilters(); setShowMobileFilter(false); }}>Reset Semua</button>
+                            <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={() => setShowMobileFilter(false)}>Tutup</button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }
