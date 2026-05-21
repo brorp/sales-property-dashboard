@@ -393,7 +393,7 @@
 
 .spv-task-sub-item {
     display: grid;
-    grid-template-columns: 56px 1fr;
+    grid-template-columns: 1fr 56px;
     gap: 12px;
     align-items: start;
     padding: 12px;

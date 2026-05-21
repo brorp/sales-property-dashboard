@@ -587,15 +587,6 @@ export default function SupervisorTasksPage() {
                                                 key={task.id}
                                                 className={`spv-task-sub-item ${!task.screenshotUrl ? 'spv-task-sub-noimg' : ''}`}
                                             >
-                                                {task.screenshotUrl ? (
-                                                    <img
-                                                        src={task.screenshotUrl}
-                                                        alt={`${task.label} proof`}
-                                                        className="spv-task-proof-img"
-                                                        onClick={() => setLightboxImage({ url: task.screenshotUrl, caption: `${group.salesName} — ${task.label}` })}
-                                                    />
-                                                ) : null}
-
                                                 <div>
                                                     <div
                                                         className="spv-card-title spv-card-title-link"
@@ -616,6 +607,15 @@ export default function SupervisorTasksPage() {
                                                         ) : null}
                                                     </div>
                                                 </div>
+
+                                                {task.screenshotUrl ? (
+                                                    <img
+                                                        src={task.screenshotUrl}
+                                                        alt={`${task.label} proof`}
+                                                        className="spv-task-proof-img"
+                                                        onClick={() => setLightboxImage({ url: task.screenshotUrl, caption: `${group.salesName} — ${task.label}` })}
+                                                    />
+                                                ) : null}
                                             </div>
                                         ))}
                                     </div>
