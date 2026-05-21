@@ -1,0 +1,203 @@
+.overview-header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 6px 4px;
+    gap: 12px;
+}
+
+.overview-header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.dash-page .dash-sticky-bar:has(.overview-header-bar) {
+    padding-top: 14px;
+    padding-bottom: 16px;
+}
+
+.overview-ws-name {
+    font-size: 10px;
+    font-weight: 700;
+    color: #9CA3AF;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.overview-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.overview-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+}
+
+.overview-period-tag {
+    font-size: 12px;
+    font-weight: 500;
+    color: #fff;
+    background: #2563EB;
+    border-radius: 5px;
+    padding: 2px 7px;
+    line-height: 1.5;
+    white-space: nowrap;
+}
+
+.overview-filter-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1.5px solid #E5E7EB;
+    background: #fff;
+    cursor: pointer;
+    color: #374151;
+    transition: background 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+}
+
+.overview-filter-btn:active {
+    background: #F3F4F6;
+}
+
+.overview-filter-btn.is-active {
+    background: #EFF6FF;
+    border-color: #BFDBFE;
+    color: #2563EB;
+}
+
+/* Backdrop */
+.overview-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 200;
+    animation: ovBackdropIn 0.2s ease;
+}
+
+@keyframes ovBackdropIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Bottom sheet — mobile default */
+.overview-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+    padding: 8px 0 calc(env(safe-area-inset-bottom, 0px) + 16px);
+    z-index: 201;
+    animation: ovSheetUp 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+@keyframes ovSheetUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+.overview-sheet-handle {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: #E5E7EB;
+    margin: 0 auto 12px;
+}
+
+.overview-sheet-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0 20px 8px;
+}
+
+.overview-sheet-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 13px 20px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 500;
+    color: #111827;
+    text-align: left;
+    transition: background 0.12s;
+}
+
+.overview-sheet-item:active {
+    background: #F9FAFB;
+}
+
+.overview-sheet-item.active {
+    color: #2563EB;
+}
+
+.overview-sheet-item.active .overview-sheet-check {
+    display: flex;
+}
+
+.overview-sheet-check {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    color: #2563EB;
+}
+
+/* Desktop: right drawer */
+@media (min-width: 768px) {
+    .overview-sheet {
+        left: auto;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        width: 280px;
+        border-radius: 0;
+        max-height: none;
+        animation: ovDrawerIn 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+        padding: 24px 0 24px;
+    }
+
+    @keyframes ovDrawerIn {
+        from { transform: translateX(100%); }
+        to { transform: translateX(0); }
+    }
+
+    .overview-sheet-handle {
+        display: none;
+    }
+
+    .overview-sheet-title {
+        font-size: 14px;
+        padding: 0 24px 12px;
+    }
+
+    .overview-sheet-item {
+        padding: 12px 24px;
+        font-size: 14px;
+    }
+}

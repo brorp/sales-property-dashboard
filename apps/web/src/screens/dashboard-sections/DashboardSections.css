@@ -531,6 +531,7 @@
 
 .lc-chart-wrap {
     overflow-x: auto;
+    scrollbar-width: none;
     border-radius: 12px;
     border: 1px solid var(--border-color);
     background: var(--bg-input);
@@ -1175,7 +1176,10 @@
     display: flex;
     flex-direction: column;
     overflow-x: auto;
+    scrollbar-width: none;
 }
+
+.ov-team-table::-webkit-scrollbar { display: none; }
 
 .ov-team-row {
     display: grid;
