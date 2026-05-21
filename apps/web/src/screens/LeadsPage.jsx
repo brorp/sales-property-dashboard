@@ -183,6 +183,7 @@ export default function LeadsPage() {
     const [sourceFilter, setSourceFilter] = useState('all');
     const [incompleteDataFilter, setIncompleteDataFilter] = useState(false);
     const [appliedDateRange, setAppliedDateRange] = useState(EMPTY_DATE_RANGE);
+    const [showMobileFilter, setShowMobileFilter] = useState(false);
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [showExportModal, setShowExportModal] = useState(false);
@@ -243,6 +244,17 @@ export default function LeadsPage() {
         resultFilter !== 'all' || appointmentFilter !== 'all' ||
         salesFilter !== 'all' || sourceFilter !== 'all' || incompleteDataFilter
     );
+
+    const activeFilterCount = [
+        hasActiveDateFilter,
+        flowFilter !== 'all',
+        salesStatusFilter !== 'all',
+        resultFilter !== 'all',
+        appointmentFilter !== 'all',
+        salesFilter !== 'all',
+        sourceFilter !== 'all',
+        incompleteDataFilter,
+    ].filter(Boolean).length;
 
     const resetAllFilters = () => {
         setSearch('');
@@ -500,23 +512,47 @@ export default function LeadsPage() {
 
             {/* ── Filter bar ──────────────────────────────────── */}
             <div className="leads-filter-bar">
-                {/* Search */}
-                <div className="leads-search-wrap">
-                    <svg className="leads-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
-                    <input
-                        type="text"
-                        className="leads-search-input"
-                        placeholder="Cari nama atau no. WA..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
-                    {hasAnyFilter ? (
-                        <button type="button" className="leads-reset-all" onClick={resetAllFilters}>
-                            Reset
-                        </button>
-                    ) : null}
+                {/* Search row */}
+                <div className="leads-search-row">
+                    <div className="leads-search-wrap">
+                        <svg className="leads-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        <input
+                            type="text"
+                            className="leads-search-input"
+                            placeholder="Cari nama atau no. WA..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                        {hasAnyFilter ? (
+                            <button type="button" className="leads-reset-all leads-reset-desktop-only" onClick={resetAllFilters}>
+                                Reset
+                            </button>
+                        ) : null}
+                    </div>
+                    <button
+                        type="button"
+                        className={`leads-mobile-filter-btn${activeFilterCount > 0 ? ' is-active' : ''}`}
+                        onClick={() => setShowMobileFilter(true)}
+                        title="Filter"
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                        </svg>
+                        {activeFilterCount > 0 ? (
+                            <button
+                                type="button"
+                                className="leads-filter-reset-badge"
+                                onClick={(e) => { e.stopPropagation(); resetAllFilters(); }}
+                                title="Reset filter"
+                            >
+                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
+                        ) : null}
+                    </button>
                 </div>
 
                 <DateRangePicker
@@ -783,6 +819,74 @@ export default function LeadsPage() {
 
                             </div>
                         )}
+                    </div>
+                </div>
+            ) : null}
+
+            {/* ── Mobile filter sheet ────────────────────────── */}
+            {showMobileFilter ? (
+                <div className="sheet-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowMobileFilter(false); }}>
+                    <div className="bottom-sheet">
+                        <div className="sheet-handle" />
+                        <h2>Filter Leads</h2>
+                        <div className="leads-filter-sheet-body">
+                            <SelectFilter
+                                placeholder="Tanggal"
+                                value={currentDateSelectValue}
+                                onChange={handleDateSelectChange}
+                                options={dateSelectOptions}
+                            />
+                            <SelectFilter
+                                placeholder="Distribusi"
+                                value={flowFilter === 'all' ? '' : flowFilter}
+                                onChange={(v) => setFlowFilter(v || 'all')}
+                                options={FLOW_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
+                            />
+                            <SelectFilter
+                                placeholder="Sales Status"
+                                value={salesStatusFilter === 'all' ? '' : salesStatusFilter}
+                                onChange={(v) => setSalesStatusFilter(v || 'all')}
+                                options={[...SPECIAL_SALES_STATUS_FILTERS, ...SALES_STATUSES].map((item) => ({ value: item.key, label: item.label }))}
+                            />
+                            <SelectFilter
+                                placeholder="Result"
+                                value={resultFilter === 'all' ? '' : resultFilter}
+                                onChange={(v) => setResultFilter(v || 'all')}
+                                options={RESULT_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
+                            />
+                            <SelectFilter
+                                placeholder="Appointment"
+                                value={appointmentFilter === 'all' ? '' : appointmentFilter}
+                                onChange={(v) => setAppointmentFilter(v || 'all')}
+                                options={APPOINTMENT_TAGS.map((item) => ({ value: item.key, label: item.label }))}
+                            />
+                            {availableLeadSources.length > 0 ? (
+                                <SelectFilter
+                                    placeholder="Source"
+                                    value={sourceFilter === 'all' ? '' : sourceFilter}
+                                    onChange={(v) => setSourceFilter(v || 'all')}
+                                    options={availableLeadSources.map((s) => ({ value: s, label: s }))}
+                                />
+                            ) : null}
+                            {isAdmin ? (
+                                <SelectFilter
+                                    placeholder="Sales"
+                                    value={salesFilter === 'all' ? '' : salesFilter}
+                                    onChange={(v) => setSalesFilter(v || 'all')}
+                                    options={salesUsers.map((s) => ({ value: s.id, label: s.name }))}
+                                />
+                            ) : null}
+                            <SelectFilter
+                                placeholder="Kelengkapan Data"
+                                value={incompleteDataFilter ? 'incomplete' : ''}
+                                onChange={(v) => setIncompleteDataFilter(v === 'incomplete')}
+                                options={[{ value: 'incomplete', label: 'Data Tidak Lengkap' }]}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                            <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={() => { resetAllFilters(); setShowMobileFilter(false); }}>Reset Semua</button>
+                            <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={() => setShowMobileFilter(false)}>Tutup</button>
+                        </div>
                     </div>
                 </div>
             ) : null}

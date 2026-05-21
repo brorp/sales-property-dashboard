@@ -110,6 +110,17 @@
     margin-bottom: 14px;
 }
 
+.leads-search-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.leads-search-row .leads-search-wrap {
+    flex: 1;
+    min-width: 0;
+}
+
 .leads-search-wrap {
     position: relative;
     display: flex;
@@ -592,11 +603,91 @@
     font-size: 0.84rem;
 }
 
+/* ── Mobile filter button ──────────────────────────────────────────── */
+
+.leads-mobile-filter-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 12px;
+    border: 1.5px solid #E5E7EB;
+    border-radius: 10px;
+    background: #F8FAFC;
+    color: #64748B;
+    font-family: inherit;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.leads-mobile-filter-btn:hover {
+    border-color: #CBD5E1;
+    background: #F1F5F9;
+    color: #1E3A5F;
+}
+
+.leads-mobile-filter-btn.is-active {
+    border-color: #1E3A5F;
+    background: #EEF3F9;
+    color: #1E3A5F;
+}
+
+.leads-filter-reset-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #EF4444;
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    z-index: 1;
+    transition: background 120ms ease;
+}
+
+.leads-filter-reset-badge:hover {
+    background: #DC2626;
+}
+
+/* ── Mobile filter sheet body ──────────────────────────────────────── */
+
+.leads-filter-sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.leads-filter-sheet-body .sf-wrap {
+    width: 100%;
+}
+
 /* ── Desktop overrides ─────────────────────────────────────────────── */
 
 @media (min-width: 1024px) {
     .leads-page .leads-filter-bar {
         margin-top: 28px;
+    }
+
+    .leads-mobile-filter-btn {
+        display: none;
+    }
+}
+
+@media (max-width: 1023px) {
+    .leads-selects-row {
+        display: none;
+    }
+
+    .leads-reset-desktop-only {
+        display: none;
     }
 }
 
