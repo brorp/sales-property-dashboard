@@ -434,7 +434,7 @@ export default function SupervisorTasksPage() {
                     onClick={() => setActiveSection('hot_leads')}
                 >
                     Hot Leads
-                    {leads.length > 0 ? <span className="daily-task-tab-badge">{leads.length}</span> : null}
+                    <span className="daily-task-tab-badge" style={leads.length === 0 ? { visibility: 'hidden' } : undefined}>{leads.length}</span>
                 </button>
                 <button
                     type="button"
@@ -442,7 +442,7 @@ export default function SupervisorTasksPage() {
                     onClick={() => setActiveSection('submitted_tasks')}
                 >
                     Task Submissions
-                    {submittedTotalCount > 0 ? <span className="daily-task-tab-badge">{submittedTotalCount}</span> : null}
+                    <span className="daily-task-tab-badge" style={submittedTotalCount === 0 ? { visibility: 'hidden' } : undefined}>{submittedTotalCount}</span>
                 </button>
                 <button
                     type="button"
@@ -450,7 +450,7 @@ export default function SupervisorTasksPage() {
                     onClick={() => setActiveSection('cold_leads')}
                 >
                     Cold Leads
-                    {deadlineTotalCount > 0 ? <span className="daily-task-tab-badge">{deadlineTotalCount}</span> : null}
+                    <span className="daily-task-tab-badge" style={deadlineTotalCount === 0 ? { visibility: 'hidden' } : undefined}>{deadlineTotalCount}</span>
                 </button>
             </div>
 
