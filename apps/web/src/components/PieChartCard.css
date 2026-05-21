@@ -14,6 +14,17 @@
     gap: 3px;
 }
 
+.pcc-header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.pcc-header-right {
+    flex-shrink: 0;
+}
+
 .pcc-title {
     margin: 0;
     font-size: 0.95rem;

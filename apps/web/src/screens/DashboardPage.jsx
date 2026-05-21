@@ -144,7 +144,6 @@ export default function DashboardPage() {
     const [transactionUnitType, setTransactionUnitType] = useState('');
     const [lineChartGranularity, setLineChartGranularity] = useState('month');
     const [lineChartDataset, setLineChartDataset] = useState('l4');
-    const [dbSelectedLayer, setDbSelectedLayer] = useState('l1');
     const [showFilterDrawer, setShowFilterDrawer] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [filterLoading, setFilterLoading] = useState(false);
@@ -199,10 +198,6 @@ export default function DashboardPage() {
         [analytics.lineChart],
     );
 
-    const dbLayerOptions = useMemo(
-        () => (analytics.databaseControl?.statusLayerOptions || [{ key: 'l1', label: 'L1' }, { key: 'l2', label: 'L2' }, { key: 'l3', label: 'L3' }, { key: 'l4', label: 'L4' }]).map((o) => ({ value: o.key, label: o.label })),
-        [analytics.databaseControl],
-    );
 
     useEffect(() => {
         if (!analytics.lineChart) return;
@@ -721,17 +716,6 @@ export default function DashboardPage() {
                                 </div>
                             ) : null}
 
-                            {activeSectionTab === 'database' ? (
-                                <div className="dash-drawer-section">
-                                    <span className="dash-drawer-section-label">Layer</span>
-                                    <SelectFilter
-                                        options={dbLayerOptions}
-                                        value={dbSelectedLayer}
-                                        onChange={(v) => setDbSelectedLayer(v || 'l1')}
-                                        placeholder="Pilih Layer"
-                                    />
-                                </div>
-                            ) : null}
                         </div>
                     </div>
                 </div>
@@ -776,7 +760,7 @@ export default function DashboardPage() {
                         allowScopeFiltering={canUseTeamFilters}
                         scopeLabel={scopedDashboardLabel}
                         selectedTeam={globalTeamFilter}
-                        selectedLayer={dbSelectedLayer}
+
                     />
                     <LineChartSection
                         data={analytics.lineChart}

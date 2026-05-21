@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { formatCount } from './utils';
 import PieChartCard from '../../components/PieChartCard';
 import './DashboardSections.css';
@@ -60,8 +61,9 @@ function RankedPanel({ title, items, emptyLabel, renderLabel }) {
 }
 
 export default function DatabaseControlCenterSection({
-    data, allowScopeFiltering = true, scopeLabel = 'Semua', selectedTeam = 'all', selectedLayer = 'l1',
+    data, allowScopeFiltering = true, scopeLabel = 'Semua', selectedTeam = 'all',
 }) {
+    const [selectedLayer, setSelectedLayer] = useState('l1');
 
     if (!data) return null;
 
@@ -77,6 +79,21 @@ export default function DatabaseControlCenterSection({
         : scopeLabel;
     const statusLayerItems = (selectedScopeData?.layers?.[selectedLayer] || []).map((item, i) => ({ ...item, color: PIE_COLORS[i % PIE_COLORS.length] }));
 
+    const layerPills = (
+        <div className="dcc-layer-pills">
+            {layerOptions.map((opt) => (
+                <button
+                    key={opt.key}
+                    type="button"
+                    className={`dcc-layer-pill${selectedLayer === opt.key ? ' active' : ''}`}
+                    onClick={() => setSelectedLayer(opt.key)}
+                >
+                    {opt.label}
+                </button>
+            ))}
+        </div>
+    );
+
     return (
         <div className="ds-card">
             <div className="ds-card-head">
@@ -89,11 +106,12 @@ export default function DatabaseControlCenterSection({
             <div className="ds-tab-body">
                 {/* Pie chart */}
                 <PieChartCard
-                    title={`Distribusi Status ${selectedLayerMeta?.label || 'L1'}`}
+                    title="Distribusi Status"
                     subtitle={`Komposisi status leads untuk ${effectiveScopeLabel} berdasarkan layer ${selectedLayerMeta?.label || 'L1'}.`}
                     total={filteredTotal}
                     items={statusLayerItems}
                     emptyLabel="Belum ada data pada filter ini."
+                    headerRight={layerPills}
                 />
 
                 {/* Ranked insights */}

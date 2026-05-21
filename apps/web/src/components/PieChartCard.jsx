@@ -1,13 +1,16 @@
 import { buildConicGradient, formatCount } from '../screens/dashboard-sections/utils';
 import './PieChartCard.css';
 
-export default function PieChartCard({ title, subtitle, total, items = [], emptyLabel = 'Belum ada data' }) {
+export default function PieChartCard({ title, subtitle, total, items = [], emptyLabel = 'Belum ada data', headerRight }) {
     const chartItems = items.filter((item) => item.count > 0);
 
     return (
         <div className="pcc">
             <div className="pcc-header">
-                <h4 className="pcc-title">{title}</h4>
+                <div className="pcc-header-top">
+                    <h4 className="pcc-title">{title}</h4>
+                    {headerRight ? <div className="pcc-header-right">{headerRight}</div> : null}
+                </div>
                 {subtitle ? <span className="pcc-subtitle">{subtitle}</span> : null}
             </div>
 
