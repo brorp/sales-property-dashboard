@@ -361,7 +361,7 @@ export default function DailyTaskPage() {
 
     return (
         <div className="page-container daily-task-page">
-            <Header title="Daily Task" />
+            <Header title="Daily Task" hasTabs />
 
             {/* ── Tab bar ──────────────────────────────────────────── */}
             <div className="daily-task-tabs">
@@ -371,9 +371,7 @@ export default function DailyTaskPage() {
                     onClick={() => { setActiveTab('new_leads'); setNameSearch(''); }}
                 >
                     New Leads
-                    {tasks.counts.newLeadCount > 0
-                        ? <span className="daily-task-tab-badge">{tasks.counts.newLeadCount}</span>
-                        : null}
+                    <span className="daily-task-tab-badge" style={tasks.counts.newLeadCount === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.newLeadCount}</span>
                 </button>
                 <button
                     type="button"
@@ -381,9 +379,7 @@ export default function DailyTaskPage() {
                     onClick={() => { setActiveTab('follow_ups'); setNameSearch(''); }}
                 >
                     Follow Up
-                    {tasks.counts.followUpCount > 0
-                        ? <span className="daily-task-tab-badge">{tasks.counts.followUpCount}</span>
-                        : null}
+                    <span className="daily-task-tab-badge" style={tasks.counts.followUpCount === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.followUpCount}</span>
                 </button>
                 <button
                     type="button"
@@ -391,9 +387,7 @@ export default function DailyTaskPage() {
                     onClick={() => { setActiveTab('deadline_leads'); setNameSearch(''); }}
                 >
                     Deadline Leads
-                    {tasks.counts.deadlineLeadCount > 0
-                        ? <span className="daily-task-tab-badge">{tasks.counts.deadlineLeadCount}</span>
-                        : null}
+                    <span className="daily-task-tab-badge" style={tasks.counts.deadlineLeadCount === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.deadlineLeadCount}</span>
                 </button>
                 <button
                     type="button"
@@ -401,9 +395,7 @@ export default function DailyTaskPage() {
                     onClick={() => { setActiveTab('appointments'); setNameSearch(''); }}
                 >
                     Appointment
-                    {appointments.length > 0
-                        ? <span className="daily-task-tab-badge">{appointments.length}</span>
-                        : null}
+                    <span className="daily-task-tab-badge" style={appointments.length === 0 ? { visibility: 'hidden' } : undefined}>{appointments.length}</span>
                 </button>
                 <button
                     type="button"
@@ -411,9 +403,7 @@ export default function DailyTaskPage() {
                     onClick={() => { setActiveTab('hot_validated'); setNameSearch(''); }}
                 >
                     Hot Validation
-                    {validatedHot.length > 0
-                        ? <span className="daily-task-tab-badge" style={{ background: '#DCFCE7', color: '#15803D' }}>{validatedHot.length}</span>
-                        : null}
+                    <span className="daily-task-tab-badge" style={validatedHot.length === 0 ? { visibility: 'hidden' } : { background: '#DCFCE7', color: '#15803D' }}>{validatedHot.length}</span>
                 </button>
             </div>
 

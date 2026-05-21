@@ -138,11 +138,22 @@
     }
 }
 
+.app-header--has-tabs {
+    border-bottom: none;
+    box-shadow: none;
+    background: #F8FAFC;
+    margin-bottom: 0;
+}
+
 @media (min-width: 1024px) {
     .app-header {
         height: 64px;
         padding: 0 34px;
         margin: -26px -34px 24px;
+    }
+
+    .app-header--has-tabs {
+        margin-bottom: 0;
     }
 
     .app-header-title {

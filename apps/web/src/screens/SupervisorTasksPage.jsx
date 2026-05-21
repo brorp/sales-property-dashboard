@@ -425,7 +425,7 @@ export default function SupervisorTasksPage() {
 
     return (
         <div className="page-container">
-            <Header title="Supervisor Tasks" />
+            <Header title="Supervisor Tasks" hasTabs />
 
             <div className="daily-task-tabs">
                 <button

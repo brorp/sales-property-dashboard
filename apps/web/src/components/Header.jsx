@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../context/WorkspaceContext';
 
-export default function Header({ title, subtitle = null, showBack = false, rightAction = null, showWorkspaceMobile = false }) {
+export default function Header({ title, subtitle = null, showBack = false, rightAction = null, showWorkspaceMobile = false, hasTabs = false }) {
     const router = useRouter();
     const { workspaces, activeWorkspace, switchWorkspace } = useWorkspace();
     const [wsOpen, setWsOpen] = useState(false);
@@ -13,7 +13,7 @@ export default function Header({ title, subtitle = null, showBack = false, right
 
     return (
         <>
-            <header className="app-header">
+            <header className={`app-header${hasTabs ? ' app-header--has-tabs' : ''}`}>
                 <div className="app-header-left">
                     {showBack && (
                         <button className="app-header-back" onClick={() => router.back()} aria-label="Kembali">
