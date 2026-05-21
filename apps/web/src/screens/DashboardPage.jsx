@@ -358,16 +358,29 @@ export default function DashboardPage() {
             ) : null}
 
             {user?.role === 'sales' && user?.isSuspended && user?.suspension ? (
-                <div className="dash-alert dash-alert--danger">
-                    <div className="dash-alert-header">
-                        <span className="dash-alert-icon">⛔</span>
-                        <strong className="dash-alert-title">Akun Disuspend dari Distribution Queue</strong>
-                        <span className="dash-alert-badge">Layer {user.suspension?.penaltyLayer || '-'}</span>
+                <div className="dash-suspend-banner">
+                    <div className="dash-suspend-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                        </svg>
                     </div>
-                    <p className="dash-alert-body">Anda tidak akan menerima distribusi lead baru selama masa suspend aktif.</p>
-                    <div className="dash-alert-meta">
-                        <span>Suspend sampai: <strong>{formatSuspensionUntil(user.suspension?.suspendedUntil)}</strong></span>
-                        <span>Durasi: <strong>{user.suspension?.suspendedDays || 0} hari</strong></span>
+                    <div className="dash-suspend-content">
+                        <div className="dash-suspend-header">
+                            <span className="dash-suspend-title">Akun Disuspend dari Distribution Queue</span>
+                            <span className="dash-suspend-badge">Layer {user.suspension?.penaltyLayer || '-'}</span>
+                        </div>
+                        <p className="dash-suspend-desc">Anda tidak akan menerima distribusi lead baru selama masa suspend aktif.</p>
+                        <div className="dash-suspend-meta">
+                            <div className="dash-suspend-meta-item">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                                <span>Suspend sampai: <strong>{formatSuspensionUntil(user.suspension?.suspendedUntil)}</strong></span>
+                            </div>
+                            <div className="dash-suspend-meta-item">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                <span>Durasi: <strong>{user.suspension?.suspendedDays || 0} hari</strong></span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             ) : null}
@@ -380,21 +393,35 @@ export default function DashboardPage() {
                             <h2 className="dash-section-title">Mau Survey ({analytics.ongoingAppointments.length})</h2>
                         </div>
                     </div>
-                    <div className="dash-card-list">
+                    <div className="dash-appt-grid">
                         {analytics.ongoingAppointments.map((item) => (
-                            <div key={item.id} className="dash-card dash-card--clickable" onClick={() => router.push(`/leads/${item.leadId}`)}>
+                            <div key={item.id} className="dash-card dash-card--clickable dash-card--appt" onClick={() => router.push(`/leads/${item.leadId}`)}>
                                 <div className="dash-card-row">
                                     <span className="dash-card-name">{item.leadName}</span>
-                                    <span className="dash-badge dash-badge--amber">Mau Survey</span>
+                                    <span className="dash-badge dash-badge--green">Mau Survey</span>
                                 </div>
-                                <div className="dash-card-meta">
-                                    <span>📱 {item.leadPhone}</span>
-                                    <span>🗓️ {formatReminderDateTime(item.date, item.time)}</span>
+                                <div className="dash-card-meta-grid">
+                                    <div className="dash-card-meta-item">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.64 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.55 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.54a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                        <span>{item.leadPhone}</span>
+                                    </div>
+                                    <div className="dash-card-meta-item">
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                                        <span>{formatReminderDateTime(item.date, item.time)}</span>
+                                    </div>
+                                    {item.location ? (
+                                        <div className="dash-card-meta-item">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                                            <span>{item.location}</span>
+                                        </div>
+                                    ) : null}
+                                    {user?.role === 'supervisor' && item.salesName ? (
+                                        <div className="dash-card-meta-item">
+                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                            <span>{item.salesName}</span>
+                                        </div>
+                                    ) : null}
                                 </div>
-                                {user?.role === 'supervisor' && item.salesName ? (
-                                    <div className="dash-card-meta"><span>Sales: {item.salesName}</span></div>
-                                ) : null}
-                                {item.location ? <div className="dash-card-meta"><span>📍 {item.location}</span></div> : null}
                             </div>
                         ))}
                     </div>

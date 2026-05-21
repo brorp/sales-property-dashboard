@@ -457,7 +457,7 @@ body.dash-body {
     margin-bottom: 8px;
 }
 
-.dash-alert-icon  { font-size: 1rem; flex-shrink: 0; }
+.dash-alert-icon  { display: none; }
 
 .dash-alert-title {
     font-size: 0.9rem;
@@ -498,6 +498,97 @@ body.dash-body {
 
 .dash-alert-meta strong { color: #7F1D1D; }
 
+/* ── Suspend banner ───────────────────────────────────────────────────── */
+
+.dash-suspend-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    border-left: 4px solid #DC2626;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.dash-suspend-icon-wrap {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: #FEE2E2;
+    color: #DC2626;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.dash-suspend-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.dash-suspend-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.dash-suspend-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #991B1B;
+    line-height: 1.3;
+}
+
+.dash-suspend-badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #DC2626;
+    color: #FFFFFF;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.dash-suspend-desc {
+    font-size: 0.8125rem;
+    color: #7F1D1D;
+    margin: 0;
+    line-height: 1.5;
+}
+
+.dash-suspend-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin-top: 2px;
+}
+
+.dash-suspend-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.8rem;
+    color: #B91C1C;
+}
+
+.dash-suspend-meta-item svg {
+    color: #DC2626;
+    flex-shrink: 0;
+}
+
+.dash-suspend-meta-item strong {
+    color: #7F1D1D;
+    font-weight: 700;
+}
+
 /* ── Section structure ────────────────────────────────────────────────── */
 
 .dash-section { margin-bottom: 24px; }
@@ -533,6 +624,58 @@ body.dash-body {
     display: flex;
     flex-direction: column;
     gap: 8px;
+}
+
+/* Appointment grid — 1 col mobile, 2 col tablet+, 3 col desktop */
+.dash-appt-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+@media (min-width: 640px) {
+    .dash-appt-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 1280px) {
+    .dash-appt-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+.dash-card--appt {
+    border-left: 4px solid #16A34A;
+}
+
+.dash-card--appt:hover {
+    border-left-color: #15803D;
+}
+
+.dash-card-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 5px 12px;
+    padding-top: 6px;
+    border-top: 1px solid #F1F5F9;
+}
+
+.dash-card-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: #64748B;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.dash-card-meta-item svg {
+    color: #94A3B8;
+    flex-shrink: 0;
+}
+
+.dash-card-meta-item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .dash-card {
