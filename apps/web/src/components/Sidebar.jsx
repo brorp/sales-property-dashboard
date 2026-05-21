@@ -139,16 +139,18 @@ export default function Sidebar({ collapsed, onToggleCollapsed }) {
                         className={`sidebar-tab${isActive(tab.key) ? ' active' : ''}`}
                         onClick={() => router.push(tab.key)}
                     >
-                        <span className="sidebar-icon"><Icon name={tab.icon} /></span>
+                        <span className="sidebar-icon-wrap">
+                            <span className="sidebar-icon"><Icon name={tab.icon} /></span>
+                            {tab.key === '/leads' && hasUnreadLeads && !isActive(tab.key) ? <span className="sidebar-unread-dot" /> : null}
+                            {tab.key === '/activity-logs' && hasUnreadLogs && !isActive(tab.key) ? <span className="sidebar-unread-dot" /> : null}
+                            {tab.key === '/daily-tasks' && taskCounts.totalCount > 0 ? (
+                                <span className="sidebar-count-badge">{taskCounts.totalCount}</span>
+                            ) : null}
+                            {tab.key === '/supervisor-tasks' && supervisorTaskCount > 0 ? (
+                                <span className="sidebar-count-badge" style={{ background: '#ef4444' }}>{supervisorTaskCount}</span>
+                            ) : null}
+                        </span>
                         {!collapsed ? <span className="sidebar-label">{tab.label}</span> : null}
-                        {tab.key === '/leads' && hasUnreadLeads && !isActive(tab.key) ? <span className="sidebar-unread-dot" /> : null}
-                        {tab.key === '/activity-logs' && hasUnreadLogs && !isActive(tab.key) ? <span className="sidebar-unread-dot" /> : null}
-                        {tab.key === '/daily-tasks' && taskCounts.totalCount > 0 ? (
-                            <span className="sidebar-count-badge">{taskCounts.totalCount}</span>
-                        ) : null}
-                        {tab.key === '/supervisor-tasks' && supervisorTaskCount > 0 ? (
-                            <span className="sidebar-count-badge" style={{ background: '#ef4444' }}>{supervisorTaskCount}</span>
-                        ) : null}
                     </button>
                 ))}
             </div>

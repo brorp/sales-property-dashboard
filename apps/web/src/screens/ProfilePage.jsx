@@ -180,15 +180,12 @@ export default function ProfilePage() {
                     <MenuItem icon={<IconSend />} label="WhatsApp Broadcast" onClick={() => router.push('/broadcast')} iconColor="#16A34A" />
                 ) : null}
 
-                <MenuItem icon={<IconLogOut />} label="Keluar" onClick={handleLogout} danger />
-            </div>
-
-            {/* ── Mobile-only nav shortcuts ──────────────────── */}
-            <div className="pf-menu-list pf-menu-mobile-only">
                 {canSeeLogs ? (
                     <MenuItem icon={<IconFileText />} label="Activity Logs" onClick={() => router.push('/activity-logs')} iconColor="#0EA5E9" />
                 ) : null}
                 <MenuItem icon={<IconAlertTriangle />} label="Penalty" onClick={() => router.push('/penalties')} iconColor="#F97316" />
+
+                <MenuItem icon={<IconLogOut />} label="Keluar" onClick={handleLogout} danger />
             </div>
 
             <p className="pf-version">Property Lounge Dashboard v1.0</p>

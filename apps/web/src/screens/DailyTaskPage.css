@@ -32,22 +32,22 @@
 
 .daily-task-tab {
     position: relative;
-    padding: 13px 14px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #94A3B8;
+    padding: 12px 10px 10px;
     border: none;
     border-bottom: 2px solid transparent;
     background: none;
     cursor: pointer;
-    white-space: nowrap;
     flex-shrink: 0;
+    flex: 1;
+    min-width: 64px;
     margin-bottom: -2px;
     transition: color 150ms ease;
     display: flex;
+    flex-direction: column;
     align-items: center;
     gap: 6px;
     font-family: inherit;
+    color: #94A3B8;
 }
 
 .daily-task-tab::after {
@@ -55,7 +55,7 @@
     position: absolute;
     bottom: -1px;
     left: 50%;
-    width: calc(100% - 20px);
+    width: calc(100% - 24px);
     height: 3px;
     border-radius: 999px;
     background: #1E3A5F;
@@ -65,41 +65,58 @@
 }
 
 .daily-task-tab:hover {
-    color: #374151;
+    color: #475569;
 }
 
 .daily-task-tab.is-active {
     color: #1E3A5F;
-    font-weight: 700;
-    border-bottom: 2px solid transparent;
 }
 
 .daily-task-tab.is-active::after {
     transform: translateX(-50%) scaleX(1);
 }
 
+.daily-task-tab-icon-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+}
+
 .daily-task-tab-badge {
+    position: absolute;
+    top: -7px;
+    right: -10px;
     min-width: 18px;
     height: 18px;
     border-radius: 999px;
-    background: #EEF3F9;
-    color: #1E3A5F;
+    background: #EF4444;
+    color: #FFFFFF;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.68rem;
-    padding: 0 5px;
+    font-size: 0.62rem;
+    padding: 0 4px;
     font-weight: 800;
+    border: 2px solid #F8FAFC;
+    box-sizing: border-box;
 }
 
-.daily-task-tab.is-active .daily-task-tab-badge {
-    background: #1E3A5F;
-    color: #FFFFFF;
+.daily-task-tab-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.daily-task-tab.is-active .daily-task-tab-label {
+    font-weight: 700;
 }
 
 /* Spacer to push content below fixed tab bar */
 .dt-tab-spacer {
-    height: 55px;
+    height: 80px;
     margin-bottom: 0;
 }
 
@@ -113,6 +130,36 @@
 
     body.sidebar-collapsed .daily-task-tabs {
         left: 76px;
+    }
+
+    .daily-task-tab {
+        flex-direction: row;
+        gap: 7px;
+        padding: 10px 16px;
+        flex: 0 0 auto;
+        min-width: unset;
+    }
+
+    .daily-task-tab-icon-wrap {
+        width: 18px;
+        height: 18px;
+    }
+
+    .daily-task-tab-icon-wrap svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .daily-task-tab-label {
+        font-size: 0.8125rem;
+    }
+
+    .daily-task-tab-badge {
+        top: -6px;
+        right: -8px;
+        min-width: 16px;
+        height: 16px;
+        font-size: 0.58rem;
     }
 }
 

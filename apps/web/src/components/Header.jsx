@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../context/WorkspaceContext';
 
-export default function Header({ title, subtitle = null, showBack = false, rightAction = null, showWorkspaceMobile = false, hasTabs = false }) {
+export default function Header({ title, mobileTitle = null, subtitle = null, showBack = false, rightAction = null, showWorkspaceMobile = false, hasTabs = false }) {
     const router = useRouter();
     const { workspaces, activeWorkspace, switchWorkspace } = useWorkspace();
     const [wsOpen, setWsOpen] = useState(false);
@@ -23,7 +23,14 @@ export default function Header({ title, subtitle = null, showBack = false, right
                         </button>
                     )}
                     <div className="app-header-title-wrap">
-                        <h1 className="app-header-title">{title}</h1>
+                        {mobileTitle ? (
+                            <>
+                                <h1 className="app-header-title app-header-title--mobile-only">{mobileTitle}</h1>
+                                <h1 className="app-header-title app-header-title--desktop-only">{title}</h1>
+                            </>
+                        ) : (
+                            <h1 className="app-header-title">{title}</h1>
+                        )}
                         {subtitle ? <span className="app-header-subtitle">{subtitle}</span> : null}
                     </div>
                 </div>

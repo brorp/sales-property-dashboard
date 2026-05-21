@@ -1,3 +1,9 @@
+@media (max-width: 1023px) {
+    .dash-page .app-header {
+        display: none;
+    }
+}
+
 /* ── Light theme CSS variable overrides ──────────────────────────────── */
 
 body.dash-body {
@@ -35,11 +41,11 @@ body.dash-body {
 
 .dash-sticky-bar {
     position: sticky;
-    top: 56px;
+    top: 0;
     z-index: 40;
     background: #F8FAFC;
     padding-top: 10px;
-    padding-bottom: 2px;
+    padding-bottom: 12px;
     margin-left: -16px;
     margin-right: -16px;
     padding-left: 16px;
@@ -260,8 +266,11 @@ body.dash-body {
 }
 
 .dash-section-tab {
-    padding: 10px 20px;
-    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    font-size: 0.875rem;
     font-weight: 600;
     color: #94A3B8;
     border: none;
@@ -273,6 +282,18 @@ body.dash-body {
     z-index: 1;
     flex-shrink: 0;
     transition: color 150ms ease;
+}
+
+.dash-section-tab svg {
+    flex-shrink: 0;
+    opacity: 0.7;
+    transition: opacity 150ms ease;
+}
+
+
+.dash-section-tab.is-active svg,
+.dash-section-tab:hover svg {
+    opacity: 1;
 }
 
 .dash-section-tab::after {
@@ -1073,9 +1094,17 @@ body.dash-body {
     .dash-kpi-grid--6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .dash-kpi-value   { font-size: 1.5rem; }
 
-    .dash-sticky-bar  { padding-top: 6px; padding-bottom: 0; }
+    .dash-sticky-bar  { padding-top: 6px; padding-bottom: 12px; }
     .dash-section-tabs { margin-bottom: 10px; }
-    .dash-section-tab { padding: 9px 16px; font-size: 0.85rem; }
+    .dash-section-tab {
+        flex-direction: column;
+        gap: 5px;
+        padding: 9px 6px;
+        font-size: 0.72rem;
+        flex: 1;
+        min-width: 0;
+    }
+    .dash-section-tab svg { width: 19px; height: 19px; }
     .dash-filter-bar  { padding: 10px 12px; border-radius: 12px; }
 
     .dash-filter-spv-row {

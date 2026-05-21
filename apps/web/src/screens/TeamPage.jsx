@@ -714,7 +714,7 @@ export default function TeamPage() {
     };
 
     return (
-        <div className="page-container set-page">
+        <div className="page-container set-page team-page">
             <Header
                 title={`Kelola Tim ${getRoleLabel(user?.role)}`}
                 rightAction={(

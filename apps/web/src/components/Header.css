@@ -138,6 +138,14 @@
     }
 }
 
+.app-header-title--mobile-only { display: block; }
+.app-header-title--desktop-only { display: none; }
+
+@media (min-width: 1024px) {
+    .app-header-title--mobile-only { display: none; }
+    .app-header-title--desktop-only { display: block; }
+}
+
 .app-header--has-tabs {
     border-bottom: none;
     box-shadow: none;

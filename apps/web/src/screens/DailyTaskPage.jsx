@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
+import { useWorkspace } from '../context/WorkspaceContext';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { apiRequest } from '../lib/api';
 import { uploadTaskProofImage } from '../lib/image-upload';
@@ -191,6 +192,7 @@ function IcCheck() { return <svg width="14" height="14" viewBox="0 0 24 24" fill
 
 export default function DailyTaskPage() {
     const { user } = useAuth();
+    const { activeWorkspace } = useWorkspace();
     const router = useRouter();
     const [activeTab, setActiveTab] = useState('new_leads');
     const [tasks, setTasks] = useState({
@@ -361,49 +363,44 @@ export default function DailyTaskPage() {
 
     return (
         <div className="page-container daily-task-page">
-            <Header title="Daily Task" hasTabs />
+            <Header title="Daily Task" mobileTitle={activeWorkspace?.name || 'Daily Task'} hasTabs />
 
             {/* ── Tab bar ──────────────────────────────────────────── */}
             <div className="daily-task-tabs">
-                <button
-                    type="button"
-                    className={`daily-task-tab${activeTab === 'new_leads' ? ' is-active' : ''}`}
-                    onClick={() => { setActiveTab('new_leads'); setNameSearch(''); }}
-                >
-                    New Leads
-                    <span className="daily-task-tab-badge" style={tasks.counts.newLeadCount === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.newLeadCount}</span>
+                <button type="button" className={`daily-task-tab${activeTab === 'new_leads' ? ' is-active' : ''}`} onClick={() => { setActiveTab('new_leads'); setNameSearch(''); }}>
+                    <span className="daily-task-tab-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                        <span className="daily-task-tab-badge" style={tasks.counts.newLeadCount === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.newLeadCount}</span>
+                    </span>
+                    <span className="daily-task-tab-label">New Leads</span>
                 </button>
-                <button
-                    type="button"
-                    className={`daily-task-tab${activeTab === 'follow_ups' ? ' is-active' : ''}`}
-                    onClick={() => { setActiveTab('follow_ups'); setNameSearch(''); }}
-                >
-                    Follow Up
-                    <span className="daily-task-tab-badge" style={tasks.counts.followUpCount === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.followUpCount}</span>
+                <button type="button" className={`daily-task-tab${activeTab === 'follow_ups' ? ' is-active' : ''}`} onClick={() => { setActiveTab('follow_ups'); setNameSearch(''); }}>
+                    <span className="daily-task-tab-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                        <span className="daily-task-tab-badge" style={tasks.counts.followUpCount === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.followUpCount}</span>
+                    </span>
+                    <span className="daily-task-tab-label">Follow Up</span>
                 </button>
-                <button
-                    type="button"
-                    className={`daily-task-tab${activeTab === 'deadline_leads' ? ' is-active' : ''}`}
-                    onClick={() => { setActiveTab('deadline_leads'); setNameSearch(''); }}
-                >
-                    Deadline Leads
-                    <span className="daily-task-tab-badge" style={tasks.counts.deadlineLeadCount === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.deadlineLeadCount}</span>
+                <button type="button" className={`daily-task-tab${activeTab === 'deadline_leads' ? ' is-active' : ''}`} onClick={() => { setActiveTab('deadline_leads'); setNameSearch(''); }}>
+                    <span className="daily-task-tab-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <span className="daily-task-tab-badge" style={tasks.counts.deadlineLeadCount === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.deadlineLeadCount}</span>
+                    </span>
+                    <span className="daily-task-tab-label">Deadline</span>
                 </button>
-                <button
-                    type="button"
-                    className={`daily-task-tab${activeTab === 'appointments' ? ' is-active' : ''}`}
-                    onClick={() => { setActiveTab('appointments'); setNameSearch(''); }}
-                >
-                    Appointment
-                    <span className="daily-task-tab-badge" style={appointments.length === 0 ? { visibility: 'hidden' } : undefined}>{appointments.length}</span>
+                <button type="button" className={`daily-task-tab${activeTab === 'appointments' ? ' is-active' : ''}`} onClick={() => { setActiveTab('appointments'); setNameSearch(''); }}>
+                    <span className="daily-task-tab-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01"/></svg>
+                        <span className="daily-task-tab-badge" style={appointments.length === 0 ? { visibility: 'hidden' } : undefined}>{appointments.length}</span>
+                    </span>
+                    <span className="daily-task-tab-label">Appointment</span>
                 </button>
-                <button
-                    type="button"
-                    className={`daily-task-tab${activeTab === 'hot_validated' ? ' is-active' : ''}`}
-                    onClick={() => { setActiveTab('hot_validated'); setNameSearch(''); }}
-                >
-                    Hot Validation
-                    <span className="daily-task-tab-badge" style={validatedHot.length === 0 ? { visibility: 'hidden' } : { background: '#DCFCE7', color: '#15803D' }}>{validatedHot.length}</span>
+                <button type="button" className={`daily-task-tab${activeTab === 'hot_validated' ? ' is-active' : ''}`} onClick={() => { setActiveTab('hot_validated'); setNameSearch(''); }}>
+                    <span className="daily-task-tab-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+                        <span className="daily-task-tab-badge" style={validatedHot.length === 0 ? { visibility: 'hidden' } : undefined}>{validatedHot.length}</span>
+                    </span>
+                    <span className="daily-task-tab-label">HOT</span>
                 </button>
             </div>
 

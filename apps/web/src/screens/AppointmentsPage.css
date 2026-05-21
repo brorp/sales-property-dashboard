@@ -1,5 +1,11 @@
 /* ── AppointmentsPage — Navy/light theme ────────────────────────────── */
 
+@media (max-width: 1023px) {
+    .ap-page .app-header {
+        display: none;
+    }
+}
+
 .ap-page {
     background: #F8FAFC;
     --bg-app: rgba(248, 250, 252, 0.96);
@@ -209,6 +215,33 @@
 
     .ap-reset-desktop-only {
         display: none;
+    }
+
+    .ap-filter-bar {
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        margin-top: -16px;
+        margin-bottom: 0;
+        margin-left: -16px;
+        margin-right: -16px;
+        border-radius: 0 0 16px 16px;
+        border-left: none;
+        border-right: none;
+        border-top: none;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 8px rgba(30, 58, 95, 0.08);
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+    .ap-filter-bar {
+        margin-top: -22px;
+        margin-left: -22px;
+        margin-right: -22px;
+        padding-left: 22px;
+        padding-right: 22px;
     }
 }
 

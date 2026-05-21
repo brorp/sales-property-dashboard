@@ -318,7 +318,7 @@ export default function SupervisorTasksPage() {
             ? null
             : options.find((o) => o.salesId === value)?.salesName;
         return (
-            <div className="spv-filter-bar" style={{ marginTop: '70px' }}>
+            <div className="spv-filter-bar">
                 {/* Search + filter icon side by side */}
                 <div className="spv-filter-row">
                     <div className="spv-name-search-wrap">
@@ -433,24 +433,39 @@ export default function SupervisorTasksPage() {
                     className={`daily-task-tab ${activeSection === 'hot_leads' ? 'is-active' : ''}`}
                     onClick={() => setActiveSection('hot_leads')}
                 >
-                    Hot Leads
-                    <span className="daily-task-tab-badge" style={leads.length === 0 ? { visibility: 'hidden' } : undefined}>{leads.length}</span>
+                    <span className="daily-task-tab-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+                        </svg>
+                        <span className="daily-task-tab-badge" style={leads.length === 0 ? { visibility: 'hidden' } : undefined}>{leads.length}</span>
+                    </span>
+                    <span className="daily-task-tab-label">Hot Leads</span>
                 </button>
                 <button
                     type="button"
                     className={`daily-task-tab ${activeSection === 'submitted_tasks' ? 'is-active' : ''}`}
                     onClick={() => setActiveSection('submitted_tasks')}
                 >
-                    Task Submissions
-                    <span className="daily-task-tab-badge" style={submittedTotalCount === 0 ? { visibility: 'hidden' } : undefined}>{submittedTotalCount}</span>
+                    <span className="daily-task-tab-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                        </svg>
+                        <span className="daily-task-tab-badge" style={submittedTotalCount === 0 ? { visibility: 'hidden' } : undefined}>{submittedTotalCount}</span>
+                    </span>
+                    <span className="daily-task-tab-label">Submissions</span>
                 </button>
                 <button
                     type="button"
                     className={`daily-task-tab ${activeSection === 'cold_leads' ? 'is-active' : ''}`}
                     onClick={() => setActiveSection('cold_leads')}
                 >
-                    Cold Leads
-                    <span className="daily-task-tab-badge" style={deadlineTotalCount === 0 ? { visibility: 'hidden' } : undefined}>{deadlineTotalCount}</span>
+                    <span className="daily-task-tab-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M2 12h20M12 2v20M4.93 4.93l14.14 14.14M19.07 4.93 4.93 19.07"/>
+                        </svg>
+                        <span className="daily-task-tab-badge" style={deadlineTotalCount === 0 ? { visibility: 'hidden' } : undefined}>{deadlineTotalCount}</span>
+                    </span>
+                    <span className="daily-task-tab-label">Cold Leads</span>
                 </button>
             </div>
 
@@ -465,7 +480,7 @@ export default function SupervisorTasksPage() {
                     ) : leads.length === 0 ? (
                         <SpvEmpty variant="success" title="Semua lead tervalidasi" desc="Tidak ada lead HOT yang menunggu validasi saat ini." />
                     ) : (
-                        <div className="spv-card-list" style={{ marginTop: '70px' }}>
+                        <div className="spv-card-list spv-card-list--top">
                             {leads.map((lead) => {
                                 const isBusy = actionLoading === lead.id;
                                 return (

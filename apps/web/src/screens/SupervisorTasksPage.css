@@ -48,14 +48,21 @@
 
 /* Spacer to push content below the fixed tabs */
 .spv-tab-spacer {
-    height: 46px;
-    margin-bottom: 12px;
+    height: 80px;
+    margin-bottom: 0;
 }
 
 /* ── Sales Filters ────────────────────────────────────────────────────── */
 
 .spv-filter-bar {
+    margin-top: 100px;
     margin-bottom: 14px;
+}
+
+@media (min-width: 1024px) {
+    .spv-filter-bar {
+        margin-top: 52px;
+    }
 }
 
 .spv-filter-row {
@@ -270,6 +277,16 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+
+.spv-card-list--top {
+    margin-top: 100px;
+}
+
+@media (min-width: 1024px) {
+    .spv-card-list--top {
+        margin-top: 52px;
+    }
 }
 
 .spv-card {
