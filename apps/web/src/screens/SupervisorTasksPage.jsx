@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { getSalesStatusLabel, getTimeAgo } from '../constants/crm';
+import './SupervisorTasksPage.css';
 
 function formatDateTime(value) {
     if (!value) return '-';
@@ -15,19 +16,117 @@ function formatDateTime(value) {
     return d.toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function getFilterButtonStyle(active) {
-    return {
-        cursor: 'pointer',
-        padding: '8px 14px',
-        borderRadius: '999px',
-        border: active ? 'none' : '1px solid var(--border-color)',
-        background: active ? 'var(--primary)' : 'var(--bg-card)',
-        color: active ? 'white' : 'var(--text-primary)',
-        fontSize: '0.85rem',
-        fontWeight: 600,
-        whiteSpace: 'nowrap',
+const IconPhone = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.41 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 8.78a16 16 0 0 0 6 6l1.92-1.92a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+    </svg>
+);
+
+const IconUser = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+    </svg>
+);
+
+const IconClock = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+    </svg>
+);
+
+const IconMegaphone = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 11l19-9-9 19-2-8-8-2z" />
+    </svg>
+);
+
+const IconNudge = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13" />
+        <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
+);
+
+const IconCheck = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+    </svg>
+);
+
+const IconX = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+);
+
+function SpvEmpty({ variant = 'default', title, desc }) {
+    const variants = {
+        loading: {
+            color: '#94A3B8', bg: '#F1F5F9',
+            icon: (
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="spv-empty-spin">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+            ),
+        },
+        success: {
+            color: '#16A34A', bg: '#DCFCE7',
+            icon: (
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+                    <polyline points="9 12 11 14 15 10"/>
+                </svg>
+            ),
+        },
+        clipboard: {
+            color: '#2563EB', bg: '#DBEAFE',
+            icon: (
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                    <rect x="8" y="2" width="8" height="4" rx="1"/>
+                    <line x1="9" y1="12" x2="15" y2="12"/>
+                    <line x1="9" y1="16" x2="13" y2="16"/>
+                </svg>
+            ),
+        },
+        snow: {
+            color: '#0EA5E9', bg: '#E0F2FE',
+            icon: (
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="2" x2="12" y2="22"/>
+                    <path d="m20 6-8 6-8-6"/>
+                    <path d="m20 18-8-6-8 6"/>
+                    <path d="m2 12 4-2-4-2"/>
+                    <path d="m22 12-4-2 4-2"/>
+                </svg>
+            ),
+        },
+        search: {
+            color: '#7C3AED', bg: '#EDE9FE',
+            icon: (
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    <line x1="8" y1="11" x2="14" y2="11"/>
+                </svg>
+            ),
+        },
     };
+    const v = variants[variant] || variants.default;
+    return (
+        <div className="spv-empty">
+            <div className="spv-empty-icon" style={{ background: v.bg, color: v.color }}>
+                {v.icon}
+            </div>
+            <div className="spv-empty-title">{title}</div>
+            {desc ? <div className="spv-empty-desc">{desc}</div> : null}
+        </div>
+    );
 }
+
 
 export default function SupervisorTasksPage() {
     const { user } = useAuth();
@@ -46,6 +145,27 @@ export default function SupervisorTasksPage() {
     const [actionSuccess, setActionSuccess] = useState('');
     const [rejectNotes, setRejectNotes] = useState({});
     const [showRejectNote, setShowRejectNote] = useState({});
+    const [lightboxImage, setLightboxImage] = useState(null);
+    const [filterSheet, setFilterSheet] = useState(null); // 'submitted' | 'cold' | null
+    const [filterSearch, setFilterSearch] = useState('');
+    const [submittedNameSearch, setSubmittedNameSearch] = useState('');
+    const [coldNameSearch, setColdNameSearch] = useState('');
+
+    useEffect(() => {
+        document.body.classList.add('light-page');
+        return () => document.body.classList.remove('light-page');
+    }, []);
+
+    const handleNudgeSales = (salesId, salesName, leadName, leadPhone) => {
+        const salesMember = managedSales.find(s => s.id === salesId);
+        const salesPhone = salesMember?.phone || '';
+        const cleanPhone = salesPhone.replace(/[^0-9]/g, '');
+        const text = `Halo ${salesName}, mohon segera menindaklanjuti Cold Lead *${leadName}* (${leadPhone}) ya. Terima kasih!`;
+        const url = cleanPhone
+            ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`
+            : `https://wa.me/?text=${encodeURIComponent(text)}`;
+        window.open(url, '_blank');
+    };
 
     const loadLeads = useCallback(async ({ silent = false } = {}) => {
         if (!user) return;
@@ -192,32 +312,116 @@ export default function SupervisorTasksPage() {
         setShowRejectNote((prev) => ({ ...prev, [leadId]: !prev[leadId] }));
     };
 
-    const renderSalesFilter = ({ options, value, onChange, totalCount }) => (
-        options.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
-                <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', fontWeight: 600 }}>Filter by Sales</span>
-                <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 8, msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+    const renderSalesFilter = ({ options, value, onChange, totalCount, sheetKey, nameSearch, setNameSearch }) => {
+        if (options.length === 0) return null;
+        const activeLabel = value === 'all'
+            ? null
+            : options.find((o) => o.salesId === value)?.salesName;
+        return (
+            <div className="spv-filter-bar" style={{ marginTop: '70px' }}>
+                {/* Search + filter icon side by side */}
+                <div className="spv-filter-row">
+                    <div className="spv-name-search-wrap">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="spv-name-search-icon">
+                            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        <input
+                            type="text"
+                            className="spv-name-search"
+                            placeholder="Cari nama lead..."
+                            value={nameSearch}
+                            onChange={(e) => setNameSearch(e.target.value)}
+                        />
+                        {nameSearch ? (
+                            <button type="button" className="spv-sheet-search-clear" onClick={() => setNameSearch('')}>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                        ) : null}
+                    </div>
+
                     <button
                         type="button"
-                        onClick={() => onChange('all')}
-                        style={getFilterButtonStyle(value === 'all')}
+                        className={`spv-filter-trigger${activeLabel ? ' is-active' : ''}`}
+                        onClick={() => setFilterSheet(sheetKey)}
                     >
-                        Semua ({totalCount})
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                        </svg>
+                        {activeLabel ? (
+                            <>
+                                <span className="spv-filter-trigger-label">{activeLabel}</span>
+                                <span className="spv-filter-clear" role="button" onClick={(e) => { e.stopPropagation(); onChange('all'); }}>
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                    </svg>
+                                </span>
+                            </>
+                        ) : null}
                     </button>
-                    {options.map((option) => (
-                        <button
-                            key={option.salesId}
-                            type="button"
-                            onClick={() => onChange(option.salesId)}
-                            style={getFilterButtonStyle(value === option.salesId)}
-                        >
-                            {option.salesName} ({option.taskCount})
-                        </button>
-                    ))}
                 </div>
+
+                {/* Sales filter bottom sheet */}
+                {filterSheet === sheetKey ? (
+                    <div className="sheet-overlay" onClick={() => { setFilterSheet(null); setFilterSearch(''); }}>
+                        <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
+                            <div className="sheet-handle" />
+                            <h2>Filter by Sales</h2>
+                            <div className="spv-sheet-search-wrap">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="spv-sheet-search-icon">
+                                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                                </svg>
+                                <input
+                                    type="text"
+                                    className="spv-sheet-search"
+                                    placeholder="Cari sales..."
+                                    value={filterSearch}
+                                    onChange={(e) => setFilterSearch(e.target.value)}
+                                    autoFocus
+                                />
+                                {filterSearch ? (
+                                    <button type="button" className="spv-sheet-search-clear" onClick={() => setFilterSearch('')}>
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                        </svg>
+                                    </button>
+                                ) : null}
+                            </div>
+                            <div className="spv-sheet-list">
+                                {!filterSearch ? (
+                                    <button
+                                        type="button"
+                                        className={`spv-sheet-item${value === 'all' ? ' is-active' : ''}`}
+                                        onClick={() => { onChange('all'); setFilterSheet(null); setFilterSearch(''); }}
+                                    >
+                                        <span>Semua</span>
+                                        <span className="spv-sheet-count">{totalCount}</span>
+                                        {value === 'all' && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                                    </button>
+                                ) : null}
+                                {options
+                                    .filter((o) => o.salesName.toLowerCase().includes(filterSearch.toLowerCase()))
+                                    .map((o) => (
+                                        <button
+                                            key={o.salesId}
+                                            type="button"
+                                            className={`spv-sheet-item${value === o.salesId ? ' is-active' : ''}`}
+                                            onClick={() => { onChange(o.salesId); setFilterSheet(null); setFilterSearch(''); }}
+                                        >
+                                            <span>{o.salesName}</span>
+                                            <span className="spv-sheet-count">{o.taskCount}</span>
+                                            {value === o.salesId && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                                        </button>
+                                    ))
+                                }
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
             </div>
-        ) : null
-    );
+        );
+    };
 
     return (
         <div className="page-container">
@@ -237,7 +441,7 @@ export default function SupervisorTasksPage() {
                     className={`daily-task-tab ${activeSection === 'submitted_tasks' ? 'is-active' : ''}`}
                     onClick={() => setActiveSection('submitted_tasks')}
                 >
-                    Daily Task Submission 24 Jam Terakhir
+                    Task Submissions
                     {submittedTotalCount > 0 ? <span className="daily-task-tab-badge">{submittedTotalCount}</span> : null}
                 </button>
                 <button
@@ -252,287 +456,242 @@ export default function SupervisorTasksPage() {
 
 
             {activeSection === 'hot_leads' ? (
-            <section className="dash-section">
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <h2 className="section-title" style={{ margin: 0 }}>
-                        Hot Leads
-                    </h2>
-                    <span className="badge badge-hot" style={{ fontSize: '0.82rem' }}>
-                        {leads.length} pending
-                    </span>
-                </div>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 16, lineHeight: 1.5 }}>
-                    Lead di bawah ini telah ditandai HOT oleh sales Anda. Validasi untuk mengkonfirmasi, atau tolak untuk mengembalikan ke status Warm.
-                </p>
+                <section>
+                    {actionError && <div className="alert alert-danger" style={{ marginBottom: 12 }}>{actionError}</div>}
+                    {actionSuccess && <div className="alert alert-success" style={{ marginBottom: 12 }}>{actionSuccess}</div>}
 
-                {loading ? (
-                    <div className="empty-state">
-                        <div className="empty-desc">Memuat data...</div>
-                    </div>
-                ) : leads.length === 0 ? (
-                    <div className="empty-state">
-                        <div className="empty-icon">✅</div>
-                        <div className="empty-title">Tidak ada lead menunggu validasi</div>
-                        <div className="empty-desc">Semua lead HOT sudah divalidasi.</div>
-                    </div>
-                ) : (
-                    <div className="card-list">
-                        {leads.map((lead) => {
-                            const isBusy = actionLoading === lead.id;
-                            return (
-                                <div key={lead.id} className="card">
-                                    <div className="lead-row-top">
-                                        <div className="lead-row-name"
-                                            style={{ cursor: 'pointer', textDecoration: 'underline' }}
-                                            onClick={() => router.push(`/leads/${lead.id}`)}
-                                        >
-                                            {lead.name}
-                                        </div>
-                                        <span className="badge badge-hot">HOT</span>
-                                    </div>
-                                    <div className="lead-row-meta">
-                                        <span>📱 {lead.phone}</span>
-                                        <span>👤 {lead.assignedUserName || '-'}</span>
-                                    </div>
-                                    <div className="lead-row-meta">
-                                        <span>🕒 Diupdate {getTimeAgo(lead.updatedAt)}</span>
-                                        <span>📣 {lead.source}</span>
-                                    </div>
-
-                                    {showRejectNote[lead.id] ? (
-                                        <div className="input-group" style={{ marginTop: 10 }}>
-                                            <label>Catatan Penolakan (opsional)</label>
-                                            <input
-                                                type="text"
-                                                className="input-field"
-                                                placeholder="Alasan penolakan..."
-                                                value={rejectNotes[lead.id] || ''}
-                                                onChange={(e) => setRejectNotes((prev) => ({ ...prev, [lead.id]: e.target.value }))}
-                                            />
-                                        </div>
-                                    ) : null}
-
-                                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                                        <button
-                                            type="button"
-                                            className="btn btn-primary btn-sm"
-                                            disabled={isBusy}
-                                            onClick={() => void handleValidate(lead.id)}
-                                        >
-                                            {isBusy ? 'Memproses...' : '✅ Validasi'}
-                                        </button>
-                                        {!showRejectNote[lead.id] ? (
-                                            <button
-                                                type="button"
-                                                className="btn btn-secondary btn-sm"
-                                                disabled={isBusy}
-                                                onClick={() => toggleRejectNote(lead.id)}
+                    {loading ? (
+                        <SpvEmpty variant="loading" title="Memuat data..." />
+                    ) : leads.length === 0 ? (
+                        <SpvEmpty variant="success" title="Semua lead tervalidasi" desc="Tidak ada lead HOT yang menunggu validasi saat ini." />
+                    ) : (
+                        <div className="spv-card-list" style={{ marginTop: '70px' }}>
+                            {leads.map((lead) => {
+                                const isBusy = actionLoading === lead.id;
+                                return (
+                                    <div key={lead.id} className="spv-card spv-card-hot">
+                                        <div className="spv-card-header">
+                                            <span
+                                                className="spv-card-title spv-card-title-link"
+                                                onClick={() => router.push(`/leads/${lead.id}`)}
                                             >
-                                                ❌ Tolak
-                                            </button>
-                                        ) : (
-                                            <button
-                                                type="button"
-                                                className="btn btn-secondary btn-sm"
-                                                style={{ background: 'rgba(239,68,68,0.15)', borderColor: 'rgba(239,68,68,0.4)', color: 'var(--danger, #ef4444)' }}
-                                                disabled={isBusy}
-                                                onClick={() => void handleReject(lead.id)}
-                                            >
-                                                {isBusy ? 'Memproses...' : 'Konfirmasi Tolak'}
-                                            </button>
-                                        )}
+                                                {lead.name}
+                                            </span>
+                                            <span className="badge badge-hot">HOT</span>
+                                        </div>
+
+                                        <div className="spv-card-meta-grid">
+                                            <span className="spv-meta-item"><IconPhone /> {lead.phone}</span>
+                                            <span className="spv-meta-item"><IconUser /> {lead.assignedUserName || '-'}</span>
+                                            <span className="spv-meta-item"><IconClock /> {getTimeAgo(lead.updatedAt)}</span>
+                                            <span className="spv-meta-item"><IconMegaphone /> {lead.source}</span>
+                                        </div>
+
                                         {showRejectNote[lead.id] ? (
+                                            <div className="input-group" style={{ marginTop: 0 }}>
+                                                <label>Catatan Penolakan (opsional)</label>
+                                                <input
+                                                    type="text"
+                                                    className="input-field"
+                                                    placeholder="Alasan penolakan..."
+                                                    value={rejectNotes[lead.id] || ''}
+                                                    onChange={(e) => setRejectNotes((prev) => ({ ...prev, [lead.id]: e.target.value }))}
+                                                />
+                                            </div>
+                                        ) : null}
+
+                                        <div className="spv-card-actions">
                                             <button
                                                 type="button"
-                                                className="btn btn-secondary btn-sm"
+                                                className="btn btn-sm spv-btn-validate"
                                                 disabled={isBusy}
-                                                onClick={() => toggleRejectNote(lead.id)}
+                                                onClick={() => void handleValidate(lead.id)}
                                             >
-                                                Batal
+                                                {isBusy ? 'Memproses...' : <><IconCheck /> Validasi</>}
                                             </button>
-                                        ) : null}
+                                            {!showRejectNote[lead.id] ? (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-sm spv-btn-reject"
+                                                    disabled={isBusy}
+                                                    onClick={() => toggleRejectNote(lead.id)}
+                                                >
+                                                    <IconX /> Tolak
+                                                </button>
+                                            ) : (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm"
+                                                        style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#dc2626' }}
+                                                        disabled={isBusy}
+                                                        onClick={() => void handleReject(lead.id)}
+                                                    >
+                                                        {isBusy ? 'Memproses...' : 'Konfirmasi Tolak'}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-ghost btn-sm"
+                                                        disabled={isBusy}
+                                                        onClick={() => toggleRejectNote(lead.id)}
+                                                    >
+                                                        Batal
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </section>
+                                );
+                            })}
+                        </div>
+                    )}
+                </section>
             ) : null}
 
             {activeSection === 'submitted_tasks' ? (
-            <section className="dash-section" style={{ marginTop: 24 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <h2 className="section-title" style={{ margin: 0 }}>
-                        Daily Task Submission 24 Jam Terakhir
-                    </h2>
-                    <span className="badge badge-info" style={{ fontSize: '0.82rem' }}>
-                        {visibleSubmittedTaskCount} task
-                    </span>
-                </div>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 16, lineHeight: 1.5 }}>
-                    Supervisor hanya melihat submission task yang sudah dikirim sales dalam 24 jam terakhir. Data lama otomatis tidak ditampilkan agar list tetap ringkas.
-                </p>
+                <section>
+                    {renderSalesFilter({
+                        options: submittedSalesOptions,
+                        value: submittedSalesFilter,
+                        onChange: setSubmittedSalesFilter,
+                        totalCount: submittedTotalCount,
+                        sheetKey: 'submitted',
+                        nameSearch: submittedNameSearch,
+                        setNameSearch: setSubmittedNameSearch,
+                    })}
 
-                {renderSalesFilter({
-                    options: submittedSalesOptions,
-                    value: submittedSalesFilter,
-                    onChange: setSubmittedSalesFilter,
-                    totalCount: submittedTotalCount,
-                })}
+                    {loading ? (
+                        <SpvEmpty variant="loading" title="Memuat submission task..." />
+                    ) : submittedTaskGroups.length === 0 ? (
+                        <SpvEmpty variant="clipboard" title="Belum ada submission" desc="Task yang disubmit sales akan muncul di sini selama 24 jam ke depan." />
+                    ) : visibleSubmittedTaskGroups.length === 0 ? (
+                        <SpvEmpty variant="search" title="Tidak ada hasil" desc="Coba ubah filter sales atau hapus pencarian nama." />
+                    ) : (
+                        <div className="spv-card-list">
+                            {visibleSubmittedTaskGroups
+                                .map((group) => {
+                                    const tasks = submittedNameSearch
+                                        ? group.tasks.filter((t) => t.leadName?.toLowerCase().includes(submittedNameSearch.toLowerCase()))
+                                        : group.tasks;
+                                    if (tasks.length === 0) return null;
+                                    return (
+                                <div key={group.salesId} className="spv-card spv-card-submitted">
+                                    <div className="spv-card-header">
+                                        <span className="spv-card-title">{group.salesName}</span>
+                                        <span className="badge badge-info">{tasks.length} task</span>
+                                    </div>
 
-                {loading ? (
-                    <div className="empty-state">
-                        <div className="empty-desc">Memuat submission task...</div>
-                    </div>
-                ) : submittedTaskGroups.length === 0 ? (
-                    <div className="empty-state">
-                        <div className="empty-icon">🗂️</div>
-                        <div className="empty-title">Belum ada submission task terbaru</div>
-                        <div className="empty-desc">Task yang sudah disubmit oleh sales akan muncul di sini selama 24 jam.</div>
-                    </div>
-                ) : visibleSubmittedTaskGroups.length === 0 ? (
-                    <div className="empty-state">
-                        <div className="empty-icon">🗂️</div>
-                        <div className="empty-title">Tidak ada submission untuk sales ini</div>
-                        <div className="empty-desc">Pilih sales lain atau tampilkan semua submission 24 jam terakhir.</div>
-                    </div>
-                ) : (
-                    <div className="card-list">
-                        {visibleSubmittedTaskGroups.map((group) => (
-                            <div key={group.salesId} className="card">
-                                <div className="lead-row-top">
-                                    <div className="lead-row-name">{group.salesName}</div>
-                                    <span className="badge badge-info">{group.taskCount} task</span>
-                                </div>
-
-                                <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
-                                    {group.tasks.map((task) => (
-                                        <div
-                                            key={task.id}
-                                            style={{
-                                                display: 'grid',
-                                                gridTemplateColumns: task.screenshotUrl ? '64px 1fr' : '1fr',
-                                                gap: 12,
-                                                alignItems: 'start',
-                                                padding: 12,
-                                                borderRadius: 12,
-                                                background: 'rgba(255,255,255,0.03)',
-                                                border: '1px solid rgba(255,255,255,0.06)',
-                                            }}
-                                        >
-                                            {task.screenshotUrl ? (
-                                                <a href={task.screenshotUrl} target="_blank" rel="noopener noreferrer">
+                                    <div className="spv-tasks-container">
+                                        {tasks.map((task) => (
+                                            <div
+                                                key={task.id}
+                                                className={`spv-task-sub-item ${!task.screenshotUrl ? 'spv-task-sub-noimg' : ''}`}
+                                            >
+                                                {task.screenshotUrl ? (
                                                     <img
                                                         src={task.screenshotUrl}
                                                         alt={`${task.label} proof`}
-                                                        style={{
-                                                            width: 64,
-                                                            height: 64,
-                                                            objectFit: 'cover',
-                                                            borderRadius: 10,
-                                                            display: 'block',
-                                                            border: '1px solid rgba(255,255,255,0.08)',
-                                                        }}
+                                                        className="spv-task-proof-img"
+                                                        onClick={() => setLightboxImage({ url: task.screenshotUrl, caption: `${group.salesName} — ${task.label}` })}
                                                     />
-                                                </a>
-                                            ) : null}
+                                                ) : null}
 
-                                            <div>
-                                                <div
-                                                    className="lead-row-name"
-                                                    style={{ cursor: 'pointer', textDecoration: 'underline', marginBottom: 6 }}
-                                                    onClick={() => router.push(`/leads/${task.leadId}`)}
-                                                >
-                                                    {task.leadName}
-                                                </div>
-                                                <div className="lead-row-meta">
-                                                    <span>📱 {task.leadPhone}</span>
-                                                    <span>📣 {task.leadSource}</span>
-                                                </div>
-                                                <div className="lead-row-meta" style={{ marginTop: 6 }}>
-                                                    <span className="badge badge-info">{task.label}</span>
-                                                    {task.submittedSalesStatus ? (
-                                                        <span className="badge badge-warm">{task.submittedSalesStatus.toUpperCase()}</span>
-                                                    ) : null}
-                                                </div>
-                                                <div className="lead-row-meta" style={{ marginTop: 6 }}>
-                                                    <span>✅ Submit {formatDateTime(task.completedAt)}</span>
-                                                    <span>⏱️ {getTimeAgo(task.completedAt)}</span>
+                                                <div>
+                                                    <div
+                                                        className="spv-card-title spv-card-title-link"
+                                                        style={{ fontSize: '0.875rem', marginBottom: 6 }}
+                                                        onClick={() => router.push(`/leads/${task.leadId}`)}
+                                                    >
+                                                        {task.leadName}
+                                                    </div>
+                                                    <div className="spv-card-meta-grid" style={{ borderTop: 'none', borderBottom: 'none', paddingTop: 0, paddingBottom: 0, gap: '4px 12px' }}>
+                                                        <span className="spv-meta-item"><IconPhone /> {task.leadPhone}</span>
+                                                        <span className="spv-meta-item"><IconMegaphone /> {task.leadSource}</span>
+                                                        <span className="spv-meta-item"><IconClock /> {getTimeAgo(task.completedAt)}</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                                                        <span className="badge badge-info">{task.label}</span>
+                                                        {task.submittedSalesStatus ? (
+                                                            <span className="badge badge-warm">{task.submittedSalesStatus.toUpperCase()}</span>
+                                                        ) : null}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </section>
+                                    );
+                                })}
+                        </div>
+                    )}
+                </section>
             ) : null}
 
             {activeSection === 'cold_leads' ? (
-                <section className="dash-section" style={{ marginTop: 24 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                        <h2 className="section-title" style={{ margin: 0 }}>
-                            Cold Leads
-                        </h2>
-                        <span className="badge badge-danger" style={{ fontSize: '0.82rem' }}>
-                            {visibleDeadlineTaskCount} leads
-                        </span>
-                    </div>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: 16, lineHeight: 1.5 }}>
-                        Data ini mengikuti Deadline Leads milik sales: lead warm hari ke-14 tanpa appointment dan tanpa status L4. Supervisor hanya melihat data, tanpa action.
-                    </p>
-
+                <section>
                     {renderSalesFilter({
                         options: deadlineSalesOptions,
                         value: deadlineSalesFilter,
                         onChange: setDeadlineSalesFilter,
                         totalCount: deadlineTotalCount,
+                        sheetKey: 'cold',
+                        nameSearch: coldNameSearch,
+                        setNameSearch: setColdNameSearch,
                     })}
 
                     {loading ? (
-                        <div className="empty-state">
-                            <div className="empty-desc">Memuat Cold Leads...</div>
-                        </div>
+                        <SpvEmpty variant="loading" title="Memuat Cold Leads..." />
                     ) : deadlineTaskGroups.length === 0 ? (
-                        <div className="empty-state">
-                            <div className="empty-icon">❄️</div>
-                            <div className="empty-title">Tidak ada Cold Leads</div>
-                            <div className="empty-desc">Lead akan muncul saat masuk reminder hari ke-14 dan belum di-action sales.</div>
-                        </div>
+                        <SpvEmpty variant="snow" title="Tidak ada Cold Leads" desc="Lead muncul di sini saat hari ke-14 belum di-follow up oleh sales." />
                     ) : visibleDeadlineTaskGroups.length === 0 ? (
-                        <div className="empty-state">
-                            <div className="empty-icon">❄️</div>
-                            <div className="empty-title">Tidak ada Cold Leads untuk sales ini</div>
-                            <div className="empty-desc">Pilih sales lain atau tampilkan semua data Cold Leads.</div>
-                        </div>
+                        <SpvEmpty variant="search" title="Tidak ada hasil" desc="Coba ubah filter sales atau hapus pencarian nama." />
                     ) : (
-                        <div className="daily-task-list">
-                            {visibleDeadlineTaskGroups.map((group) => (
-                                <div key={group.salesId} className="card">
-                                    <div className="lead-row-top">
-                                        <div className="lead-row-name">{group.salesName}</div>
-                                        <span className="badge badge-danger">{group.taskCount} leads</span>
+                        <div className="spv-card-list">
+                            {visibleDeadlineTaskGroups
+                                .map((group) => {
+                                    const tasks = coldNameSearch
+                                        ? group.tasks.filter((t) => t.leadName?.toLowerCase().includes(coldNameSearch.toLowerCase()))
+                                        : group.tasks;
+                                    if (tasks.length === 0) return null;
+                                    return (
+                                <div key={group.salesId} className="spv-card spv-card-cold">
+                                    <div className="spv-card-header">
+                                        <span className="spv-card-title">{group.salesName}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <span className="badge badge-danger">{tasks.length} leads</span>
+                                            <button
+                                                type="button"
+                                                className="btn btn-sm spv-nudge-btn"
+                                                onClick={() => handleNudgeSales(
+                                                    group.salesId,
+                                                    group.salesName,
+                                                    `${tasks.length} lead`,
+                                                    ''
+                                                )}
+                                            >
+                                                <IconNudge /> Nudge
+                                            </button>
+                                        </div>
                                     </div>
 
-                                    <div className="daily-task-list" style={{ marginTop: 12 }}>
-                                        {group.tasks.map((task) => (
-                                            <div key={task.id} className="card daily-task-card">
-                                                <div className="daily-task-card-top">
-                                                    <div>
-                                                        <div
-                                                            className="daily-task-card-title"
-                                                            style={{ cursor: 'pointer', textDecoration: 'underline' }}
-                                                            onClick={() => router.push(`/leads/${task.leadId}`)}
-                                                        >
-                                                            {task.leadName}
-                                                        </div>
-                                                        <div className="daily-task-card-meta">📱 {task.leadPhone}</div>
-                                                        <div className="daily-task-card-meta">📣 {task.leadSource}</div>
+                                    <div className="spv-tasks-container">
+                                        {tasks.map((task) => (
+                                            <div key={task.id} className="spv-task-sub-item spv-task-sub-noimg">
+                                                <div>
+                                                    <div
+                                                        className="spv-card-title spv-card-title-link"
+                                                        style={{ fontSize: '0.875rem', marginBottom: 6 }}
+                                                        onClick={() => router.push(`/leads/${task.leadId}`)}
+                                                    >
+                                                        {task.leadName}
                                                     </div>
-                                                    <div className="daily-task-card-badges">
+                                                    <div className="spv-card-meta-grid" style={{ borderTop: 'none', borderBottom: 'none', paddingTop: 0, paddingBottom: 0, gap: '4px 12px' }}>
+                                                        <span className="spv-meta-item"><IconPhone /> {task.leadPhone}</span>
+                                                        <span className="spv-meta-item"><IconMegaphone /> {task.leadSource}</span>
+                                                        <span className="spv-meta-item"><IconClock /> Lead age: {getTimeAgo(task.createdAt)}</span>
+                                                        <span className="spv-meta-item"><IconUser /> Deadline: {formatDateTime(task.dueAt)}</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                                                         <span className="badge badge-danger">Deadline Leads</span>
                                                         {task.salesStatus ? (
                                                             <span className={`badge ${task.salesStatus === 'hot' ? 'badge-hot' : 'badge-warm'}`}>
@@ -541,23 +700,34 @@ export default function SupervisorTasksPage() {
                                                         ) : null}
                                                     </div>
                                                 </div>
-
-                                                <div className="daily-task-card-grid">
-                                                    <div className="daily-task-card-meta">Sales: {group.salesName}</div>
-                                                    <div className="daily-task-card-meta">Lead age: {getTimeAgo(task.createdAt)}</div>
-                                                    <div className="daily-task-card-meta">Appointment: belum ada</div>
-                                                    <div className="daily-task-card-meta">Status L4: belum ada</div>
-                                                    <div className="daily-task-card-meta">Masuk reminder: {formatDateTime(task.assignedAt)}</div>
-                                                    <div className="daily-task-card-meta">Deadline: {formatDateTime(task.dueAt)}</div>
-                                                </div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
-                            ))}
+                                    );
+                                })}
                         </div>
                     )}
                 </section>
+            ) : null}
+
+            {lightboxImage ? (
+                <div className="lightbox-overlay" onClick={() => setLightboxImage(null)}>
+                    <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
+                        <button
+                            type="button"
+                            className="lightbox-close"
+                            onClick={() => setLightboxImage(null)}
+                            aria-label="Tutup"
+                        >
+                            ✕
+                        </button>
+                        <img src={lightboxImage.url} alt={lightboxImage.caption} className="lightbox-img" />
+                        {lightboxImage.caption ? (
+                            <div className="lightbox-caption">{lightboxImage.caption}</div>
+                        ) : null}
+                    </div>
+                </div>
             ) : null}
         </div>
     );
