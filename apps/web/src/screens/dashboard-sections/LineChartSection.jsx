@@ -21,7 +21,7 @@ function buildAreaPath(points, chartBottom) {
     return `${buildSmoothPath(points)} L ${last.x} ${chartBottom} L ${points[0].x} ${chartBottom} Z`;
 }
 
-export default function LineChartSection({ data, granularity = 'month', onGranularityChange, dataset = 'l4', onDatasetChange }) {
+export default function LineChartSection({ data, granularity = 'month', onGranularityChange, dataset = 'l1' }) {
     const svgRef = useRef(null);
     const [hiddenSeriesKeys, setHiddenSeriesKeys] = useState([]);
     const [hoverIndex, setHoverIndex] = useState(null);
@@ -30,11 +30,7 @@ export default function LineChartSection({ data, granularity = 'month', onGranul
     const periods = Array.isArray(chartPayload.periods) ? chartPayload.periods : [];
     const series = Array.isArray(chartPayload.series) ? chartPayload.series : [];
 
-    const visibleSeries = useMemo(
-        () => (dataset === 'source' ? series.filter((s) => Number(s.total || 0) > 0) : series),
-        [dataset, series]
-    );
-    const visibleSeriesKeys = useMemo(() => visibleSeries.map((s) => s.key), [visibleSeries]);
+    const visibleSeriesKeys = useMemo(() => series.map((s) => s.key), [series]);
     const activeSeriesKeys = useMemo(
         () => visibleSeriesKeys.filter((k) => !hiddenSeriesKeys.includes(k)),
         [hiddenSeriesKeys, visibleSeriesKeys]
@@ -71,8 +67,8 @@ export default function LineChartSection({ data, granularity = 'month', onGranul
     }, [activeSeriesKeys, granularity, periods]);
 
     const seriesWithColor = useMemo(
-        () => visibleSeries.map((s, i) => ({ ...s, color: LINE_COLORS[i % LINE_COLORS.length] })),
-        [visibleSeries]
+        () => series.map((s, i) => ({ ...s, color: LINE_COLORS[i % LINE_COLORS.length] })),
+        [series]
     );
 
     const activeSeries = useMemo(

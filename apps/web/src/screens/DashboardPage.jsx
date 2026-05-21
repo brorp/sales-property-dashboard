@@ -143,7 +143,7 @@ export default function DashboardPage() {
     const [selectedSourceFilter, setSelectedSourceFilter] = useState('all');
     const [transactionUnitType, setTransactionUnitType] = useState('');
     const [lineChartGranularity, setLineChartGranularity] = useState('month');
-    const [lineChartDataset, setLineChartDataset] = useState('l4');
+    const [dbSelectedLayer, setDbSelectedLayer] = useState('l1');
     const [showFilterDrawer, setShowFilterDrawer] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [filterLoading, setFilterLoading] = useState(false);
@@ -193,17 +193,12 @@ export default function DashboardPage() {
         [analytics.lineChart],
     );
 
-    const lineChartDatasetOptions = useMemo(
-        () => (analytics.lineChart?.datasetOptions || []).map((o) => ({ value: o.key, label: o.label })),
-        [analytics.lineChart],
-    );
 
 
     useEffect(() => {
         if (!analytics.lineChart) return;
         const { granularityOptions, datasetOptions, defaultGranularity, defaultDataset } = analytics.lineChart;
         setLineChartGranularity((prev) => granularityOptions?.some((o) => o.key === prev) ? prev : (defaultGranularity || 'month'));
-        setLineChartDataset((prev) => datasetOptions?.some((o) => o.key === prev) ? prev : (defaultDataset || 'l4'));
     }, [analytics.lineChart]);
 
     const holdLeads = analytics.holdLeads;
@@ -704,17 +699,6 @@ export default function DashboardPage() {
                                 </div>
                             ) : null}
 
-                            {activeSectionTab === 'database' && lineChartDatasetOptions.length > 0 ? (
-                                <div className="dash-drawer-section">
-                                    <span className="dash-drawer-section-label">Dataset</span>
-                                    <SelectFilter
-                                        options={lineChartDatasetOptions}
-                                        value={lineChartDataset}
-                                        onChange={(v) => setLineChartDataset(v || 'l4')}
-                                        placeholder="Pilih Dataset"
-                                    />
-                                </div>
-                            ) : null}
 
                         </div>
                     </div>
@@ -760,14 +744,14 @@ export default function DashboardPage() {
                         allowScopeFiltering={canUseTeamFilters}
                         scopeLabel={scopedDashboardLabel}
                         selectedTeam={globalTeamFilter}
-
+                        selectedLayer={dbSelectedLayer}
+                        onLayerChange={setDbSelectedLayer}
                     />
                     <LineChartSection
                         data={analytics.lineChart}
                         granularity={lineChartGranularity}
                         onGranularityChange={setLineChartGranularity}
-                        dataset={lineChartDataset}
-                        onDatasetChange={setLineChartDataset}
+                        dataset={dbSelectedLayer}
                     />
                 </>
             ) : null}

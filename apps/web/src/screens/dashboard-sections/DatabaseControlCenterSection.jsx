@@ -6,6 +6,59 @@ import './DashboardSections.css';
 const PIE_COLORS = ['#7c4dff', '#ff9800', '#26a69a', '#ef5350', '#42a5f5', '#ab47bc', '#9ccc65', '#ffa726'];
 const DEFAULT_STATUS_LAYER_OPTIONS = [{ key: 'l1', label: 'L1' }, { key: 'l2', label: 'L2' }, { key: 'l3', label: 'L3' }, { key: 'l4', label: 'L4' }];
 
+function PieIcon() {
+    return (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21.21 15.89A10 10 0 1 1 8 2.83" /><path d="M22 12A10 10 0 0 0 12 2v10z" />
+        </svg>
+    );
+}
+
+function BarIcon() {
+    return (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /><line x1="2" y1="20" x2="22" y2="20" />
+        </svg>
+    );
+}
+
+function StatusBarChart({ title, subtitle, total, items, emptyLabel, headerRight }) {
+    const chartItems = items.filter((item) => item.count > 0);
+    return (
+        <div className="pcc">
+            <div className="pcc-header">
+                <div className="pcc-header-top">
+                    <h4 className="pcc-title">{title}</h4>
+                    {headerRight ? <div className="pcc-header-right">{headerRight}</div> : null}
+                </div>
+                {subtitle ? <span className="pcc-subtitle">{subtitle}</span> : null}
+            </div>
+            {chartItems.length === 0 ? (
+                <div className="pcc-empty">{emptyLabel}</div>
+            ) : (
+                <div className="dcc-bar-list">
+                    {chartItems.map((item) => {
+                        const pct = total > 0 ? Math.round((item.count / total) * 10000) / 100 : 0;
+                        return (
+                            <div key={item.label} className="dcc-bar-item">
+                                <div className="dcc-bar-item-row">
+                                    <span className="dcc-bar-dot" style={{ background: item.color }} />
+                                    <span className="dcc-bar-label">{item.label}</span>
+                                    <strong className="dcc-bar-count">{formatCount(item.count)}</strong>
+                                    <span className="dcc-bar-pct">{pct}%</span>
+                                </div>
+                                <div className="dcc-bar-track">
+                                    <div className="dcc-bar-fill" style={{ width: `${Math.max(1, pct)}%`, background: item.color }} />
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
 function getScopeDisplayLabel(scope) {
     if (!scope) return '';
     if (scope.key === 'unassigned_sup' || scope.label === 'Unassigned Supervisor') return 'PIC Agent';
@@ -62,8 +115,9 @@ function RankedPanel({ title, items, emptyLabel, renderLabel }) {
 
 export default function DatabaseControlCenterSection({
     data, allowScopeFiltering = true, scopeLabel = 'Semua', selectedTeam = 'all',
+    selectedLayer = 'l1', onLayerChange,
 }) {
-    const [selectedLayer, setSelectedLayer] = useState('l1');
+    const [chartType, setChartType] = useState('pie');
 
     if (!data) return null;
 
@@ -86,13 +140,22 @@ export default function DatabaseControlCenterSection({
                     key={opt.key}
                     type="button"
                     className={`dcc-layer-pill${selectedLayer === opt.key ? ' active' : ''}`}
-                    onClick={() => setSelectedLayer(opt.key)}
+                    onClick={() => onLayerChange?.(opt.key)}
                 >
                     {opt.label}
                 </button>
             ))}
         </div>
     );
+
+    const chartProps = {
+        title: 'Distribusi Status',
+        subtitle: `Komposisi status leads untuk ${effectiveScopeLabel} berdasarkan layer ${selectedLayerMeta?.label || 'L1'}.`,
+        total: filteredTotal,
+        items: statusLayerItems,
+        emptyLabel: 'Belum ada data pada filter ini.',
+        headerRight: layerPills,
+    };
 
     return (
         <div className="ds-card">
@@ -101,18 +164,30 @@ export default function DatabaseControlCenterSection({
                     <h2 className="ds-card-title">Database Control Center</h2>
                     <span className="ds-card-summary">{data.totalData || 0} Total Data</span>
                 </div>
+                <div className="dcc-chart-toggle">
+                    <button
+                        type="button"
+                        className={`dcc-chart-toggle-btn${chartType === 'pie' ? ' active' : ''}`}
+                        onClick={() => setChartType('pie')}
+                    >
+                        <PieIcon /> Pie Chart
+                    </button>
+                    <button
+                        type="button"
+                        className={`dcc-chart-toggle-btn${chartType === 'bar' ? ' active' : ''}`}
+                        onClick={() => setChartType('bar')}
+                    >
+                        <BarIcon /> Bar Chart
+                    </button>
+                </div>
             </div>
 
             <div className="ds-tab-body">
-                {/* Pie chart */}
-                <PieChartCard
-                    title="Distribusi Status"
-                    subtitle={`Komposisi status leads untuk ${effectiveScopeLabel} berdasarkan layer ${selectedLayerMeta?.label || 'L1'}.`}
-                    total={filteredTotal}
-                    items={statusLayerItems}
-                    emptyLabel="Belum ada data pada filter ini."
-                    headerRight={layerPills}
-                />
+                {chartType === 'pie' ? (
+                    <PieChartCard {...chartProps} />
+                ) : (
+                    <StatusBarChart {...chartProps} />
+                )}
 
                 {/* Ranked insights */}
                 <div className="chart-container-row">

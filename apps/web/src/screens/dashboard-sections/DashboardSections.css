@@ -111,6 +111,111 @@
     border-radius: 4px;
 }
 
+/* ── Database chart type toggle ──────────────────────────────────────── */
+
+.dcc-chart-toggle {
+    display: flex;
+    border: 1.5px solid var(--border-color, #E5E7EB);
+    border-radius: 9px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.dcc-chart-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--text-muted, #94A3B8);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+    white-space: nowrap;
+}
+
+.dcc-chart-toggle-btn + .dcc-chart-toggle-btn {
+    border-left: 1.5px solid var(--border-color, #E5E7EB);
+}
+
+.dcc-chart-toggle-btn:hover {
+    color: var(--primary, #1E3A5F);
+}
+
+.dcc-chart-toggle-btn.active {
+    background: var(--primary, #1E3A5F);
+    color: #fff;
+}
+
+/* ── Database bar chart view ─────────────────────────────────────────── */
+
+.dcc-bar-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.dcc-bar-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.dcc-bar-item-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dcc-bar-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.dcc-bar-label {
+    flex: 1;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary, #111827);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dcc-bar-count {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary, #111827);
+    flex-shrink: 0;
+}
+
+.dcc-bar-pct {
+    font-size: 0.78rem;
+    color: var(--text-muted, #94A3B8);
+    flex-shrink: 0;
+    min-width: 42px;
+    text-align: right;
+}
+
+.dcc-bar-track {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--bg-input, #F3F4F6);
+    overflow: hidden;
+}
+
+.dcc-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.3s ease;
+}
+
 /* ── Database layer pills ─────────────────────────────────────────────── */
 
 .dcc-layer-pills {
