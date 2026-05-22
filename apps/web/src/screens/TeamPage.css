@@ -1,3 +1,5 @@
+/* ── TeamPage ─────────────────────────────────────────────────────────── */
+
 @media (max-width: 1023px) {
     .team-page .app-header {
         display: none;
@@ -16,9 +18,9 @@
     overflow: hidden;
     padding: 16px;
     border-radius: 16px;
-    border: 1px solid #E5E7EB;
-    background: #FFFFFF;
-    box-shadow: 0 1px 4px rgba(30, 58, 95, 0.06);
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-sm);
 }
 
 .team-summary-card::after {
@@ -29,21 +31,10 @@
     opacity: 0.9;
 }
 
-.team-summary-default::after {
-    background: #6366F1;
-}
-
-.team-summary-hot::after {
-    background: #F43F5E;
-}
-
-.team-summary-warm::after {
-    background: #F59E0B;
-}
-
-.team-summary-success::after {
-    background: #10B981;
-}
+.team-summary-default::after { background: #6366F1; }
+.team-summary-hot::after     { background: #F43F5E; }
+.team-summary-warm::after    { background: #F59E0B; }
+.team-summary-success::after { background: #10B981; }
 
 .team-summary-label {
     display: block;
@@ -51,7 +42,7 @@
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #6B7280;
+    color: var(--text-muted);
 }
 
 .team-summary-value {
@@ -60,14 +51,14 @@
     font-size: 2rem;
     line-height: 1;
     letter-spacing: -0.04em;
-    color: #0F172A;
+    color: var(--text-primary);
 }
 
 .team-summary-helper {
     display: block;
     margin-top: 10px;
     font-size: 0.813rem;
-    color: #9CA3AF;
+    color: var(--text-muted);
 }
 
 .team-list {
@@ -77,7 +68,7 @@
 }
 
 .team-group-shell {
-    background: #FFFFFF;
+    background: var(--bg-card);
 }
 
 .team-group-header,
@@ -95,14 +86,14 @@
     font-size: 0.72rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #9CA3AF;
+    color: var(--text-muted);
 }
 
 .team-group-title {
     font-size: 1.1rem;
     font-weight: 700;
     letter-spacing: -0.02em;
-    color: #0F172A;
+    color: var(--text-primary);
 }
 
 .team-group-summary {
@@ -120,8 +111,8 @@
 .team-hierarchy-card {
     padding: 14px;
     border-radius: 12px;
-    border: 1px solid #E5E7EB;
-    background: #F8FAFC;
+    border: 1px solid var(--border-color);
+    background: var(--bg-input);
 }
 
 .team-member-trigger {
@@ -134,14 +125,14 @@
     padding: 0;
     flex: 1 1 auto;
     min-width: 0;
-    color: #0F172A;
+    color: var(--text-primary);
 }
 
 .team-member-trigger-compact {
     padding: 12px 14px;
     border-radius: 10px;
-    background: #FFFFFF;
-    border: 1px solid #E5E7EB;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
 }
 
 .team-member-trigger-compact:hover,
@@ -156,7 +147,6 @@
     min-width: 0;
     flex: 1;
 }
-
 
 .team-member-copy {
     min-width: 0;
@@ -174,7 +164,7 @@
     font-size: 1rem;
     font-weight: 700;
     line-height: 1.2;
-    color: #0F172A;
+    color: var(--text-primary);
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -184,25 +174,25 @@
 .team-email {
     margin-top: 3px;
     font-size: 0.85rem;
-    color: #6B7280;
+    color: var(--text-muted);
     word-break: break-word;
 }
 
 .team-member-subtitle {
     margin-top: 4px;
     font-size: 0.8rem;
-    color: #9CA3AF;
+    color: var(--text-muted);
 }
 
 .team-member-alert {
     margin-top: 6px;
     font-size: 0.78rem;
-    color: #DC2626;
+    color: var(--danger);
 }
 
 .team-member-arrow {
     font-size: 1.15rem;
-    color: #9CA3AF;
+    color: var(--text-muted);
     flex-shrink: 0;
 }
 
@@ -216,8 +206,8 @@
 .team-member-stat {
     padding: 10px 8px;
     border-radius: 10px;
-    background: #FFFFFF;
-    border: 1px solid #E5E7EB;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     text-align: center;
 }
 
@@ -226,7 +216,7 @@
     font-size: 1rem;
     font-weight: 800;
     line-height: 1.1;
-    color: #0F172A;
+    color: var(--text-primary);
 }
 
 .team-member-stat-label {
@@ -235,7 +225,7 @@
     font-size: 0.68rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #9CA3AF;
+    color: var(--text-muted);
 }
 
 .team-children-list {
@@ -244,7 +234,7 @@
     gap: 10px;
     margin-top: 14px;
     padding-top: 14px;
-    border-top: 1px dashed #E5E7EB;
+    border-top: 1px dashed var(--border-color);
 }
 
 .team-child-row {
@@ -258,7 +248,7 @@
     top: -10px;
     bottom: calc(50% + 20px);
     width: 1px;
-    background: linear-gradient(180deg, rgba(30, 58, 95, 0.25), rgba(30, 58, 95, 0));
+    background: linear-gradient(180deg, rgba(74, 144, 217, 0.25), rgba(74, 144, 217, 0));
 }
 
 .team-child-row:first-child::before {
@@ -268,34 +258,34 @@
 .team-empty-subtree,
 .team-empty-copy {
     font-size: 0.875rem;
-    color: #9CA3AF;
+    color: var(--text-muted);
 }
 
 .team-empty-subtree {
     margin-top: 14px;
     padding: 14px;
     border-radius: 10px;
-    background: #F1F5F9;
-    border: 1px dashed #E5E7EB;
+    background: var(--bg-input);
+    border: 1px dashed var(--border-color);
 }
 
 .team-empty-title {
     font-size: 1rem;
     font-weight: 700;
     margin-bottom: 6px;
-    color: #0F172A;
+    color: var(--text-primary);
 }
 
 .team-unassigned-shell {
     border-style: dashed;
-    border-color: #D1D5DB;
-    background: #FAFAFA;
+    border-color: var(--border-color);
+    background: var(--bg-input);
 }
 
 .team-inactive-shell {
     border-style: dashed;
-    border-color: #FCA5A5;
-    background: #FFF5F5;
+    border-color: var(--danger);
+    background: var(--danger-bg);
 }
 
 .team-member-row {
@@ -321,7 +311,7 @@
     display: grid;
     gap: 10px;
     margin-bottom: 16px;
-    color: #374151;
+    color: var(--text-secondary);
     font-size: 0.9rem;
     line-height: 1.5;
 }
@@ -335,22 +325,21 @@
 
 .team-modal-helper {
     font-size: 0.813rem;
-    color: #9CA3AF;
+    color: var(--text-muted);
 }
 
-/* badge-neutral override for light theme */
+/* badge overrides */
 .set-page .badge-neutral {
-    background: #F1F5F9;
-    color: #6B7280;
+    background: var(--bg-input);
+    color: var(--text-muted);
 }
 
-/* badge-purple override for light theme */
 .set-page .badge-purple {
-    background: #EFF6FF;
-    color: #1E40AF;
+    background: var(--info-bg);
+    color: var(--primary);
 }
 
-/* 5th overview card (Suspended) spans full width on mobile so it doesn't sit alone */
+/* 5th card spans full width on mobile */
 @media (max-width: 767px) {
     .team-overview-grid > :last-child:nth-child(odd):nth-child(n+3) {
         grid-column: 1 / -1;

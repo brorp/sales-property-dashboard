@@ -1,4 +1,4 @@
-/* ── SupervisorTasksPage dedicated CSS ───────────────────────────────── */
+/* ── SupervisorTasksPage ──────────────────────────────────────────────── */
 
 /* ── Empty States ────────────────────────────────────────────────────── */
 
@@ -26,27 +26,26 @@
 .spv-empty-title {
     font-size: 0.9375rem;
     font-weight: 600;
-    color: #1E3A5F;
+    color: var(--primary);
     line-height: 1.4;
 }
 
 .spv-empty-desc {
     font-size: 0.8125rem;
-    color: #94A3B8;
+    color: var(--text-muted);
     max-width: 260px;
     line-height: 1.5;
 }
 
 @keyframes spvSpin {
     from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    to   { transform: rotate(360deg); }
 }
 
 .spv-empty-spin {
     animation: spvSpin 1s linear infinite;
 }
 
-/* Spacer to push content below the fixed tabs */
 .spv-tab-spacer {
     height: 80px;
     margin-bottom: 0;
@@ -60,9 +59,7 @@
 }
 
 @media (min-width: 1024px) {
-    .spv-filter-bar {
-        margin-top: 52px;
-    }
+    .spv-filter-bar { margin-top: 52px; }
 }
 
 .spv-filter-row {
@@ -82,7 +79,7 @@
 .spv-name-search-icon {
     position: absolute;
     left: 11px;
-    color: #94A3B8;
+    color: var(--text-muted);
     pointer-events: none;
     flex-shrink: 0;
 }
@@ -90,10 +87,10 @@
 .spv-name-search {
     width: 100%;
     padding: 9px 36px 9px 32px;
-    border: 1.5px solid #E5E7EB;
+    border: 1.5px solid var(--border-color);
     border-radius: 10px;
-    background: #F8FAFC;
-    color: #1E3A5F;
+    background: var(--bg-input);
+    color: var(--text-primary);
     font-size: 0.875rem;
     font-family: inherit;
     outline: none;
@@ -101,12 +98,12 @@
 }
 
 .spv-name-search:focus {
-    border-color: #1E3A5F;
-    background: #FFFFFF;
+    border-color: var(--primary);
+    background: var(--bg-card);
 }
 
 .spv-name-search::placeholder {
-    color: #94A3B8;
+    color: var(--text-muted);
 }
 
 .spv-filter-trigger {
@@ -114,10 +111,10 @@
     align-items: center;
     gap: 6px;
     padding: 9px 10px;
-    border: 1.5px solid #E5E7EB;
+    border: 1.5px solid var(--border-color);
     border-radius: 10px;
-    background: #F8FAFC;
-    color: #64748B;
+    background: var(--bg-input);
+    color: var(--text-muted);
     font-size: 0.8125rem;
     font-weight: 500;
     font-family: inherit;
@@ -128,15 +125,15 @@
 }
 
 .spv-filter-trigger:hover {
-    border-color: #CBD5E1;
-    background: #F1F5F9;
-    color: #1E3A5F;
+    border-color: var(--primary);
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
 }
 
 .spv-filter-trigger.is-active {
-    border-color: #1E3A5F;
-    background: #EEF3F9;
-    color: #1E3A5F;
+    border-color: var(--primary);
+    background: var(--bg-input);
+    color: var(--primary);
     font-weight: 600;
 }
 
@@ -153,13 +150,13 @@
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: rgba(30, 58, 95, 0.15);
-    color: #1E3A5F;
+    background: rgba(74, 144, 217, 0.15);
+    color: var(--primary);
     cursor: pointer;
     flex-shrink: 0;
 }
 
-/* ── Filter Bottom Sheet items ───────────────────────────────────────── */
+/* ── Filter Bottom Sheet ─────────────────────────────────────────────── */
 
 .spv-sheet-search-wrap {
     position: relative;
@@ -171,7 +168,7 @@
 .spv-sheet-search-icon {
     position: absolute;
     left: 11px;
-    color: #94A3B8;
+    color: var(--text-muted);
     pointer-events: none;
     flex-shrink: 0;
 }
@@ -179,10 +176,10 @@
 .spv-sheet-search {
     width: 100%;
     padding: 9px 36px 9px 32px;
-    border: 1.5px solid #E5E7EB;
+    border: 1.5px solid var(--border-color);
     border-radius: 10px;
-    background: #F8FAFC;
-    color: #1E3A5F;
+    background: var(--bg-input);
+    color: var(--text-primary);
     font-size: 0.875rem;
     font-family: inherit;
     outline: none;
@@ -190,12 +187,12 @@
 }
 
 .spv-sheet-search:focus {
-    border-color: #1E3A5F;
-    background: #FFFFFF;
+    border-color: var(--primary);
+    background: var(--bg-card);
 }
 
 .spv-sheet-search::placeholder {
-    color: #94A3B8;
+    color: var(--text-muted);
 }
 
 .spv-sheet-search-clear {
@@ -207,16 +204,16 @@
     width: 22px;
     height: 22px;
     border: none;
-    background: #E5E7EB;
+    background: var(--border-color);
     border-radius: 50%;
-    color: #6B7280;
+    color: var(--text-muted);
     cursor: pointer;
     padding: 0;
 }
 
 .spv-sheet-search-clear:hover {
-    background: #CBD5E1;
-    color: #374151;
+    background: var(--bg-input);
+    color: var(--text-secondary);
 }
 
 .spv-sheet-list {
@@ -234,7 +231,7 @@
     border: none;
     border-radius: 10px;
     background: transparent;
-    color: #374151;
+    color: var(--text-secondary);
     font-size: 0.875rem;
     font-weight: 500;
     font-family: inherit;
@@ -244,12 +241,12 @@
 }
 
 .spv-sheet-item:hover {
-    background: #F8FAFC;
+    background: var(--bg-input);
 }
 
 .spv-sheet-item.is-active {
-    background: #EEF3F9;
-    color: #1E3A5F;
+    background: var(--bg-input);
+    color: var(--primary);
     font-weight: 600;
 }
 
@@ -259,19 +256,19 @@
 
 .spv-sheet-count {
     font-size: 0.75rem;
-    color: #94A3B8;
+    color: var(--text-muted);
     font-weight: 500;
-    background: #F1F5F9;
+    background: var(--bg-input);
     padding: 2px 7px;
     border-radius: 999px;
 }
 
 .spv-sheet-item.is-active .spv-sheet-count {
-    background: rgba(30, 58, 95, 0.1);
-    color: #1E3A5F;
+    background: rgba(74, 144, 217, 0.12);
+    color: var(--primary);
 }
 
-/* ── Cards Styles ────────────────────────────────────────────────────── */
+/* ── Cards ────────────────────────────────────────────────────────────── */
 
 .spv-card-list {
     display: flex;
@@ -284,17 +281,15 @@
 }
 
 @media (min-width: 1024px) {
-    .spv-card-list--top {
-        margin-top: 52px;
-    }
+    .spv-card-list--top { margin-top: 52px; }
 }
 
 .spv-card {
-    background: #FFFFFF;
-    border: 1px solid #E5E7EB;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
     border-radius: 14px;
     padding: 16px;
-    box-shadow: 0 1px 3px rgba(30, 58, 95, 0.04);
+    box-shadow: var(--shadow-sm);
     position: relative;
     display: flex;
     flex-direction: column;
@@ -304,21 +299,13 @@
 
 .spv-card:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(30, 58, 95, 0.06);
-    border-color: #CBD5E1;
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary);
 }
 
-.spv-card-hot {
-    border-left: 4px solid #EF4444;
-}
-
-.spv-card-submitted {
-    border-left: 4px solid #0EA5E9;
-}
-
-.spv-card-cold {
-    border-left: 4px solid #F97316;
-}
+.spv-card-hot      { border-left: 4px solid var(--hot); }
+.spv-card-submitted { border-left: 4px solid var(--cold); }
+.spv-card-cold     { border-left: 4px solid var(--warm); }
 
 .spv-card-header {
     display: flex;
@@ -330,17 +317,17 @@
 .spv-card-title {
     font-size: 0.95rem;
     font-weight: 700;
-    color: #1E3A5F;
+    color: var(--primary);
 }
 
 .spv-card-title-link {
-    color: #1E3A5F;
+    color: var(--primary);
     text-decoration: underline;
     cursor: pointer;
 }
 
 .spv-card-title-link:hover {
-    color: #0F172A;
+    color: var(--text-primary);
 }
 
 .spv-card-meta-grid {
@@ -348,8 +335,8 @@
     grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
     gap: 8px 12px;
     padding: 8px 0;
-    border-top: 1px solid #F1F5F9;
-    border-bottom: 1px solid #F1F5F9;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .spv-meta-item {
@@ -357,13 +344,13 @@
     align-items: center;
     gap: 6px;
     font-size: 0.8rem;
-    color: #64748B;
+    color: var(--text-secondary);
 }
 
 .spv-meta-item svg {
     width: 14px;
     height: 14px;
-    color: #94A3B8;
+    color: var(--text-muted);
     flex-shrink: 0;
 }
 
@@ -380,33 +367,14 @@
     grid-template-columns: 1fr;
     gap: 12px;
     margin-top: 10px;
-    border-top: 1px solid #F1F5F9;
+    border-top: 1px solid var(--border-color);
     padding-top: 12px;
 }
 
-@media (min-width: 640px) {
-    .spv-tasks-container {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (min-width: 1024px) {
-    .spv-tasks-container {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
-
-@media (min-width: 1280px) {
-    .spv-tasks-container {
-        grid-template-columns: repeat(4, 1fr);
-    }
-}
-
-@media (min-width: 1536px) {
-    .spv-tasks-container {
-        grid-template-columns: repeat(5, 1fr);
-    }
-}
+@media (min-width: 640px)  { .spv-tasks-container { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1024px) { .spv-tasks-container { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1280px) { .spv-tasks-container { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 1536px) { .spv-tasks-container { grid-template-columns: repeat(5, 1fr); } }
 
 .spv-task-sub-item {
     display: grid;
@@ -415,8 +383,8 @@
     align-items: start;
     padding: 12px;
     border-radius: 10px;
-    background: #F8FAFC;
-    border: 1px solid #E5E7EB;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
 }
 
 .spv-task-sub-noimg {
@@ -428,7 +396,7 @@
     height: 56px;
     object-fit: cover;
     border-radius: 8px;
-    border: 1px solid #E2E8F0;
+    border: 1px solid var(--border-color);
     cursor: zoom-in;
     transition: transform 150ms ease, border-color 150ms ease;
     display: block;
@@ -436,21 +404,20 @@
 
 .spv-task-proof-img:hover {
     transform: scale(1.04);
-    border-color: #CBD5E1;
+    border-color: var(--primary);
 }
 
-/* ── Custom Aksi Button ──────────────────────────────────────────────── */
+/* ── Action Buttons ──────────────────────────────────────────────────── */
 
 .spv-nudge-btn {
-    background: #DCFCE7 !important;
-    color: #15803d !important;
-    border: 1px solid #bbf7d0 !important;
+    background: var(--success-bg) !important;
+    color: var(--success) !important;
+    border: 1px solid var(--success) !important;
     font-weight: 700;
 }
 
 .spv-nudge-btn:hover {
-    background: #bbf7d0 !important;
-    color: #166534 !important;
+    opacity: 0.85;
 }
 
 .spv-nudge-btn svg {
@@ -460,16 +427,15 @@
 }
 
 .spv-btn-validate {
-    background: #1E3A5F !important;
+    background: var(--primary) !important;
     color: #fff !important;
     border: none !important;
     font-weight: 700;
-    box-shadow: 0 2px 8px rgba(30, 58, 95, 0.2);
+    box-shadow: 0 2px 8px var(--primary-glow);
 }
 
 .spv-btn-validate:hover:not(:disabled) {
-    background: #162e49 !important;
-    box-shadow: 0 4px 12px rgba(30, 58, 95, 0.28);
+    background: var(--primary-dark) !important;
     transform: translateY(-1px);
 }
 
@@ -479,15 +445,14 @@
 }
 
 .spv-btn-reject {
-    background: #FEF2F2 !important;
-    color: #DC2626 !important;
-    border: 1px solid #FECACA !important;
+    background: var(--danger-bg) !important;
+    color: var(--danger) !important;
+    border: 1px solid var(--danger) !important;
     font-weight: 700;
 }
 
 .spv-btn-reject:hover:not(:disabled) {
-    background: #FECACA !important;
-    color: #B91C1C !important;
+    opacity: 0.85;
 }
 
 .spv-btn-reject:disabled {
@@ -500,7 +465,7 @@
 .lightbox-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.6);
+    background: rgba(15, 23, 42, 0.75);
     backdrop-filter: blur(4px);
     z-index: 500;
     display: flex;
@@ -511,12 +476,12 @@
 }
 
 .lightbox-content {
-    background: #FFFFFF;
+    background: var(--bg-card);
     padding: 12px;
     border-radius: 16px;
     max-width: 90vw;
     max-height: 80vh;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    box-shadow: var(--shadow-lg);
     position: relative;
     display: flex;
     flex-direction: column;
@@ -534,7 +499,7 @@
     position: absolute;
     top: -40px;
     right: 0;
-    background: #FFFFFF;
+    background: var(--bg-card);
     border: none;
     border-radius: 50%;
     width: 32px;
@@ -543,41 +508,29 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: #1E3A5F;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    color: var(--primary);
+    box-shadow: var(--shadow-md);
     font-weight: bold;
 }
 
 .lightbox-close:hover {
-    background: #F1F5F9;
+    background: var(--bg-card-hover);
 }
 
 .lightbox-caption {
     margin-top: 10px;
     font-size: 0.875rem;
-    color: #1E3A5F;
+    color: var(--primary);
     text-align: center;
     font-weight: 700;
 }
 
 @keyframes spvFadeIn {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
+    from { opacity: 0; }
+    to   { opacity: 1; }
 }
 
 @keyframes spvSlideUp {
-    from {
-        transform: translateY(20px);
-        opacity: 0;
-    }
-
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
 }

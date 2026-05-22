@@ -269,11 +269,6 @@ export default function DailyTaskPage() {
     }, [user]);
 
     useEffect(() => {
-        document.body.classList.add('light-page');
-        return () => document.body.classList.remove('light-page');
-    }, []);
-
-    useEffect(() => {
         void loadTasks();
         void loadSideData();
     }, [loadTasks, loadSideData]);

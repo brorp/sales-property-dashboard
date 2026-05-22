@@ -29,11 +29,6 @@ export default function DistributionOrderPage() {
         isQueueLocked: false,
     });
 
-    useEffect(() => {
-        document.body.classList.add('light-page');
-        return () => document.body.classList.remove('light-page');
-    }, []);
-
     const normalizeQueueRows = useCallback((rows) => {
         return (Array.isArray(rows) ? rows : [])
             .filter((item) => item?.id && Number(item?.queueOrder) > 0)

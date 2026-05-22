@@ -1,61 +1,79 @@
-/* ── EditProfilePage — Navy/light theme ──────────────────────────────── */
+/* ── EditProfilePage ─────────────────────────────────────────────────── */
 
-.ep-page {
-    background: #F8FAFC;
-    --bg-app: rgba(248, 250, 252, 0.96);
+html[data-theme="light"] .ep-page {
+    --bg-app: #F8FAFC;
     --bg-card: #FFFFFF;
     --bg-input: #F3F4F6;
+    --bg-card-hover: #F9FAFB;
     --border-color: #E5E7EB;
     --border: #E5E7EB;
     --text-primary: #0F172A;
     --text-secondary: #374151;
     --text-muted: #9CA3AF;
     --primary: #1E3A5F;
+    --primary-glow: rgba(30, 58, 95, 0.08);
 }
 
+html[data-theme="dark"] .ep-page {
+    --bg-dark: #0F172A;
+    --bg-card: #1E293B;
+    --bg-card-hover: #263348;
+    --bg-input: #162032;
+    --border-color: rgba(255,255,255,0.08);
+    --text-primary: #F1F5F9;
+    --text-secondary: #94A3B8;
+    --text-muted: #64748B;
+    --primary: #4A90D9;
+    --primary-dark: #2E6FAB;
+    --primary-glow: rgba(74, 144, 217, 0.15);
+    --danger: #FB7185;
+    --danger-bg: rgba(251, 113, 133, 0.12);
+    --success: #34D399;
+}
+
+.ep-page { background: var(--bg-dark); }
+
 .ep-card {
-    background: #FFFFFF;
-    border: 1.5px solid #E5E7EB;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-color);
     border-radius: 16px;
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    box-shadow: 0 1px 4px rgba(30, 58, 95, 0.05);
+    box-shadow: var(--shadow-sm);
 }
 
 /* ── Input overrides ────────────────────────────────────────────────── */
 
-.ep-page .input-group label {
-    color: #374151;
-}
+.ep-page .input-group label { color: var(--text-secondary); }
 
 .ep-page .input-field {
-    background: #FFFFFF;
-    border: 1.5px solid #E5E7EB;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-color);
     border-radius: 10px;
-    color: #111827;
+    color: var(--text-primary);
     font-size: 0.875rem;
     padding: 10px 14px;
 }
 
 .ep-page .input-field:focus {
-    border-color: #1E3A5F;
-    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
     outline: none;
 }
 
 .ep-page .input-field:disabled {
-    background: #F9FAFB;
-    color: #9CA3AF;
-    border-color: #E5E7EB;
+    background: var(--bg-input);
+    color: var(--text-muted);
+    border-color: var(--border-color);
     box-shadow: none;
 }
 
 /* ── Button overrides ───────────────────────────────────────────────── */
 
 .ep-page .btn-primary {
-    background: #1E3A5F;
+    background: var(--primary);
     color: #FFFFFF;
     border: none;
     box-shadow: none;
@@ -63,33 +81,15 @@
 }
 
 .ep-page .btn-primary:hover:not(:disabled) {
-    background: #162d4a;
+    background: var(--primary-dark);
     transform: none;
     box-shadow: none;
 }
 
-.ep-page .btn-primary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
+.ep-page .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ── Messages ───────────────────────────────────────────────────────── */
 
-.ep-error {
-    color: #DC2626;
-    font-size: 0.8125rem;
-    margin: 0;
-}
-
-.ep-success {
-    color: #16A34A;
-    font-size: 0.8125rem;
-    margin: 0;
-}
-
-.ep-help {
-    color: #6B7280;
-    font-size: 0.8125rem;
-    line-height: 1.45;
-    margin: 2px 0 0;
-}
+.ep-error { color: var(--danger); font-size: 0.8125rem; margin: 0; }
+.ep-success { color: var(--success); font-size: 0.8125rem; margin: 0; }
+.ep-help { color: var(--text-muted); font-size: 0.8125rem; line-height: 1.45; margin: 2px 0 0; }

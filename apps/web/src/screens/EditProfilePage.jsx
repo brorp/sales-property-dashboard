@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
-import './EditProfilePage.css';
 
 export default function EditProfilePage() {
     const { user, updateCurrentUser } = useAuth();
@@ -15,10 +14,6 @@ export default function EditProfilePage() {
     const [form, setForm] = useState({ name: '', email: '', phone: '' });
     const phoneReadOnly = user?.role === 'sales';
 
-    useEffect(() => {
-        document.body.classList.add('light-page');
-        return () => document.body.classList.remove('light-page');
-    }, []);
 
     const loadProfile = useCallback(async () => {
         if (!user) return;

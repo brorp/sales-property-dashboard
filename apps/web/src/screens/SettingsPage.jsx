@@ -88,10 +88,6 @@ export default function SettingsPage() {
         insideOfficeReply: '',
     });
 
-    useEffect(() => {
-        document.body.classList.add('light-page');
-        return () => document.body.classList.remove('light-page');
-    }, []);
 
     const request = useCallback(
         async (path, method = 'GET') => {

@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { useNavData } from '../hooks/useNavData';
+import { useTheme } from '../context/ThemeContext';
 import './BottomNav.css';
 
 const ADMIN_TABS = [
@@ -44,8 +45,11 @@ function Icon({ name }) {
 
 export default function BottomNav() {
     const { user } = useAuth();
+    const { theme } = useTheme();
     const { activeWorkspace, workspaces, switchWorkspace } = useWorkspace();
     const { hasUnreadLeads, hasUnreadLogs, taskCounts, supervisorTaskCount } = useNavData();
+    const curveFill   = theme === 'dark' ? '#1E293B' : '#FFFFFF';
+    const curveStroke = theme === 'dark' ? 'rgba(255,255,255,0.08)' : '#E5E7EB';
     const [wsSheetOpen, setWsSheetOpen] = useState(false);
     const pathname = usePathname();
     const router = useRouter();
@@ -101,8 +105,8 @@ export default function BottomNav() {
                         }}
                     >
                         <svg viewBox="0 0 160 32" preserveAspectRatio="none" width="160" height="32">
-                            <path d="M0,32 L0,20 L30,20 C55,20 60,0 80,0 C100,0 105,20 130,20 L160,20 L160,32 Z" fill="#FFFFFF" />
-                            <path d="M0,20 L30,20 C55,20 60,0 80,0 C100,0 105,20 130,20 L160,20" fill="none" stroke="#E5E7EB" strokeWidth="1" />
+                            <path d="M0,32 L0,20 L30,20 C55,20 60,0 80,0 C100,0 105,20 130,20 L160,20 L160,32 Z" fill={curveFill} />
+                            <path d="M0,20 L30,20 C55,20 60,0 80,0 C100,0 105,20 130,20 L160,20" fill="none" stroke={curveStroke} strokeWidth="1" />
                         </svg>
                     </div>
                     {tabs.map((tab) => (

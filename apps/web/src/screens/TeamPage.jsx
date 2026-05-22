@@ -177,11 +177,6 @@ export default function TeamPage() {
     const [deleteSupervisorState, setDeleteSupervisorState] = useState(null);
 
     useEffect(() => {
-        document.body.classList.add('light-page');
-        return () => document.body.classList.remove('light-page');
-    }, []);
-
-    useEffect(() => {
         if (!isAdmin) {
             return;
         }

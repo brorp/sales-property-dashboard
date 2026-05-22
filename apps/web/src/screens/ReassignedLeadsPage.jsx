@@ -36,11 +36,6 @@ export default function ReassignedLeadsPage() {
     const [feedback, setFeedback] = useState('');
     const [error, setError] = useState('');
 
-    useEffect(() => {
-        document.body.classList.add('light-page');
-        return () => document.body.classList.remove('light-page');
-    }, []);
-
     const salesUsers = getSalesUsers();
     const assignedLeads = useMemo(
         () => leads.filter((lead) => Boolean(lead.assignedTo)).filter((lead) => leadMatchesSearch(lead, search)),

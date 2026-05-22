@@ -608,7 +608,7 @@
 }
 
 .lc-pill:hover {
-    border-color: #C7D7EA;
+    border-color: var(--primary);
     color: var(--text-primary);
 }
 
@@ -997,26 +997,28 @@
     width: 32px;
     height: 32px;
     border-radius: 8px;
-    border: none;
-    background: #F1F5F9;
-    color: #64748B;
+    border: 1px solid var(--border-color);
+    background: var(--bg-input);
+    color: var(--text-muted);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     flex-shrink: 0;
     position: relative;
-    transition: background 150ms ease, color 150ms ease;
+    transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
 .ds-section-filter-btn:hover {
-    background: #E2E8F0;
-    color: #1E3A5F;
+    background: var(--bg-card-hover);
+    border-color: var(--primary);
+    color: var(--primary);
 }
 
 .ds-section-filter-btn.is-active {
-    background: #DBEAFE;
-    color: #1E3A5F;
+    background: var(--info-bg);
+    border-color: var(--primary);
+    color: var(--primary);
 }
 
 .ds-section-filter-dot {
@@ -1026,7 +1028,7 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #2563EB;
+    background: var(--primary);
     pointer-events: none;
 }
 
@@ -1228,7 +1230,7 @@
 }
 
 .ov-pulse-item--accent {
-    background: #F0FDF4;
+    background: var(--success-bg);
 }
 
 .ov-pulse-label {

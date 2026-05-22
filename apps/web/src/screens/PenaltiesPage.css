@@ -1,50 +1,68 @@
-/* ── PenaltiesPage — Navy/light theme ───────────────────────────────── */
+/* ── PenaltiesPage ───────────────────────────────────────────────────── */
 
-.pen-page {
-    background: #F8FAFC;
-    --bg-app: rgba(248, 250, 252, 0.96);
+html[data-theme="light"] .pen-page {
+    --bg-app: #F8FAFC;
     --bg-card: #FFFFFF;
     --bg-input: #F3F4F6;
+    --bg-card-hover: #F9FAFB;
     --border-color: #E5E7EB;
     --border: #E5E7EB;
     --text-primary: #0F172A;
     --text-secondary: #374151;
     --text-muted: #9CA3AF;
     --primary: #1E3A5F;
+    --primary-glow: rgba(30, 58, 95, 0.08);
+}
+
+html[data-theme="dark"] .pen-page {
+    --bg-dark: #0F172A;
+    --bg-card: #1E293B;
+    --bg-card-hover: #263348;
+    --bg-input: #162032;
+    --border-color: rgba(255,255,255,0.08);
+    --text-primary: #F1F5F9;
+    --text-secondary: #94A3B8;
+    --text-muted: #64748B;
+    --primary: #4A90D9;
+    --primary-dark: #2E6FAB;
+    --primary-glow: rgba(74, 144, 217, 0.15);
+    --danger: #FB7185;
+    --danger-bg: rgba(251, 113, 133, 0.12);
+    --cold: #60A5FA;
+    --cold-bg: rgba(96, 165, 250, 0.12);
+}
+
+.pen-page {
+    background: var(--bg-dark);
 }
 
 .pen-page .bottom-sheet {
-    background: #FFFFFF;
-    border: 1.5px solid #E5E7EB;
-    color: #0F172A;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-color);
+    color: var(--text-primary);
 }
 
-.pen-page .bottom-sheet h2 {
-    color: #1E3A5F;
-}
-
-.pen-page .bottom-sheet .sheet-handle {
-    background: #E5E7EB;
-}
+.pen-page .bottom-sheet h2 { color: var(--text-primary); }
+.pen-page .bottom-sheet .sheet-handle { background: var(--border-color); }
 
 .pen-page .btn-secondary {
-    background: #FFFFFF;
-    border: 1.5px solid #E5E7EB;
-    color: #374151;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-color);
+    color: var(--text-secondary);
 }
 
 .pen-page .btn-secondary:hover {
-    background: #F9FAFB;
-    border-color: #D1D5DB;
+    background: var(--bg-input);
+    border-color: var(--border-color);
 }
 
 /* ── Input override ─────────────────────────────────────────────────── */
 
 .pen-page .input-field {
-    background: #FFFFFF;
-    border: 1.5px solid #E5E7EB;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-color);
     border-radius: 12px;
-    color: #111827;
+    color: var(--text-primary);
     font-size: 0.9375rem;
     padding: 8px 14px 8px 40px;
     height: 38px;
@@ -52,27 +70,22 @@
     transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
-.pen-page textarea.input-field {
-    height: auto;
-    padding: 10px 14px;
-    resize: vertical;
-}
-
-.pen-page .input-field::placeholder { color: #D1D5DB; }
+.pen-page textarea.input-field { height: auto; padding: 10px 14px; resize: vertical; }
+.pen-page .input-field::placeholder { color: var(--text-muted); }
 
 .pen-page .input-field:focus {
-    border-color: #1E3A5F;
-    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
     outline: none;
 }
 
-.pen-page .input-icon { color: #9CA3AF; font-style: normal; }
+.pen-page .input-icon { color: var(--text-muted); font-style: normal; }
 
 /* ── Filter bar ─────────────────────────────────────────────────────── */
 
 .pen-filter-bar {
-    background: #FFFFFF;
-    border: 1.5px solid #E5E7EB;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-color);
     border-radius: 16px;
     padding: 14px 16px;
     margin-bottom: 12px;
@@ -81,13 +94,10 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 10px;
-    box-shadow: 0 1px 4px rgba(30, 58, 95, 0.05);
+    box-shadow: var(--shadow-sm);
 }
 
-.pen-filter-bar .pen-search-wrap {
-    flex: 1 1 200px;
-    min-width: 0;
-}
+.pen-filter-bar .pen-search-wrap { flex: 1 1 200px; min-width: 0; }
 
 .pen-selects-row {
     display: flex;
@@ -99,13 +109,8 @@
 }
 
 .pen-selects-row::-webkit-scrollbar { display: none; }
-
 .pen-selects-row > * { flex: 0 0 auto; min-width: 150px; }
-
-.pen-selects-row .sf-wrap .sf-trigger {
-    height: 38px;
-    box-sizing: border-box;
-}
+.pen-selects-row .sf-wrap .sf-trigger { height: 38px; box-sizing: border-box; }
 
 .pen-reset-all {
     flex-shrink: 0;
@@ -113,11 +118,11 @@
     height: 38px;
     box-sizing: border-box;
     background: transparent;
-    border: 1.5px solid #E5E7EB;
+    border: 1.5px solid var(--border-color);
     border-radius: 10px;
     font-size: 0.813rem;
     font-weight: 500;
-    color: #6B7280;
+    color: var(--text-muted);
     cursor: pointer;
     white-space: nowrap;
     font-family: inherit;
@@ -125,9 +130,9 @@
 }
 
 .pen-reset-all:hover {
-    background: #FEF2F2;
-    border-color: #FCA5A5;
-    color: #DC2626;
+    background: var(--danger-bg);
+    border-color: var(--danger);
+    color: var(--danger);
 }
 
 @media (min-width: 640px) {
@@ -139,7 +144,7 @@
 
 .pen-result-count {
     font-size: 0.8125rem;
-    color: #94A3B8;
+    color: var(--text-muted);
     font-weight: 500;
     margin-bottom: 10px;
 }
@@ -154,48 +159,37 @@
     text-align: center;
     padding: 48px 24px 56px;
     gap: 10px;
-    background: #FFFFFF;
-    border: 1.5px solid #E5E7EB;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-color);
     border-radius: 16px;
-    box-shadow: 0 1px 4px rgba(30, 58, 95, 0.05);
+    box-shadow: var(--shadow-sm);
 }
 
 .pen-empty-icon {
     width: 72px;
     height: 72px;
     border-radius: 20px;
-    background: linear-gradient(135deg, #FEF2F2, #FEE2E2);
-    border: 1.5px solid #FECACA;
+    background: var(--danger-bg);
+    border: 1.5px solid var(--danger);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #EF4444;
+    color: var(--danger);
     margin-bottom: 8px;
+    opacity: 0.7;
 }
 
-.pen-empty-title {
-    font-size: 1rem;
-    font-weight: 700;
-    color: #1E3A5F;
-    margin: 0;
-}
-
-.pen-empty-desc {
-    font-size: 0.8125rem;
-    color: #94A3B8;
-    line-height: 1.6;
-    max-width: 280px;
-    margin: 0;
-}
+.pen-empty-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.pen-empty-desc { font-size: 0.8125rem; color: var(--text-muted); line-height: 1.6; max-width: 280px; margin: 0; }
 
 .pen-empty-reset {
     margin-top: 6px;
     padding: 8px 18px;
     font-size: 0.8125rem;
     font-weight: 600;
-    color: #1E3A5F;
-    background: #EFF6FF;
-    border: 1.5px solid #BFDBFE;
+    color: var(--primary);
+    background: var(--info-bg);
+    border: 1.5px solid var(--border-color);
     border-radius: 8px;
     cursor: pointer;
     font-family: inherit;
@@ -203,8 +197,8 @@
 }
 
 .pen-empty-reset:hover {
-    background: #DBEAFE;
-    border-color: #93C5FD;
+    background: var(--bg-card-hover);
+    border-color: var(--primary);
 }
 
 /* ── Penalty list ───────────────────────────────────────────────────── */
@@ -216,23 +210,18 @@
 }
 
 @media (min-width: 768px) {
-    .pen-list {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-    }
+    .pen-list { display: grid; grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (min-width: 1280px) {
-    .pen-list {
-        grid-template-columns: repeat(3, 1fr);
-    }
+    .pen-list { grid-template-columns: repeat(3, 1fr); }
 }
 
 /* ── Penalty card ───────────────────────────────────────────────────── */
 
 .pen-card {
-    background: #FFFFFF;
-    border: 1.5px solid #E5E7EB;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-color);
     border-radius: 14px;
     padding: 14px 16px;
     display: flex;
@@ -242,26 +231,17 @@
 }
 
 .pen-card:hover {
-    border-color: #C7D7EA;
-    box-shadow: 0 3px 12px rgba(30, 58, 95, 0.09);
+    border-color: var(--primary);
+    box-shadow: var(--shadow-md);
 }
 
-.pen-card-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-.pen-card-head-info {
-    flex: 1;
-    min-width: 0;
-}
+.pen-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.pen-card-head-info { flex: 1; min-width: 0; }
 
 .pen-card-name {
     font-size: 0.9375rem;
     font-weight: 700;
-    color: #1E3A5F;
+    color: var(--text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -269,73 +249,44 @@
 
 .pen-card-sub {
     font-size: 0.8rem;
-    color: #94A3B8;
+    color: var(--text-muted);
     margin-top: 2px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.pen-card-badges {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    flex-shrink: 0;
-}
+.pen-card-badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; flex-shrink: 0; }
 
-.pen-card-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px 12px;
-}
-
-.pen-card-cell {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
+.pen-card-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 12px; }
+.pen-card-cell { display: flex; flex-direction: column; gap: 2px; }
 
 .pen-card-key {
     font-size: 0.7rem;
-    color: #94A3B8;
+    color: var(--text-muted);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }
 
-.pen-card-val {
-    font-size: 0.8125rem;
-    color: #374151;
-    font-weight: 500;
-}
+.pen-card-val { font-size: 0.8125rem; color: var(--text-secondary); font-weight: 500; }
 
 .pen-card-reason {
     padding: 10px 12px;
     border-radius: 10px;
-    background: #F8FAFC;
-    border: 1px solid #F1F5F9;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     gap: 4px;
 }
 
-.pen-card-reason-text {
-    font-size: 0.8125rem;
-    color: #374151;
-    line-height: 1.45;
-}
-
-.pen-card-reason-comp {
-    font-size: 0.775rem;
-    color: #0EA5E9;
-    font-style: italic;
-    margin-top: 4px;
-}
+.pen-card-reason-text { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.45; }
+.pen-card-reason-comp { font-size: 0.775rem; color: var(--cold); font-style: italic; margin-top: 4px; }
 
 .pen-card-actions {
     display: flex;
     justify-content: flex-end;
     padding-top: 4px;
-    border-top: 1px solid #F1F5F9;
+    border-top: 1px solid var(--border-color);
 }

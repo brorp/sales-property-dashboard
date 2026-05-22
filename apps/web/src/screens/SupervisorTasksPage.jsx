@@ -151,11 +151,6 @@ export default function SupervisorTasksPage() {
     const [submittedNameSearch, setSubmittedNameSearch] = useState('');
     const [coldNameSearch, setColdNameSearch] = useState('');
 
-    useEffect(() => {
-        document.body.classList.add('light-page');
-        return () => document.body.classList.remove('light-page');
-    }, []);
-
     const handleNudgeSales = (salesId, salesName, leadName, leadPhone) => {
         const salesMember = managedSales.find(s => s.id === salesId);
         const salesPhone = salesMember?.phone || '';

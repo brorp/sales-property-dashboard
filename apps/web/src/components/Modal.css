@@ -1,9 +1,57 @@
-/* ── Overlay ─────────────────────────────────────────────────────────── */
+/* ── Modal ────────────────────────────────────────────────────────────── */
+
+html[data-theme="light"] .modal-card {
+    --modal-bg:           #FFFFFF;
+    --modal-border:       #E5E7EB;
+    --modal-title:        #1E3A5F;
+    --modal-close-color:  #9CA3AF;
+    --modal-close-hover-bg: #F1F5F9;
+    --modal-close-hover-color: #374151;
+    --modal-input-bg:     #FFFFFF;
+    --modal-input-border: #E5E7EB;
+    --modal-input-focus:  #1E3A5F;
+    --modal-input-glow:   rgba(30, 58, 95, 0.08);
+    --modal-input-disabled-bg: #F9FAFB;
+    --modal-input-color:  #111827;
+    --modal-label-color:  #374151;
+    --modal-btn-pri-bg:   #1E3A5F;
+    --modal-btn-pri-hover:#162d4a;
+    --modal-btn-sec-bg:   #FFFFFF;
+    --modal-btn-sec-border:#E5E7EB;
+    --modal-btn-sec-color:#374151;
+    --modal-btn-sec-hover-bg: #F9FAFB;
+    --modal-btn-sec-hover-border: #D1D5DB;
+}
+
+html[data-theme="dark"] .modal-card {
+    --modal-bg:           var(--bg-card);
+    --modal-border:       var(--border-color);
+    --modal-title:        var(--text-primary);
+    --modal-close-color:  var(--text-muted);
+    --modal-close-hover-bg: var(--bg-card-hover);
+    --modal-close-hover-color: var(--text-secondary);
+    --modal-input-bg:     var(--bg-input);
+    --modal-input-border: var(--border-color);
+    --modal-input-focus:  var(--primary);
+    --modal-input-glow:   var(--primary-glow);
+    --modal-input-disabled-bg: var(--bg-dark);
+    --modal-input-color:  var(--text-primary);
+    --modal-label-color:  var(--text-secondary);
+    --modal-btn-pri-bg:   var(--primary);
+    --modal-btn-pri-hover:var(--primary-dark);
+    --modal-btn-sec-bg:   var(--bg-input);
+    --modal-btn-sec-border:var(--border-color);
+    --modal-btn-sec-color:var(--text-secondary);
+    --modal-btn-sec-hover-bg: var(--bg-card-hover);
+    --modal-btn-sec-hover-border: var(--primary);
+}
+
+/* ── Overlay ── */
 
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.4);
+    background: rgba(0, 0, 0, 0.50);
     backdrop-filter: blur(2px);
     display: flex;
     align-items: center;
@@ -18,13 +66,13 @@
     to { opacity: 1; }
 }
 
-/* ── Card ───────────────────────────────────────────────────────────── */
+/* ── Card ── */
 
 .modal-card {
-    background: #FFFFFF;
-    border: 1.5px solid #E5E7EB;
+    background: var(--modal-bg);
+    border: 1.5px solid var(--modal-border);
     border-radius: 20px;
-    box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18), 0 4px 16px rgba(15, 23, 42, 0.06);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.30), 0 4px 16px rgba(0, 0, 0, 0.12);
     width: 100%;
     max-width: 420px;
     animation: modalSlideIn 150ms ease;
@@ -35,7 +83,7 @@
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* ── Header ─────────────────────────────────────────────────────────── */
+/* ── Header ── */
 
 .modal-header {
     display: flex;
@@ -47,7 +95,7 @@
 .modal-title {
     font-size: 1rem;
     font-weight: 700;
-    color: #1E3A5F;
+    color: var(--modal-title);
     margin: 0;
 }
 
@@ -60,18 +108,18 @@
     border-radius: 8px;
     border: none;
     background: transparent;
-    color: #9CA3AF;
+    color: var(--modal-close-color);
     cursor: pointer;
     transition: background 120ms ease, color 120ms ease;
     flex-shrink: 0;
 }
 
 .modal-close:hover {
-    background: #F1F5F9;
-    color: #374151;
+    background: var(--modal-close-hover-bg);
+    color: var(--modal-close-hover-color);
 }
 
-/* ── Body ───────────────────────────────────────────────────────────── */
+/* ── Body ── */
 
 .modal-body {
     padding: 16px 20px 20px;
@@ -86,7 +134,7 @@
     gap: 14px;
 }
 
-/* ── Footer actions ─────────────────────────────────────────────────── */
+/* ── Footer actions ── */
 
 .modal-actions {
     display: grid;
@@ -95,30 +143,30 @@
     margin-top: 4px;
 }
 
-/* ── Input / button overrides inside modal ──────────────────────────── */
+/* ── Input / button overrides inside modal ── */
 
 .modal-card .input-field {
-    background: #FFFFFF;
-    border: 1.5px solid #E5E7EB;
+    background: var(--modal-input-bg);
+    border: 1.5px solid var(--modal-input-border);
     border-radius: 10px;
-    color: #111827;
+    color: var(--modal-input-color);
     font-size: 0.875rem;
     padding: 10px 14px;
 }
 
 .modal-card .input-field:focus {
-    border-color: #1E3A5F;
-    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
+    border-color: var(--modal-input-focus);
+    box-shadow: 0 0 0 3px var(--modal-input-glow);
     outline: none;
 }
 
 .modal-card .input-field:disabled {
-    background: #F9FAFB;
-    color: #9CA3AF;
+    background: var(--modal-input-disabled-bg);
+    color: var(--modal-close-color);
 }
 
 .modal-card .input-group label {
-    color: #374151;
+    color: var(--modal-label-color);
     font-size: 0.8125rem;
 }
 
@@ -129,14 +177,14 @@
 }
 
 .modal-card .btn-primary {
-    background: #1E3A5F;
+    background: var(--modal-btn-pri-bg);
     color: #FFFFFF;
     border: none;
     box-shadow: none;
 }
 
 .modal-card .btn-primary:hover:not(:disabled) {
-    background: #162d4a;
+    background: var(--modal-btn-pri-hover);
     transform: none;
     box-shadow: none;
 }
@@ -147,15 +195,15 @@
 }
 
 .modal-card .btn-secondary {
-    background: #FFFFFF;
-    border: 1.5px solid #E5E7EB;
-    color: #374151;
+    background: var(--modal-btn-sec-bg);
+    border: 1.5px solid var(--modal-btn-sec-border);
+    color: var(--modal-btn-sec-color);
     box-shadow: none;
 }
 
 .modal-card .btn-secondary:hover:not(:disabled) {
-    background: #F9FAFB;
-    border-color: #D1D5DB;
+    background: var(--modal-btn-sec-hover-bg);
+    border-color: var(--modal-btn-sec-hover-border);
     transform: none;
 }
 

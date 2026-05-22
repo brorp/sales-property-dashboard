@@ -1,23 +1,26 @@
 /* ── DailyTaskPage ─────────────────────────────────────────────────── */
 
-.daily-task-page {
+html[data-theme="light"] .daily-task-page {
     --text-primary: #1E3A5F;
     --text-muted: #94A3B8;
     --primary: #1E3A5F;
+    --bg-input: #F8FAFC;
+    --bg-card: #FFFFFF;
+    --border-color: #E5E7EB;
 }
 
-/* ── Tab bar (shared with SupervisorTasksPage) ─────────────────────── */
+/* ── Tab bar ───────────────────────────────────────────────────────── */
 
 .daily-task-tabs {
     display: flex;
     flex-wrap: nowrap;
-    border-bottom: 2px solid #E5E7EB;
+    border-bottom: 2px solid var(--border-color);
     position: fixed;
     top: 58px;
     left: 0;
     right: 0;
     z-index: 39;
-    background: #F8FAFC;
+    background: var(--bg-dark);
     overflow-x: auto;
     scrollbar-width: none;
     gap: 0;
@@ -47,7 +50,7 @@
     align-items: center;
     gap: 6px;
     font-family: inherit;
-    color: #94A3B8;
+    color: var(--text-muted);
 }
 
 .daily-task-tab::after {
@@ -58,18 +61,18 @@
     width: calc(100% - 24px);
     height: 3px;
     border-radius: 999px;
-    background: #1E3A5F;
+    background: var(--primary);
     transform: translateX(-50%) scaleX(0);
     transform-origin: center;
     transition: transform 200ms ease;
 }
 
 .daily-task-tab:hover {
-    color: #475569;
+    color: var(--text-secondary);
 }
 
 .daily-task-tab.is-active {
-    color: #1E3A5F;
+    color: var(--primary);
 }
 
 .daily-task-tab.is-active::after {
@@ -92,7 +95,7 @@
     min-width: 18px;
     height: 18px;
     border-radius: 999px;
-    background: #EF4444;
+    background: var(--hot);
     color: #FFFFFF;
     display: inline-flex;
     align-items: center;
@@ -100,7 +103,7 @@
     font-size: 0.62rem;
     padding: 0 4px;
     font-weight: 800;
-    border: 2px solid #F8FAFC;
+    border: 2px solid var(--bg-dark);
     box-sizing: border-box;
 }
 
@@ -114,7 +117,6 @@
     font-weight: 700;
 }
 
-/* Spacer to push content below fixed tab bar */
 .dt-tab-spacer {
     height: 80px;
     margin-bottom: 0;
@@ -175,7 +177,7 @@
 .dt-search-icon {
     position: absolute;
     left: 12px;
-    color: #94A3B8;
+    color: var(--text-muted);
     pointer-events: none;
     flex-shrink: 0;
 }
@@ -183,10 +185,10 @@
 .dt-search-input {
     width: 100%;
     padding: 10px 36px 10px 36px;
-    border: 1.5px solid #E5E7EB;
+    border: 1.5px solid var(--border-color);
     border-radius: 12px;
-    background: #FFFFFF;
-    color: #1E3A5F;
+    background: var(--bg-card);
+    color: var(--text-primary);
     font-size: 0.875rem;
     font-family: inherit;
     outline: none;
@@ -194,12 +196,12 @@
 }
 
 .dt-search-input:focus {
-    border-color: #1E3A5F;
-    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.07);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
 .dt-search-input::placeholder {
-    color: #94A3B8;
+    color: var(--text-muted);
 }
 
 .dt-search-clear {
@@ -211,17 +213,17 @@
     width: 22px;
     height: 22px;
     border: none;
-    background: #E5E7EB;
+    background: var(--border-color);
     border-radius: 50%;
-    color: #6B7280;
+    color: var(--text-muted);
     cursor: pointer;
     padding: 0;
     transition: background 120ms ease;
 }
 
 .dt-search-clear:hover {
-    background: #CBD5E1;
-    color: #374151;
+    background: var(--bg-input);
+    color: var(--text-secondary);
 }
 
 /* ── Empty States ─────────────────────────────────────────────────── */
@@ -250,25 +252,20 @@
 .dt-empty-title {
     font-size: 0.9375rem;
     font-weight: 600;
-    color: #1E3A5F;
+    color: var(--primary);
     line-height: 1.4;
 }
 
 .dt-empty-desc {
     font-size: 0.8125rem;
-    color: #94A3B8;
+    color: var(--text-muted);
     max-width: 280px;
     line-height: 1.5;
 }
 
 @keyframes dtSpin {
-    from {
-        transform: rotate(0deg);
-    }
-
-    to {
-        transform: rotate(360deg);
-    }
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
 }
 
 .dt-spin {
@@ -283,62 +280,35 @@
     gap: 14px;
 }
 
-@media (min-width: 768px) {
-    .dt-task-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (min-width: 1280px) {
-    .dt-task-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
+@media (min-width: 768px)  { .dt-task-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1280px) { .dt-task-grid { grid-template-columns: repeat(3, 1fr); } }
 
 /* ── Task Card ────────────────────────────────────────────────────── */
 
 .dt-card {
-    background: #FFFFFF;
-    border: 1px solid #E5E7EB;
-    border-left: 4px solid #E5E7EB;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--border-color);
     border-radius: 14px;
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    box-shadow: 0 1px 3px rgba(30, 58, 95, 0.04);
+    box-shadow: var(--shadow-sm);
     transition: box-shadow 150ms ease, border-color 150ms ease;
 }
 
 .dt-card:hover {
-    box-shadow: 0 4px 12px rgba(30, 58, 95, 0.08);
+    box-shadow: var(--shadow-md);
 }
 
-.dt-card-overdue {
-    border-left-color: #EF4444;
-}
+.dt-card-overdue   { border-left-color: var(--hot); }
+.dt-card-new       { border-left-color: var(--cold); }
+.dt-card-followup  { border-left-color: var(--purple); }
+.dt-card-deadline  { border-left-color: var(--danger); }
+.dt-card-appt      { border-left-color: var(--success); }
+.dt-card-hot       { border-left-color: var(--warm); }
 
-.dt-card-new {
-    border-left-color: #0EA5E9;
-}
-
-.dt-card-followup {
-    border-left-color: #7C3AED;
-}
-
-.dt-card-deadline {
-    border-left-color: #DC2626;
-}
-
-.dt-card-appt {
-    border-left-color: #16A34A;
-}
-
-.dt-card-hot {
-    border-left-color: #F97316;
-}
-
-/* header row */
 .dt-card-header {
     display: flex;
     align-items: flex-start;
@@ -354,7 +324,7 @@
 .dt-card-name {
     font-size: 0.9375rem;
     font-weight: 700;
-    color: #1E3A5F;
+    color: var(--primary);
     line-height: 1.3;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -363,7 +333,7 @@
 
 .dt-card-phone {
     font-size: 0.8125rem;
-    color: #64748B;
+    color: var(--text-secondary);
     margin-top: 2px;
 }
 
@@ -375,14 +345,13 @@
     flex-shrink: 0;
 }
 
-/* meta grid */
 .dt-meta-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
     gap: 6px 12px;
     padding: 10px 0;
-    border-top: 1px solid #F1F5F9;
-    border-bottom: 1px solid #F1F5F9;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .dt-meta-item {
@@ -390,7 +359,7 @@
     align-items: center;
     gap: 6px;
     font-size: 0.8rem;
-    color: #64748B;
+    color: var(--text-secondary);
     min-width: 0;
     overflow: hidden;
 }
@@ -398,7 +367,7 @@
 .dt-meta-item svg {
     width: 13px;
     height: 13px;
-    color: #94A3B8;
+    color: var(--text-muted);
     flex-shrink: 0;
 }
 
@@ -417,18 +386,18 @@
     font-weight: 600;
     padding: 8px 10px;
     border-radius: 8px;
-    background: #FEF9C3;
-    color: #92400E;
+    background: var(--warm-bg);
+    color: var(--warm);
 }
 
 .dt-urgency-overdue {
-    background: #FEE2E2;
-    color: #991B1B;
+    background: var(--danger-bg);
+    color: var(--danger);
 }
 
 .dt-urgency-ok {
-    background: #F0FDF4;
-    color: #166534;
+    background: var(--success-bg);
+    color: var(--success);
 }
 
 .dt-urgency svg {
@@ -437,14 +406,13 @@
     flex-shrink: 0;
 }
 
-/* followup hint */
 .dt-followup-hint {
     font-size: 0.8125rem;
-    color: #64748B;
+    color: var(--text-secondary);
     padding: 8px 10px;
-    background: #F8FAFC;
+    background: var(--bg-input);
     border-radius: 8px;
-    border: 1px solid #E5E7EB;
+    border: 1px solid var(--border-color);
     line-height: 1.5;
 }
 
@@ -462,10 +430,10 @@
     gap: 8px;
     width: 100%;
     padding: 11px 16px;
-    border: 1.5px dashed #CBD5E1;
+    border: 1.5px dashed var(--border-color);
     border-radius: 10px;
-    background: #F8FAFC;
-    color: #475569;
+    background: var(--bg-input);
+    color: var(--text-secondary);
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
@@ -474,16 +442,16 @@
 }
 
 .dt-upload-btn:hover {
-    border-color: #1E3A5F;
-    background: #EEF3F9;
-    color: #1E3A5F;
+    border-color: var(--primary);
+    background: var(--bg-card-hover);
+    color: var(--primary);
 }
 
 .dt-upload-btn.has-file {
     border-style: solid;
-    border-color: #93C5FD;
-    background: #EFF6FF;
-    color: #1D4ED8;
+    border-color: var(--cold);
+    background: var(--info-bg);
+    color: var(--cold);
 }
 
 .dt-upload-btn svg {
@@ -497,11 +465,10 @@
     max-height: 200px;
     object-fit: cover;
     border-radius: 10px;
-    border: 1px solid #E5E7EB;
+    border: 1px solid var(--border-color);
     display: block;
 }
 
-/* status select wrapper */
 .dt-status-wrap {
     display: flex;
     flex-direction: column;
@@ -511,11 +478,10 @@
 .dt-status-label {
     font-size: 0.8rem;
     font-weight: 600;
-    color: #475569;
+    color: var(--text-secondary);
     letter-spacing: 0.01em;
 }
 
-/* submit actions */
 .dt-actions {
     margin-top: 2px;
 }
@@ -524,7 +490,6 @@
     width: 100%;
 }
 
-/* deadline actions */
 .dt-deadline-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;

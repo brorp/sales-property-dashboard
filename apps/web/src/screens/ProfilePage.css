@@ -1,4 +1,4 @@
-/* ── ProfilePage — Navy/light theme ─────────────────────────────────── */
+/* ── ProfilePage ─────────────────────────────────────────────────────── */
 
 @media (max-width: 1023px) {
     .pf-page .app-header {
@@ -6,14 +6,41 @@
     }
 }
 
-.pf-page {
-    background: #F8FAFC;
-    --bg-app: rgba(248, 250, 252, 0.96);
+html[data-theme="light"] .pf-page {
+    --bg-app: #F8FAFC;
+    --bg-dark: #F8FAFC;
+    --bg-card: #FFFFFF;
+    --bg-input: #F3F4F6;
+    --bg-card-hover: #F9FAFB;
     --border-color: #E5E7EB;
     --text-primary: #0F172A;
     --text-secondary: #374151;
     --text-muted: #9CA3AF;
     --primary: #1E3A5F;
+    --primary-dark: #162d4a;
+    --primary-glow: rgba(30, 58, 95, 0.08);
+    --danger-bg: #FEE2E2;
+    --danger: #DC2626;
+}
+
+html[data-theme="dark"] .pf-page {
+    --bg-dark: #0F172A;
+    --bg-card: #1E293B;
+    --bg-card-hover: #263348;
+    --bg-input: #162032;
+    --border-color: rgba(255,255,255,0.08);
+    --text-primary: #F1F5F9;
+    --text-secondary: #94A3B8;
+    --text-muted: #64748B;
+    --primary: #4A90D9;
+    --primary-dark: #2E6FAB;
+    --primary-glow: rgba(74, 144, 217, 0.15);
+    --danger: #FB7185;
+    --danger-bg: rgba(251, 113, 133, 0.12);
+}
+
+.pf-page {
+    background: var(--bg-dark);
 }
 
 /* ── Profile card ───────────────────────────────────────────────────── */
@@ -23,15 +50,14 @@
     flex-direction: column;
     align-items: center;
     text-align: center;
-    background: #FFFFFF;
-    border: 1.5px solid #E5E7EB;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-color);
     border-radius: 20px;
     padding: 28px 20px 24px;
     margin-bottom: 16px;
     gap: 6px;
-    box-shadow: 0 1px 4px rgba(30, 58, 95, 0.05);
+    box-shadow: var(--shadow-sm);
 }
-
 
 .pf-info {
     display: flex;
@@ -43,31 +69,31 @@
 .pf-name {
     font-size: 1.125rem;
     font-weight: 700;
-    color: #0F172A;
+    color: var(--text-primary);
     margin: 0;
 }
 
 .pf-email {
     font-size: 0.8125rem;
-    color: #6B7280;
+    color: var(--text-muted);
     margin: 0;
 }
 
 .pf-workspace {
     font-size: 0.775rem;
-    color: #94A3B8;
+    color: var(--text-muted);
     margin: 0;
 }
 
 /* ── Menu list ──────────────────────────────────────────────────────── */
 
 .pf-menu-list {
-    background: #FFFFFF;
-    border: 1.5px solid #E5E7EB;
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-color);
     border-radius: 16px;
     overflow: hidden;
     margin-bottom: 20px;
-    box-shadow: 0 1px 4px rgba(30, 58, 95, 0.05);
+    box-shadow: var(--shadow-sm);
 }
 
 .pf-menu-item {
@@ -75,10 +101,10 @@
     align-items: center;
     gap: 12px;
     padding: 13px 16px;
-    background: #FFFFFF;
+    background: var(--bg-card);
     border: none;
-    border-bottom: 1px solid #F1F5F9;
-    color: #1E3A5F;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
     font-size: 0.9rem;
     font-weight: 500;
     cursor: pointer;
@@ -93,20 +119,20 @@
 }
 
 .pf-menu-item:hover {
-    background: #F8FAFC;
+    background: var(--bg-input);
 }
 
 .pf-menu-item:active {
-    background: #EEF3F9;
+    background: var(--bg-card-hover);
 }
 
 .pf-menu-item--danger {
-    color: #DC2626;
+    color: var(--danger);
 }
 
 .pf-menu-item--danger .pf-menu-icon {
-    background: #FEF2F2;
-    color: #DC2626;
+    background: var(--danger-bg);
+    color: var(--danger);
 }
 
 .pf-menu-icon {
@@ -117,8 +143,8 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    background: #EFF6FF;
-    color: #1E3A5F;
+    background: var(--bg-input);
+    color: var(--primary);
 }
 
 .pf-menu-label {
@@ -126,12 +152,12 @@
 }
 
 .pf-menu-arrow {
-    color: #CBD5E1;
+    color: var(--text-muted);
     display: flex;
     align-items: center;
 }
 
-/* ── Mobile-only nav shortcuts (hidden on desktop where sidebar shows) ─ */
+/* ── Mobile-only nav shortcuts ──────────────────────────────────────── */
 
 .pf-menu-mobile-only {
     margin-bottom: 20px;
@@ -143,11 +169,12 @@
     }
 }
 
+
 /* ── Version ────────────────────────────────────────────────────────── */
 
 .pf-version {
     text-align: center;
     font-size: 0.75rem;
-    color: #CBD5E1;
+    color: var(--text-muted);
     margin: 0;
 }

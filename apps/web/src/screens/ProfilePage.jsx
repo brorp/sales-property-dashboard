@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
+import { useTheme } from '../context/ThemeContext';
 import Header from '../components/Header';
 import UserAvatar from '../components/UserAvatar';
 import './ProfilePage.css';
@@ -96,6 +97,21 @@ const IconChevron = () => (
     </svg>
 );
 
+const IconSun = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+        <line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" />
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+    </svg>
+);
+
+const IconMoon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+);
+
 function MenuItem({ icon, label, onClick, danger = false, iconColor }) {
     return (
         <button className={`pf-menu-item${danger ? ' pf-menu-item--danger' : ''}`} onClick={onClick}>
@@ -111,12 +127,9 @@ function MenuItem({ icon, label, onClick, danger = false, iconColor }) {
 export default function ProfilePage() {
     const { user, logout, isAdmin, getRoleLabel } = useAuth();
     const tenant = useTenant();
+    const { theme, setTheme } = useTheme();
     const router = useRouter();
 
-    useEffect(() => {
-        document.body.classList.add('light-page');
-        return () => document.body.classList.remove('light-page');
-    }, []);
 
     const handleLogout = () => { logout(); router.replace('/login'); };
 
@@ -152,6 +165,22 @@ export default function ProfilePage() {
             <div className="pf-menu-list">
                 <MenuItem icon={<IconUser />} label="Ubah Profil" onClick={() => router.push('/settings/profile')} iconColor="#1E3A5F" />
 
+                <button
+                    type="button"
+                    className="pf-menu-item"
+                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                >
+                    <span className="pf-menu-icon" style={{ background: '#6366F11a', color: '#6366F1' }}>
+                        {theme === 'dark' ? <IconSun /> : <IconMoon />}
+                    </span>
+                    <span className="pf-menu-label">{theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}</span>
+                    <span className="tt-track">
+                        <span className="tt-thumb" />
+                        <span className="tt-icon tt-sun"><IconSun /></span>
+                        <span className="tt-icon tt-moon"><IconMoon /></span>
+                    </span>
+                </button>
+
                 {canManageDistribution ? (
                     <MenuItem icon={<IconRefresh />} label="Distribution Order" onClick={() => router.push('/settings/distribution-order')} iconColor="#0EA5E9" />
                 ) : null}
@@ -181,9 +210,13 @@ export default function ProfilePage() {
                 ) : null}
 
                 {canSeeLogs ? (
-                    <MenuItem icon={<IconFileText />} label="Activity Logs" onClick={() => router.push('/activity-logs')} iconColor="#0EA5E9" />
+                    <div className="pf-menu-mobile-only">
+                        <MenuItem icon={<IconFileText />} label="Activity Logs" onClick={() => router.push('/activity-logs')} iconColor="#0EA5E9" />
+                    </div>
                 ) : null}
-                <MenuItem icon={<IconAlertTriangle />} label="Penalty" onClick={() => router.push('/penalties')} iconColor="#F97316" />
+                <div className="pf-menu-mobile-only">
+                    <MenuItem icon={<IconAlertTriangle />} label="Penalty" onClick={() => router.push('/penalties')} iconColor="#F97316" />
+                </div>
 
                 <MenuItem icon={<IconLogOut />} label="Keluar" onClick={handleLogout} danger />
             </div>

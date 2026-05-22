@@ -1,5 +1,39 @@
 /* ── SelectFilter ────────────────────────────────────────────────────── */
 
+html[data-theme="light"] .sf-wrap {
+    --sf-trigger-bg:       #F0F5FB;
+    --sf-trigger-border:   #DCE8F5;
+    --sf-trigger-hover-bg: #E0EBF8;
+    --sf-trigger-open-bg:  #FFFFFF;
+    --sf-active-bg:        #EEF3F9;
+    --sf-active-color:     #1E3A5F;
+    --sf-label-color:      #64748B;
+    --sf-chevron-color:    #94A3B8;
+    --sf-dropdown-bg:      #FFFFFF;
+    --sf-option-hover-bg:  #F0F5FB;
+    --sf-option-sel-bg:    #EEF3F9;
+    --sf-glow:             rgba(30, 58, 95, 0.08);
+    --sf-border-focus:     #93C5FD;
+    --sf-clear-bg:         #CBD5E1;
+}
+
+html[data-theme="dark"] .sf-wrap {
+    --sf-trigger-bg:       var(--bg-card);
+    --sf-trigger-border:   var(--border-color);
+    --sf-trigger-hover-bg: var(--bg-card-hover);
+    --sf-trigger-open-bg:  var(--bg-card);
+    --sf-active-bg:        var(--info-bg);
+    --sf-active-color:     var(--primary);
+    --sf-label-color:      var(--text-secondary);
+    --sf-chevron-color:    var(--text-muted);
+    --sf-dropdown-bg:      var(--bg-surface);
+    --sf-option-hover-bg:  var(--bg-card-hover);
+    --sf-option-sel-bg:    var(--info-bg);
+    --sf-glow:             var(--primary-glow);
+    --sf-border-focus:     var(--primary-light);
+    --sf-clear-bg:         var(--text-muted);
+}
+
 .sf-wrap {
     position: relative;
     min-width: 0;
@@ -14,8 +48,8 @@
     width: 100%;
     height: 38px;
     padding: 0 12px;
-    background: #F9FAFB;
-    border: 1px solid #E5E7EB;
+    background: var(--sf-trigger-bg);
+    border: 1px solid var(--sf-trigger-border);
     border-radius: 10px;
     cursor: pointer;
     transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
@@ -26,8 +60,8 @@
 }
 
 .sf-trigger:hover:not(:disabled) {
-    border-color: #CBD5E1;
-    background: #F1F5F9;
+    border-color: var(--sf-border-focus);
+    background: var(--sf-trigger-hover-bg);
 }
 
 .sf-wrap.is-disabled {
@@ -36,30 +70,30 @@
 }
 
 .sf-trigger:focus-visible {
-    border-color: #93C5FD;
-    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.08);
+    border-color: var(--sf-border-focus);
+    box-shadow: 0 0 0 3px var(--sf-glow);
 }
 
 .sf-wrap.is-open .sf-trigger {
-    border-color: #93C5FD;
-    background: #FFFFFF;
-    box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.06);
+    border-color: var(--sf-border-focus);
+    background: var(--sf-trigger-open-bg);
+    box-shadow: 0 0 0 3px var(--sf-glow);
 }
 
 .sf-wrap.is-active .sf-trigger {
-    border-color: #BFDBFE;
-    background: #EFF6FF;
+    border-color: var(--sf-active-color);
+    background: var(--sf-active-bg);
 }
 
 .sf-wrap.is-active.is-open .sf-trigger {
-    background: #FFFFFF;
+    background: var(--sf-trigger-open-bg);
 }
 
 .sf-label {
     flex: 1;
     font-size: 0.875rem;
     font-weight: 500;
-    color: #6B7280;
+    color: var(--sf-label-color);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -68,7 +102,7 @@
 }
 
 .sf-wrap.is-active .sf-label {
-    color: #1E3A5F;
+    color: var(--sf-active-color);
     font-weight: 600;
 }
 
@@ -83,7 +117,7 @@
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: #CBD5E1;
+    background: var(--sf-clear-bg);
     border: none;
     color: #FFFFFF;
     display: flex;
@@ -96,11 +130,11 @@
 }
 
 .sf-clear:hover {
-    background: #DC2626;
+    background: var(--danger);
 }
 
 .sf-chevron {
-    color: #9CA3AF;
+    color: var(--sf-chevron-color);
     display: flex;
     align-items: center;
     transition: transform 200ms ease, color 200ms ease;
@@ -108,42 +142,42 @@
 }
 
 .sf-wrap.is-active .sf-chevron {
-    color: #1E3A5F;
+    color: var(--sf-active-color);
 }
 
 .sf-wrap.is-open .sf-chevron {
     transform: rotate(180deg);
-    color: #1E3A5F;
+    color: var(--sf-active-color);
 }
 
 /* ── White variant ──────────────────────────────────────────────────── */
 
 .sf-wrap--white .sf-trigger {
-    background: #FFFFFF;
+    background: var(--sf-trigger-open-bg);
 }
 
 .sf-wrap--white .sf-trigger:hover:not(:disabled) {
-    background: #F9FAFB;
+    background: var(--sf-trigger-hover-bg);
 }
 
 .sf-wrap.sf-wrap--white.is-active .sf-trigger,
 .sf-wrap.sf-wrap--white.is-active.is-open .sf-trigger {
-    background: #FFFFFF;
-    border-color: #E5E7EB;
+    background: var(--sf-trigger-open-bg);
+    border-color: var(--sf-trigger-border);
 }
 
 .sf-wrap.sf-wrap--white.is-open .sf-trigger {
-    border-color: #D1D5DB;
-    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.04);
+    border-color: var(--sf-border-focus);
+    box-shadow: 0 0 0 3px var(--sf-glow);
 }
 
 /* ── Dropdown ───────────────────────────────────────────────────────── */
 
 .sf-dropdown {
-    background: #FFFFFF;
-    border: 1.5px solid #E5E7EB;
+    background: var(--sf-dropdown-bg);
+    border: 1.5px solid var(--sf-trigger-border);
     border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(30, 58, 95, 0.12), 0 2px 8px rgba(30, 58, 95, 0.06);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24), 0 2px 8px rgba(0, 0, 0, 0.12);
     z-index: 200;
     overflow-y: auto;
     animation: sfDropIn 150ms ease;
@@ -169,7 +203,7 @@
     padding: 10px 14px;
     font-size: 0.875rem;
     font-weight: 500;
-    color: #374151;
+    color: var(--text-secondary);
     background: transparent;
     border: none;
     cursor: pointer;
@@ -181,13 +215,13 @@
 }
 
 .sf-option:hover {
-    background: #F8FAFC;
-    color: #1E3A5F;
+    background: var(--sf-option-hover-bg);
+    color: var(--sf-active-color);
 }
 
 .sf-option.is-selected {
-    background: #EFF6FF;
-    color: #1E3A5F;
+    background: var(--sf-option-sel-bg);
+    color: var(--sf-active-color);
     font-weight: 600;
 }
 
@@ -201,7 +235,7 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    background: #1E3A5F;
+    background: var(--sf-active-color);
     color: #FFFFFF;
     display: flex;
     align-items: center;
@@ -210,6 +244,6 @@
 
 .sf-divider {
     height: 1px;
-    background: #F1F5F9;
+    background: var(--sf-trigger-border);
     margin: 0;
 }

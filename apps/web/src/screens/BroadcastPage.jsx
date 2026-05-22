@@ -65,11 +65,6 @@ export default function BroadcastPage() {
     const [broadcastEstimate, setBroadcastEstimate] = useState(null);
     const mediaInputRef = useRef(null);
 
-    useEffect(() => {
-        document.body.classList.add('light-page');
-        return () => document.body.classList.remove('light-page');
-    }, []);
-
     const buildBroadcastPayload = useCallback((includeContent = true) => {
         const salesStatuses = Object.entries(broadcastForm.statuses)
             .filter(([, checked]) => checked)

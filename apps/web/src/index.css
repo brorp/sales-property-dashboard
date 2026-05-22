@@ -2,42 +2,42 @@
 
 :root {
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    --primary: #7C3AED;
-    --primary-dark: #6D28D9;
-    --primary-light: #8B5CF6;
-    --primary-glow: rgba(124, 58, 237, 0.24);
-    --bg-dark: #0A0815;
-    --bg-card: #18142A;
-    --bg-card-hover: #221B3A;
-    --bg-input: #25203A;
-    --bg-surface: #120F23;
-    --text-primary: #F8F7FF;
-    --text-secondary: #B8B3D1;
-    --text-muted: #8B86A4;
+    --primary: #4A90D9;
+    --primary-dark: #2E6FAB;
+    --primary-light: #6BAEE8;
+    --primary-glow: rgba(74, 144, 217, 0.15);
+    --bg-dark: #0F172A;
+    --bg-card: #1E293B;
+    --bg-card-hover: #263348;
+    --bg-input: #162032;
+    --bg-surface: #1E293B;
+    --text-primary: #F1F5F9;
+    --text-secondary: #94A3B8;
+    --text-muted: #64748B;
     --text-on-primary: #FFFFFF;
     --hot: #F87171;
-    --hot-bg: rgba(248, 113, 113, 0.16);
-    --warm: #F59E0B;
-    --warm-bg: rgba(245, 158, 11, 0.16);
+    --hot-bg: rgba(248, 113, 113, 0.12);
+    --warm: #FBBF24;
+    --warm-bg: rgba(251, 191, 36, 0.12);
     --cold: #60A5FA;
-    --cold-bg: rgba(96, 165, 250, 0.16);
+    --cold-bg: rgba(96, 165, 250, 0.12);
     --info: #60A5FA;
-    --info-bg: rgba(96, 165, 250, 0.16);
+    --info-bg: rgba(96, 165, 250, 0.10);
     --survey: #2DD4BF;
-    --survey-bg: rgba(45, 212, 191, 0.16);
+    --survey-bg: rgba(45, 212, 191, 0.12);
     --success: #34D399;
-    --success-bg: rgba(52, 211, 153, 0.16);
+    --success-bg: rgba(52, 211, 153, 0.12);
     --danger: #FB7185;
-    --danger-bg: rgba(251, 113, 133, 0.16);
+    --danger-bg: rgba(251, 113, 133, 0.12);
     --purple: #A78BFA;
-    --purple-bg: rgba(167, 139, 250, 0.16);
+    --purple-bg: rgba(167, 139, 250, 0.12);
     --border: rgba(255, 255, 255, 0.08);
-    --border-light: rgba(255, 255, 255, 0.05);
+    --border-light: rgba(255, 255, 255, 0.04);
     --border-color: var(--border);
-    --shadow-sm: 0 4px 14px rgba(4, 3, 10, 0.2);
-    --shadow-md: 0 10px 28px rgba(4, 3, 10, 0.28);
-    --shadow-lg: 0 18px 44px rgba(4, 3, 10, 0.36);
-    --shadow-glow: 0 0 20px rgba(124, 58, 237, 0.25);
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.20);
+    --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.28);
+    --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.36);
+    --shadow-glow: 0 0 20px rgba(74, 144, 217, 0.20);
     --nav-height: 64px;
     --bottom-nav-height: 72px;
     --radius-sm: 8px;
@@ -49,6 +49,56 @@
     --transition-normal: 250ms ease;
     --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+/* ── Light theme ────────────────────────────────────────────────────── */
+
+html[data-theme="light"] {
+    color-scheme: light;
+    --primary: #7C3AED;
+    --primary-dark: #6D28D9;
+    --primary-light: #8B5CF6;
+    --primary-glow: rgba(124, 58, 237, 0.14);
+    --bg-dark: #F1F5F9;
+    --bg-card: #FFFFFF;
+    --bg-card-hover: #F8FAFC;
+    --bg-input: #F3F4F6;
+    --bg-surface: #FFFFFF;
+    --text-primary: #111827;
+    --text-secondary: #374151;
+    --text-muted: #9CA3AF;
+    --text-on-primary: #FFFFFF;
+    --hot: #EF4444;
+    --hot-bg: rgba(239, 68, 68, 0.09);
+    --warm: #D97706;
+    --warm-bg: rgba(217, 119, 6, 0.09);
+    --cold: #2563EB;
+    --cold-bg: rgba(37, 99, 235, 0.09);
+    --info: #2563EB;
+    --info-bg: rgba(37, 99, 235, 0.09);
+    --survey: #0D9488;
+    --survey-bg: rgba(13, 148, 136, 0.09);
+    --success: #16A34A;
+    --success-bg: rgba(22, 163, 74, 0.09);
+    --green: #16A34A;
+    --danger: #DC2626;
+    --danger-bg: rgba(220, 38, 38, 0.09);
+    --purple: #7C3AED;
+    --purple-bg: rgba(124, 58, 237, 0.09);
+    --border: #E5E7EB;
+    --border-light: #F3F4F6;
+    --border-color: #E5E7EB;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.07), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.04);
+    --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
+    --shadow-glow: 0 0 20px rgba(124, 58, 237, 0.12);
+}
+
+html[data-theme="light"] body {
+    background-color: #F1F5F9;
+    background-image: none;
+}
+
+/* ── Dark theme (default) ────────────────────────────────────────────── */
 
 * {
     box-sizing: border-box;
@@ -65,16 +115,12 @@ html {
 body {
     font-family: var(--font-sans);
     background-color: var(--bg-dark);
-    background-image:
-        radial-gradient(820px 360px at 12% -8%, rgba(139, 92, 246, 0.18), transparent 58%),
-        radial-gradient(620px 300px at 100% 4%, rgba(30, 27, 75, 0.4), transparent 64%),
-        linear-gradient(180deg, #0c0a19 0%, #0a0815 52%, #080713 100%);
+    background-image: none;
     color: var(--text-primary);
     line-height: 1.6;
     overflow-x: hidden;
     min-height: 100vh;
     min-height: 100dvh;
-    background-attachment: fixed;
 }
 
 a {
@@ -1103,4 +1149,76 @@ body.light-page .btn-primary:hover {
 ::-webkit-scrollbar-thumb {
     background: var(--text-muted);
     border-radius: 999px;
+}
+
+/* ── Theme Toggle (sun/moon pill) ─────────────────────────────────────── */
+
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.tt-track {
+    position: relative;
+    width: 54px;
+    height: 28px;
+    border-radius: 999px;
+    background: var(--bg-input);
+    border: 1.5px solid var(--border-color);
+    transition: background 200ms ease, border-color 200ms ease;
+}
+
+.tt-thumb {
+    position: absolute;
+    top: 2px;
+    left: 28px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--primary);
+    transition: left 200ms cubic-bezier(0.4, 0, 0.2, 1), background 200ms ease;
+    z-index: 0;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+html[data-theme="light"] .tt-thumb {
+    left: 2px;
+    background: #1E3A5F;
+}
+
+.tt-icon {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    transition: color 200ms ease;
+}
+
+.tt-sun {
+    left: 2px;
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.tt-moon {
+    right: 2px;
+    color: #fff;
+}
+
+html[data-theme="light"] .tt-sun {
+    color: #fff;
+}
+
+html[data-theme="light"] .tt-moon {
+    color: var(--text-muted);
 }

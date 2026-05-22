@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkspace } from '../context/WorkspaceContext';
 
-export default function Header({ title, mobileTitle = null, subtitle = null, showBack = false, rightAction = null, showWorkspaceMobile = false, hasTabs = false }) {
+export default function Header({ title, mobileTitle = null, subtitle = null, showBack = false, backMobileOnly = false, rightAction = null, showWorkspaceMobile = false, hasTabs = false }) {
     const router = useRouter();
     const { workspaces, activeWorkspace, switchWorkspace } = useWorkspace();
     const [wsOpen, setWsOpen] = useState(false);
@@ -16,7 +16,7 @@ export default function Header({ title, mobileTitle = null, subtitle = null, sho
             <header className={`app-header${hasTabs ? ' app-header--has-tabs' : ''}`}>
                 <div className="app-header-left">
                     {showBack && (
-                        <button className="app-header-back" onClick={() => router.back()} aria-label="Kembali">
+                        <button className={`app-header-back${backMobileOnly ? ' app-header-title--mobile-only' : ''}`} onClick={() => router.back()} aria-label="Kembali">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                 <polyline points="15 18 9 12 15 6" />
                             </svg>

@@ -65,11 +65,6 @@ export default function AppointmentsPage() {
     const resetAllFilters = () => { setSearch(''); setTagFilter(''); setSalesFilter(''); };
     const activeFilterCount = [tagFilter !== '', Boolean(salesFilter)].filter(Boolean).length;
 
-    useEffect(() => {
-        document.body.classList.add('light-page');
-        return () => document.body.classList.remove('light-page');
-    }, []);
-
     usePagePolling({
         enabled: Boolean(user),
         intervalMs: 3000,

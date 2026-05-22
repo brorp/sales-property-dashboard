@@ -22,7 +22,7 @@
 .overview-ws-name {
     font-size: 10px;
     font-weight: 700;
-    color: #9CA3AF;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.09em;
     line-height: 1;
@@ -40,7 +40,7 @@
 .overview-title {
     font-size: 17px;
     font-weight: 700;
-    color: #111827;
+    color: var(--text-primary);
     line-height: 1.15;
     letter-spacing: -0.02em;
 }
@@ -49,7 +49,7 @@
     font-size: 12px;
     font-weight: 500;
     color: #fff;
-    background: #2563EB;
+    background: var(--primary);
     border-radius: 5px;
     padding: 2px 7px;
     line-height: 1.5;
@@ -63,29 +63,29 @@
     width: 34px;
     height: 34px;
     border-radius: 10px;
-    border: 1.5px solid #E5E7EB;
-    background: #fff;
+    border: 1.5px solid var(--border-color);
+    background: var(--bg-card);
     cursor: pointer;
-    color: #374151;
-    transition: background 0.15s, border-color 0.15s;
+    color: var(--text-secondary);
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
     flex-shrink: 0;
 }
 
 .overview-filter-btn:active {
-    background: #F3F4F6;
+    background: var(--bg-card-hover);
 }
 
 .overview-filter-btn.is-active {
-    background: #EFF6FF;
-    border-color: #BFDBFE;
-    color: #2563EB;
+    background: var(--info-bg);
+    border-color: var(--primary);
+    color: var(--primary);
 }
 
 /* Backdrop */
 .overview-sheet-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.45);
     z-index: 200;
     animation: ovBackdropIn 0.2s ease;
 }
@@ -101,12 +101,12 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 16px 16px 0 0;
     padding: 8px 0 calc(env(safe-area-inset-bottom, 0px) + 16px);
     z-index: 201;
     animation: ovSheetUp 0.25s cubic-bezier(0.32, 0.72, 0, 1);
-    box-shadow: 0 -4px 24px rgba(0,0,0,0.12);
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.20);
     max-height: 70vh;
     overflow-y: auto;
 }
@@ -120,14 +120,14 @@
     width: 36px;
     height: 4px;
     border-radius: 2px;
-    background: #E5E7EB;
+    background: var(--border-color);
     margin: 0 auto 12px;
 }
 
 .overview-sheet-title {
     font-size: 13px;
     font-weight: 600;
-    color: #6B7280;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     padding: 0 20px 8px;
@@ -141,20 +141,27 @@
     padding: 13px 20px;
     background: none;
     border: none;
+    border-bottom: 1px solid var(--border-color);
     cursor: pointer;
     font-size: 15px;
     font-weight: 500;
-    color: #111827;
+    color: var(--text-secondary);
     text-align: left;
     transition: background 0.12s;
+    font-family: inherit;
+}
+
+.overview-sheet-item:last-child {
+    border-bottom: none;
 }
 
 .overview-sheet-item:active {
-    background: #F9FAFB;
+    background: var(--bg-card-hover);
 }
 
 .overview-sheet-item.active {
-    color: #2563EB;
+    color: var(--primary);
+    font-weight: 600;
 }
 
 .overview-sheet-item.active .overview-sheet-check {
@@ -165,7 +172,7 @@
     display: none;
     align-items: center;
     justify-content: center;
-    color: #2563EB;
+    color: var(--primary);
 }
 
 /* Desktop: right drawer */
@@ -177,6 +184,7 @@
         bottom: 0;
         width: 280px;
         border-radius: 0;
+        border-left: 1px solid var(--border-color);
         max-height: none;
         animation: ovDrawerIn 0.22s cubic-bezier(0.32, 0.72, 0, 1);
         padding: 24px 0 24px;

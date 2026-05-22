@@ -1,11 +1,51 @@
 /* ── Bottom Nav — Mobile only (hidden on desktop) ────────────────────────── */
 
-/* ── Workspace Sheet ─────────────────────────────────────────────────────── */
+html[data-theme="light"] .bottom-nav-inner {
+    --bn-bg:            #FFFFFF;
+    --bn-border:        #E5E7EB;
+    --bn-tab-color:     #9CA3AF;
+    --bn-active-color:  #1E3A5F;
+    --bn-icon-bg:       #1E3A5F;
+    --bn-icon-ring:     #FFFFFF;
+    --bn-badge-ring:    #FFFFFF;
+}
+
+html[data-theme="dark"] .bottom-nav-inner {
+    --bn-bg:            var(--bg-card);
+    --bn-border:        var(--border-color);
+    --bn-tab-color:     var(--text-muted);
+    --bn-active-color:  var(--primary);
+    --bn-icon-bg:       var(--primary);
+    --bn-icon-ring:     var(--bg-card);
+    --bn-badge-ring:    var(--bg-card);
+}
+
+html[data-theme="light"] .ws-sheet {
+    --ws-bg:            #FFFFFF;
+    --ws-handle:        #E5E7EB;
+    --ws-title:         #94A3B8;
+    --ws-item-color:    #374151;
+    --ws-item-hover-bg: #F8FAFC;
+    --ws-item-active-bg:#EEF3F9;
+    --ws-item-active-color:#1E3A5F;
+}
+
+html[data-theme="dark"] .ws-sheet {
+    --ws-bg:            var(--bg-card);
+    --ws-handle:        var(--border-color);
+    --ws-title:         var(--text-muted);
+    --ws-item-color:    var(--text-secondary);
+    --ws-item-hover-bg: var(--bg-card-hover);
+    --ws-item-active-bg:var(--info-bg);
+    --ws-item-active-color:var(--primary);
+}
+
+/* ── Workspace Sheet ── */
 
 .ws-sheet-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.45);
     z-index: 300;
 }
 
@@ -14,29 +54,24 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background: #fff;
+    background: var(--ws-bg);
     border-radius: 16px 16px 0 0;
     z-index: 301;
     padding: 12px 16px;
     padding-bottom: max(20px, env(safe-area-inset-bottom));
-    box-shadow: 0 -4px 24px rgba(30, 58, 95, 0.12);
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.20);
     animation: wsSlideUp 0.22s ease-out;
 }
 
 @keyframes wsSlideUp {
-    from {
-        transform: translateY(100%);
-    }
-
-    to {
-        transform: translateY(0);
-    }
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
 }
 
 .ws-sheet-handle {
     width: 36px;
     height: 4px;
-    background: #E5E7EB;
+    background: var(--ws-handle);
     border-radius: 999px;
     margin: 0 auto 14px;
 }
@@ -45,7 +80,7 @@
     font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #94A3B8;
+    color: var(--ws-title);
     font-weight: 700;
     padding: 0 4px 10px;
 }
@@ -59,26 +94,27 @@
     border: none;
     border-radius: 10px;
     background: transparent;
-    color: #374151;
+    color: var(--ws-item-color);
     font-size: 0.9rem;
     font-weight: 500;
     cursor: pointer;
     font-family: inherit;
     text-align: left;
+    transition: background 150ms ease, color 150ms ease;
 }
 
 .ws-sheet-item:hover {
-    background: #F8FAFC;
-    color: #1E3A5F;
+    background: var(--ws-item-hover-bg);
+    color: var(--ws-item-active-color);
 }
 
 .ws-sheet-item.active {
-    background: #EEF3F9;
-    color: #1E3A5F;
+    background: var(--ws-item-active-bg);
+    color: var(--ws-item-active-color);
     font-weight: 600;
 }
 
-/* ── Bottom Bar ──────────────────────────────────────────────────────────── */
+/* ── Bottom Bar ── */
 
 .bottom-nav {
     position: fixed;
@@ -106,10 +142,10 @@
     padding: 0;
     gap: 0;
     height: 72px;
-    background: #FFFFFF;
-    border-top: 1px solid #E5E7EB;
+    background: var(--bn-bg);
+    border-top: 1px solid var(--bn-border);
     position: relative;
-    box-shadow: 0 -4px 16px rgba(30, 58, 95, 0.08);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.10);
 }
 
 .bottom-nav-curve {
@@ -130,7 +166,7 @@
     gap: 2px;
     flex: 1;
     position: relative;
-    color: #9CA3AF;
+    color: var(--bn-tab-color);
     transition: color 200ms ease;
     -webkit-tap-highlight-color: transparent;
     background: none;
@@ -147,7 +183,7 @@
 }
 
 .bottom-nav-tab.active {
-    color: #1E3A5F;
+    color: var(--bn-active-color);
 }
 
 .bottom-nav-icon {
@@ -158,16 +194,16 @@
     justify-content: center;
     flex-shrink: 0;
     border-radius: 50%;
-    color: #9CA3AF;
+    color: var(--bn-tab-color);
     position: relative;
     transition: all 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .bottom-nav-tab.active .bottom-nav-icon {
     transform: translateY(-12px) scale(1.2);
-    background: #1E3A5F;
+    background: var(--bn-icon-bg);
     color: #FFFFFF;
-    box-shadow: 0 8px 16px rgba(30, 58, 95, 0.3), 0 0 0 4px #FFFFFF;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.20), 0 0 0 4px var(--bn-icon-ring);
 }
 
 .bottom-nav-icon svg {
@@ -184,14 +220,14 @@
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
-    color: #9CA3AF;
+    color: var(--bn-tab-color);
     transition: color 200ms ease, font-weight 200ms ease, transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
     line-height: 1.25;
     padding-bottom: 2px;
 }
 
 .bottom-nav-tab.active .bottom-nav-label {
-    color: #1E3A5F;
+    color: var(--bn-active-color);
     font-weight: 700;
     transform: translateY(-6px);
 }
@@ -207,8 +243,8 @@
     width: 7px;
     height: 7px;
     border-radius: 999px;
-    background: #EF4444;
-    border: 1.5px solid #FFFFFF;
+    background: var(--hot);
+    border: 1.5px solid var(--bn-icon-ring);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
@@ -220,13 +256,13 @@
     height: 17px;
     padding: 0 4px;
     border-radius: 999px;
-    background: #EF4444;
+    background: var(--hot);
     color: #fff;
     font-size: 0.6rem;
     font-weight: 700;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1.5px solid #FFFFFF;
+    border: 1.5px solid var(--bn-badge-ring);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }

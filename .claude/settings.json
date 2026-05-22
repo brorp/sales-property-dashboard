@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(node -e \"const fs = require\\('fs'\\); const files = ['src/screens/DistributionOrderPage.jsx','src/screens/CancelReasonsPage.jsx','src/screens/UnitsPage.jsx','src/screens/LeadSourcesPage.jsx','src/screens/ReassignedLeadsPage.jsx','src/screens/ActivityLogsPage.jsx','src/screens/PenaltiesPage.jsx','src/screens/BroadcastPage.jsx']; files.forEach\\(f => { const c = fs.readFileSync\\(f,'utf8'\\); const opens = \\(c.match\\(/useEffect\\\\\\(\\\\\\(\\\\\\) => \\\\{/g\\)||[]\\).length; const closes = \\(c.match\\(/\\\\}, \\\\[\\\\]\\\\\\);/g\\)||[]\\).length; console.log\\(f.split\\('/'\\).pop\\(\\), 'useEffect opens:', opens, '}, []\\) closes:', closes\\); }\\);\")",
+      "Bash(node -e \"const fs = require\\('fs'\\); const files = ['apps/web/src/screens/DistributionOrderPage.jsx','apps/web/src/screens/CancelReasonsPage.jsx','apps/web/src/screens/ActivityLogsPage.jsx','apps/web/src/screens/PenaltiesPage.jsx','apps/web/src/screens/BroadcastPage.jsx']; files.forEach\\(f => { const c = fs.readFileSync\\(f,'utf8'\\); const opens = \\(c.match\\(/useEffect\\\\\\(/g\\)||[]\\).length; console.log\\(f.split\\('/'\\).pop\\(\\), '- useEffect calls:', opens\\); }\\);\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python3)",
+      "Bash(xargs ls)"
+    ]
+  }
+}

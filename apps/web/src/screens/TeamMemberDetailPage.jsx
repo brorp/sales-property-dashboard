@@ -42,11 +42,6 @@ export default function TeamMemberDetailPage({ memberId }) {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState('');
 
-    useEffect(() => {
-        document.body.classList.add('light-page');
-        return () => document.body.classList.remove('light-page');
-    }, []);
-
     const loadDetail = useCallback(async (options = { silent: false }) => {
         if (!user || !memberId) {
             setLoading(false);

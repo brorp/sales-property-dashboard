@@ -1,3 +1,31 @@
+/* ── App Header ──────────────────────────────────────────────────────── */
+
+html[data-theme="light"] .app-header {
+    --header-bg: rgba(255, 255, 255, 0.97);
+    --header-border: #E2EAF3;
+    --header-title: #1E3A5F;
+    --header-subtitle: #94A3B8;
+    --header-btn-bg: #F0F5FB;
+    --header-btn-border: #DCE8F5;
+    --header-btn-color: #1E3A5F;
+    --header-btn-hover-bg: #E0EBF8;
+    --header-btn-hover-border: #BFCFE8;
+    --header-tabs-bg: #F8FAFC;
+}
+
+html[data-theme="dark"] .app-header {
+    --header-bg: rgba(30, 41, 59, 0.97);
+    --header-border: rgba(255,255,255,0.08);
+    --header-title: #F1F5F9;
+    --header-subtitle: #64748B;
+    --header-btn-bg: rgba(255,255,255,0.06);
+    --header-btn-border: rgba(255,255,255,0.10);
+    --header-btn-color: #94A3B8;
+    --header-btn-hover-bg: rgba(255,255,255,0.10);
+    --header-btn-hover-border: rgba(255,255,255,0.16);
+    --header-tabs-bg: var(--bg-dark);
+}
+
 .app-header {
     display: flex;
     align-items: center;
@@ -8,17 +36,16 @@
     position: sticky;
     top: 0;
     z-index: 40;
-    background: rgba(255, 255, 255, 0.97);
+    background: var(--header-bg);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border-bottom: 1px solid #E2EAF3;
-    box-shadow: 0 1px 12px rgba(30, 58, 95, 0.07);
+    border-bottom: 1px solid var(--header-border);
+    box-shadow: var(--shadow-sm);
     margin: -16px -16px 20px;
     flex-shrink: 0;
 }
 
-
-/* Brand accent line at top */
+/* Brand accent line */
 .app-header::before {
     content: '';
     position: absolute;
@@ -47,7 +74,7 @@
 .app-header-title {
     font-size: 1.05rem;
     font-weight: 700;
-    color: #1E3A5F;
+    color: var(--header-title);
     letter-spacing: -0.02em;
     margin: 0;
     white-space: nowrap;
@@ -57,7 +84,7 @@
 
 .app-header-subtitle {
     font-size: 0.71rem;
-    color: #94A3B8;
+    color: var(--header-subtitle);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -71,17 +98,17 @@
     align-items: center;
     justify-content: center;
     border-radius: 10px;
-    color: #1E3A5F;
-    background: #F0F5FB;
-    border: 1px solid #DCE8F5;
+    color: var(--header-btn-color);
+    background: var(--header-btn-bg);
+    border: 1px solid var(--header-btn-border);
     cursor: pointer;
     flex-shrink: 0;
     transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
 }
 
 .app-header-back:hover {
-    background: #E0EBF8;
-    border-color: #BFCFE8;
+    background: var(--header-btn-hover-bg);
+    border-color: var(--header-btn-hover-border);
     transform: translateX(-1px);
 }
 
@@ -98,21 +125,19 @@
     gap: 8px;
 }
 
-/* WorkspaceSwitcher selalu tampil di dalam header, semua breakpoint */
 .app-header-ws .workspace-switcher--desktop {
     display: block;
 }
 
-/* Workspace button di header mobile */
 .app-header-ws-btn {
     display: flex;
     align-items: center;
     gap: 6px;
     padding: 7px 12px;
-    background: #F0F5FB;
-    border: 1px solid #DCE8F5;
+    background: var(--header-btn-bg);
+    border: 1px solid var(--header-btn-border);
     border-radius: 10px;
-    color: #1E3A5F;
+    color: var(--header-btn-color);
     cursor: pointer;
     flex-shrink: 0;
     max-width: 160px;
@@ -120,8 +145,8 @@
 }
 
 .app-header-ws-btn:hover {
-    background: #E0EBF8;
-    border-color: #BFCFE8;
+    background: var(--header-btn-hover-bg);
+    border-color: var(--header-btn-hover-border);
 }
 
 .app-header-ws-name {
@@ -133,23 +158,21 @@
 }
 
 @media (min-width: 1024px) {
-    .app-header-ws-btn {
-        display: none;
-    }
+    .app-header-ws-btn { display: none; }
 }
 
-.app-header-title--mobile-only { display: block; }
+.app-header-title--mobile-only  { display: block; }
 .app-header-title--desktop-only { display: none; }
 
 @media (min-width: 1024px) {
-    .app-header-title--mobile-only { display: none; }
+    .app-header-title--mobile-only  { display: none; }
     .app-header-title--desktop-only { display: block; }
 }
 
 .app-header--has-tabs {
     border-bottom: none;
     box-shadow: none;
-    background: #F8FAFC;
+    background: var(--header-tabs-bg);
     margin-bottom: 0;
 }
 

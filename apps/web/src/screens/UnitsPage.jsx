@@ -38,11 +38,6 @@ export default function UnitsPage() {
     const [unitToDelete, setUnitToDelete] = useState(null);
     const [deleting, setDeleting] = useState(false);
 
-    useEffect(() => {
-        document.body.classList.add('light-page');
-        return () => document.body.classList.remove('light-page');
-    }, []);
-
     const loadUnits = useCallback(async () => {
         if (!user) return;
         setError('');

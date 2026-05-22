@@ -417,3 +417,82 @@
     font-size: 0.75rem;
     color: #9CA3AF;
 }
+
+/* ── Theme Toggle Row ────────────────────────────────────────────────────── */
+
+.login-toggle-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+}
+
+/* ── Dark Mode ───────────────────────────────────────────────────────────── */
+
+html[data-theme="dark"] .login-container {
+    background: var(--bg-dark);
+}
+
+html[data-theme="dark"] .login-right {
+    background: var(--bg-card);
+    box-shadow: none;
+    border-left: 1px solid var(--border-color);
+}
+
+html[data-theme="dark"] .login-site-badge {
+    background: rgba(74, 144, 217, 0.12);
+    color: var(--primary);
+}
+
+html[data-theme="dark"] .login-body-title {
+    color: var(--text-primary);
+}
+
+html[data-theme="dark"] .login-body-subtitle {
+    color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .login-form .input-group label {
+    color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .login-form .input-field {
+    background: var(--bg-input);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+html[data-theme="dark"] .login-form .input-field::placeholder {
+    color: var(--text-muted);
+}
+
+html[data-theme="dark"] .login-form .input-field:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+html[data-theme="dark"] .login-form .input-icon {
+    color: var(--text-muted);
+}
+
+html[data-theme="dark"] .login-form .input-action {
+    color: var(--text-muted);
+}
+
+html[data-theme="dark"] .login-form .input-action:hover {
+    color: var(--primary);
+}
+
+html[data-theme="dark"] .login-error {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border-color: rgba(251, 113, 133, 0.3);
+}
+
+html[data-theme="dark"] .login-footer {
+    color: var(--text-muted);
+}
+
+html[data-theme="dark"] .login-toggle-row .tt-track {
+    background: var(--bg-input);
+    border-color: var(--border-color);
+}

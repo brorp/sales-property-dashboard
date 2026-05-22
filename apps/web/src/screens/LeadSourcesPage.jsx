@@ -38,11 +38,6 @@ export default function LeadSourcesPage() {
     const [sourceToDelete, setSourceToDelete] = useState(null);
     const [deleting, setDeleting] = useState(false);
 
-    useEffect(() => {
-        document.body.classList.add('light-page');
-        return () => document.body.classList.remove('light-page');
-    }, []);
-
     const loadSources = useCallback(async () => {
         if (!user) return;
         setError('');

@@ -206,11 +206,6 @@ export default function LeadsPage() {
     const [exportAccessCode, setExportAccessCode] = useState('');
     const [exportFilters, setExportFilters] = useState({ dateFrom: '', dateTo: '', flowStatuses: [], salesStatuses: [], hotValidatedOnly: false, appointmentTags: [], resultStatuses: [], salesIds: [] });
 
-    useEffect(() => {
-        document.body.classList.add('light-page');
-        return () => document.body.classList.remove('light-page');
-    }, []);
-
     const allLeads = getLeadsForUser(user.id, user.role);
     const salesUsers = getSalesUsers();
     const leadSources = getLeadSources();

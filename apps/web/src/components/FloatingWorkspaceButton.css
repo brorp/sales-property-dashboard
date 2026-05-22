@@ -1,3 +1,33 @@
+/* ── Floating Workspace Button (FAB) ─────────────────────────────────── */
+
+html[data-theme="light"] .ws-fab-dropdown {
+    --fab-dropdown-bg:      #FFFFFF;
+    --fab-dropdown-border:  #E5E7EB;
+    --fab-dropdown-shadow:  0 12px 40px rgba(30, 58, 95, 0.14), 0 2px 8px rgba(30, 58, 95, 0.06);
+    --fab-header-color:     #9CA3AF;
+    --fab-item-hover-bg:    #F8FAFC;
+    --fab-item-active-bg:   #EEF3F9;
+    --fab-item-dot:         #CBD5E1;
+    --fab-item-active-dot:  #1E3A5F;
+    --fab-item-color:       #374151;
+    --fab-item-active-color:#1E3A5F;
+    --fab-item-icon-color:  #1E3A5F;
+}
+
+html[data-theme="dark"] .ws-fab-dropdown {
+    --fab-dropdown-bg:      var(--bg-card);
+    --fab-dropdown-border:  var(--border-color);
+    --fab-dropdown-shadow:  0 12px 40px rgba(0, 0, 0, 0.40), 0 2px 8px rgba(0, 0, 0, 0.16);
+    --fab-header-color:     var(--text-muted);
+    --fab-item-hover-bg:    var(--bg-card-hover);
+    --fab-item-active-bg:   var(--info-bg);
+    --fab-item-dot:         var(--text-muted);
+    --fab-item-active-dot:  var(--primary);
+    --fab-item-color:       var(--text-secondary);
+    --fab-item-active-color:var(--primary);
+    --fab-item-icon-color:  var(--primary);
+}
+
 .ws-fab {
     position: fixed;
     width: 50px;
@@ -7,7 +37,7 @@
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border: 1.5px solid rgba(255, 255, 255, 0.18);
-    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.28);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.28);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -29,7 +59,7 @@
 .ws-fab.is-dragging {
     opacity: 1;
     transform: scale(1.1);
-    box-shadow: 0 10px 36px rgba(15, 23, 42, 0.38);
+    box-shadow: 0 10px 36px rgba(0, 0, 0, 0.38);
     cursor: grabbing;
     transition: none;
 }
@@ -41,7 +71,7 @@
                 box-shadow 200ms ease;
 }
 
-/* ── Initials label ──────────────────────────────────────────────────── */
+/* ── Initials label ── */
 
 .ws-fab-initial {
     font-size: 0.8125rem;
@@ -52,15 +82,15 @@
     pointer-events: none;
 }
 
-/* ── Dropdown ────────────────────────────────────────────────────────── */
+/* ── Dropdown ── */
 
 .ws-fab-dropdown {
     position: absolute;
     min-width: 200px;
-    background: #FFFFFF;
-    border: 1.5px solid #E5E7EB;
+    background: var(--fab-dropdown-bg);
+    border: 1.5px solid var(--fab-dropdown-border);
     border-radius: 14px;
-    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.16), 0 2px 8px rgba(15, 23, 42, 0.06);
+    box-shadow: var(--fab-dropdown-shadow);
     padding: 8px;
     z-index: 491;
     animation: wsFabFade 140ms ease;
@@ -72,20 +102,17 @@
     to   { opacity: 1; transform: scale(1); }
 }
 
-/* Horizontal position */
 .ws-fab-dropdown.is-right { left: calc(100% + 10px); }
 .ws-fab-dropdown.is-left  { right: calc(100% + 10px); }
-
-/* Vertical position */
-.ws-fab-dropdown.is-down { top: 0; }
-.ws-fab-dropdown.is-up   { bottom: 0; }
+.ws-fab-dropdown.is-down  { top: 0; }
+.ws-fab-dropdown.is-up    { bottom: 0; }
 
 .ws-fab-dropdown-header {
     font-size: 0.6875rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #9CA3AF;
+    color: var(--fab-header-color);
     padding: 4px 10px 8px;
 }
 
@@ -106,44 +133,44 @@
     border-radius: 8px;
     cursor: pointer;
     font-family: inherit;
-    transition: background 120ms ease;
+    transition: background 120ms ease, color 120ms ease;
     text-align: left;
 }
 
 .ws-fab-item:hover {
-    background: #F8FAFC;
+    background: var(--fab-item-hover-bg);
 }
 
 .ws-fab-item.is-active {
-    background: #EFF6FF;
+    background: var(--fab-item-active-bg);
 }
 
 .ws-fab-item-dot {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #CBD5E1;
+    background: var(--fab-item-dot);
     flex-shrink: 0;
 }
 
 .ws-fab-item.is-active .ws-fab-item-dot {
-    background: #1E3A5F;
+    background: var(--fab-item-active-dot);
 }
 
 .ws-fab-item-label {
     flex: 1;
     font-size: 0.8125rem;
     font-weight: 500;
-    color: #374151;
+    color: var(--fab-item-color);
 }
 
 .ws-fab-item.is-active .ws-fab-item-label {
     font-weight: 600;
-    color: #1E3A5F;
+    color: var(--fab-item-active-color);
 }
 
 .ws-fab-item svg {
-    color: #1E3A5F;
+    color: var(--fab-item-icon-color);
     flex-shrink: 0;
 }
 

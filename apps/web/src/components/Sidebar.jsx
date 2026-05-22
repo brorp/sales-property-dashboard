@@ -5,9 +5,25 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { useWorkspace } from '../context/WorkspaceContext';
+import { useTheme } from '../context/ThemeContext';
 import { useNavData } from '../hooks/useNavData';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 import './Sidebar.css';
+
+const IconSun = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+        <line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" />
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+    </svg>
+);
+
+const IconMoon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+);
 
 const ADMIN_TABS = [
     { key: '/overview', icon: 'overview', label: 'Overview' },
@@ -84,6 +100,7 @@ export default function Sidebar({ collapsed, onToggleCollapsed }) {
     const { user, logout } = useAuth();
     const tenant = useTenant();
     const { activeWorkspace, workspaces } = useWorkspace();
+    const { theme, setTheme } = useTheme();
     const { hasUnreadLeads, hasUnreadLogs, taskCounts, supervisorTaskCount } = useNavData();
     const pathname = usePathname();
     const router = useRouter();
@@ -158,6 +175,36 @@ export default function Sidebar({ collapsed, onToggleCollapsed }) {
             </div>
 
             <div className="sidebar-footer">
+                {collapsed ? (
+                    <button
+                        type="button"
+                        className="sidebar-tab sidebar-theme-icon-btn"
+                        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                        title={theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
+                    >
+                        <span className="sidebar-icon-wrap">
+                            <span className="sidebar-icon">
+                                {theme === 'dark' ? <IconSun /> : <IconMoon />}
+                            </span>
+                        </span>
+                    </button>
+                ) : (
+                    <div className="sidebar-theme-row">
+                        <span className="sidebar-theme-label">Tema</span>
+                        <button
+                            type="button"
+                            className="theme-toggle"
+                            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                            title={theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
+                        >
+                            <span className="tt-track">
+                                <span className="tt-thumb" />
+                                <span className="tt-icon tt-sun"><IconSun /></span>
+                                <span className="tt-icon tt-moon"><IconMoon /></span>
+                            </span>
+                        </button>
+                    </div>
+                )}
                 <button type="button" className="sidebar-logout" onClick={handleLogout}>
                     <span className="sidebar-icon"><Icon name="logout" /></span>
                     {!collapsed ? <span className="sidebar-label">Logout</span> : null}
