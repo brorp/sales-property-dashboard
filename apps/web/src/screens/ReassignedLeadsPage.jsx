@@ -82,7 +82,7 @@ export default function ReassignedLeadsPage() {
     if (user?.role !== 'client_admin' && user?.role !== 'root_admin') {
         return (
             <div className="page-container set-page">
-                <Header title="Reassigned Leads" showBack/>
+                <Header title="Leads Dialihkan" showBack/>
                 <div className="set-card" style={{ textAlign: 'center', padding: '32px 16px' }}>
                     <div style={{ fontSize: '2rem', marginBottom: 8 }}>🔒</div>
                     <div style={{ fontWeight: 600, color: '#1E3A5F', marginBottom: 4 }}>Khusus admin</div>
@@ -99,7 +99,7 @@ export default function ReassignedLeadsPage() {
             <section className="set-card">
                 <div className="settings-header">
                     <div>
-                        <h2 style={{ margin: '0 0 4px', fontSize: '1rem', color: '#1E3A5F' }}>Emergency Lead Reassign</h2>
+                        <h2 style={{ margin: '0 0 4px', fontSize: '1rem', color: '#1E3A5F' }}>Alih Leads Darurat</h2>
                         <p className="settings-help" style={{ marginTop: 0 }}>
                             Pindahkan owner lead yang sudah assigned ke sales lain. Lead akan kembali ke status Assigned dan muncul di Daily Task sales tujuan.
                         </p>
@@ -230,7 +230,7 @@ export default function ReassignedLeadsPage() {
                         className="btn btn-primary btn-full"
                         disabled={!selectedLead || !effectiveTargetSalesId || submitting}
                     >
-                        {submitting ? 'Memindahkan...' : 'Reassign Lead'}
+                        {submitting ? 'Memindahkan...' : 'Alihkan Leads'}
                     </button>
                 </form>
             </section>

@@ -775,8 +775,8 @@ export default function LeadDetailPage({ leadId }) {
                                         </p>
                                         {step.eligibleAt ? (
                                             <div className="ldp-pipeline-meta">
-                                                <span>Target: {formatExactDateTime(step.eligibleAt)}</span>
-                                                {step.dueAt ? <span>Deadline: {formatExactDateTime(step.dueAt)}</span> : null}
+                                                <span>Mulai: {formatExactDateTime(step.eligibleAt)}</span>
+                                                {step.dueAt ? <span>Batas Waktu: {formatExactDateTime(step.dueAt)}</span> : null}
                                             </div>
                                         ) : null}
                                     </div>
@@ -825,9 +825,9 @@ export default function LeadDetailPage({ leadId }) {
                         <input type="text" className="input-field" value={flow2Form.name} onChange={(event) => setFlow2Form({ ...flow2Form, name: event.target.value })} disabled={!canEditLead} />
                     </div>
                     <div className="input-group">
-                        <label>Source Lead</label>
+                        <label>Sumber Leads</label>
                         <select className="input-field" value={flow2Form.source} onChange={(event) => { const nextSource = event.target.value; setFlow2Form({ ...flow2Form, source: nextSource, agentOfficeName: isAgentSource(nextSource) ? flow2Form.agentOfficeName : '' }); }} disabled={!canEditLead || availableLeadSources.length === 0}>
-                            <option value="">{availableLeadSources.length === 0 ? 'Source belum tersedia' : 'Pilih source'}</option>
+                            <option value="">{availableLeadSources.length === 0 ? 'Sumber belum tersedia' : 'Pilih sumber'}</option>
                             {availableLeadSources.map((source) => <option key={source} value={source}>{source}</option>)}
                         </select>
                     </div>

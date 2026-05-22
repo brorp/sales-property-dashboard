@@ -70,7 +70,7 @@ export default function DailySalesReportSection({ data }) {
             <div className="dsr-header">
                 <div>
                     <span className="dsr-eyebrow">Laporan Harian</span>
-                    <h2 className="dsr-title">Daily Sales Report</h2>
+                    <h2 className="dsr-title">Laporan Penjualan Harian</h2>
                 </div>
                 <span className="dsr-date">{data.dateLabel || ''}</span>
             </div>
@@ -82,7 +82,7 @@ export default function DailySalesReportSection({ data }) {
                     <span className="dsr-metric-sub">Hari ini</span>
                 </div>
                 <div className="dsr-metric dsr-metric--success">
-                    <span className="dsr-metric-label">Total Sold</span>
+                    <span className="dsr-metric-label">Total Terjual</span>
                     <strong className="dsr-metric-value">{fmt(data.totalSold)}</strong>
                     <span className="dsr-metric-sub">Bulan ini</span>
                 </div>

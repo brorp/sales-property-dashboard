@@ -358,7 +358,7 @@ export default function DailyTaskPage() {
 
     return (
         <div className="page-container daily-task-page">
-            <Header title="Daily Task" mobileTitle={activeWorkspace?.name || 'Daily Task'} hasTabs />
+            <Header title="Tugas Harian" mobileTitle={activeWorkspace?.name || 'Tugas Harian'} hasTabs />
 
             {/* ── Tab bar ──────────────────────────────────────────── */}
             <div className="daily-task-tabs">

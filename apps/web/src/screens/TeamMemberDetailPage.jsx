@@ -103,9 +103,9 @@ export default function TeamMemberDetailPage({ memberId }) {
                                         <h2 className="team-detail-title">{member.name}</h2>
                                         <span className="badge badge-purple">{member.roleLabel}</span>
                                         <span className={`badge ${member.isActive ? 'badge-success' : 'badge-danger'}`}>
-                                            {member.isActive ? 'Active' : 'Inactive'}
+                                            {member.isActive ? 'Aktif' : 'Tidak Aktif'}
                                         </span>
-                                        {member.isSuspended ? <span className="badge badge-danger">Suspended</span> : null}
+                                        {member.isSuspended ? <span className="badge badge-danger">Ditangguhkan</span> : null}
                                         {member.isSuspended ? <span className="badge badge-neutral">Layer {member.suspension?.penaltyLayer || '-'}</span> : null}
                                     </div>
                                     <p className="team-email">{member.email}</p>
@@ -151,7 +151,7 @@ export default function TeamMemberDetailPage({ memberId }) {
                             </div>
                             <div className="team-member-stat">
                                 <span className="team-member-stat-value">{member.accepted || 0}</span>
-                                <span className="team-member-stat-label">Accepted</span>
+                                <span className="team-member-stat-label">Diterima</span>
                             </div>
                             <div className="team-member-stat">
                                 <span className="team-member-stat-value">{member.closed || 0}</span>

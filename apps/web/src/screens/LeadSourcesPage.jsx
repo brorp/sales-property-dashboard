@@ -151,7 +151,7 @@ export default function LeadSourcesPage() {
                                         className="icon-btn icon-btn--edit"
                                         onClick={() => openEditModal(source)}
                                         disabled={saving || deleting}
-                                        title="Edit source"
+                                        title="Edit sumber"
                                     >
                                         <IconPencil />
                                     </button>
@@ -160,7 +160,7 @@ export default function LeadSourcesPage() {
                                         className="icon-btn icon-btn--danger"
                                         onClick={() => setSourceToDelete(source)}
                                         disabled={saving || deleting}
-                                        title="Hapus source"
+                                        title="Hapus sumber"
                                     >
                                         <IconTrash />
                                     </button>
@@ -182,7 +182,7 @@ export default function LeadSourcesPage() {
             >
                 <form onSubmit={handleSubmit}>
                     <div className="input-group">
-                        <label>Nama Source</label>
+                        <label>Nama Sumber</label>
                         <input
                             className="input-field"
                             value={form.value}
@@ -214,7 +214,7 @@ export default function LeadSourcesPage() {
                 title="Hapus Sumber Lead"
             >
                 <p style={{ margin: 0, color: '#374151', fontSize: '0.9375rem' }}>
-                    Hapus source <strong style={{ color: '#1E3A5F' }}>{sourceToDelete?.value}</strong>? Lead lama tetap menyimpan source historisnya.
+                    Hapus sumber <strong style={{ color: '#1E3A5F' }}>{sourceToDelete?.value}</strong>? Leads lama tetap menyimpan sumber historisnya.
                 </p>
                 <div className="modal-actions">
                     <button type="button" className="btn btn-secondary" onClick={() => setSourceToDelete(null)} disabled={deleting}>

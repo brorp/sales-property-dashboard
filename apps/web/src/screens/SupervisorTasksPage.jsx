@@ -68,7 +68,7 @@ function SpvEmpty({ variant = 'default', title, desc }) {
             color: '#94A3B8', bg: '#F1F5F9',
             icon: (
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className="spv-empty-spin">
-                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
                 </svg>
             ),
         },
@@ -76,8 +76,8 @@ function SpvEmpty({ variant = 'default', title, desc }) {
             color: '#16A34A', bg: '#DCFCE7',
             icon: (
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
-                    <polyline points="9 12 11 14 15 10"/>
+                    <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                    <polyline points="9 12 11 14 15 10" />
                 </svg>
             ),
         },
@@ -85,10 +85,10 @@ function SpvEmpty({ variant = 'default', title, desc }) {
             color: '#2563EB', bg: '#DBEAFE',
             icon: (
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-                    <rect x="8" y="2" width="8" height="4" rx="1"/>
-                    <line x1="9" y1="12" x2="15" y2="12"/>
-                    <line x1="9" y1="16" x2="13" y2="16"/>
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                    <rect x="8" y="2" width="8" height="4" rx="1" />
+                    <line x1="9" y1="12" x2="15" y2="12" />
+                    <line x1="9" y1="16" x2="13" y2="16" />
                 </svg>
             ),
         },
@@ -96,11 +96,11 @@ function SpvEmpty({ variant = 'default', title, desc }) {
             color: '#0EA5E9', bg: '#E0F2FE',
             icon: (
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="12" y1="2" x2="12" y2="22"/>
-                    <path d="m20 6-8 6-8-6"/>
-                    <path d="m20 18-8-6-8 6"/>
-                    <path d="m2 12 4-2-4-2"/>
-                    <path d="m22 12-4-2 4-2"/>
+                    <line x1="12" y1="2" x2="12" y2="22" />
+                    <path d="m20 6-8 6-8-6" />
+                    <path d="m20 18-8-6-8 6" />
+                    <path d="m2 12 4-2-4-2" />
+                    <path d="m22 12-4-2 4-2" />
                 </svg>
             ),
         },
@@ -108,9 +108,9 @@ function SpvEmpty({ variant = 'default', title, desc }) {
             color: '#1E3A5F', bg: '#EEF3F9',
             icon: (
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8"/>
-                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                    <line x1="8" y1="11" x2="14" y2="11"/>
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    <line x1="8" y1="11" x2="14" y2="11" />
                 </svg>
             ),
         },
@@ -319,7 +319,7 @@ export default function SupervisorTasksPage() {
                 <div className="spv-filter-row">
                     <div className="spv-name-search-wrap">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="spv-name-search-icon">
-                            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                         </svg>
                         <input
                             type="text"
@@ -331,7 +331,7 @@ export default function SupervisorTasksPage() {
                         {nameSearch ? (
                             <button type="button" className="spv-sheet-search-clear" onClick={() => setNameSearch('')}>
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                                 </svg>
                             </button>
                         ) : null}
@@ -343,14 +343,14 @@ export default function SupervisorTasksPage() {
                         onClick={() => setFilterSheet(sheetKey)}
                     >
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
                         </svg>
                         {activeLabel ? (
                             <>
                                 <span className="spv-filter-trigger-label">{activeLabel}</span>
                                 <span className="spv-filter-clear" role="button" onClick={(e) => { e.stopPropagation(); onChange('all'); }}>
                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                                     </svg>
                                 </span>
                             </>
@@ -363,17 +363,17 @@ export default function SupervisorTasksPage() {
                         <div className="spv-panel" onClick={(e) => e.stopPropagation()}>
                             <div className="spv-panel-handle" />
                             <div className="spv-panel-header">
-                                <span className="spv-panel-title">Filter by Sales</span>
+                                <span className="spv-panel-title">Filter berdasarkan Sales</span>
                                 <button type="button" className="spv-panel-close" onClick={closePanel}>
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                                     </svg>
                                 </button>
                             </div>
                             <div className="spv-panel-body">
                                 <div className="spv-sheet-search-wrap">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="spv-sheet-search-icon">
-                                        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                                        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                                     </svg>
                                     <input
                                         type="text"
@@ -386,7 +386,7 @@ export default function SupervisorTasksPage() {
                                     {filterSearch ? (
                                         <button type="button" className="spv-sheet-search-clear" onClick={() => setFilterSearch('')}>
                                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                                             </svg>
                                         </button>
                                     ) : null}
@@ -400,7 +400,7 @@ export default function SupervisorTasksPage() {
                                         >
                                             <span>Semua</span>
                                             <span className="spv-sheet-count">{totalCount}</span>
-                                            {value === 'all' && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                                            {value === 'all' && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
                                         </button>
                                     ) : null}
                                     {options
@@ -414,7 +414,7 @@ export default function SupervisorTasksPage() {
                                             >
                                                 <span>{o.salesName}</span>
                                                 <span className="spv-sheet-count">{o.taskCount}</span>
-                                                {value === o.salesId && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                                                {value === o.salesId && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
                                             </button>
                                         ))
                                     }
@@ -429,7 +429,7 @@ export default function SupervisorTasksPage() {
 
     return (
         <div className="page-container spv-page">
-            <Header title="Supervisor Tasks" hasTabs />
+            <Header title="Tugas Supervisor" hasTabs />
 
             <div className="daily-task-tabs">
                 <button
@@ -439,7 +439,7 @@ export default function SupervisorTasksPage() {
                 >
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>
+                            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
                         </svg>
                         <span className="daily-task-tab-badge" style={leads.length === 0 ? { visibility: 'hidden' } : undefined}>{leads.length}</span>
                     </span>
@@ -452,11 +452,11 @@ export default function SupervisorTasksPage() {
                 >
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                            <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
                         </svg>
                         <span className="daily-task-tab-badge" style={submittedTotalCount === 0 ? { visibility: 'hidden' } : undefined}>{submittedTotalCount}</span>
                     </span>
-                    <span className="daily-task-tab-label">Submissions</span>
+                    <span className="daily-task-tab-label">Pengajuan</span>
                 </button>
                 <button
                     type="button"
@@ -465,7 +465,7 @@ export default function SupervisorTasksPage() {
                 >
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M2 12h20M12 2v20M4.93 4.93l14.14 14.14M19.07 4.93 4.93 19.07"/>
+                            <path d="M2 12h20M12 2v20M4.93 4.93l14.14 14.14M19.07 4.93 4.93 19.07" />
                         </svg>
                         <span className="daily-task-tab-badge" style={deadlineTotalCount === 0 ? { visibility: 'hidden' } : undefined}>{deadlineTotalCount}</span>
                     </span>
@@ -594,51 +594,51 @@ export default function SupervisorTasksPage() {
                                         : group.tasks;
                                     if (tasks.length === 0) return null;
                                     return (
-                                <div key={group.salesId} className="spv-card spv-card-submitted">
-                                    <div className="spv-card-header">
-                                        <span className="spv-card-title">{group.salesName}</span>
-                                        <span className="badge badge-info">{tasks.length} task</span>
-                                    </div>
+                                        <div key={group.salesId} className="spv-card spv-card-submitted">
+                                            <div className="spv-card-header">
+                                                <span className="spv-card-title">{group.salesName}</span>
+                                                <span className="badge badge-info">{tasks.length} task</span>
+                                            </div>
 
-                                    <div className="spv-tasks-container">
-                                        {tasks.map((task) => (
-                                            <div
-                                                key={task.id}
-                                                className={`spv-task-sub-item ${!task.screenshotUrl ? 'spv-task-sub-noimg' : ''}`}
-                                            >
-                                                <div>
+                                            <div className="spv-tasks-container">
+                                                {tasks.map((task) => (
                                                     <div
-                                                        className="spv-card-title spv-card-title-link"
-                                                        style={{ fontSize: '0.875rem', marginBottom: 6 }}
-                                                        onClick={() => router.push(`/leads/${task.leadId}`)}
+                                                        key={task.id}
+                                                        className={`spv-task-sub-item ${!task.screenshotUrl ? 'spv-task-sub-noimg' : ''}`}
                                                     >
-                                                        {task.leadName}
-                                                    </div>
-                                                    <div className="spv-card-meta-grid" style={{ borderTop: 'none', borderBottom: 'none', paddingTop: 0, paddingBottom: 0, gap: '4px 12px' }}>
-                                                        <span className="spv-meta-item"><IconPhone /> {task.leadPhone}</span>
-                                                        <span className="spv-meta-item"><IconMegaphone /> {task.leadSource}</span>
-                                                        <span className="spv-meta-item"><IconClock /> {getTimeAgo(task.completedAt)}</span>
-                                                    </div>
-                                                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                                                        <span className="badge badge-info">{task.label}</span>
-                                                        {task.submittedSalesStatus ? (
-                                                            <span className="badge badge-warm">{task.submittedSalesStatus.toUpperCase()}</span>
+                                                        <div>
+                                                            <div
+                                                                className="spv-card-title spv-card-title-link"
+                                                                style={{ fontSize: '0.875rem', marginBottom: 6 }}
+                                                                onClick={() => router.push(`/leads/${task.leadId}`)}
+                                                            >
+                                                                {task.leadName}
+                                                            </div>
+                                                            <div className="spv-card-meta-grid" style={{ borderTop: 'none', borderBottom: 'none', paddingTop: 0, paddingBottom: 0, gap: '4px 12px' }}>
+                                                                <span className="spv-meta-item"><IconPhone /> {task.leadPhone}</span>
+                                                                <span className="spv-meta-item"><IconMegaphone /> {task.leadSource}</span>
+                                                                <span className="spv-meta-item"><IconClock /> {getTimeAgo(task.completedAt)}</span>
+                                                            </div>
+                                                            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                                                                <span className="badge badge-info">{task.label}</span>
+                                                                {task.submittedSalesStatus ? (
+                                                                    <span className="badge badge-warm">{task.submittedSalesStatus.toUpperCase()}</span>
+                                                                ) : null}
+                                                            </div>
+                                                        </div>
+
+                                                        {task.screenshotUrl ? (
+                                                            <img
+                                                                src={task.screenshotUrl}
+                                                                alt={`${task.label} proof`}
+                                                                className="spv-task-proof-img"
+                                                                onClick={() => setLightboxImage({ url: task.screenshotUrl, caption: `${group.salesName} — ${task.label}` })}
+                                                            />
                                                         ) : null}
                                                     </div>
-                                                </div>
-
-                                                {task.screenshotUrl ? (
-                                                    <img
-                                                        src={task.screenshotUrl}
-                                                        alt={`${task.label} proof`}
-                                                        className="spv-task-proof-img"
-                                                        onClick={() => setLightboxImage({ url: task.screenshotUrl, caption: `${group.salesName} — ${task.label}` })}
-                                                    />
-                                                ) : null}
+                                                ))}
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
+                                        </div>
                                     );
                                 })}
                         </div>
@@ -673,56 +673,56 @@ export default function SupervisorTasksPage() {
                                         : group.tasks;
                                     if (tasks.length === 0) return null;
                                     return (
-                                <div key={group.salesId} className="spv-card spv-card-cold">
-                                    <div className="spv-card-header">
-                                        <span className="spv-card-title">{group.salesName}</span>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <span className="badge badge-danger">{tasks.length} leads</span>
-                                            <button
-                                                type="button"
-                                                className="btn btn-sm spv-nudge-btn"
-                                                onClick={() => handleNudgeSales(
-                                                    group.salesId,
-                                                    group.salesName,
-                                                    `${tasks.length} lead`,
-                                                    ''
-                                                )}
-                                            >
-                                                <IconNudge /> Nudge
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="spv-tasks-container">
-                                        {tasks.map((task) => (
-                                            <div key={task.id} className="spv-task-sub-item spv-task-sub-noimg">
-                                                <div>
-                                                    <div
-                                                        className="spv-card-title spv-card-title-link"
-                                                        style={{ fontSize: '0.875rem', marginBottom: 6 }}
-                                                        onClick={() => router.push(`/leads/${task.leadId}`)}
+                                        <div key={group.salesId} className="spv-card spv-card-cold">
+                                            <div className="spv-card-header">
+                                                <span className="spv-card-title">{group.salesName}</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <span className="badge badge-danger">{tasks.length} leads</span>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm spv-nudge-btn"
+                                                        onClick={() => handleNudgeSales(
+                                                            group.salesId,
+                                                            group.salesName,
+                                                            `${tasks.length} lead`,
+                                                            ''
+                                                        )}
                                                     >
-                                                        {task.leadName}
-                                                    </div>
-                                                    <div className="spv-card-meta-grid" style={{ borderTop: 'none', borderBottom: 'none', paddingTop: 0, paddingBottom: 0, gap: '4px 12px' }}>
-                                                        <span className="spv-meta-item"><IconPhone /> {task.leadPhone}</span>
-                                                        <span className="spv-meta-item"><IconMegaphone /> {task.leadSource}</span>
-                                                        <span className="spv-meta-item"><IconClock /> Lead age: {getTimeAgo(task.createdAt)}</span>
-                                                        <span className="spv-meta-item"><IconUser /> Deadline: {formatDateTime(task.dueAt)}</span>
-                                                    </div>
-                                                    <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                                                        <span className="badge badge-danger">Deadline Leads</span>
-                                                        {task.salesStatus ? (
-                                                            <span className={`badge ${task.salesStatus === 'hot' ? 'badge-hot' : 'badge-warm'}`}>
-                                                                {getSalesStatusLabel(task.salesStatus)}
-                                                            </span>
-                                                        ) : null}
-                                                    </div>
+                                                        <IconNudge /> Nudge
+                                                    </button>
                                                 </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
+
+                                            <div className="spv-tasks-container">
+                                                {tasks.map((task) => (
+                                                    <div key={task.id} className="spv-task-sub-item spv-task-sub-noimg">
+                                                        <div>
+                                                            <div
+                                                                className="spv-card-title spv-card-title-link"
+                                                                style={{ fontSize: '0.875rem', marginBottom: 6 }}
+                                                                onClick={() => router.push(`/leads/${task.leadId}`)}
+                                                            >
+                                                                {task.leadName}
+                                                            </div>
+                                                            <div className="spv-card-meta-grid" style={{ borderTop: 'none', borderBottom: 'none', paddingTop: 0, paddingBottom: 0, gap: '4px 12px' }}>
+                                                                <span className="spv-meta-item"><IconPhone /> {task.leadPhone}</span>
+                                                                <span className="spv-meta-item"><IconMegaphone /> {task.leadSource}</span>
+                                                                <span className="spv-meta-item"><IconClock /> Lead age: {getTimeAgo(task.createdAt)}</span>
+                                                                <span className="spv-meta-item"><IconUser /> Deadline: {formatDateTime(task.dueAt)}</span>
+                                                            </div>
+                                                            <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                                                                <span className="badge badge-danger">Deadline Leads</span>
+                                                                {task.salesStatus ? (
+                                                                    <span className={`badge ${task.salesStatus === 'hot' ? 'badge-hot' : 'badge-warm'}`}>
+                                                                        {getSalesStatusLabel(task.salesStatus)}
+                                                                    </span>
+                                                                ) : null}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
                                     );
                                 })}
                         </div>

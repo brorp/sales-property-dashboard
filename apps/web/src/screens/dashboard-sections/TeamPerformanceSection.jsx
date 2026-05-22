@@ -48,9 +48,9 @@ function SalesCard({ sales }) {
             </div>
             <div className="tpc-sales-card-rates">
                 {[
-                    ['Prospect', sales.prospectRate || 0],
-                    ['Survey', sales.surveyRate || 0],
-                    ['Closing', sales.closingRate || 0],
+                    ['Tk. Prospek', sales.prospectRate || 0],
+                    ['Tk. Survey', sales.surveyRate || 0],
+                    ['Tk. Closing', sales.closingRate || 0],
                 ].map(([label, val]) => (
                     <div key={label} className="tpc-sales-rate-item">
                         <span className="tpc-sales-rate-label">{label}</span>
@@ -104,9 +104,9 @@ function PerformancePanel({ metrics, showSalesList, maxSalesCols = 5, compact = 
                 <MetricCard label="Full Book" value={metrics.totalFullBook} accent="var(--purple)" helper="Lead yang sudah masuk status Full Book." />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-                <RateCard label="Prospect Rate" value={metrics.prospectRate} helper={`(Hot + Mau Survey) : Total = ${formatCount(metrics.totalHot + metrics.totalMauSurvey)} : ${formatCount(metrics.totalLeads)}`} />
-                <RateCard label="Survey Rate" value={metrics.surveyRate} helper={`Sudah Survey : Total = ${formatCount(metrics.totalSurvey)} : ${formatCount(metrics.totalLeads)}`} accent="var(--green)" />
-                <RateCard label="Closing Rate" value={metrics.closingRate} helper={`Full Book : Total = ${formatCount(metrics.totalFullBook)} : ${formatCount(metrics.totalLeads)}`} accent="var(--purple)" />
+                <RateCard label="Tingkat Prospek" value={metrics.prospectRate} helper={`(Hot + Mau Survey) : Total = ${formatCount(metrics.totalHot + metrics.totalMauSurvey)} : ${formatCount(metrics.totalLeads)}`} />
+                <RateCard label="Tingkat Survey" value={metrics.surveyRate} helper={`Sudah Survey : Total = ${formatCount(metrics.totalSurvey)} : ${formatCount(metrics.totalLeads)}`} accent="var(--green)" />
+                <RateCard label="Tingkat Closing" value={metrics.closingRate} helper={`Full Book : Total = ${formatCount(metrics.totalFullBook)} : ${formatCount(metrics.totalLeads)}`} accent="var(--purple)" />
             </div>
 
             {/* Semua: sales dikelompokkan per supervisor */}
@@ -119,7 +119,7 @@ function PerformancePanel({ metrics, showSalesList, maxSalesCols = 5, compact = 
             {/* Spesifik supervisor: flat sales cards */}
             {showSalesList && metrics.sales && metrics.sales.length > 0 ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
-                    <span className="tpc-section-label">Breakdown per Sales</span>
+                    <span className="tpc-section-label">Rincian per Sales</span>
                     <SalesCardGrid sales={metrics.sales} maxCols={maxSalesCols} />
                 </div>
             ) : null}
@@ -188,12 +188,12 @@ export default function TeamPerformanceSection({
         <div className="ds-card">
             <div className="ds-card-head">
                 <div>
-                    <h2 className="ds-card-title">Team Prospect & Performance</h2>
+                    <h2 className="ds-card-title">Performa Tim</h2>
                     <span className="ds-card-summary">{summary}</span>
                 </div>
                 {allowTeamFiltering ? (
                     <button type="button" className="tpc-compare-btn" onClick={() => setIsCompare((v) => !v)} style={getPillButtonStyle(isCompare)}>
-                        {isCompare ? 'Tutup Compare' : 'Compare View'}
+                        {isCompare ? 'Tutup Perbandingan' : 'Tampilan Perbandingan'}
                     </button>
                 ) : null}
             </div>

@@ -11,14 +11,14 @@ import './SettingsPage.css';
 
 function statusLabel(status) {
     switch (status) {
-        case 'connected': return 'Connected';
-        case 'awaiting_qr': return 'Waiting QR';
-        case 'awaiting_pairing_code': return 'Waiting Pairing Code';
-        case 'starting': return 'Starting';
-        case 'disconnected': return 'Disconnected';
+        case 'connected': return 'Terhubung';
+        case 'awaiting_qr': return 'Menunggu QR';
+        case 'awaiting_pairing_code': return 'Menunggu Kode Pairing';
+        case 'starting': return 'Memulai';
+        case 'disconnected': return 'Terputus';
         case 'error': return 'Error';
-        case 'disabled': return 'Disabled';
-        default: return 'Idle';
+        case 'disabled': return 'Dinonaktifkan';
+        default: return 'Siaga';
     }
 }
 
@@ -239,7 +239,7 @@ export default function SettingsPage() {
 
     return (
         <div className="page-container set-page">
-            <Header title="Settings" showBack />
+            <Header title="Pengaturan" showBack />
 
             {/* ── Session Status ─────────────────────────────── */}
             <div className="set-card">

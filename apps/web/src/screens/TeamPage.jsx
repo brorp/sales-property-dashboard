@@ -259,17 +259,17 @@ export default function TeamPage() {
         },
         {
             key: 'appointments',
-            label: 'Appointments',
+            label: 'Janji Temu',
             value: summary.appointments || 0,
             tone: 'default',
-            helper: `${summary.accepted || 0} accepted`,
+            helper: `${summary.accepted || 0} diterima`,
         },
         ...(summary.suspendedSales ? [{
             key: 'suspended',
-            label: 'Suspended',
+            label: 'Ditangguhkan',
             value: summary.suspendedSales || 0,
             tone: 'hot',
-            helper: 'Queue distribusi sedang diblok',
+            helper: 'Antrian distribusi sedang diblok',
         }] : []),
     ];
 
@@ -815,7 +815,7 @@ export default function TeamPage() {
                                                     <div className="team-member-row">
                                                         <MemberButton
                                                             member={sales}
-                                                            subtitle={`${sales.phone || 'Belum ada nomor WhatsApp'} • ${sales.totalLeads || 0} leads • ${sales.appointments || 0} appointment`}
+                                                            subtitle={`${sales.phone || 'Belum ada nomor WhatsApp'} • ${sales.totalLeads || 0} leads • ${sales.appointments || 0} janji temu`}
                                                             metaBadge="Sales"
                                                             onClick={() => goToMemberDetail(sales.id)}
                                                             compact
@@ -875,7 +875,7 @@ export default function TeamPage() {
                                                 <div className="team-member-row">
                                                     <MemberButton
                                                         member={sales}
-                                                        subtitle={`${sales.phone || 'Belum ada nomor WhatsApp'} • ${sales.totalLeads || 0} leads • ${sales.appointments || 0} appointment`}
+                                                        subtitle={`${sales.phone || 'Belum ada nomor WhatsApp'} • ${sales.totalLeads || 0} leads • ${sales.appointments || 0} janji temu`}
                                                         metaBadge="Sales"
                                                         onClick={() => goToMemberDetail(sales.id)}
                                                         compact
@@ -1050,11 +1050,11 @@ export default function TeamPage() {
                                 </div>
                             ) : null}
                             <div className="input-group">
-                                <label>Queue Order (optional)</label>
+                                <label>Urutan Antrian (opsional)</label>
                                 <input type="number" min={1} className="input-field" value={form.queueOrder} onChange={(e) => setForm({ ...form, queueOrder: e.target.value })} />
                             </div>
                             <div className="input-group">
-                                <label>Queue Label (optional)</label>
+                                <label>Label Antrian (opsional)</label>
                                 <input className="input-field" value={form.queueLabel} onChange={(e) => setForm({ ...form, queueLabel: e.target.value })} />
                             </div>
                         </>
@@ -1177,7 +1177,7 @@ export default function TeamPage() {
                             Sebelum menonaktifkan <strong style={{ color: '#1E3A5F' }}>{lifecycleState.member?.name}</strong>, export semua leads terlebih dahulu. File XLSX ini bisa dipakai untuk reassign ke sales lain tanpa duplikat.
                         </p>
                         <div className="input-group">
-                            <label>Access Code Export</label>
+                            <label>Kode Akses Ekspor</label>
                             <input
                                 type="password"
                                 className="input-field"

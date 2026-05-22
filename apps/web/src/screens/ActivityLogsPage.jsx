@@ -75,7 +75,7 @@ export default function ActivityLogsPage() {
     return (
         <div className="page-container dash-page activity-page">
             <Header
-                title="Activity Log"
+                title="Log Aktivitas"
                 showBack
                 backMobileOnly
                 rightAction={
@@ -102,7 +102,7 @@ export default function ActivityLogsPage() {
                 {sourceOptions.length > 0 ? (
                     <div className="al-selects-row">
                         <SelectFilter
-                            placeholder="Source"
+                            placeholder="Sumber"
                             value={sourceFilter}
                             onChange={setSourceFilter}
                             options={sourceOptions}
@@ -137,12 +137,12 @@ export default function ActivityLogsPage() {
                             </div>
                             <div className="al-item-meta">
                                 <span>
-                                    <span className="al-item-meta-key">Event </span>
+                                    <span className="al-item-meta-key">Peristiwa </span>
                                     <span className="al-item-meta-value">{item.eventType}</span>
                                 </span>
                                 {item.leadName ? (
                                     <span>
-                                        <span className="al-item-meta-key">Lead </span>
+                                        <span className="al-item-meta-key">Leads </span>
                                         <span className="al-item-meta-value">{item.leadName}</span>
                                     </span>
                                 ) : null}

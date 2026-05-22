@@ -136,20 +136,20 @@ export default function CancelReasonsPage() {
 
     return (
         <div className="page-container set-page">
-            <Header title="Kelola Cancel Reason" showBack />
+            <Header title="Kelola Alasan Batal" showBack />
 
             <div className="set-card">
                 <div className="settings-header">
-                    <h3 className="set-card-title" style={{ margin: 0 }}>Daftar Cancel Reason</h3>
+                    <h3 className="set-card-title" style={{ margin: 0 }}>Daftar Alasan Batal</h3>
                     <button type="button" className="btn btn-primary btn-sm" onClick={openAddModal}>
-                        + Tambah Reason
+                        + Tambah Alasan
                     </button>
                 </div>
 
-                {loading ? <p className="settings-help">Loading cancel reasons...</p> : null}
+                {loading ? <p className="settings-help">Memuat alasan batal...</p> : null}
 
                 {!loading && sortedCancelReasons.length === 0 ? (
-                    <p className="settings-help">Belum ada cancel reason untuk client ini. Klik Tambah Reason untuk memulai.</p>
+                    <p className="settings-help">Belum ada alasan batal untuk client ini. Klik Tambah Alasan untuk memulai.</p>
                 ) : null}
 
                 {!loading && sortedCancelReasons.length > 0 ? (
@@ -198,7 +198,7 @@ export default function CancelReasonsPage() {
             <Modal
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
-                title={editingId ? 'Edit Cancel Reason' : 'Tambah Cancel Reason'}
+                title={editingId ? 'Edit Alasan Batal' : 'Tambah Alasan Batal'}
             >
                 <form onSubmit={handleSubmit}>
                     <div className="input-group">
@@ -225,7 +225,7 @@ export default function CancelReasonsPage() {
                         />
                     </div>
                     <div className="input-group">
-                        <label>Sort Order</label>
+                        <label>Urutan</label>
                         <input
                             type="number"
                             className="input-field"
@@ -254,7 +254,7 @@ export default function CancelReasonsPage() {
                             Batal
                         </button>
                         <button type="submit" className="btn btn-primary" disabled={saving}>
-                            {saving ? 'Menyimpan...' : editingId ? 'Update Reason' : 'Tambah Reason'}
+                            {saving ? 'Menyimpan...' : editingId ? 'Perbarui Alasan' : 'Tambah Alasan'}
                         </button>
                     </div>
                 </form>
@@ -264,10 +264,10 @@ export default function CancelReasonsPage() {
             <Modal
                 isOpen={Boolean(reasonToDelete)}
                 onClose={() => setReasonToDelete(null)}
-                title="Hapus Cancel Reason"
+                title="Hapus Alasan Batal"
             >
                 <p style={{ margin: 0, color: '#374151', fontSize: '0.9375rem' }}>
-                    Hapus cancel reason <strong style={{ color: '#1E3A5F' }}>{reasonToDelete?.label}</strong>? Tindakan ini tidak bisa dibatalkan.
+                    Hapus alasan batal <strong style={{ color: '#1E3A5F' }}>{reasonToDelete?.label}</strong>? Tindakan ini tidak bisa dibatalkan.
                 </p>
                 <div className="modal-actions">
                     <button type="button" className="btn btn-secondary" onClick={() => setReasonToDelete(null)} disabled={deleting}>

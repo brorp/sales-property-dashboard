@@ -146,7 +146,7 @@ export default function ProfilePage() {
 
     return (
         <div className="page-container pf-page">
-            <Header title="Settings" />
+            <Header title="Pengaturan" />
 
             {/* ── Profile Card ──────────────────────────────── */}
             <div className="pf-card">
@@ -182,11 +182,11 @@ export default function ProfilePage() {
                 </button>
 
                 {canManageDistribution ? (
-                    <MenuItem icon={<IconRefresh />} label="Distribution Order" onClick={() => router.push('/settings/distribution-order')} iconColor="#0EA5E9" />
+                    <MenuItem icon={<IconRefresh />} label="Urutan Distribusi" onClick={() => router.push('/settings/distribution-order')} iconColor="#0EA5E9" />
                 ) : null}
 
                 {canReassignLeads ? (
-                    <MenuItem icon={<IconNavigation />} label="Reassigned Leads" onClick={() => router.push('/settings/reassigned-leads')} iconColor="#7C3AED" />
+                    <MenuItem icon={<IconNavigation />} label="Leads Dialihkan" onClick={() => router.push('/settings/reassigned-leads')} iconColor="#7C3AED" />
                 ) : null}
 
                 {canManageDistribution ? (
@@ -198,11 +198,11 @@ export default function ProfilePage() {
                 ) : null}
 
                 {canManageCancelReasons ? (
-                    <MenuItem icon={<IconXCircle />} label="Kelola Cancel Reason" onClick={() => router.push('/settings/cancel-reasons')} iconColor="#EF4444" />
+                    <MenuItem icon={<IconXCircle />} label="Kelola Alasan Batal" onClick={() => router.push('/settings/cancel-reasons')} iconColor="#EF4444" />
                 ) : null}
 
                 {canManageSharedWhatsApp ? (
-                    <MenuItem icon={<IconMessageSquare />} label="WhatsApp Settings" onClick={() => router.push('/settings/whatsapp')} iconColor="#16A34A" />
+                    <MenuItem icon={<IconMessageSquare />} label="Pengaturan WhatsApp" onClick={() => router.push('/settings/whatsapp')} iconColor="#16A34A" />
                 ) : null}
 
                 {canManageSharedWhatsApp ? (
@@ -211,11 +211,11 @@ export default function ProfilePage() {
 
                 {canSeeLogs ? (
                     <div className="pf-menu-mobile-only">
-                        <MenuItem icon={<IconFileText />} label="Activity Logs" onClick={() => router.push('/activity-logs')} iconColor="#0EA5E9" />
+                        <MenuItem icon={<IconFileText />} label="Log Aktivitas" onClick={() => router.push('/activity-logs')} iconColor="#0EA5E9" />
                     </div>
                 ) : null}
                 <div className="pf-menu-mobile-only">
-                    <MenuItem icon={<IconAlertTriangle />} label="Penalty" onClick={() => router.push('/penalties')} iconColor="#F97316" />
+                    <MenuItem icon={<IconAlertTriangle />} label="Penalti" onClick={() => router.push('/penalties')} iconColor="#F97316" />
                 </div>
 
                 <MenuItem icon={<IconLogOut />} label="Keluar" onClick={handleLogout} danger />

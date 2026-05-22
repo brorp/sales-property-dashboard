@@ -26,33 +26,33 @@ const IconMoon = () => (
 );
 
 const ADMIN_TABS = [
-    { key: '/overview', icon: 'overview', label: 'Overview' },
-    { key: '/', icon: 'analytics', label: 'Analytics' },
+    { key: '/overview', icon: 'overview', label: 'Ringkasan' },
+    { key: '/', icon: 'analytics', label: 'Analitik' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/appointments', icon: 'appointment', label: 'Janji Temu' },
-    { key: '/activity-logs', icon: 'logs', label: 'Logs' },
-    { key: '/penalties', icon: 'warning', label: 'Penalty' },
-    { key: '/team', icon: 'team', label: 'Teams' },
-    { key: '/settings', icon: 'settings', label: 'Settings' },
+    { key: '/activity-logs', icon: 'logs', label: 'Log' },
+    { key: '/penalties', icon: 'warning', label: 'Penalti' },
+    { key: '/team', icon: 'team', label: 'Tim' },
+    { key: '/settings', icon: 'settings', label: 'Pengaturan' },
 ];
 
 const SUPERVISOR_TABS = [
-    { key: '/supervisor-tasks', icon: 'tasks', label: 'Tasks' },
+    { key: '/supervisor-tasks', icon: 'tasks', label: 'Tugas' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/appointments', icon: 'appointment', label: 'Janji Temu' },
-    { key: '/', icon: 'analytics', label: 'Analytics' },
-    { key: '/team', icon: 'team', label: 'Team' },
-    { key: '/penalties', icon: 'warning', label: 'Penalty' },
-    { key: '/settings', icon: 'settings', label: 'Settings' },
+    { key: '/', icon: 'analytics', label: 'Analitik' },
+    { key: '/team', icon: 'team', label: 'Tim' },
+    { key: '/penalties', icon: 'warning', label: 'Penalti' },
+    { key: '/settings', icon: 'settings', label: 'Pengaturan' },
 ];
 
 const SALES_TABS = [
-    { key: '/daily-tasks', icon: 'tasks', label: 'Tasks' },
+    { key: '/daily-tasks', icon: 'tasks', label: 'Tugas' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/appointments', icon: 'appointment', label: 'Janji Temu' },
-    { key: '/', icon: 'analytics', label: 'Analytics' },
-    { key: '/penalties', icon: 'warning', label: 'Penalty' },
-    { key: '/settings', icon: 'settings', label: 'Settings' },
+    { key: '/', icon: 'analytics', label: 'Analitik' },
+    { key: '/penalties', icon: 'warning', label: 'Penalti' },
+    { key: '/settings', icon: 'settings', label: 'Pengaturan' },
 ];
 
 function Icon({ name }) {

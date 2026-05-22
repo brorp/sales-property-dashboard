@@ -126,7 +126,7 @@ export default function PenaltiesPage() {
     return (
         <div className="page-container pen-page">
             <Header
-                title="Penalties"
+                title="Penalti"
                 showBack
                 backMobileOnly
                 rightAction={

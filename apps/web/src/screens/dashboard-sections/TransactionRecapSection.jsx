@@ -280,12 +280,12 @@ export default function TransactionRecapSection({
         <div className="ds-card">
             <div className="ds-card-head">
                 <div>
-                    <h2 className="ds-card-title">Transaction Recap</h2>
-                    <span className="ds-card-summary">{data.totalOngoing || 0} ongoing • {data.totalClosing || 0} closing • {data.teams?.length || 0} teams</span>
+                    <h2 className="ds-card-title">Rekap Transaksi</h2>
+                    <span className="ds-card-summary">{data.totalOngoing || 0} berjalan • {data.totalClosing || 0} closing • {data.teams?.length || 0} tim</span>
                 </div>
                 {allowTeamFiltering ? (
                     <button type="button" className="tpc-compare-btn" onClick={() => setIsCompare((p) => !p)} style={getPillButtonStyle(isCompare)}>
-                        {isCompare ? 'Tutup Compare' : 'Compare View'}
+                        {isCompare ? 'Tutup Perbandingan' : 'Tampilan Perbandingan'}
                     </button>
                 ) : null}
             </div>
@@ -299,7 +299,7 @@ export default function TransactionRecapSection({
                             <strong style={{ fontSize: '2rem', color: 'var(--green)', marginTop: '4px' }}>{summaryScope.totalAkad}</strong>
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                            {[['Total Full Book', summaryScope.totalFullBook, 'var(--purple)', 'full_book'], ['Total On Process', summaryScope.totalOnProcess, 'var(--primary)', 'on_process'], ['Total Reserve', summaryScope.totalReserve, 'var(--text-primary)', 'reserve'], ['Total Cancel', summaryScope.totalCancel, 'var(--danger)', 'cancel']].map(([label, value, color, filter]) => (
+                            {[['Total Full Book', summaryScope.totalFullBook, 'var(--purple)', 'full_book'], ['Total On Process', summaryScope.totalOnProcess, 'var(--primary)', 'on_process'], ['Total Reserve', summaryScope.totalReserve, 'var(--text-primary)', 'reserve'], ['Total Batal', summaryScope.totalCancel, 'var(--danger)', 'cancel']].map(([label, value, color, filter]) => (
                                 <div key={filter} onClick={() => router.push(`/leads?resultFilter=${filter}`)} style={{ cursor: 'pointer', background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{label}</span>
                                     <strong style={{ fontSize: '1.4rem', color, marginTop: '4px' }}>{value}</strong>

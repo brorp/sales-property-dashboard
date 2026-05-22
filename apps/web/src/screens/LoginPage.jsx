@@ -49,7 +49,7 @@ export default function LoginPage() {
     const siteTitle = tenant.isClientSite ? tenant.siteLabel : 'Property Lounge';
     const siteSubtitle = tenant.isClientSite
         ? `${tenant.siteLabel} workspace on Property Lounge`
-        : 'Login to your account';
+        : 'Masuk ke akun Anda';
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -140,7 +140,7 @@ export default function LoginPage() {
                         </button>
                     </div>
                     <div className="login-site-badge">
-                        {tenant.isClientSite ? `Client Site: ${tenant.siteLabel}` : 'Sales Management Panel'}
+                        {tenant.isClientSite ? `Client Site: ${tenant.siteLabel}` : 'Panel Manajemen Sales'}
                     </div>
 
                     <h2 className="login-body-title">Selamat datang</h2>
@@ -209,7 +209,7 @@ export default function LoginPage() {
                     </form>
 
                     <div className="login-footer">
-                        &copy; {new Date().getFullYear()} Property Lounge. All rights reserved.
+                        &copy; {new Date().getFullYear()} Property Lounge. Hak cipta dilindungi.
                     </div>
                     </div>{/* login-mobile-form-area */}
                 </div>{/* login-right-inner */}

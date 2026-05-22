@@ -212,7 +212,7 @@ export default function DistributionOrderPage() {
         const liveOffers = Array.isArray(queuePreview.liveOffers) ? queuePreview.liveOffers : [];
         if (liveOffers.length === 0) {
             return queuePreview?.isQueueLocked
-                ? 'Distribution order sedang terkunci karena ada live offer menunggu OK.'
+                ? 'Urutan distribusi sedang terkunci karena ada penawaran aktif menunggu OK.'
                 : 'Urutan di bawah sudah diproyeksikan sebagai sesi distribusi berikutnya.';
         }
         const primaryOffer = liveOffers[0];
@@ -221,19 +221,19 @@ export default function DistributionOrderPage() {
             : null;
         const suffix = liveOffers.length > 1 ? ` dan ${liveOffers.length - 1} offer lain` : '';
         const rewardCopy = primaryOffer?.isRewardLocked
-            ? ` Reward repeat masih aktif ${primaryOffer.repeatOrderRemaining}x, queue ditahan sampai outcome jelas.`
+            ? ` Reward repeat masih aktif ${primaryOffer.repeatOrderRemaining}x, antrian ditahan sampai outcome jelas.`
             : '';
-        return `${primaryOffer?.salesName || 'Sales aktif'} sedang menunggu balasan OK${primaryOffer?.leadName ? ` untuk ${primaryOffer.leadName}` : ''}${deadlineLabel ? ` sampai ${deadlineLabel}` : ''}${suffix}. Distribution order dikunci sementara.${rewardCopy}`;
+        return `${primaryOffer?.salesName || 'Sales aktif'} sedang menunggu balasan OK${primaryOffer?.leadName ? ` untuk ${primaryOffer.leadName}` : ''}${deadlineLabel ? ` sampai ${deadlineLabel}` : ''}${suffix}. Urutan distribusi dikunci sementara.${rewardCopy}`;
     }, [queuePreview]);
 
     return (
         <div className="page-container set-page">
-            <Header title="Distribution Order" showBack />
+            <Header title="Urutan Distribusi" showBack />
 
             {queuePreview?.hasLiveOffer ? (
                 <div className="distribution-live-banner">
                     <div>
-                        <span className="badge badge-danger">Live Offer</span>
+                        <span className="badge badge-danger">Penawaran Aktif</span>
                     </div>
                     <div className="distribution-live-banner-copy">
                         {queuePreviewMessage || 'Ada distribusi lead yang sedang menunggu balasan OK. Jangan edit atau hapus distribution order sampai offer selesai.'}
@@ -252,18 +252,18 @@ export default function DistributionOrderPage() {
                 ) : null}
                 {blockedSales.length > 0 ? (
                     <p className="settings-help" style={{ marginTop: 10 }}>
-                        Sales yang sedang terkena penalty aktif tidak bisa ditambahkan ke queue sampai masa block berakhir.
+                        Sales yang sedang terkena penalti aktif tidak bisa ditambahkan ke antrian sampai masa blokir berakhir.
                     </p>
                 ) : null}
 
                 <div className="input-group" style={{ marginTop: 16 }}>
-                    <label>Tambah Sales ke Queue</label>
+                    <label>Tambah Sales ke Antrian</label>
                     <div className="settings-inline-grid">
                         <SelectFilter
                             options={salesOptions}
                             value={selectedSalesId}
                             onChange={(v) => setSelectedSalesId(v || '')}
-                            placeholder={availableSales.length === 0 ? 'Semua sales sudah masuk queue' : 'Pilih sales...'}
+                            placeholder={availableSales.length === 0 ? 'Semua sales sudah masuk antrian' : 'Pilih sales...'}
                             disabled={queueLoading || queueSaving || queueMutating || queueLocked || availableSales.length === 0}
                             clearable={false}
                         />
@@ -282,7 +282,7 @@ export default function DistributionOrderPage() {
                         onClick={addSalesToQueue}
                         disabled={queueLoading || queueSaving || queueMutating || queueLocked || !selectedSalesId}
                     >
-                        {queueMutating ? 'Menyimpan...' : 'Tambah ke Queue'}
+                        {queueMutating ? 'Menyimpan...' : 'Tambah ke Antrian'}
                     </button>
                 </div>
 
@@ -335,7 +335,7 @@ export default function DistributionOrderPage() {
                                 </div>
                                 <div className="settings-queue-actions">
                                     <div className="settings-queue-reward">
-                                        <span>Repeat</span>
+                                        <span>Pengulangan</span>
                                         <div style={{ width: 88 }}>
                                             <SelectFilter
                                                 options={rewardOptions}

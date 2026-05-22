@@ -77,11 +77,11 @@ function normalizeDateRange(range) {
 }
 
 function formatRangeButtonLabel(range) {
-    if (!range.dateFrom && !range.dateTo) return 'Custom';
+    if (!range.dateFrom && !range.dateTo) return 'Kustom';
     const formatter = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' });
     const start = parseDateInput(range.dateFrom);
     const end = parseDateInput(range.dateTo || range.dateFrom);
-    if (!start || !end) return 'Custom';
+    if (!start || !end) return 'Kustom';
     return `${formatter.format(start)} – ${formatter.format(end)}`;
 }
 
@@ -219,7 +219,7 @@ export default function DashboardPage() {
 
     const periodOptions = useMemo(() => [
         ...PERIOD_SF_OPTIONS,
-        { value: 'custom', label: isCustomActive ? formatRangeButtonLabel(appliedDateRange) : 'Custom Range' },
+        { value: 'custom', label: isCustomActive ? formatRangeButtonLabel(appliedDateRange) : 'Rentang Kustom' },
     ], [isCustomActive, appliedDateRange]);
 
     const handlePeriodChange = (v) => {
@@ -474,7 +474,7 @@ export default function DashboardPage() {
                                         ) : (
                                             <>
                                                 <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                                                <span>Start Distribution</span>
+                                                <span>Mulai Distribusi</span>
                                             </>
                                         )}
                                     </button>
@@ -490,25 +490,25 @@ export default function DashboardPage() {
                     <div className="dash-section-head">
                         <div>
                             <span className="dash-section-label">Struktur</span>
-                            <h2 className="dash-section-title">{analytics.hierarchySummary.roleLabel} Overview</h2>
+                            <h2 className="dash-section-title">Ringkasan {analytics.hierarchySummary.roleLabel}</h2>
                         </div>
                     </div>
                     <div className="dash-kpi-grid" style={{ marginBottom: 12 }}>
                         {analytics.hierarchySummary.counts?.clients !== undefined ? (
                             <div className="dash-kpi-card dash-kpi-card--total">
-                                <span className="dash-kpi-label">Clients</span>
+                                <span className="dash-kpi-label">Klien</span>
                                 <span className="dash-kpi-value">{analytics.hierarchySummary.counts.clients}</span>
                             </div>
                         ) : null}
                         {analytics.hierarchySummary.counts?.clientAdmins !== undefined ? (
                             <div className="dash-kpi-card dash-kpi-card--reserve">
-                                <span className="dash-kpi-label">Client Admins</span>
+                                <span className="dash-kpi-label">Admin Klien</span>
                                 <span className="dash-kpi-value">{analytics.hierarchySummary.counts.clientAdmins}</span>
                             </div>
                         ) : null}
                         {analytics.hierarchySummary.counts?.supervisors !== undefined ? (
                             <div className="dash-kpi-card dash-kpi-card--survey">
-                                <span className="dash-kpi-label">Supervisors</span>
+                                <span className="dash-kpi-label">Supervisor</span>
                                 <span className="dash-kpi-value">{analytics.hierarchySummary.counts.supervisors}</span>
                             </div>
                         ) : null}
@@ -527,11 +527,11 @@ export default function DashboardPage() {
                                     <div className="dash-card-row">
                                         <span className="dash-card-name">{item.name}</span>
                                         <span className={`dash-badge ${item.isActive ? 'dash-badge--green' : 'dash-badge--red'}`}>
-                                            {item.isActive ? 'Active' : 'Inactive'}
+                                            {item.isActive ? 'Aktif' : 'Tidak Aktif'}
                                         </span>
                                     </div>
                                     <div className="dash-card-meta">
-                                        <span>Client Admin: {item.clientAdmins}</span>
+                                        <span>Admin Klien: {item.clientAdmins}</span>
                                         <span>Supervisor: {item.supervisors}</span>
                                         <span>Sales: {item.sales}</span>
                                     </div>
@@ -576,20 +576,20 @@ export default function DashboardPage() {
                         {showDailyReport ? (
                             <button type="button" className={`dash-section-tab${activeSectionTab === 'daily-report' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('daily-report')}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-                                Daily Report
+                                Laporan Harian
                             </button>
                         ) : null}
                         <button type="button" className={`dash-section-tab${activeSectionTab === 'transaction' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('transaction')}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                            Transaction
+                            Transaksi
                         </button>
                         <button type="button" className={`dash-section-tab${activeSectionTab === 'team' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('team')}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                            Team
+                            Tim
                         </button>
                         <button type="button" className={`dash-section-tab${activeSectionTab === 'database' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('database')}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg>
-                            Database
+                            Basis Data
                         </button>
                     </div>
 
@@ -661,7 +661,7 @@ export default function DashboardPage() {
 
                             {teamSourceOptions.length > 1 ? (
                                 <div className="dash-drawer-section">
-                                    <span className="dash-drawer-section-label">Source Lead</span>
+                                    <span className="dash-drawer-section-label">Sumber Leads</span>
                                     <SelectFilter
                                         options={teamSourceOptions.filter((o) => o.key !== 'all').map((o) => ({
                                             value: o.key,

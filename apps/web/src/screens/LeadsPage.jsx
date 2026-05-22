@@ -44,7 +44,7 @@ const IMPORT_REASON_LABELS = {
     lead_not_found: 'Lead tidak ditemukan di client target.',
     duplicate_row_for_lead: 'Lead yang sama muncul lebih dari sekali di file.',
     already_assigned_to_target: 'Lead sudah dimiliki sales target.',
-    owner_changed_since_export: 'Owner lead berubah sejak file ini diexport.',
+    owner_changed_since_export: 'Owner lead berubah sejak file ini diekspor.',
 };
 
 function parseDateInput(value) {
@@ -498,7 +498,7 @@ export default function LeadsPage() {
                                     <polyline points="7 10 12 15 17 10" />
                                     <line x1="12" y1="15" x2="12" y2="3" />
                                 </svg>
-                                Export
+                                Ekspor
                             </button>
                         ) : null}
                     </>
@@ -572,7 +572,7 @@ export default function LeadsPage() {
                         options={FLOW_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
                     />
                     <SelectFilter
-                        placeholder="Sales Status"
+                        placeholder="Status Sales"
                         value={salesStatusFilter === 'all' ? '' : salesStatusFilter}
                         onChange={(v) => setSalesStatusFilter(v || 'all')}
                         options={[...SPECIAL_SALES_STATUS_FILTERS, ...SALES_STATUSES].map((item) => ({ value: item.key, label: item.label }))}
@@ -786,10 +786,10 @@ export default function LeadsPage() {
                                 {importResult ? (
                                     <div className="lead-import-preview">
                                         <div className="lead-import-summary-grid">
-                                            <div className="team-summary-card team-summary-default"><span className="team-summary-label">Total Rows</span><strong className="team-summary-value">{importResult.summary?.totalRows || 0}</strong></div>
-                                            <div className="team-summary-card team-summary-success"><span className="team-summary-label">Updated</span><strong className="team-summary-value">{importResult.summary?.updated || 0}</strong></div>
-                                            <div className="team-summary-card team-summary-warm"><span className="team-summary-label">Skipped</span><strong className="team-summary-value">{importResult.summary?.skipped || 0}</strong></div>
-                                            <div className="team-summary-card team-summary-hot"><span className="team-summary-label">Errors</span><strong className="team-summary-value">{importResult.summary?.errors || 0}</strong></div>
+                                            <div className="team-summary-card team-summary-default"><span className="team-summary-label">Total Baris</span><strong className="team-summary-value">{importResult.summary?.totalRows || 0}</strong></div>
+                                            <div className="team-summary-card team-summary-success"><span className="team-summary-label">Diperbarui</span><strong className="team-summary-value">{importResult.summary?.updated || 0}</strong></div>
+                                            <div className="team-summary-card team-summary-warm"><span className="team-summary-label">Dilewati</span><strong className="team-summary-value">{importResult.summary?.skipped || 0}</strong></div>
+                                            <div className="team-summary-card team-summary-hot"><span className="team-summary-label">Error</span><strong className="team-summary-value">{importResult.summary?.errors || 0}</strong></div>
                                         </div>
                                         <div className="team-modal-helper">Target sales: <strong>{importResult.targetSales?.name || '-'}</strong></div>
                                         <div className="lead-import-preview-list">
@@ -838,26 +838,26 @@ export default function LeadsPage() {
                                 options={FLOW_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
                             />
                             <SelectFilter
-                                placeholder="Sales Status"
+                                placeholder="Status Sales"
                                 value={salesStatusFilter === 'all' ? '' : salesStatusFilter}
                                 onChange={(v) => setSalesStatusFilter(v || 'all')}
                                 options={[...SPECIAL_SALES_STATUS_FILTERS, ...SALES_STATUSES].map((item) => ({ value: item.key, label: item.label }))}
                             />
                             <SelectFilter
-                                placeholder="Result"
+                                placeholder="Hasil"
                                 value={resultFilter === 'all' ? '' : resultFilter}
                                 onChange={(v) => setResultFilter(v || 'all')}
                                 options={RESULT_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
                             />
                             <SelectFilter
-                                placeholder="Appointment"
+                                placeholder="Janji Temu"
                                 value={appointmentFilter === 'all' ? '' : appointmentFilter}
                                 onChange={(v) => setAppointmentFilter(v || 'all')}
                                 options={APPOINTMENT_TAGS.map((item) => ({ value: item.key, label: item.label }))}
                             />
                             {availableLeadSources.length > 0 ? (
                                 <SelectFilter
-                                    placeholder="Source"
+                                    placeholder="Sumber"
                                     value={sourceFilter === 'all' ? '' : sourceFilter}
                                     onChange={(v) => setSourceFilter(v || 'all')}
                                     options={availableLeadSources.map((s) => ({ value: s, label: s }))}
@@ -891,11 +891,11 @@ export default function LeadsPage() {
                 <div className="sheet-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowExportModal(false); }}>
                     <div className="bottom-sheet">
                         <div className="sheet-handle" />
-                        <h2>Export Leads (XLSX)</h2>
+                        <h2>Ekspor Leads (XLSX)</h2>
                         <form onSubmit={handleExportLeads} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                             <div className="input-group">
-                                <label>Access Code Export</label>
-                                <input type="password" className="input-field" value={exportAccessCode} onChange={(event) => setExportAccessCode(event.target.value)} placeholder="Masukkan access code export" required />
+                                <label>Kode Akses Ekspor</label>
+                                <input type="password" className="input-field" value={exportAccessCode} onChange={(event) => setExportAccessCode(event.target.value)} placeholder="Masukkan kode akses ekspor" required />
                             </div>
                             <div className="input-group">
                                 <label>Tanggal Masuk (Dari - Sampai)</label>
@@ -931,7 +931,7 @@ export default function LeadsPage() {
                                 </div>
                             </div>
                             <div className="input-group">
-                                <label>Sales Status</label>
+                                <label>Status Sales</label>
                                 <div className="export-checklist" style={{ marginBottom: 10 }}>
                                     <label className="export-checklist-item">
                                         <input type="checkbox" checked={Boolean(exportFilters.hotValidatedOnly)} onChange={(event) => setExportFilters((prev) => ({ ...prev, hotValidatedOnly: event.target.checked, salesStatuses: event.target.checked ? Array.from(new Set(['hot', ...prev.salesStatuses.filter((item) => item !== 'unfilled')])) : prev.salesStatuses }))} />
@@ -975,7 +975,7 @@ export default function LeadsPage() {
                                 </div>
                             </div>
                             <div className="input-group">
-                                <label>Result Status</label>
+                                <label>Status Hasil</label>
                                 <div className="export-checklist">
                                     <label className="export-checklist-item export-checklist-all">
                                         <input type="checkbox" checked={isAllSelected('resultStatuses', ['unfilled', ...RESULT_STATUSES.map((i) => i.key)])} ref={(el) => { if (el) el.indeterminate = isSomeSelected('resultStatuses', ['unfilled', ...RESULT_STATUSES.map((i) => i.key)]); }} onChange={() => toggleSelectAll('resultStatuses', ['unfilled', ...RESULT_STATUSES.map((i) => i.key)])} />
@@ -1014,9 +1014,9 @@ export default function LeadsPage() {
                                     </div>
                                 </div>
                             ) : null}
-                            <p className="leads-result-count" style={{ marginBottom: 0 }}>{exportLeads.length} leads akan diexport</p>
+                            <p className="leads-result-count" style={{ marginBottom: 0 }}>{exportLeads.length} leads akan diekspor</p>
                             {exportError ? <div className="login-error">{exportError}</div> : null}
-                            <button type="submit" className="btn btn-primary btn-full" disabled={exporting}>{exporting ? 'Exporting...' : 'Export XLSX'}</button>
+                            <button type="submit" className="btn btn-primary btn-full" disabled={exporting}>{exporting ? 'Mengekspor...' : 'Ekspor XLSX'}</button>
                             <button type="button" className="btn btn-secondary btn-full" onClick={() => setShowExportModal(false)}>Batal</button>
                         </form>
                     </div>

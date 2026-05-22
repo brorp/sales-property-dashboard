@@ -120,7 +120,7 @@ export default function OverviewPage() {
 
     return (
         <div className="page-container dash-page">
-            <Header title="Overview" />
+            <Header title="Ringkasan" />
 
             <div className="dash-sticky-bar">
                 <div className="overview-header-bar">

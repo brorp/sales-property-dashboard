@@ -33,11 +33,11 @@ const IconFile = () => (
 
 function toReadableBroadcastStatus(value) {
     switch (value) {
-        case 'running': return 'Running';
-        case 'stopped': return 'Stopped';
-        case 'completed': return 'Completed';
+        case 'running': return 'Berjalan';
+        case 'stopped': return 'Berhenti';
+        case 'completed': return 'Selesai';
         case 'error': return 'Error';
-        default: return 'Idle';
+        default: return 'Siaga';
     }
 }
 
@@ -318,7 +318,7 @@ export default function BroadcastPage() {
                 </div>
 
                 <div className="input-group">
-                    <label>Text Broadcast</label>
+                    <label>Teks Broadcast</label>
                     <textarea
                         className="input-field"
                         rows={4}

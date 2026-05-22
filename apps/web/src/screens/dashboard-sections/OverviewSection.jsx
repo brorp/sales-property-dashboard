@@ -104,9 +104,9 @@ export default function OverviewSection({
             <div className="ov-kpi-strip">
                 <KpiCard label="Total Leads" value={fmt(totalLeads)} sub="Semua lead masuk" accent="blue" />
                 <KpiCard label="Hot Leads" value={fmt(hotCount)} sub={`${pctStr(hotPct)} dari total`} accent="red" />
-                <KpiCard label="Sudah Survey" value={fmt(surveyedLeads)} sub={`${pctStr(surveyRatioPercent)} survey rate`} accent="teal" />
-                <KpiCard label="Active Pipeline" value={fmt(activePipeline)} sub="Reserve + OP + FB" accent="purple" />
-                <KpiCard label="Closing" value={fmt(totalClosing)} sub={`${pctStr(closingPct)} conversion`} accent="green" />
+                <KpiCard label="Sudah Survey" value={fmt(surveyedLeads)} sub={`${pctStr(surveyRatioPercent)} tingkat survey`} accent="teal" />
+                <KpiCard label="Pipeline Aktif" value={fmt(activePipeline)} sub="Reserve + OP + FB" accent="purple" />
+                <KpiCard label="Closing" value={fmt(totalClosing)} sub={`${pctStr(closingPct)} konversi`} accent="green" />
             </div>
 
             {/* 2 — Conversion Funnel */}
@@ -144,7 +144,7 @@ export default function OverviewSection({
                         <div className="ov-card-head">
                             <div>
                                 <span className="ov-eyebrow">Hari Ini</span>
-                                <h3 className="ov-card-title">Daily Pulse</h3>
+                                <h3 className="ov-card-title">Aktivitas Hari Ini</h3>
                                 <span className="ov-card-note">Data hari ini · tidak mengikuti filter periode</span>
                             </div>
                             <span className="ov-date-badge">{dailySalesReport.dateLabel}</span>
@@ -163,11 +163,11 @@ export default function OverviewSection({
                                 <span className="ov-pulse-value">{fmt(callIn)}</span>
                             </div>
                             <div className="ov-pulse-item">
-                                <span className="ov-pulse-label">Appointment</span>
+                                <span className="ov-pulse-label">Janji Temu</span>
                                 <span className="ov-pulse-value">{fmt(appointmentCount)}</span>
                             </div>
                             <div className="ov-pulse-item ov-pulse-item--accent">
-                                <span className="ov-pulse-label">Total Reserved</span>
+                                <span className="ov-pulse-label">Total Reserve</span>
                                 <span className="ov-pulse-value">{fmt(totalReserved)}</span>
                             </div>
                         </div>
@@ -188,7 +188,7 @@ export default function OverviewSection({
                         <PipelineCard label="Akad" value={fmt(totalAkad)} color="#16A34A" />
                     </div>
                     <div className="ov-pipeline-footer">
-                        <span className="ov-pipeline-footer-label">Cancel</span>
+                        <span className="ov-pipeline-footer-label">Batal</span>
                         <span className="ov-pipeline-footer-value">{fmt(totalCancel)}</span>
                     </div>
                 </div>
@@ -210,7 +210,7 @@ export default function OverviewSection({
                             <span className="ov-team-cell ov-tc-hide-sm">Hot</span>
                             <span className="ov-team-cell ov-tc-hide-sm">Survey</span>
                             <span className="ov-team-cell">Closing</span>
-                            <span className="ov-team-cell">Closing Rate</span>
+                            <span className="ov-team-cell">Tingkat Closing</span>
                         </div>
                         {teams.map((team) => {
                             const teamClosing = (team.fullBook || 0) + (team.akad || 0);
@@ -262,7 +262,7 @@ export default function OverviewSection({
                         <div className="ov-card-head">
                             <div>
                                 <span className="ov-eyebrow">Performa Sales</span>
-                                <h3 className="ov-card-title">Survey Rate per Sales</h3>
+                                <h3 className="ov-card-title">Tingkat Survey per Sales</h3>
                             </div>
                         </div>
                         <div className="ov-rank-list">
