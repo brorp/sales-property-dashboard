@@ -119,6 +119,7 @@
     border-radius: 9px;
     overflow: hidden;
     flex-shrink: 0;
+    height: 32px;
 }
 
 .dcc-chart-toggle-btn {

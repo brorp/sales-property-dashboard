@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatCount, getPillButtonStyle, getTeamDisplayLabel } from './utils';
 import PieChartCard from '../../components/PieChartCard';
-import SelectFilter from '../../components/SelectFilter';
 import './DashboardSections.css';
 
 const PIE_COLORS = ['#7c4dff', '#ff9800', '#26a69a', '#ef5350', '#42a5f5', '#ab47bc', '#9ccc65', '#ffa726'];
@@ -80,8 +79,8 @@ function BarIcon() {
     );
 }
 
-function DomicileBarChart({ items, total }) {
-    if (!items.length) return <div className="pcc-empty">Belum ada data domisili.</div>;
+function DomicileBarChart({ items, total, emptyLabel = 'Belum ada data.' }) {
+    if (!items.length) return <div className="pcc-empty">{emptyLabel}</div>;
     return (
         <div className="dcc-bar-list">
             {items.map((item) => {
@@ -112,6 +111,22 @@ function FilterIcon() {
     );
 }
 
+function CheckIcon() {
+    return (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+        </svg>
+    );
+}
+
+function CloseIcon() {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+    );
+}
+
 function SectionFilterDrawer({ open, onClose, title, options, value, onChange }) {
     if (!open) return null;
     return (
@@ -120,21 +135,29 @@ function SectionFilterDrawer({ open, onClose, title, options, value, onChange })
                 <div className="dash-drawer-header">
                     <span className="dash-drawer-title">{title}</span>
                     <button type="button" className="ds-section-filter-btn" onClick={onClose}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
+                        <CloseIcon />
                     </button>
                 </div>
                 <div className="dash-drawer-body">
-                    <div className="dash-drawer-section">
-                        <span className="dash-drawer-section-label">Status</span>
-                        <SelectFilter
-                            options={options}
-                            value={value}
-                            onChange={(v) => { onChange(v || options[0]?.value || ''); onClose(); }}
-                            placeholder="Pilih status..."
-                            clearable={false}
-                        />
+                    <div className="sfd-list">
+                        {options.map((opt) => {
+                            const isActive = value === opt.value;
+                            return (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    className={`sfd-item${isActive ? ' active' : ''}`}
+                                    onClick={() => { onChange(opt.value); onClose(); }}
+                                >
+                                    <span className="sfd-item-dot" />
+                                    <span className="sfd-item-label">{opt.label}</span>
+                                    {opt.count !== undefined && (
+                                        <span className="sfd-item-count">{formatCount(opt.count)}</span>
+                                    )}
+                                    <span className="sfd-item-check"><CheckIcon /></span>
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
             </div>
@@ -189,23 +212,9 @@ export default function TransactionRecapSection({
     const sourceLeadItems = (data.transactionSourceBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
     const unitTypeItems = (data.unitTypeBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
     const cancelReasonItems = (data.cancelReasonBreakdown || []).map((item, i) => ({ label: item.label || item.key || 'Lainnya', count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
-    const domicileItems = (data.domicileCityBreakdown?.[transactionChartStatus] || []).slice(0, 10).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
+    const domicileItems = (data.transactionDomicileBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
 
-    const domicileNonCancelRaw = (() => {
-        const breakdown = data.domicileCityBreakdown || {};
-        const NON_CANCEL_KEYS = ['akad', 'full_book', 'on_process', 'reserve'];
-        const merged = {};
-        for (const key of NON_CANCEL_KEYS) {
-            for (const item of (breakdown[key] || [])) {
-                merged[item.label] = (merged[item.label] || 0) + Number(item.count || 0);
-            }
-        }
-        return Object.entries(merged)
-            .map(([label, count]) => ({ label, count }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 10);
-    })();
-    const domicileNonCancelItems = domicileNonCancelRaw.map((item, i) => ({ ...item, color: PIE_COLORS[i % PIE_COLORS.length] }));
+    const domicileNonCancelItems = (data.transactionDomicileBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ ...item, color: PIE_COLORS[i % PIE_COLORS.length] }));
     const domicileNonCancelTotal = domicileNonCancelItems.reduce((s, i) => s + i.count, 0);
     const selectedPicAgentStatusMeta = PIC_AGENT_STATUS_OPTIONS.find((s) => s.key === picAgentStatus) || PIC_AGENT_STATUS_OPTIONS[0];
 
@@ -343,49 +352,48 @@ export default function TransactionRecapSection({
                     </div>
                 ) : null}
 
-                {/* Domisili L4 non-cancel */}
-                <div style={{ paddingTop: '8px', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
-                        <div>
-                            <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>Domisili</h3>
-                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Distribusi domisili dari leads yang sudah masuk L4 non-cancel.</span>
-                        </div>
-                        <div className="dcc-chart-toggle">
-                            <button type="button" className={`dcc-chart-toggle-btn${domicileChartType === 'pie' ? ' active' : ''}`} onClick={() => setDomicileChartType('pie')}>
-                                <PieIcon /> Pie
-                            </button>
-                            <button type="button" className={`dcc-chart-toggle-btn${domicileChartType === 'bar' ? ' active' : ''}`} onClick={() => setDomicileChartType('bar')}>
-                                <BarIcon /> Bar
-                            </button>
-                        </div>
-                    </div>
-                    {domicileChartType === 'pie' ? (
-                        <PieChartCard
-                            title="Top 10 Domisili"
-                            subtitle="Kota asal leads yang sudah masuk L4 non-cancel."
-                            total={domicileNonCancelTotal}
-                            items={domicileNonCancelItems}
-                            emptyLabel="Belum ada data domisili."
-                        />
-                    ) : (
-                        <DomicileBarChart items={domicileNonCancelItems} total={domicileNonCancelTotal} />
-                    )}
-                </div>
+
 
                 {/* Per Status pie charts */}
                 <div style={{ paddingTop: '8px', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                         <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>Analisa Closing per Status</h3>
-                        <button type="button" onClick={() => setAnalysisDrawerOpen(true)} className={`ds-section-filter-btn${transactionChartStatus !== 'all' ? ' is-active' : ''}`}>
-                            <FilterIcon />
-                            {transactionChartStatus !== 'all' && <span className="ds-section-filter-dot" />}
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div className="dcc-chart-toggle">
+                                <button type="button" className={`dcc-chart-toggle-btn${domicileChartType === 'pie' ? ' active' : ''}`} onClick={() => setDomicileChartType('pie')}>
+                                    <PieIcon /> Pie
+                                </button>
+                                <button type="button" className={`dcc-chart-toggle-btn${domicileChartType === 'bar' ? ' active' : ''}`} onClick={() => setDomicileChartType('bar')}>
+                                    <BarIcon /> Bar
+                                </button>
+                            </div>
+                            <button type="button" onClick={() => setAnalysisDrawerOpen(true)} className={`ds-section-filter-btn${transactionChartStatus !== 'all' ? ' is-active' : ''}`}>
+                                <FilterIcon />
+                                {transactionChartStatus !== 'all' && <span className="ds-section-filter-dot" />}
+                            </button>
+                        </div>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
-                        <PieChartCard title="Analisa Source Leads" subtitle="Komposisi source leads dari status transaksi terpilih." total={sourceLeadItems.reduce((s, i) => s + i.count, 0)} items={sourceLeadItems} emptyLabel="Belum ada data transaksi untuk status ini." />
-                        <PieChartCard title="Komposisi Tipe Unit" subtitle="Distribusi tipe unit dari status transaksi terpilih." total={unitTypeItems.reduce((s, i) => s + i.count, 0)} items={unitTypeItems} emptyLabel="Belum ada tipe unit pada status ini." />
-                        <PieChartCard title="Domisili" subtitle="Top 10 kota domisili dari status transaksi terpilih." total={domicileItems.reduce((s, i) => s + i.count, 0)} items={domicileItems} emptyLabel="Belum ada data domisili." />
-                        <PieChartCard title="Alasan Cancel" subtitle="Distribusi alasan cancel pada filter tanggal aktif." total={cancelReasonItems.reduce((s, i) => s + i.count, 0)} items={cancelReasonItems} emptyLabel="Belum ada data alasan cancel." />
+                        {[
+                            { title: 'Analisa Source Leads', subtitle: 'Komposisi source leads dari status transaksi terpilih.', items: sourceLeadItems, emptyLabel: 'Belum ada data transaksi untuk status ini.' },
+                            { title: 'Komposisi Tipe Unit', subtitle: 'Distribusi tipe unit dari status transaksi terpilih.', items: unitTypeItems, emptyLabel: 'Belum ada tipe unit pada status ini.' },
+                            { title: 'Domisili', subtitle: 'Distribusi domisili dari leads yang sudah masuk L4 non-cancel.', items: domicileItems, emptyLabel: 'Belum ada data domisili.' },
+                            { title: 'Alasan Cancel', subtitle: 'Distribusi alasan cancel pada filter tanggal aktif.', items: cancelReasonItems, emptyLabel: 'Belum ada data alasan cancel.' },
+                        ].map(({ title, subtitle, items, emptyLabel }) => {
+                            const total = items.reduce((s, i) => s + i.count, 0);
+                            if (domicileChartType === 'bar') {
+                                return (
+                                    <div key={title} className="pcc">
+                                        <div className="pcc-header">
+                                            <h4 className="pcc-title">{title}</h4>
+                                            <span className="pcc-subtitle">{subtitle}</span>
+                                        </div>
+                                        <DomicileBarChart items={items} total={total} emptyLabel={emptyLabel} />
+                                    </div>
+                                );
+                            }
+                            return <PieChartCard key={title} title={title} subtitle={subtitle} total={total} items={items} emptyLabel={emptyLabel} />;
+                        })}
                     </div>
                 </div>
             </div>
