@@ -253,13 +253,13 @@ export default function BroadcastPage() {
                 </div>
 
                 <div className="input-group">
-                    <label>Status Appointment (Opsional)</label>
+                    <label>Status Janji Temu (Opsional)</label>
                     <SelectFilter
                         options={[
                             { value: 'all', label: 'Semua' },
                             { value: 'mau_survey', label: 'Mau Survey' },
                             { value: 'sudah_survey', label: 'Sudah Survey' },
-                            { value: 'none', label: 'Belum Ada Appointment' },
+                            { value: 'none', label: 'Belum Ada Janji Temu' },
                         ]}
                         value={broadcastForm.appointmentTag}
                         onChange={(val) => setBroadcastForm((prev) => ({ ...prev, appointmentTag: val }))}

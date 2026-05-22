@@ -449,7 +449,7 @@ export default function LeadsPage() {
                 { header: 'No', key: 'no', width: 6 }, { header: 'Lead ID', key: 'id', width: 34 },
                 { header: 'Nama', key: 'name', width: 28 }, { header: 'Nomor WhatsApp', key: 'phone', width: 20 },
                 { header: 'Sumber', key: 'source', width: 24 }, { header: 'Flow Status', key: 'flowStatus', width: 14 },
-                { header: 'Sales Status', key: 'salesStatus', width: 16 }, { header: 'Appointment', key: 'appointmentTag', width: 16 },
+                { header: 'Sales Status', key: 'salesStatus', width: 16 }, { header: 'Janji Temu', key: 'appointmentTag', width: 16 },
                 { header: 'Result', key: 'resultStatus', width: 14 }, { header: 'Domisili', key: 'domicileCity', width: 20 },
                 { header: 'Assigned Sales', key: 'salesName', width: 24 }, { header: 'Tanggal Masuk', key: 'createdAt', width: 22 },
             ];
@@ -584,7 +584,7 @@ export default function LeadsPage() {
                         options={RESULT_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
                     />
                     <SelectFilter
-                        placeholder="Appointment"
+                        placeholder="Janji Temu"
                         value={appointmentFilter === 'all' ? '' : appointmentFilter}
                         onChange={(v) => setAppointmentFilter(v || 'all')}
                         options={APPOINTMENT_TAGS.map((item) => ({ value: item.key, label: item.label }))}
@@ -956,7 +956,7 @@ export default function LeadsPage() {
                                 </div>
                             </div>
                             <div className="input-group">
-                                <label>Status Appointment</label>
+                                <label>Status Janji Temu</label>
                                 <div className="export-checklist">
                                     <label className="export-checklist-item export-checklist-all">
                                         <input type="checkbox" checked={isAllSelected('appointmentTags', ['none', ...APPOINTMENT_TAGS.map((i) => i.key)])} ref={(el) => { if (el) el.indeterminate = isSomeSelected('appointmentTags', ['none', ...APPOINTMENT_TAGS.map((i) => i.key)]); }} onChange={() => toggleSelectAll('appointmentTags', ['none', ...APPOINTMENT_TAGS.map((i) => i.key)])} />

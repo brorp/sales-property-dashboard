@@ -105,7 +105,7 @@ function SpvEmpty({ variant = 'default', title, desc }) {
             ),
         },
         search: {
-            color: '#7C3AED', bg: '#EDE9FE',
+            color: '#1E3A5F', bg: '#EEF3F9',
             icon: (
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="11" cy="11" r="8"/>
@@ -307,6 +307,8 @@ export default function SupervisorTasksPage() {
         setShowRejectNote((prev) => ({ ...prev, [leadId]: !prev[leadId] }));
     };
 
+    const closePanel = () => { setFilterSheet(null); setFilterSearch(''); };
+
     const renderSalesFilter = ({ options, value, onChange, totalCount, sheetKey, nameSearch, setNameSearch }) => {
         if (options.length === 0) return null;
         const activeLabel = value === 'all'
@@ -314,7 +316,6 @@ export default function SupervisorTasksPage() {
             : options.find((o) => o.salesId === value)?.salesName;
         return (
             <div className="spv-filter-bar">
-                {/* Search + filter icon side by side */}
                 <div className="spv-filter-row">
                     <div className="spv-name-search-wrap">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="spv-name-search-icon">
@@ -357,59 +358,67 @@ export default function SupervisorTasksPage() {
                     </button>
                 </div>
 
-                {/* Sales filter bottom sheet */}
                 {filterSheet === sheetKey ? (
-                    <div className="sheet-overlay" onClick={() => { setFilterSheet(null); setFilterSearch(''); }}>
-                        <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
-                            <div className="sheet-handle" />
-                            <h2>Filter by Sales</h2>
-                            <div className="spv-sheet-search-wrap">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="spv-sheet-search-icon">
-                                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                                </svg>
-                                <input
-                                    type="text"
-                                    className="spv-sheet-search"
-                                    placeholder="Cari sales..."
-                                    value={filterSearch}
-                                    onChange={(e) => setFilterSearch(e.target.value)}
-                                    autoFocus
-                                />
-                                {filterSearch ? (
-                                    <button type="button" className="spv-sheet-search-clear" onClick={() => setFilterSearch('')}>
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                                        </svg>
-                                    </button>
-                                ) : null}
+                    <div className="spv-panel-backdrop" onClick={closePanel}>
+                        <div className="spv-panel" onClick={(e) => e.stopPropagation()}>
+                            <div className="spv-panel-handle" />
+                            <div className="spv-panel-header">
+                                <span className="spv-panel-title">Filter by Sales</span>
+                                <button type="button" className="spv-panel-close" onClick={closePanel}>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                    </svg>
+                                </button>
                             </div>
-                            <div className="spv-sheet-list">
-                                {!filterSearch ? (
-                                    <button
-                                        type="button"
-                                        className={`spv-sheet-item${value === 'all' ? ' is-active' : ''}`}
-                                        onClick={() => { onChange('all'); setFilterSheet(null); setFilterSearch(''); }}
-                                    >
-                                        <span>Semua</span>
-                                        <span className="spv-sheet-count">{totalCount}</span>
-                                        {value === 'all' && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
-                                    </button>
-                                ) : null}
-                                {options
-                                    .filter((o) => o.salesName.toLowerCase().includes(filterSearch.toLowerCase()))
-                                    .map((o) => (
-                                        <button
-                                            key={o.salesId}
-                                            type="button"
-                                            className={`spv-sheet-item${value === o.salesId ? ' is-active' : ''}`}
-                                            onClick={() => { onChange(o.salesId); setFilterSheet(null); setFilterSearch(''); }}
-                                        >
-                                            <span>{o.salesName}</span>
-                                            <span className="spv-sheet-count">{o.taskCount}</span>
-                                            {value === o.salesId && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                            <div className="spv-panel-body">
+                                <div className="spv-sheet-search-wrap">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="spv-sheet-search-icon">
+                                        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                                    </svg>
+                                    <input
+                                        type="text"
+                                        className="spv-sheet-search"
+                                        placeholder="Cari sales..."
+                                        value={filterSearch}
+                                        onChange={(e) => setFilterSearch(e.target.value)}
+                                        autoFocus
+                                    />
+                                    {filterSearch ? (
+                                        <button type="button" className="spv-sheet-search-clear" onClick={() => setFilterSearch('')}>
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                            </svg>
                                         </button>
-                                    ))
-                                }
+                                    ) : null}
+                                </div>
+                                <div className="spv-sheet-list">
+                                    {!filterSearch ? (
+                                        <button
+                                            type="button"
+                                            className={`spv-sheet-item${value === 'all' ? ' is-active' : ''}`}
+                                            onClick={() => { onChange('all'); closePanel(); }}
+                                        >
+                                            <span>Semua</span>
+                                            <span className="spv-sheet-count">{totalCount}</span>
+                                            {value === 'all' && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                                        </button>
+                                    ) : null}
+                                    {options
+                                        .filter((o) => o.salesName.toLowerCase().includes(filterSearch.toLowerCase()))
+                                        .map((o) => (
+                                            <button
+                                                key={o.salesId}
+                                                type="button"
+                                                className={`spv-sheet-item${value === o.salesId ? ' is-active' : ''}`}
+                                                onClick={() => { onChange(o.salesId); closePanel(); }}
+                                            >
+                                                <span>{o.salesName}</span>
+                                                <span className="spv-sheet-count">{o.taskCount}</span>
+                                                {value === o.salesId && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                                            </button>
+                                        ))
+                                    }
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -419,7 +428,7 @@ export default function SupervisorTasksPage() {
     };
 
     return (
-        <div className="page-container">
+        <div className="page-container spv-page">
             <Header title="Supervisor Tasks" hasTabs />
 
             <div className="daily-task-tabs">

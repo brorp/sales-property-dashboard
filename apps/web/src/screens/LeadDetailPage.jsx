@@ -361,8 +361,8 @@ export default function LeadDetailPage({ leadId }) {
             setShowAppt(false);
             setRequestSuccess(
                 editingAppointment?.id
-                    ? 'Appointment berhasil diperbarui.'
-                    : 'Appointment berhasil dibuat.'
+                    ? 'Janji temu berhasil diperbarui.'
+                    : 'Janji temu berhasil dibuat.'
             );
         } catch (err) {
             setRequestError(err instanceof Error ? err.message : 'Failed saving appointment');
@@ -545,7 +545,7 @@ export default function LeadDetailPage({ leadId }) {
             await cancelAppointment(item.id, {
                 notes: item.notes || null,
             });
-            setRequestSuccess('Appointment berhasil dibatalkan.');
+            setRequestSuccess('Janji temu berhasil dibatalkan.');
         } catch (err) {
             setRequestError(err instanceof Error ? err.message : 'Failed cancelling appointment');
         }
@@ -872,7 +872,7 @@ export default function LeadDetailPage({ leadId }) {
             {/* ── Appointment ───────────────────────────────────── */}
             <div className="ldp-section">
                 <div className="ldp-section-head">
-                    <h3 className="ldp-section-title">Appointment</h3>
+                    <h3 className="ldp-section-title">Janji Temu</h3>
                     <button className="btn btn-sm btn-primary" onClick={openCreateAppointment} disabled={!canEditLead}>+ Buat</button>
                 </div>
                 <div className="ldp-appt-status-row">
@@ -1038,7 +1038,7 @@ export default function LeadDetailPage({ leadId }) {
                             </div>
                             {editingAppointment ? (
                                 <div className="input-group">
-                                    <label>Status Appointment</label>
+                                    <label>Status Janji Temu</label>
                                     <select className="input-field" value={appt.status} onChange={(event) => setAppt({ ...appt, status: event.target.value })}>
                                         {APPOINTMENT_TAGS.map((tag) => (
                                             <option key={tag.key} value={tag.key}>{tag.label}</option>

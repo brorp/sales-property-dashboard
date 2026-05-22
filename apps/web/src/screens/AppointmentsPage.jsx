@@ -90,7 +90,7 @@ export default function AppointmentsPage() {
     return (
         <div className="page-container ap-page">
             <Header
-                title="Appointments"
+                title="Janji Temu"
                 rightAction={
                     <button className="btn btn-sm btn-secondary btn-icon-refresh" onClick={() => void refreshAppointments()} title="Refresh">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
@@ -142,7 +142,7 @@ export default function AppointmentsPage() {
                 </div>
                 <div className="ap-selects-row">
                     <SelectFilter
-                        placeholder="Status Appointment"
+                        placeholder="Status Janji Temu"
                         options={TAG_OPTIONS}
                         value={tagFilter}
                         onChange={setTagFilter}
@@ -177,7 +177,7 @@ export default function AppointmentsPage() {
                     <p className="ap-empty-desc">
                         {tagFilter || salesFilter
                             ? 'Coba ubah atau hapus filter yang aktif.'
-                            : 'Appointment yang dibuat di detail lead akan muncul di sini.'}
+                            : 'Janji temu yang dibuat di detail lead akan muncul di sini.'}
                     </p>
                     {(tagFilter || salesFilter) ? (
                         <button
@@ -247,10 +247,10 @@ export default function AppointmentsPage() {
                 <div className="sheet-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowMobileFilter(false); }}>
                     <div className="bottom-sheet">
                         <div className="sheet-handle" />
-                        <h2>Filter Appointments</h2>
+                        <h2>Filter Janji Temu</h2>
                         <div className="ap-filter-sheet-body">
                             <SelectFilter
-                                placeholder="Status Appointment"
+                                placeholder="Status Janji Temu"
                                 options={TAG_OPTIONS}
                                 value={tagFilter}
                                 onChange={setTagFilter}

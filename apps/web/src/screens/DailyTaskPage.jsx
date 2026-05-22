@@ -140,8 +140,8 @@ function DtEmpty({ variant = 'all_done' }) {
                     <path d="M8 14h.01M12 14h.01M16 14h.01" />
                 </svg>
             ),
-            title: 'Tidak ada appointment aktif',
-            desc: 'Appointment dengan status Mau Survey akan muncul di sini.',
+            title: 'Tidak ada janji temu aktif',
+            desc: 'Janji temu dengan status Mau Survey akan muncul di sini.',
         },
         no_search: {
             iconBg: '#F5F3FF', iconColor: '#7C3AED',
@@ -388,7 +388,7 @@ export default function DailyTaskPage() {
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01"/></svg>
                         <span className="daily-task-tab-badge" style={appointments.length === 0 ? { visibility: 'hidden' } : undefined}>{appointments.length}</span>
                     </span>
-                    <span className="daily-task-tab-label">Appointment</span>
+                    <span className="daily-task-tab-label">Janji Temu</span>
                 </button>
                 <button type="button" className={`daily-task-tab${activeTab === 'hot_validated' ? ' is-active' : ''}`} onClick={() => { setActiveTab('hot_validated'); setNameSearch(''); }}>
                     <span className="daily-task-tab-icon-wrap">
@@ -577,7 +577,7 @@ export default function DailyTaskPage() {
                                             {task.leadSource ? <div className="dt-meta-item"><IcPin /><span>{task.leadSource}</span></div> : null}
                                             <div className="dt-meta-item"><IcUser /><span>Lead age: {getTimeAgo(task.createdAt)}</span></div>
                                             <div className="dt-meta-item"><IcCalendar /><span>Masuk: {formatDateTime(task.assignedAt)}</span></div>
-                                            <div className="dt-meta-item"><IcClock /><span>Appointment: belum ada</span></div>
+                                            <div className="dt-meta-item"><IcClock /><span>Janji Temu: belum ada</span></div>
                                         </div>
 
                                         <div className="dt-followup-hint">

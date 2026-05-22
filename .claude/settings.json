@@ -6,7 +6,15 @@
       "Bash(node -e \"const fs = require\\('fs'\\); const files = ['apps/web/src/screens/DistributionOrderPage.jsx','apps/web/src/screens/CancelReasonsPage.jsx','apps/web/src/screens/ActivityLogsPage.jsx','apps/web/src/screens/PenaltiesPage.jsx','apps/web/src/screens/BroadcastPage.jsx']; files.forEach\\(f => { const c = fs.readFileSync\\(f,'utf8'\\); const opens = \\(c.match\\(/useEffect\\\\\\(/g\\)||[]\\).length; console.log\\(f.split\\('/'\\).pop\\(\\), '- useEffect calls:', opens\\); }\\);\")",
       "Bash(python3 -c ' *)",
       "Bash(python3)",
-      "Bash(xargs ls)"
+      "Bash(xargs ls)",
+      "Bash(sed -n '450,453p' /Users/fadilaharifki/Work/sales-property-dashboard/apps/web/src/screens/LeadsPage.jsx)",
+      "Bash(sed -n '585,589p' /Users/fadilaharifki/Work/sales-property-dashboard/apps/web/src/screens/LeadsPage.jsx)",
+      "Bash(sed -n '851,855p' /Users/fadilaharifki/Work/sales-property-dashboard/apps/web/src/screens/LeadsPage.jsx)",
+      "Bash(sed -n '957,961p' /Users/fadilaharifki/Work/sales-property-dashboard/apps/web/src/screens/LeadsPage.jsx)",
+      "Bash(sed -n '362,366p' /Users/fadilaharifki/Work/sales-property-dashboard/apps/web/src/screens/LeadDetailPage.jsx)",
+      "Bash(sed -n '546,549p' /Users/fadilaharifki/Work/sales-property-dashboard/apps/web/src/screens/LeadDetailPage.jsx)",
+      "Bash(sed -n '873,877p' /Users/fadilaharifki/Work/sales-property-dashboard/apps/web/src/screens/LeadDetailPage.jsx)",
+      "Bash(sed -n '1039,1043p' /Users/fadilaharifki/Work/sales-property-dashboard/apps/web/src/screens/LeadDetailPage.jsx)"
     ]
   }
 }

@@ -118,7 +118,7 @@ function MemberStats({ member }) {
             </div>
             <div className="team-member-stat">
                 <span className="team-member-stat-value">{member.appointments || 0}</span>
-                <span className="team-member-stat-label">Appointment</span>
+                <span className="team-member-stat-label">Janji Temu</span>
             </div>
         </div>
     );

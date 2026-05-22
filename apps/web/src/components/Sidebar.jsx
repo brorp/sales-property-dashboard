@@ -29,7 +29,7 @@ const ADMIN_TABS = [
     { key: '/overview', icon: 'overview', label: 'Overview' },
     { key: '/', icon: 'analytics', label: 'Analytics' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
-    { key: '/appointments', icon: 'appointment', label: 'Appt' },
+    { key: '/appointments', icon: 'appointment', label: 'Janji Temu' },
     { key: '/activity-logs', icon: 'logs', label: 'Logs' },
     { key: '/penalties', icon: 'warning', label: 'Penalty' },
     { key: '/team', icon: 'team', label: 'Teams' },
@@ -39,6 +39,7 @@ const ADMIN_TABS = [
 const SUPERVISOR_TABS = [
     { key: '/supervisor-tasks', icon: 'tasks', label: 'Tasks' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
+    { key: '/appointments', icon: 'appointment', label: 'Janji Temu' },
     { key: '/', icon: 'analytics', label: 'Analytics' },
     { key: '/team', icon: 'team', label: 'Team' },
     { key: '/penalties', icon: 'warning', label: 'Penalty' },
@@ -48,7 +49,7 @@ const SUPERVISOR_TABS = [
 const SALES_TABS = [
     { key: '/daily-tasks', icon: 'tasks', label: 'Tasks' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
-    { key: '/appointments', icon: 'appointment', label: 'Appt' },
+    { key: '/appointments', icon: 'appointment', label: 'Janji Temu' },
     { key: '/', icon: 'analytics', label: 'Analytics' },
     { key: '/penalties', icon: 'warning', label: 'Penalty' },
     { key: '/settings', icon: 'settings', label: 'Settings' },

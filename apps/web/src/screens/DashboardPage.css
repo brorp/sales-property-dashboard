@@ -408,9 +408,9 @@ html[data-theme="dark"] .dash-page {
 .dash-section-tab {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 10px 16px;
-    font-size: 0.875rem;
+    gap: 8px;
+    padding: 13px 20px;
+    font-size: 0.9375rem;
     font-weight: 600;
     color: #94A3B8;
     border: none;
@@ -426,6 +426,8 @@ html[data-theme="dark"] .dash-page {
 
 .dash-section-tab svg {
     flex-shrink: 0;
+    width: 16px;
+    height: 16px;
     opacity: 0.7;
     transition: opacity 150ms ease;
 }

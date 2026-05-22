@@ -19,6 +19,7 @@ const ADMIN_TABS = [
 const SUPERVISOR_TABS = [
     { key: '/supervisor-tasks', icon: 'tasks', label: 'Tasks' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
+    { key: '/appointments', icon: 'appointment', label: 'Janji Temu' },
     { key: '/', icon: 'analytics', label: 'Analytics' },
     { key: '/team', icon: 'team', label: 'Tim' },
     { key: '/settings', icon: 'settings', label: 'Settings' },
@@ -27,7 +28,7 @@ const SUPERVISOR_TABS = [
 const SALES_TABS = [
     { key: '/daily-tasks', icon: 'tasks', label: 'Tasks' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
-    { key: '/appointments', icon: 'appointment', label: 'Appt' },
+    { key: '/appointments', icon: 'appointment', label: 'Janji Temu' },
     { key: '/settings', icon: 'settings', label: 'Settings' },
 ];
 
