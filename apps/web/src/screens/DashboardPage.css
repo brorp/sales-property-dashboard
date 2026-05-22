@@ -80,28 +80,28 @@ html[data-theme="dark"] .dash-page {
     background: var(--bg-app, #F1F5F9);
     padding-top: 10px;
     padding-bottom: 12px;
-    margin-left: -16px;
-    margin-right: -16px;
-    padding-left: 16px;
-    padding-right: 16px;
+    margin-left: -12px;
+    margin-right: -12px;
+    padding-left: 12px;
+    padding-right: 12px;
 }
 
 @media (min-width: 600px) {
     .dash-sticky-bar {
-        margin-left: -22px;
-        margin-right: -22px;
-        padding-left: 22px;
-        padding-right: 22px;
+        margin-left: -16px;
+        margin-right: -16px;
+        padding-left: 16px;
+        padding-right: 16px;
     }
 }
 
 @media (min-width: 1024px) {
     .dash-sticky-bar {
         top: 60px;
-        margin-left: -34px;
-        margin-right: -34px;
-        padding-left: 34px;
-        padding-right: 34px;
+        margin-left: -28px;
+        margin-right: -28px;
+        padding-left: 28px;
+        padding-right: 28px;
     }
 }
 
@@ -1528,6 +1528,74 @@ html[data-theme="dark"] .dash-page {
     }
 
     .dash-filter-spv-row::-webkit-scrollbar {
+        display: none;
+    }
+}
+
+/* ── Bell notification button ───────────────────────────────────────── */
+.dash-bell-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 120ms, color 120ms;
+    flex-shrink: 0;
+}
+
+.dash-bell-btn:hover {
+    background: var(--bg-card-hover, var(--bg-input));
+    color: var(--text-primary);
+}
+
+.dash-bell-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #EF4444;
+    color: #fff;
+    font-size: 0.625rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    border: 1.5px solid var(--bg-card);
+}
+
+/* ── Mobile-only top bar (visible only when header is hidden) ── */
+.dash-mobile-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 0 16px;
+}
+
+.dash-mobile-top-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+}
+
+@media (min-width: 1024px) {
+    .dash-mobile-top {
         display: none;
     }
 }

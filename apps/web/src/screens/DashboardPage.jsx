@@ -10,6 +10,7 @@ import Header from '../components/Header';
 import DateRangePicker from '../components/DateRangePicker';
 import SelectFilter from '../components/SelectFilter';
 import { usePagePolling } from '../hooks/usePagePolling';
+import { useNotifications } from '../hooks/useNotifications';
 import TransactionRecapSection from './dashboard-sections/TransactionRecapSection';
 import TeamPerformanceSection from './dashboard-sections/TeamPerformanceSection';
 import DatabaseControlCenterSection from './dashboard-sections/DatabaseControlCenterSection';
@@ -158,6 +159,7 @@ export default function DashboardPage() {
     const showHierarchyOverview = user?.role === 'root_admin';
     const canUseTeamFilters = user?.role === 'client_admin' || user?.role === 'root_admin';
     const showRoleReminder = user?.role === 'supervisor' || user?.role === 'sales';
+    const { count: notifCount } = useNotifications();
     const showDailyReport = user?.role === 'root_admin' || user?.role === 'client_admin' || user?.role === 'supervisor';
     const scopedDashboardLabel =
         user?.role === 'supervisor' ? 'Tim Anda' : user?.role === 'sales' ? 'Data Anda' : 'Semua';
@@ -339,7 +341,42 @@ export default function DashboardPage() {
         <div className="page-container dash-page">
             <Header
                 title={dashboardTitle}
+                rightAction={(
+                    <button
+                        type="button"
+                        className="dash-bell-btn"
+                        onClick={() => router.push('/notifications')}
+                        aria-label="Pengingat"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                        </svg>
+                        {notifCount > 0 ? (
+                            <span className="dash-bell-badge">{notifCount > 99 ? '99+' : notifCount}</span>
+                        ) : null}
+                    </button>
+                )}
             />
+
+            {/* ── Mobile top bar (hidden on desktop, replaces hidden header) ── */}
+            <div className="dash-mobile-top">
+                <span className="dash-mobile-top-title">{dashboardTitle}</span>
+                <button
+                    type="button"
+                    className="dash-bell-btn"
+                    onClick={() => router.push('/notifications')}
+                    aria-label="Pengingat"
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                    </svg>
+                    {notifCount > 0 ? (
+                        <span className="dash-bell-badge">{notifCount > 99 ? '99+' : notifCount}</span>
+                    ) : null}
+                </button>
+            </div>
 
             {dashboardError ? (
                 <div className="dash-alert dash-alert--danger">
