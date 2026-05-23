@@ -14,7 +14,9 @@
       "Bash(sed -n '362,366p' /Users/fadilaharifki/Work/sales-property-dashboard/apps/web/src/screens/LeadDetailPage.jsx)",
       "Bash(sed -n '546,549p' /Users/fadilaharifki/Work/sales-property-dashboard/apps/web/src/screens/LeadDetailPage.jsx)",
       "Bash(sed -n '873,877p' /Users/fadilaharifki/Work/sales-property-dashboard/apps/web/src/screens/LeadDetailPage.jsx)",
-      "Bash(sed -n '1039,1043p' /Users/fadilaharifki/Work/sales-property-dashboard/apps/web/src/screens/LeadDetailPage.jsx)"
+      "Bash(sed -n '1039,1043p' /Users/fadilaharifki/Work/sales-property-dashboard/apps/web/src/screens/LeadDetailPage.jsx)",
+      "Bash(node --input-type=module)",
+      "Bash(npx --prefix apps/web next build --no-lint)"
     ]
   }
 }

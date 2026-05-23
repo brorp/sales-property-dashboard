@@ -206,6 +206,19 @@ export default function LeadsPage() {
     const [exportAccessCode, setExportAccessCode] = useState('');
     const [exportFilters, setExportFilters] = useState({ dateFrom: '', dateTo: '', flowStatuses: [], salesStatuses: [], hotValidatedOnly: false, appointmentTags: [], resultStatuses: [], salesIds: [] });
 
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [showBulkEditSheet, setShowBulkEditSheet] = useState(false);
+    const [showBulkDeleteSheet, setShowBulkDeleteSheet] = useState(false);
+    const [bulkEditForm, setBulkEditForm] = useState({ source: '', salesStatus: '', interestUnitId: '' });
+    const [bulkEditLoading, setBulkEditLoading] = useState(false);
+    const [bulkEditError, setBulkEditError] = useState('');
+    const [bulkDeletePassword] = useState('');
+    const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
+    const [bulkDeleteError, setBulkDeleteError] = useState('');
+    const [bulkUnitOptions, setBulkUnitOptions] = useState([]);
+    const [bulkUnitsLoading, setBulkUnitsLoading] = useState(false);
+
     const allLeads = getLeadsForUser(user.id, user.role);
     const salesUsers = getSalesUsers();
     const leadSources = getLeadSources();
@@ -482,6 +495,77 @@ export default function LeadsPage() {
         }
     };
 
+    const exitSelectionMode = () => {
+        setSelectionMode(false);
+        setSelectedIds(new Set());
+    };
+
+    const toggleLeadSelection = (id) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+
+    const loadBulkUnits = async () => {
+        if (bulkUnitOptions.length > 0) return;
+        setBulkUnitsLoading(true);
+        try {
+            const rows = await apiRequest('/api/units', { user });
+            setBulkUnitOptions(Array.isArray(rows) ? rows : []);
+        } catch (_) {
+            // ignore
+        } finally {
+            setBulkUnitsLoading(false);
+        }
+    };
+
+    const handleBulkEdit = async () => {
+        const payload = {};
+        if (bulkEditForm.source) payload.source = bulkEditForm.source;
+        if (bulkEditForm.salesStatus) payload.salesStatus = bulkEditForm.salesStatus;
+        if (bulkEditForm.interestUnitId) payload.interestUnitId = bulkEditForm.interestUnitId;
+        if (!Object.keys(payload).length) { setBulkEditError('Pilih minimal satu field untuk diubah.'); return; }
+        setBulkEditLoading(true);
+        setBulkEditError('');
+        try {
+            const ids = Array.from(selectedIds);
+            // TODO: nanti ganti pake API yang dibuat yan - POST /api/leads/bulk-update
+            // await Promise.allSettled(ids.map((id) => apiRequest(`/api/leads/${id}`, { method: 'PATCH', user, body: payload })));
+            void ids;
+            setBulkEditError('Bulk edit API belum tersedia.');
+        } catch (err) {
+            setBulkEditError(err instanceof Error ? err.message : 'Gagal memperbarui leads');
+        } finally {
+            setBulkEditLoading(false);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        setBulkDeleteLoading(true);
+        setBulkDeleteError('');
+        try {
+            const ids = Array.from(selectedIds);
+            // TODO: ganti dengan bulk API endpoint — DELETE /api/leads/bulk
+            // const results = await Promise.allSettled(ids.map((id) => apiRequest(`/api/leads/${id}`, { method: 'DELETE', user, body: {} })));
+            // const failed = results.filter((r) => r.status === 'rejected').length;
+            // await refreshLeadsPage();
+            // if (failed > 0) {
+            //     setBulkDeleteError(`${ids.length - failed} berhasil dihapus, ${failed} gagal.`);
+            // } else {
+            //     setShowBulkDeleteSheet(false);
+            //     exitSelectionMode();
+            // }
+            void ids;
+            setBulkDeleteError('Bulk delete API belum tersedia.');
+        } catch (err) {
+            setBulkDeleteError(err instanceof Error ? err.message : 'Gagal menghapus leads');
+        } finally {
+            setBulkDeleteLoading(false);
+        }
+    };
+
     return (
         <div className="page-container dash-page leads-page">
             <Header
@@ -491,6 +575,22 @@ export default function LeadsPage() {
                         <button className="btn btn-sm btn-secondary btn-icon-refresh" onClick={() => void handleRefresh()} disabled={refreshing} title="Refresh">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
                         </button>
+                        {isAdmin ? (
+                            <button
+                                type="button"
+                                className={`btn btn-sm btn-secondary${selectionMode ? ' is-active' : ''}`}
+                                style={selectionMode ? { borderColor: 'var(--primary)', color: 'var(--primary)' } : undefined}
+                                onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
+                                title={selectionMode ? 'Keluar mode kelola' : 'Kelola leads'}
+                            >
+                                {selectionMode ? (
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                ) : (
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3" /><polyline points="9 12 11 14 15 10" /></svg>
+                                )}
+                                <span style={{ marginLeft: 6 }}>{selectionMode ? 'Batal' : 'Kelola'}</span>
+                            </button>
+                        ) : null}
                         {canExportLeads ? (
                             <button className="btn btn-sm btn-primary" onClick={openExportModal} title="Export">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: 5 }}>
@@ -526,6 +626,20 @@ export default function LeadsPage() {
                             </button>
                         ) : null}
                     </div>
+                    {isAdmin ? (
+                        <button
+                            type="button"
+                            className={`leads-select-mob-btn${selectionMode ? ' is-active' : ''}`}
+                            onClick={() => selectionMode ? exitSelectionMode() : setSelectionMode(true)}
+                            title={selectionMode ? 'Keluar mode kelola' : 'Kelola leads'}
+                        >
+                            {selectionMode ? (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                            ) : (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3" /><polyline points="9 12 11 14 15 10" /></svg>
+                            )}
+                        </button>
+                    ) : null}
                     <button
                         type="button"
                         className={`leads-mobile-filter-btn${activeFilterCount > 0 ? ' is-active' : ''}`}
@@ -629,8 +743,20 @@ export default function LeadsPage() {
             ) : null}
             <div className="leads-list" style={filteredLeads.length === 0 ? { display: 'none' } : undefined}>
                 {filteredLeads.map((lead) => (
-                    <div key={lead.id} className="lc" onClick={() => router.push(`/leads/${lead.id}`)}>
-                        <UserAvatar name={lead.name} src={lead.avatarUrl} size="xs" shape="circle" />
+                    <div
+                        key={lead.id}
+                        className={`lc${selectionMode && selectedIds.has(lead.id) ? ' lc--selected' : ''}`}
+                        onClick={() => { if (selectionMode) { toggleLeadSelection(lead.id); } else { router.push(`/leads/${lead.id}`); } }}
+                    >
+                        {selectionMode ? (
+                            <div className={`lc-check-circle${selectedIds.has(lead.id) ? ' is-checked' : ''}`}>
+                                {selectedIds.has(lead.id) ? (
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                ) : null}
+                            </div>
+                        ) : (
+                            <UserAvatar name={lead.name} src={lead.avatarUrl} size="xs" shape="circle" />
+                        )}
                         <div className="lc-body">
                             <div className="lc-row1">
                                 <span className="lc-name-wrap">
@@ -666,7 +792,55 @@ export default function LeadsPage() {
                 ))}
             </div>
 
-            <div className="fab-group">
+            {selectionMode ? (
+                <div className="bulk-action-bar">
+                    <div className="bulk-action-left">
+                        <span className="bulk-action-count">
+                            {selectedIds.size > 0 ? `${selectedIds.size} dipilih` : 'Pilih leads'}
+                        </span>
+                        <button
+                            type="button"
+                            className="bulk-action-select-all"
+                            onClick={() => {
+                                const allSelected = selectedIds.size === filteredLeads.length;
+                                setSelectedIds(allSelected ? new Set() : new Set(filteredLeads.map((l) => l.id)));
+                            }}
+                        >
+                            {selectedIds.size === filteredLeads.length ? 'Batal Semua' : 'Pilih Semua'}
+                        </button>
+                    </div>
+                    <div className="bulk-action-icons">
+                        <button
+                            type="button"
+                            className="bulk-action-icon-btn"
+                            disabled={!selectedIds.size}
+                            onClick={() => { void loadBulkUnits(); setShowBulkEditSheet(true); setBulkEditError(''); }}
+                            title="Edit leads terpilih"
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                        </button>
+                        <button
+                            type="button"
+                            className="bulk-action-icon-btn bulk-action-icon-btn--danger"
+                            disabled={!selectedIds.size}
+                            onClick={() => { setShowBulkDeleteSheet(true); setBulkDeleteError(''); }}
+                            title="Hapus leads terpilih"
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                <path d="M10 11v6" /><path d="M14 11v6" />
+                                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            ) : null}
+
+            <div className={`fab-group${selectionMode ? ' fab-group--hidden' : ''}`}>
                 <button
                     type="button"
                     className="fab-main"
@@ -881,6 +1055,76 @@ export default function LeadsPage() {
                         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
                             <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={() => { resetAllFilters(); setShowMobileFilter(false); }}>Reset Semua</button>
                             <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={() => setShowMobileFilter(false)}>Tutup</button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {/* ── Bulk edit sheet ────────────────────────────── */}
+            {showBulkEditSheet ? (
+                <div className="sheet-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowBulkEditSheet(false); }}>
+                    <div className="bottom-sheet">
+                        <div className="sheet-handle" />
+                        <h2>Edit {selectedIds.size} Leads</h2>
+                        <p className="settings-help">Kosongkan field yang tidak ingin diubah.</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div className="input-group">
+                                <label>Sumber Leads</label>
+                                <SelectFilter
+                                    placeholder="Biarkan tidak berubah"
+                                    value={bulkEditForm.source}
+                                    onChange={(v) => setBulkEditForm((prev) => ({ ...prev, source: v }))}
+                                    options={availableLeadSources.map((s) => ({ value: s, label: s }))}
+                                    variant="white"
+                                />
+                            </div>
+                            <div className="input-group">
+                                <label>Status L2</label>
+                                <SelectFilter
+                                    placeholder="Biarkan tidak berubah"
+                                    value={bulkEditForm.salesStatus}
+                                    onChange={(v) => setBulkEditForm((prev) => ({ ...prev, salesStatus: v }))}
+                                    options={SALES_STATUSES.map((s) => ({ value: s.key, label: s.label }))}
+                                    variant="white"
+                                />
+                            </div>
+                            <div className="input-group">
+                                <label>Tipe Unit</label>
+                                <SelectFilter
+                                    placeholder={bulkUnitsLoading ? 'Memuat unit...' : 'Biarkan tidak berubah'}
+                                    value={bulkEditForm.interestUnitId}
+                                    onChange={(v) => setBulkEditForm((prev) => ({ ...prev, interestUnitId: v }))}
+                                    options={bulkUnitOptions.map((item) => ({ value: item.id, label: `${item.projectType} - ${item.unitName}` }))}
+                                    variant="white"
+                                />
+                            </div>
+                            {bulkEditError ? <div className="login-error">{bulkEditError}</div> : null}
+                            <div style={{ display: 'flex', gap: 10 }}>
+                                <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setShowBulkEditSheet(false)}>Batal</button>
+                                <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={() => void handleBulkEdit()} disabled={bulkEditLoading}>
+                                    {bulkEditLoading ? 'Menyimpan...' : 'Simpan Perubahan'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {/* ── Bulk delete sheet ──────────────────────────── */}
+            {showBulkDeleteSheet ? (
+                <div className="sheet-overlay" onClick={(e) => { if (e.target === e.currentTarget) { setShowBulkDeleteSheet(false); setBulkDeleteError(''); } }}>
+                    <div className="bottom-sheet">
+                        <div className="sheet-handle" />
+                        <h2>Hapus {selectedIds.size} Leads?</h2>
+                        <p className="settings-help">
+                            <strong>{selectedIds.size} leads</strong> yang dipilih akan dihapus secara permanen. Tindakan ini tidak dapat dibatalkan.
+                        </p>
+                        {bulkDeleteError ? <div className="login-error" style={{ marginBottom: 4 }}>{bulkDeleteError}</div> : null}
+                        <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                            <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={() => { setShowBulkDeleteSheet(false); setBulkDeleteError(''); }}>Batal</button>
+                            <button type="button" className="btn btn-danger" style={{ flex: 1 }} onClick={() => void handleBulkDelete()} disabled={bulkDeleteLoading}>
+                                {bulkDeleteLoading ? 'Menghapus...' : `Hapus ${selectedIds.size} Leads`}
+                            </button>
                         </div>
                     </div>
                 </div>
