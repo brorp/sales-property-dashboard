@@ -177,9 +177,15 @@ export default function TransactionRecapSection({
     const [transactionChartStatus, setTransactionChartStatus] = useState('all');
     const [picAgentDrawerOpen, setPicAgentDrawerOpen] = useState(false);
     const [analysisDrawerOpen, setAnalysisDrawerOpen] = useState(false);
+    const [statsDrawerOpen, setStatsDrawerOpen] = useState(false);
     const [domicileChartType, setDomicileChartType] = useState('pie');
     const teams = data?.teams || [];
     const [isCompare, setIsCompare] = useState(false);
+    const [visibleStats, setVisibleStats] = useState(['full_book', 'cancel']);
+
+    const toggleStat = (key) => setVisibleStats((prev) =>
+        prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
     const [selectedTeam1, setSelectedTeam1] = useState('');
     const [selectedTeam2, setSelectedTeam2] = useState('');
 
@@ -283,31 +289,63 @@ export default function TransactionRecapSection({
                     <h2 className="ds-card-title">Rekap Transaksi</h2>
                     <span className="ds-card-summary">{data.totalOngoing || 0} berjalan • {data.totalClosing || 0} closing • {data.teams?.length || 0} tim</span>
                 </div>
-                {allowTeamFiltering ? (
-                    <button type="button" className="tpc-compare-btn" onClick={() => setIsCompare((p) => !p)} style={getPillButtonStyle(isCompare)}>
-                        {isCompare ? 'Tutup Perbandingan' : 'Tampilan Perbandingan'}
-                    </button>
-                ) : null}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    {allowTeamFiltering && !selectedTeamData && !effectiveCompare ? (
+                        <button
+                            type="button"
+                            className={`ds-section-filter-btn${visibleStats.length > 2 ? ' is-active' : ''}`}
+                            onClick={() => setStatsDrawerOpen(true)}
+                            title="Pilih statistik"
+                        >
+                            <FilterIcon />
+                            {visibleStats.length > 2 ? <span className="ds-section-filter-dot" /> : null}
+                        </button>
+                    ) : null}
+                    {allowTeamFiltering ? (
+                        <button type="button" className="tpc-compare-btn" onClick={() => setIsCompare((p) => !p)} style={getPillButtonStyle(isCompare)}>
+                            {isCompare ? 'Tutup Perbandingan' : 'Tampilan Perbandingan'}
+                        </button>
+                    ) : null}
+                </div>
             </div>
 
             <div className="ds-tab-body">
                 {/* Filter Semua: summary numbers */}
-                {allowTeamFiltering && !selectedTeamData && !effectiveCompare ? (
-                    <>
-                        <div onClick={() => router.push('/leads?resultFilter=akad')} style={{ cursor: 'pointer', background: 'var(--bg-input)', padding: '16px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', border: '1px solid var(--green)' }}>
-                            <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Total Akad</span>
-                            <strong style={{ fontSize: '2rem', color: 'var(--green)', marginTop: '4px' }}>{summaryScope.totalAkad}</strong>
+                {allowTeamFiltering && !selectedTeamData && !effectiveCompare ? (() => {
+                    const ALL_STAT_DEFS = [
+                        { key: 'akad',       label: 'Total Akad',       color: 'var(--green)',        value: summaryScope.totalAkad,      filter: 'akad' },
+                        { key: 'full_book',  label: 'Total Full Book',  color: 'var(--purple)',       value: summaryScope.totalFullBook,   filter: 'full_book' },
+                        { key: 'on_process', label: 'Total On Process', color: 'var(--primary)',      value: summaryScope.totalOnProcess,  filter: 'on_process' },
+                        { key: 'reserve',    label: 'Total Reserve',    color: 'var(--text-primary)', value: summaryScope.totalReserve,    filter: 'reserve' },
+                        { key: 'cancel',     label: 'Total Batal',      color: 'var(--danger)',       value: summaryScope.totalCancel,     filter: 'cancel' },
+                    ];
+                    const OPTIONAL_KEYS = ['akad', 'on_process', 'reserve'];
+                    const visibleItems = ALL_STAT_DEFS.filter((s) => visibleStats.includes(s.key));
+                    const n = visibleItems.length;
+                    const desktopRem = n % 3;
+                    return (
+                        <div className="tpc-stat-grid">
+                            {visibleItems.map((s, idx) => {
+                                const cls = ['tpc-stat-item'];
+                                if (n % 2 === 1 && idx === n - 1)        cls.push('tpc-stat-item--mob-full');
+                                if (desktopRem === 1 && idx === n - 1)   cls.push('tpc-stat-item--desk-full');
+                                else if (desktopRem === 2 && idx >= n - 2) cls.push('tpc-stat-item--desk-half');
+                                return (
+                                    <div
+                                        key={s.key}
+                                        className={cls.join(' ')}
+                                        onClick={() => router.push(`/leads?resultFilter=${s.filter}`)}
+                                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = s.color; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; }}
+                                    >
+                                        <span className="tpc-stat-label">{s.label}</span>
+                                        <strong className="tpc-stat-value" style={{ color: s.color }}>{s.value}</strong>
+                                    </div>
+                                );
+                            })}
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                            {[['Total Full Book', summaryScope.totalFullBook, 'var(--purple)', 'full_book'], ['Total On Process', summaryScope.totalOnProcess, 'var(--primary)', 'on_process'], ['Total Reserve', summaryScope.totalReserve, 'var(--text-primary)', 'reserve'], ['Total Batal', summaryScope.totalCancel, 'var(--danger)', 'cancel']].map(([label, value, color, filter]) => (
-                                <div key={filter} onClick={() => router.push(`/leads?resultFilter=${filter}`)} style={{ cursor: 'pointer', background: 'var(--bg-input)', padding: '12px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{label}</span>
-                                    <strong style={{ fontSize: '1.4rem', color, marginTop: '4px' }}>{value}</strong>
-                                </div>
-                            ))}
-                        </div>
-                    </>
-                ) : null}
+                    );
+                })() : null}
 
                 {/* Filter supervisor spesifik / compare: team card */}
                 {allowTeamFiltering ? (
@@ -413,6 +451,52 @@ export default function TransactionRecapSection({
                 value={transactionChartStatus}
                 onChange={setTransactionChartStatus}
             />
+
+            {/* Stats visibility drawer */}
+            {statsDrawerOpen ? (
+                <div className="dash-drawer-overlay" onClick={() => setStatsDrawerOpen(false)}>
+                    <div className="dash-drawer" onClick={(e) => e.stopPropagation()}>
+                        <div className="dash-drawer-header">
+                            <span className="dash-drawer-title">Tampilkan Statistik</span>
+                            <button type="button" className="ds-section-filter-btn" onClick={() => setStatsDrawerOpen(false)}>
+                                <CloseIcon />
+                            </button>
+                        </div>
+                        <div className="dash-drawer-body">
+                            <div className="tpc-stats-toggle-list">
+                                {[
+                                    { key: 'full_book', label: 'Full Book',  color: 'var(--purple)',       locked: true },
+                                    { key: 'cancel',    label: 'Cancel',     color: 'var(--danger)',       locked: true },
+                                    { key: 'akad',      label: 'Akad',       color: 'var(--green)',        locked: false },
+                                    { key: 'on_process',label: 'On Process', color: 'var(--primary)',      locked: false },
+                                    { key: 'reserve',   label: 'Reserve',    color: 'var(--text-primary)', locked: false },
+                                ].map(({ key, label, color, locked }) => {
+                                    const active = visibleStats.includes(key);
+                                    return (
+                                        <div key={key} className={`tpc-stats-toggle-item${locked ? ' locked' : ''}`}>
+                                            <span className="tpc-stats-toggle-dot" style={{ background: color }} />
+                                            <span className="tpc-stats-toggle-label">{label}</span>
+                                            {locked
+                                                ? <span className="tpc-stats-toggle-lock">Selalu tampil</span>
+                                                : (
+                                                    <button
+                                                        type="button"
+                                                        className={`tpc-stats-toggle-switch${active ? ' active' : ''}`}
+                                                        onClick={() => toggleStat(key)}
+                                                        style={active ? { '--sw-color': color } : undefined}
+                                                    >
+                                                        <span className="tpc-stats-toggle-thumb" />
+                                                    </button>
+                                                )
+                                            }
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }
