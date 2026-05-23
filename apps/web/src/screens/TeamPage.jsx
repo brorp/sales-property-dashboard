@@ -728,7 +728,7 @@ export default function TeamPage() {
             {submitSuccess ? <p className="settings-success">{submitSuccess}</p> : null}
             {submitError ? <p className="settings-error">{submitError}</p> : null}
 
-            <section className="team-overview-grid">
+            <section className="team-overview-grid" data-count={overviewCards.length}>
                 {overviewCards.map((item) => (
                     <TeamSummaryCard
                         key={item.key}
@@ -764,152 +764,131 @@ export default function TeamPage() {
                         ) : null}
 
                         <div className="team-hierarchy">
-                            {sortMembersWithLockedLast(group.supervisors || []).map((supervisor) => (
-                                <article key={supervisor.id} className="team-hierarchy-card">
-                                    <div className="team-member-row">
-                                        <MemberButton
-                                            member={supervisor}
-                                            subtitle={supervisor.phone || 'Belum ada nomor WhatsApp'}
-                                            metaBadge={`${supervisor.salesCount || 0} Sales`}
-                                            onClick={() => goToMemberDetail(supervisor.id)}
-                                        />
-                                        <div className="team-member-action-stack">
-                                            {canEditMembers && !isLockedTeamMember(supervisor) ? (
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-sm btn-secondary team-edit-btn"
-                                                    onClick={() => openEditMember(supervisor)}
-                                                >
-                                                    Edit
-                                                </button>
-                                            ) : null}
-                                            {canCreateSupervisor && !isLockedTeamMember(supervisor) ? (
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-sm btn-primary team-edit-btn"
-                                                    onClick={() => openCreateSales(supervisor)}
-                                                >
-                                                    + Sales
-                                                </button>
-                                            ) : null}
-                                            {canManageSalesSupervisor && !isLockedTeamMember(supervisor) ? (
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-sm btn-danger team-edit-btn"
-                                                    onClick={() => openDeleteSupervisor(supervisor)}
-                                                    disabled={Number(supervisor.salesCount || 0) > 0}
-                                                    title={Number(supervisor.salesCount || 0) > 0 ? 'Supervisor hanya bisa dihapus jika tidak punya sales aktif.' : 'Hapus supervisor'}
-                                                >
-                                                    Delete
-                                                </button>
+                            {sortMembersWithLockedLast(group.supervisors || []).map((supervisor) => {
+                                const isSuspended = Boolean(supervisor?.isSuspended && supervisor?.suspension);
+                                return (
+                                    <article key={supervisor.id} className="team-hierarchy-card">
+                                        <div className="team-sup-header">
+                                            <button type="button" className="team-sup-identity" onClick={() => goToMemberDetail(supervisor.id)}>
+                                                <UserAvatar name={supervisor.name} size="md" />
+                                                <div className="team-sup-info">
+                                                    <div className="team-sup-name-row">
+                                                        <span className="team-name">{supervisor.name}</span>
+                                                        <span className="badge badge-purple">{supervisor.salesCount || 0} Sales</span>
+                                                        {isSuspended ? <span className="badge badge-danger">Suspended</span> : null}
+                                                    </div>
+                                                    <span className="team-sup-meta">{supervisor.email}</span>
+                                                </div>
+                                            </button>
+                                            {!isLockedTeamMember(supervisor) ? (
+                                                <div className="team-icon-group">
+                                                    {canEditMembers ? (
+                                                        <button type="button" className="team-icon-btn" onClick={() => openEditMember(supervisor)} title="Edit profil">
+                                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                        </button>
+                                                    ) : null}
+                                                    {canCreateSupervisor ? (
+                                                        <button type="button" className="team-icon-btn" onClick={() => openCreateSales(supervisor)} title="Tambah sales">
+                                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></svg>
+                                                        </button>
+                                                    ) : null}
+                                                    {canManageSalesSupervisor ? (
+                                                        <button type="button" className="team-icon-btn team-icon-btn--danger" onClick={() => openDeleteSupervisor(supervisor)} disabled={Number(supervisor.salesCount || 0) > 0} title={Number(supervisor.salesCount || 0) > 0 ? 'Masih punya sales aktif' : 'Hapus supervisor'}>
+                                                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" /></svg>
+                                                        </button>
+                                                    ) : null}
+                                                </div>
                                             ) : null}
                                         </div>
-                                    </div>
 
-                                    <MemberStats member={supervisor} />
+                                        <MemberStats member={supervisor} />
 
-                                    {Array.isArray(supervisor.sales) && supervisor.sales.length > 0 ? (
-                                        <div className="team-children-list">
-                                            {sortMembersWithLockedLast(supervisor.sales || []).map((sales) => (
-                                                <div key={sales.id} className="team-child-row">
-                                                    <div className="team-member-row">
-                                                        <MemberButton
-                                                            member={sales}
-                                                            subtitle={`${sales.phone || 'Belum ada nomor WhatsApp'} • ${sales.totalLeads || 0} leads • ${sales.appointments || 0} janji temu`}
-                                                            metaBadge="Sales"
-                                                            onClick={() => goToMemberDetail(sales.id)}
-                                                            compact
-                                                        />
-                                                        <div className="team-member-action-stack">
-                                                            {canEditMembers && !isLockedTeamMember(sales) ? (
-                                                                <button
-                                                                    type="button"
-                                                                    className="btn btn-sm btn-secondary team-edit-btn"
-                                                                    onClick={() => openEditMember(sales)}
-                                                                >
-                                                                    Edit
+                                        {Array.isArray(supervisor.sales) && supervisor.sales.length > 0 ? (
+                                            <div className="team-sales-grid">
+                                                {sortMembersWithLockedLast(supervisor.sales).map((sales) => {
+                                                    const salesSuspended = Boolean(sales?.isSuspended && sales?.suspension);
+                                                    return (
+                                                        <div key={sales.id} className={`team-sales-chip${salesSuspended ? ' is-suspended' : ''}`}>
+                                                            <div className="team-sales-chip-content">
+                                                                <div className="team-sales-chip-top">
+                                                                    <UserAvatar name={sales.name} size="xs" shape="circle" />
+                                                                </div>
+                                                                <button type="button" className="team-sales-chip-body" onClick={() => goToMemberDetail(sales.id)}>
+                                                                    <span className="team-sales-chip-name">{sales.name}</span>
+                                                                    <span className="team-sales-chip-meta">{sales.totalLeads || 0} leads</span>
+                                                                    {salesSuspended ? <span className="badge badge-danger" style={{ fontSize: '0.6rem', padding: '2px 5px', marginTop: 4 }}>Suspended</span> : null}
                                                                 </button>
-                                                            ) : null}
-                                                            {canManageSalesSupervisor && !isLockedTeamMember(sales) ? (
-                                                                <button
-                                                                    type="button"
-                                                                    className="btn btn-sm btn-secondary team-edit-btn"
-                                                                    onClick={() => openAssignSupervisor(sales)}
-                                                                >
-                                                                    {sales.supervisorId ? 'Pindah SPV' : 'Assign SPV'}
-                                                                </button>
-                                                            ) : null}
-                                                            {canManageSalesLifecycle && !isLockedTeamMember(sales) ? (
-                                                                <button
-                                                                    type="button"
-                                                                    className="btn btn-sm btn-danger team-edit-btn"
-                                                                    onClick={() => openDeactivateMember(sales)}
-                                                                >
-                                                                    Deactivate
-                                                                </button>
+                                                            </div>
+                                                            {!isLockedTeamMember(sales) ? (
+                                                                <div className="team-sales-chip-actions">
+                                                                    {canEditMembers ? (
+                                                                        <button type="button" className="team-chip-icon-btn" onClick={() => openEditMember(sales)} data-tip="Edit" title="Edit">
+                                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                                        </button>
+                                                                    ) : null}
+                                                                    {canManageSalesSupervisor ? (
+                                                                        <button type="button" className="team-chip-icon-btn" onClick={() => openAssignSupervisor(sales)} data-tip={sales.supervisorId ? 'Pindah SPV' : 'Assign SPV'} title={sales.supervisorId ? 'Pindah SPV' : 'Assign SPV'}>
+                                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></svg>
+                                                                        </button>
+                                                                    ) : null}
+                                                                    {canManageSalesLifecycle ? (
+                                                                        <button type="button" className="team-chip-icon-btn team-chip-icon-btn--danger" onClick={() => openDeactivateMember(sales)} data-tip="Nonaktifkan" title="Nonaktifkan">
+                                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>
+                                                                        </button>
+                                                                    ) : null}
+                                                                </div>
                                                             ) : null}
                                                         </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="team-empty-subtree">Supervisor ini belum punya sales aktif.</div>
-                                    )}
-                                </article>
-                            ))}
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <div className="team-empty-subtree">Supervisor ini belum punya sales aktif.</div>
+                                        )}
+                                    </article>
+                                );
+                            })}
 
                             {Array.isArray(group.unassignedSales) && group.unassignedSales.length > 0 ? (
                                 <article className="team-hierarchy-card team-unassigned-shell">
-                                    <div className="team-unassigned-head">
+                                    <div className="team-group-header">
                                         <div>
                                             <span className="team-group-kicker">Belum punya supervisor</span>
                                             <h3 className="team-group-title">Sales tanpa supervisor</h3>
                                         </div>
                                         <span className="badge badge-neutral">{group.unassignedSales.length} Sales</span>
                                     </div>
-
-                                    <div className="team-children-list">
-                                        {sortMembersWithLockedLast(group.unassignedSales || []).map((sales) => (
-                                            <div key={sales.id} className="team-child-row">
-                                                <div className="team-member-row">
-                                                    <MemberButton
-                                                        member={sales}
-                                                        subtitle={`${sales.phone || 'Belum ada nomor WhatsApp'} • ${sales.totalLeads || 0} leads • ${sales.appointments || 0} janji temu`}
-                                                        metaBadge="Sales"
-                                                        onClick={() => goToMemberDetail(sales.id)}
-                                                        compact
-                                                    />
-                                                    <div className="team-member-action-stack">
-                                                        {canEditMembers && !isLockedTeamMember(sales) ? (
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm btn-secondary team-edit-btn"
-                                                                onClick={() => openEditMember(sales)}
-                                                            >
-                                                            Edit
-                                                        </button>
-                                                    ) : null}
-                                                    {canManageSalesSupervisor && !isLockedTeamMember(sales) ? (
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-sm btn-secondary team-edit-btn"
-                                                            onClick={() => openAssignSupervisor(sales)}
-                                                        >
-                                                            {sales.supervisorId ? 'Pindah SPV' : 'Assign SPV'}
-                                                        </button>
-                                                    ) : null}
-                                                    {canManageSalesLifecycle && !isLockedTeamMember(sales) ? (
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-sm btn-danger team-edit-btn"
-                                                            onClick={() => openDeactivateMember(sales)}
-                                                            >
-                                                                Deactivate
+                                    <div className="team-sales-grid">
+                                        {sortMembersWithLockedLast(group.unassignedSales).map((sales) => (
+                                            <div key={sales.id} className="team-sales-chip">
+                                                <div className="team-sales-chip-content">
+                                                    <div className="team-sales-chip-top">
+                                                        <UserAvatar name={sales.name} size="xs" shape="circle" />
+                                                    </div>
+                                                    <button type="button" className="team-sales-chip-body" onClick={() => goToMemberDetail(sales.id)}>
+                                                        <span className="team-sales-chip-name">{sales.name}</span>
+                                                        <span className="team-sales-chip-meta">{sales.totalLeads || 0} leads</span>
+                                                    </button>
+                                                </div>
+                                                {!isLockedTeamMember(sales) ? (
+                                                    <div className="team-sales-chip-actions">
+                                                        {canEditMembers ? (
+                                                            <button type="button" className="team-chip-icon-btn" onClick={() => openEditMember(sales)} data-tip="Edit" title="Edit">
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                            </button>
+                                                        ) : null}
+                                                        {canManageSalesSupervisor ? (
+                                                            <button type="button" className="team-chip-icon-btn" onClick={() => openAssignSupervisor(sales)} data-tip="Assign SPV" title="Assign SPV">
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></svg>
+                                                            </button>
+                                                        ) : null}
+                                                        {canManageSalesLifecycle ? (
+                                                            <button type="button" className="team-chip-icon-btn team-chip-icon-btn--danger" onClick={() => openDeactivateMember(sales)} data-tip="Nonaktifkan" title="Nonaktifkan">
+                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>
                                                             </button>
                                                         ) : null}
                                                     </div>
-                                                </div>
+                                                ) : null}
                                             </div>
                                         ))}
                                     </div>
@@ -918,36 +897,29 @@ export default function TeamPage() {
 
                             {Array.isArray(group.inactiveSales) && group.inactiveSales.length > 0 ? (
                                 <article className="team-hierarchy-card team-inactive-shell">
-                                    <div className="team-unassigned-head">
+                                    <div className="team-group-header">
                                         <div>
                                             <span className="team-group-kicker">Perlu aktivasi manual</span>
                                             <h3 className="team-group-title">Sales Inactive</h3>
                                         </div>
                                         <span className="badge badge-danger">{group.inactiveSales.length} Inactive</span>
                                     </div>
-
-                                    <div className="team-children-list">
+                                    <div className="team-sales-grid">
                                         {group.inactiveSales.map((sales) => (
-                                            <div key={sales.id} className="team-child-row">
-                                                <div className="team-member-row">
-                                                    <MemberButton
-                                                        member={sales}
-                                                        subtitle={`${sales.phone || 'Belum ada nomor WhatsApp'} • ${sales.totalLeads || 0} leads`}
-                                                        metaBadge="Inactive"
-                                                        compact
-                                                        interactive={false}
-                                                    />
-                                                    <div className="team-member-action-stack">
-                                                        <button
-                                                            type="button"
-                                                            className="btn btn-sm btn-primary team-edit-btn"
-                                                            onClick={() => void handleReactivateSales(sales)}
-                                                            disabled={(supervisorOptionsByClient.get(sales.clientId || 'no-client') || []).length === 0}
-                                                            title={(supervisorOptionsByClient.get(sales.clientId || 'no-client') || []).length === 0 ? 'Butuh supervisor aktif untuk mengaktifkan sales kembali' : 'Aktifkan kembali sales'}
-                                                        >
-                                                            Reactivate
-                                                        </button>
+                                            <div key={sales.id} className="team-sales-chip team-sales-chip--inactive">
+                                                <div className="team-sales-chip-content">
+                                                    <div className="team-sales-chip-top">
+                                                        <UserAvatar name={sales.name} size="xs" shape="circle" />
                                                     </div>
+                                                    <div className="team-sales-chip-body">
+                                                        <span className="team-sales-chip-name">{sales.name}</span>
+                                                        <span className="team-sales-chip-meta">{sales.totalLeads || 0} leads</span>
+                                                    </div>
+                                                </div>
+                                                <div className="team-sales-chip-actions">
+                                                    <button type="button" className="team-chip-icon-btn" onClick={() => void handleReactivateSales(sales)} disabled={(supervisorOptionsByClient.get(sales.clientId || 'no-client') || []).length === 0} data-tip="Aktifkan" title="Aktifkan kembali">
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))}

@@ -6,6 +6,9 @@
     }
 }
 
+/* ── Overview grid ────────────────────────────────────────────────────── */
+
+/* Mobile: 2-col */
 .team-overview-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -13,12 +16,46 @@
     margin-bottom: 18px;
 }
 
+/* Mobile: 3rd card full-width when count=3 */
+@media (max-width: 767px) {
+    .team-overview-grid[data-count="3"] > :nth-child(3),
+    .team-overview-grid[data-count="5"] > :nth-child(5) {
+        grid-column: 1 / -1;
+    }
+
+    .team-summary-value {
+        font-size: 1.625rem;
+    }
+}
+
+/* Desktop: 6-col internal grid so items span 2 (= 3 per row) */
+@media (min-width: 768px) {
+    .team-overview-grid {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .team-overview-grid > * {
+        grid-column: span 2;
+    }
+
+    /* 4 cards: 4th is full width */
+    .team-overview-grid[data-count="4"] > :nth-child(4) {
+        grid-column: 1 / -1;
+    }
+
+    /* 5 cards: 4th and 5th each take half */
+    .team-overview-grid[data-count="5"] > :nth-child(4),
+    .team-overview-grid[data-count="5"] > :nth-child(5) {
+        grid-column: span 3;
+    }
+}
+
 .team-summary-card {
     position: relative;
     overflow: hidden;
     padding: 16px;
     border-radius: 16px;
-    border: 1px solid var(--border-color);
+    border: 1.5px solid var(--border-color);
     background: var(--bg-card);
     box-shadow: var(--shadow-sm);
 }
@@ -61,6 +98,8 @@
     color: var(--text-muted);
 }
 
+/* ── Group shell ──────────────────────────────────────────────────────── */
+
 .team-list {
     display: flex;
     flex-direction: column;
@@ -71,8 +110,7 @@
     background: var(--bg-card);
 }
 
-.team-group-header,
-.team-unassigned-head {
+.team-group-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
@@ -90,7 +128,7 @@
 }
 
 .team-group-title {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--text-primary);
@@ -102,109 +140,147 @@
     flex-wrap: wrap;
 }
 
+/* ── Hierarchy ────────────────────────────────────────────────────────── */
+
 .team-hierarchy {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
 }
 
 .team-hierarchy-card {
     padding: 14px;
-    border-radius: 12px;
+    border-radius: 14px;
     border: 1px solid var(--border-color);
     background: var(--bg-input);
 }
 
-.team-member-trigger {
-    width: 100%;
+@media (min-width: 768px) {
+    .team-hierarchy-card {
+        padding: 18px;
+    }
+}
+
+/* ── Supervisor header ────────────────────────────────────────────────── */
+
+.team-sup-header {
     display: flex;
-    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.team-sup-identity {
+    display: flex;
     align-items: center;
     gap: 12px;
+    flex: 1;
+    min-width: 0;
     text-align: left;
-    padding: 0;
-    flex: 1 1 auto;
-    min-width: 0;
     color: var(--text-primary);
-}
-
-.team-member-trigger-compact {
-    padding: 12px 14px;
     border-radius: 10px;
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
+    padding: 4px 6px;
+    margin: -4px -6px;
+    transition: background 150ms ease;
 }
 
-.team-member-trigger-compact:hover,
-.team-member-trigger:hover {
-    opacity: 1;
+.team-sup-identity:hover {
+    background: var(--bg-card-hover, var(--bg-card));
 }
 
-.team-member-main {
+.team-sup-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.team-sup-name-row {
     display: flex;
     align-items: center;
-    gap: 12px;
-    min-width: 0;
-    flex: 1;
-}
-
-.team-member-copy {
-    min-width: 0;
-    flex: 1;
-}
-
-.team-member-title-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    gap: 6px;
     flex-wrap: wrap;
 }
 
 .team-name {
-    font-size: 1rem;
+    font-size: 0.9375rem;
     font-weight: 700;
-    line-height: 1.2;
     color: var(--text-primary);
-    min-width: 0;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
-.team-email {
-    margin-top: 3px;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-    word-break: break-word;
-}
-
-.team-member-subtitle {
-    margin-top: 4px;
+.team-sup-meta {
+    display: block;
+    margin-top: 2px;
     font-size: 0.8rem;
     color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.team-member-alert {
-    margin-top: 6px;
-    font-size: 0.78rem;
+/* ── Supervisor icon group ────────────────────────────────────────────── */
+
+.team-icon-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.team-icon-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.team-icon-btn:hover:not(:disabled) {
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+}
+
+.team-icon-btn--danger {
+    color: var(--danger);
+    border-color: rgba(220, 38, 38, 0.2);
+}
+
+.team-icon-btn--danger:hover:not(:disabled) {
+    background: var(--danger-bg, rgba(220,38,38,0.08));
+    border-color: var(--danger);
     color: var(--danger);
 }
 
-.team-member-arrow {
-    font-size: 1.15rem;
-    color: var(--text-muted);
-    flex-shrink: 0;
+.team-icon-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
 }
+
+/* ── Member stats ─────────────────────────────────────────────────────── */
 
 .team-member-stats {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
-    margin-top: 14px;
+    margin-top: 12px;
+}
+
+@media (max-width: 480px) {
+    .team-member-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 .team-member-stat {
-    padding: 10px 8px;
+    padding: 8px 6px;
     border-radius: 10px;
     background: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -228,45 +304,117 @@
     color: var(--text-muted);
 }
 
-.team-children-list {
-    display: flex;
-    flex-direction: column;
+/* ── Sales grid ───────────────────────────────────────────────────────── */
+
+.team-sales-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
     margin-top: 14px;
     padding-top: 14px;
     border-top: 1px dashed var(--border-color);
 }
 
-.team-child-row {
-    position: relative;
+@media (min-width: 640px) {
+    .team-sales-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }
 
-.team-child-row::before {
-    content: '';
-    position: absolute;
-    left: 20px;
-    top: -10px;
-    bottom: calc(50% + 20px);
-    width: 1px;
-    background: linear-gradient(180deg, rgba(74, 144, 217, 0.25), rgba(74, 144, 217, 0));
+@media (min-width: 1024px) {
+    .team-sales-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
 }
 
-.team-child-row:first-child::before {
-    top: -14px;
+/* ── Sales chip ───────────────────────────────────────────────────────── */
+
+.team-sales-chip {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    overflow: hidden;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
-.team-empty-subtree,
-.team-empty-copy {
-    font-size: 0.875rem;
+.team-sales-chip:hover {
+    border-color: var(--primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.team-sales-chip.is-suspended {
+    border-color: var(--danger);
+    background: var(--danger-bg, rgba(220,38,38,0.04));
+}
+
+.team-sales-chip--inactive {
+    opacity: 0.65;
+}
+
+/* Left: avatar + name/meta */
+.team-sales-chip-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+}
+
+.team-sales-chip-top {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.team-sales-chip-body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    color: var(--text-primary);
+    cursor: pointer;
+    width: 100%;
+    background: none;
+    border: none;
+    font-family: inherit;
+    padding: 0;
+}
+
+.team-sales-chip-body:is(div) {
+    cursor: default;
+}
+
+.team-sales-chip-name {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+.team-sales-chip-meta {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.72rem;
     color: var(--text-muted);
 }
 
+/* ── Empty states ─────────────────────────────────────────────────────── */
+
 .team-empty-subtree {
     margin-top: 14px;
-    padding: 14px;
+    padding: 12px;
     border-radius: 10px;
-    background: var(--bg-input);
+    background: var(--bg-card);
     border: 1px dashed var(--border-color);
+    font-size: 0.875rem;
+    color: var(--text-muted);
 }
 
 .team-empty-title {
@@ -276,59 +424,98 @@
     color: var(--text-primary);
 }
 
+.team-empty-copy {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+/* ── Unassigned / inactive shells ─────────────────────────────────────── */
+
 .team-unassigned-shell {
     border-style: dashed;
-    border-color: var(--border-color);
-    background: var(--bg-input);
 }
 
 .team-inactive-shell {
     border-style: dashed;
     border-color: var(--danger);
-    background: var(--danger-bg);
+    background: var(--danger-bg, rgba(220,38,38,0.04));
 }
 
-.team-member-row {
+/* ── Kebab action sheet ───────────────────────────────────────────────── */
+
+.team-menu-preview {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 12px;
+    padding: 4px 0 16px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 8px;
 }
 
-.team-member-action-stack {
+.team-menu-preview-name {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.team-menu-preview-role {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 2px 0 0;
+}
+
+.team-menu-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    align-self: center;
-    flex-shrink: 0;
+    gap: 2px;
 }
 
-.team-edit-btn {
-    align-self: stretch;
-    flex-shrink: 0;
-}
-
-.team-lifecycle-copy {
-    display: grid;
-    gap: 10px;
-    margin-bottom: 16px;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    line-height: 1.5;
-}
-
-.team-lifecycle-actions {
+.team-menu-item {
     display: flex;
-    gap: 10px;
-    justify-content: flex-end;
-    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 10px;
+    border-radius: 10px;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 150ms ease;
 }
+
+.team-menu-item:hover:not(:disabled) {
+    background: var(--bg-input);
+}
+
+.team-menu-item:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.team-menu-item--danger {
+    color: var(--danger);
+}
+
+.team-menu-item-note {
+    margin-left: auto;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+/* ── Misc ─────────────────────────────────────────────────────────────── */
 
 .team-modal-helper {
     font-size: 0.813rem;
     color: var(--text-muted);
 }
 
-/* badge overrides */
 .set-page .badge-neutral {
     background: var(--bg-input);
     color: var(--text-muted);
@@ -339,47 +526,97 @@
     color: var(--primary);
 }
 
-/* 5th card spans full width on mobile */
-@media (max-width: 767px) {
-    .team-overview-grid > :last-child:nth-child(odd):nth-child(n+3) {
-        grid-column: 1 / -1;
-    }
+/* ── Sales chip action icons (vertical strip on right) ────────────────── */
 
-    .team-summary-value {
-        font-size: 1.625rem;
-    }
+.team-sales-chip-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 4px;
+    border-left: 1px solid var(--border-color);
+    flex-shrink: 0;
 }
 
-@media (min-width: 768px) {
-    .team-overview-grid {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
-    .team-hierarchy-card {
-        padding: 18px;
-    }
+.team-chip-icon-btn {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 150ms ease, color 150ms ease;
 }
 
-@media (max-width: 767px) {
-    .team-member-stats {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+.team-chip-icon-btn:hover:not(:disabled) {
+    background: var(--bg-input);
+    color: var(--text-primary);
+}
 
-    .team-member-row {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 10px;
-    }
+.team-chip-icon-btn--danger {
+    color: var(--danger);
+}
 
-    .team-member-action-stack {
-        flex-direction: row;
-        flex-wrap: wrap;
-        gap: 6px;
-        justify-content: flex-end;
-        align-self: stretch;
-    }
+.team-chip-icon-btn--danger:hover:not(:disabled) {
+    background: var(--danger-bg, rgba(220,38,38,0.08));
+}
 
-    .team-lifecycle-actions {
-        flex-direction: column-reverse;
-    }
+.team-chip-icon-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* Tooltip — appears to the left */
+.team-chip-icon-btn[data-tip]::before {
+    content: attr(data-tip);
+    position: absolute;
+    right: calc(100% + 7px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--tooltip-bg, #1e293b);
+    color: var(--tooltip-color, #f8fafc);
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 120ms ease;
+    z-index: 10;
+}
+
+.team-chip-icon-btn[data-tip]::after {
+    content: '';
+    position: absolute;
+    right: calc(100% + 1px);
+    top: 50%;
+    transform: translateY(-50%);
+    border: 5px solid transparent;
+    border-left-color: var(--tooltip-bg, #1e293b);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 120ms ease;
+    z-index: 10;
+}
+
+.team-chip-icon-btn[data-tip]:hover::before,
+.team-chip-icon-btn[data-tip]:hover::after {
+    opacity: 1;
+}
+
+html[data-theme="light"] .team-chip-icon-btn[data-tip]::before {
+    background: #1e293b;
+    color: #f8fafc;
+}
+
+html[data-theme="light"] .team-chip-icon-btn[data-tip]::after {
+    border-left-color: #1e293b;
 }
