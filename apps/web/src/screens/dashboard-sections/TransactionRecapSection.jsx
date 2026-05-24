@@ -171,6 +171,7 @@ export default function TransactionRecapSection({
     scopeLabel = 'Semua Supervisor', viewerRole = '', viewerId = '', viewerName = '',
     selectedTeam = 'all',
     unitType = '',
+    forceCompare = false,
 }) {
     const router = useRouter();
     const [picAgentStatus, setPicAgentStatus] = useState('akad');
@@ -180,7 +181,7 @@ export default function TransactionRecapSection({
     const [statsDrawerOpen, setStatsDrawerOpen] = useState(false);
     const [domicileChartType, setDomicileChartType] = useState('pie');
     const teams = data?.teams || [];
-    const [isCompare, setIsCompare] = useState(false);
+    const isCompare = forceCompare;
     const [visibleStats, setVisibleStats] = useState(['full_book', 'cancel']);
 
     const toggleStat = (key) => setVisibleStats((prev) =>
@@ -301,11 +302,6 @@ export default function TransactionRecapSection({
                             {visibleStats.length > 2 ? <span className="ds-section-filter-dot" /> : null}
                         </button>
                     ) : null}
-                    {allowTeamFiltering ? (
-                        <button type="button" className="tpc-compare-btn" onClick={() => setIsCompare((p) => !p)} style={getPillButtonStyle(isCompare)}>
-                            {isCompare ? 'Tutup Perbandingan' : 'Tampilan Perbandingan'}
-                        </button>
-                    ) : null}
                 </div>
             </div>
 
@@ -313,11 +309,11 @@ export default function TransactionRecapSection({
                 {/* Filter Semua: summary numbers */}
                 {allowTeamFiltering && !selectedTeamData && !effectiveCompare ? (() => {
                     const ALL_STAT_DEFS = [
-                        { key: 'akad',       label: 'Total Akad',       color: 'var(--green)',        value: summaryScope.totalAkad,      filter: 'akad' },
-                        { key: 'full_book',  label: 'Total Full Book',  color: 'var(--purple)',       value: summaryScope.totalFullBook,   filter: 'full_book' },
-                        { key: 'on_process', label: 'Total On Process', color: 'var(--primary)',      value: summaryScope.totalOnProcess,  filter: 'on_process' },
-                        { key: 'reserve',    label: 'Total Reserve',    color: 'var(--text-primary)', value: summaryScope.totalReserve,    filter: 'reserve' },
-                        { key: 'cancel',     label: 'Total Batal',      color: 'var(--danger)',       value: summaryScope.totalCancel,     filter: 'cancel' },
+                        { key: 'akad', label: 'Total Akad', color: 'var(--green)', value: summaryScope.totalAkad, filter: 'akad' },
+                        { key: 'full_book', label: 'Total Full Book', color: 'var(--purple)', value: summaryScope.totalFullBook, filter: 'full_book' },
+                        { key: 'on_process', label: 'Total On Process', color: 'var(--primary)', value: summaryScope.totalOnProcess, filter: 'on_process' },
+                        { key: 'reserve', label: 'Total Reserve', color: 'var(--text-primary)', value: summaryScope.totalReserve, filter: 'reserve' },
+                        { key: 'cancel', label: 'Total Batal', color: 'var(--danger)', value: summaryScope.totalCancel, filter: 'cancel' },
                     ];
                     const OPTIONAL_KEYS = ['akad', 'on_process', 'reserve'];
                     const visibleItems = ALL_STAT_DEFS.filter((s) => visibleStats.includes(s.key));
@@ -327,8 +323,8 @@ export default function TransactionRecapSection({
                         <div className="tpc-stat-grid">
                             {visibleItems.map((s, idx) => {
                                 const cls = ['tpc-stat-item'];
-                                if (n % 2 === 1 && idx === n - 1)        cls.push('tpc-stat-item--mob-full');
-                                if (desktopRem === 1 && idx === n - 1)   cls.push('tpc-stat-item--desk-full');
+                                if (n % 2 === 1 && idx === n - 1) cls.push('tpc-stat-item--mob-full');
+                                if (desktopRem === 1 && idx === n - 1) cls.push('tpc-stat-item--desk-full');
                                 else if (desktopRem === 2 && idx >= n - 2) cls.push('tpc-stat-item--desk-half');
                                 return (
                                     <div
@@ -364,33 +360,6 @@ export default function TransactionRecapSection({
                         </div>
                     ) : selectedTeamData ? renderTeamCard(selectedTeamData) : null
                 ) : isScopedSales ? renderSalesScopeCard(selectedSalesData) : isScopedSupervisor ? renderTeamCard(selectedTeamData) : null}
-
-                {/* Divisi Closing Group comparison */}
-                {showCrossTeamInsights ? (
-                    <div style={{ paddingTop: '8px', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-                            <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>Divisi Closing Group vs All Supervisor</h3>
-                            <button type="button" onClick={() => setPicAgentDrawerOpen(true)} className={`ds-section-filter-btn${picAgentStatus !== 'akad' ? ' is-active' : ''}`}>
-                                <FilterIcon />
-                                {picAgentStatus !== 'akad' && <span className="ds-section-filter-dot" />}
-                            </button>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'var(--bg-card)', border: '1px solid rgba(124,77,255,0.35)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Divisi Closing Group</span>
-                                <strong style={{ fontSize: '1.8rem', color: 'var(--primary)' }}>{formatCount(picAgentComparison.agent || 0)}</strong>
-                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{picAgentPct}% dari total {selectedPicAgentStatusMeta?.label}</span>
-                            </div>
-                            <div style={{ padding: '16px', borderRadius: '14px', background: 'var(--bg-card)', border: '1px solid rgba(38,166,154,0.35)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>All Supervisor Data</span>
-                                <strong style={{ fontSize: '1.8rem', color: '#26a69a' }}>{formatCount(picAgentComparison.others || 0)}</strong>
-                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>{allSupPct}% dari total {selectedPicAgentStatusMeta?.label}</span>
-                            </div>
-                        </div>
-                    </div>
-                ) : null}
-
-
 
                 {/* Per Status pie charts */}
                 <div style={{ paddingTop: '8px', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -465,11 +434,11 @@ export default function TransactionRecapSection({
                         <div className="dash-drawer-body">
                             <div className="tpc-stats-toggle-list">
                                 {[
-                                    { key: 'full_book', label: 'Full Book',  color: 'var(--purple)',       locked: true },
-                                    { key: 'cancel',    label: 'Cancel',     color: 'var(--danger)',       locked: true },
-                                    { key: 'akad',      label: 'Akad',       color: 'var(--green)',        locked: false },
-                                    { key: 'on_process',label: 'On Process', color: 'var(--primary)',      locked: false },
-                                    { key: 'reserve',   label: 'Reserve',    color: 'var(--text-primary)', locked: false },
+                                    { key: 'full_book', label: 'Full Book', color: 'var(--purple)', locked: true },
+                                    { key: 'cancel', label: 'Cancel', color: 'var(--danger)', locked: true },
+                                    { key: 'akad', label: 'Akad', color: 'var(--green)', locked: false },
+                                    { key: 'on_process', label: 'On Process', color: 'var(--primary)', locked: false },
+                                    { key: 'reserve', label: 'Reserve', color: 'var(--text-primary)', locked: false },
                                 ].map(({ key, label, color, locked }) => {
                                     const active = visibleStats.includes(key);
                                     return (

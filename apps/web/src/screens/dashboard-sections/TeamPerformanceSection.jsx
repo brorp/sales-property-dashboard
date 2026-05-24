@@ -133,8 +133,9 @@ export default function TeamPerformanceSection({
     selectedTeam = 'all',
     selectedSourceFilter = 'all',
     onSourceFilterChange,
+    forceCompare = false,
 }) {
-    const [isCompare, setIsCompare] = useState(false);
+    const isCompare = forceCompare;
     const [selectedTeam1, setSelectedTeam1] = useState('');
     const [selectedTeam2, setSelectedTeam2] = useState('');
 
@@ -191,11 +192,6 @@ export default function TeamPerformanceSection({
                     <h2 className="ds-card-title">Performa Tim</h2>
                     <span className="ds-card-summary">{summary}</span>
                 </div>
-                {allowTeamFiltering ? (
-                    <button type="button" className="tpc-compare-btn" onClick={() => setIsCompare((v) => !v)} style={getPillButtonStyle(isCompare)}>
-                        {isCompare ? 'Tutup Perbandingan' : 'Tampilan Perbandingan'}
-                    </button>
-                ) : null}
             </div>
 
             <div className="ds-tab-body">

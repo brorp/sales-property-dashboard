@@ -182,9 +182,98 @@ html[data-theme="dark"] .notif-card-badge {
     opacity: 0.6;
 }
 
-/* ── Count header ── */
-.notif-count-bar {
-    padding: 4px 16px 12px;
-    font-size: 0.8125rem;
+/* ── Section header ── */
+.notif-section {
+    margin-bottom: 8px;
+}
+
+.notif-section-head {
+    padding: 8px 16px 10px;
+}
+
+.notif-section-label {
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     color: var(--text-muted);
+    margin-bottom: 2px;
+}
+
+.notif-section-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.notif-section-count {
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+/* ── Hold card variant ── */
+.notif-card--hold {
+    border-color: var(--warning-border, rgba(245, 158, 11, 0.3));
+}
+
+.notif-card-badge--hold {
+    background: rgba(245, 158, 11, 0.12);
+    color: #B45309;
+}
+
+html[data-theme="dark"] .notif-card-badge--hold {
+    background: rgba(245, 158, 11, 0.18);
+    color: #FCD34D;
+}
+
+.notif-hold-start-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    margin-top: 4px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 150ms ease, border-color 150ms ease;
+}
+
+.notif-hold-start-btn:hover:not(:disabled) {
+    background: var(--bg-card-hover, var(--bg-input));
+    border-color: var(--text-muted);
+}
+
+.notif-hold-start-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ── Feedback messages ── */
+.notif-feedback {
+    margin: 0 16px 10px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+}
+
+.notif-feedback--error {
+    background: var(--danger-bg, rgba(220, 38, 38, 0.08));
+    color: var(--danger);
+    border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.notif-feedback--success {
+    background: rgba(16, 185, 129, 0.08);
+    color: #059669;
+    border: 1px solid rgba(16, 185, 129, 0.2);
 }

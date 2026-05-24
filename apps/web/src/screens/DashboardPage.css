@@ -405,6 +405,8 @@ html[data-theme="dark"] .dash-page {
     pointer-events: none;
 }
 
+.dash-tab-label-short { display: none; }
+
 .dash-section-tab {
     display: inline-flex;
     align-items: center;
@@ -1509,6 +1511,9 @@ html[data-theme="dark"] .dash-page {
         flex: 1;
         min-width: 0;
     }
+
+    .dash-tab-label-full { display: none; }
+    .dash-tab-label-short { display: inline; }
 
     .dash-section-tab svg {
         width: 22px;

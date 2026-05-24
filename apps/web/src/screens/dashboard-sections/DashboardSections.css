@@ -819,8 +819,9 @@
     padding: 10px 12px 8px;
     border-bottom: 1px solid var(--border-color);
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 6px;
 }
 
 .tpc-sales-card-name {
@@ -830,11 +831,14 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
 }
 
 .tpc-sales-card-total {
     font-size: 0.7rem;
     color: var(--text-muted);
+    flex-shrink: 0;
 }
 
 .tpc-sales-card-stats {
