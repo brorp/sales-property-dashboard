@@ -368,7 +368,7 @@ export default function TransactionRecapSection({
                 ) : isScopedSales ? renderSalesScopeCard(selectedSalesData) : isScopedSupervisor ? renderTeamCard(selectedTeamData) : null}
 
                 {/* Per Status pie charts */}
-                <div style={{ paddingTop: '8px', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {!effectiveCompare ? <div style={{ paddingTop: '8px', borderTop: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                         <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>Analisa Closing per Status</h3>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -408,7 +408,7 @@ export default function TransactionRecapSection({
                             return <PieChartCard key={title} title={title} subtitle={subtitle} total={total} items={items} emptyLabel={emptyLabel} />;
                         })}
                     </div>
-                </div>
+                </div> : null}
             </div>
             <SectionFilterDrawer
                 open={picAgentDrawerOpen}
