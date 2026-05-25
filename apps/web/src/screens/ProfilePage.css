@@ -157,10 +157,73 @@ html[data-theme="dark"] .pf-page {
     align-items: center;
 }
 
+/* ── Group accordion ────────────────────────────────────────────────── */
+
+.pf-group {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.pf-group-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 16px;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: inherit;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: background 120ms ease;
+}
+
+.pf-group-header:hover {
+    background: var(--bg-input);
+}
+
+.pf-group-title {
+    flex: 1;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.pf-group-chevron {
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    transition: transform 220ms ease;
+}
+
+.pf-group-chevron.is-open {
+    transform: rotate(90deg);
+}
+
+.pf-group-body {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 280ms ease;
+}
+
+.pf-group-body.is-open {
+    max-height: 700px;
+}
+
+.pf-group-body .pf-menu-item {
+    border-bottom: none;
+    border-top: 1px solid var(--border-color);
+    padding-left: 40px;
+}
+
+.pf-group-body .pf-menu-arrow {
+    display: none;
+}
+
 /* ── Mobile-only nav shortcuts ──────────────────────────────────────── */
 
 .pf-menu-mobile-only {
-    margin-bottom: 20px;
+    margin-bottom: 0;
 }
 
 @media (min-width: 1024px) {

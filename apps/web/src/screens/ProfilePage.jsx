@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
@@ -97,6 +97,7 @@ const IconChevron = () => (
     </svg>
 );
 
+
 const IconSun = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
@@ -124,12 +125,32 @@ function MenuItem({ icon, label, onClick, danger = false, iconColor }) {
     );
 }
 
+function MenuGroup({ title, icon, iconColor, isOpen, onToggle, children }) {
+    return (
+        <div className="pf-group">
+            <button type="button" className="pf-group-header" onClick={onToggle}>
+                <span className="pf-menu-icon" style={iconColor ? { background: iconColor + '1a', color: iconColor } : {}}>
+                    {icon}
+                </span>
+                <span className="pf-group-title">{title}</span>
+                <span className={`pf-group-chevron${isOpen ? ' is-open' : ''}`}>
+                    <IconChevron />
+                </span>
+            </button>
+            <div className={`pf-group-body${isOpen ? ' is-open' : ''}`}>
+                {children}
+            </div>
+        </div>
+    );
+}
+
 export default function ProfilePage() {
     const { user, logout, isAdmin, getRoleLabel } = useAuth();
     const tenant = useTenant();
     const { theme, setTheme } = useTheme();
     const router = useRouter();
-
+    const [openGroups, setOpenGroups] = useState({ akun: true, leads: true, whatsapp: true, riwayat: true });
+    const toggle = (key) => setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
 
     const handleLogout = () => { logout(); router.replace('/login'); };
 
@@ -137,12 +158,13 @@ export default function ProfilePage() {
     const canReassignLeads = user?.role === 'client_admin' || user?.role === 'root_admin';
     const canManageCancelReasons = user?.role === 'client_admin' || user?.role === 'root_admin';
     const canManageSharedWhatsApp = tenant.canManageSharedWhatsApp(user);
-    const canSeeTeams = user?.role === 'client_admin' || user?.role === 'root_admin' || user?.role === 'supervisor';
     const canSeeLogs = user?.role === 'client_admin' || user?.role === 'root_admin';
 
     const workspaceLabel = tenant.isClientSite
         ? tenant.siteLabel
         : formatClientNameFromSlug(user?.clientSlug) || 'Master Workspace';
+
+    const hasLeadsGroup = canManageDistribution || canReassignLeads || canManageCancelReasons;
 
     return (
         <div className="page-container pf-page">
@@ -163,59 +185,60 @@ export default function ProfilePage() {
 
             {/* ── Menu List ─────────────────────────────────── */}
             <div className="pf-menu-list">
-                <MenuItem icon={<IconUser />} label="Ubah Profil" onClick={() => router.push('/settings/profile')} iconColor="#1E3A5F" />
 
-                <button
-                    type="button"
-                    className="pf-menu-item"
-                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                >
-                    <span className="pf-menu-icon" style={{ background: '#6366F11a', color: '#6366F1' }}>
-                        {theme === 'dark' ? <IconSun /> : <IconMoon />}
-                    </span>
-                    <span className="pf-menu-label">{theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}</span>
-                    <span className="tt-track">
-                        <span className="tt-thumb" />
-                        <span className="tt-icon tt-sun"><IconSun /></span>
-                        <span className="tt-icon tt-moon"><IconMoon /></span>
-                    </span>
-                </button>
+                {/* Akun */}
+                <MenuGroup title="Akun" icon={<IconUser />} iconColor="#1E3A5F" isOpen={openGroups.akun} onToggle={() => toggle('akun')}>
+                    <MenuItem icon={<IconUser />} label="Ubah Profil" onClick={() => router.push('/settings/profile')} iconColor="#1E3A5F" />
+                    <button type="button" className="pf-menu-item" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+                        <span className="pf-menu-icon" style={{ background: '#6366F11a', color: '#6366F1' }}>
+                            {theme === 'dark' ? <IconSun /> : <IconMoon />}
+                        </span>
+                        <span className="pf-menu-label">{theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}</span>
+                        <span className="tt-track">
+                            <span className="tt-thumb" />
+                            <span className="tt-icon tt-sun"><IconSun /></span>
+                            <span className="tt-icon tt-moon"><IconMoon /></span>
+                        </span>
+                    </button>
+                </MenuGroup>
 
-                {canManageDistribution ? (
-                    <MenuItem icon={<IconRefresh />} label="Urutan Distribusi" onClick={() => router.push('/settings/distribution-order')} iconColor="#0EA5E9" />
+                {/* Leads & Distribusi */}
+                {hasLeadsGroup ? (
+                    <MenuGroup title="Leads & Distribusi" icon={<IconRefresh />} iconColor="#0EA5E9" isOpen={openGroups.leads} onToggle={() => toggle('leads')}>
+                        {canManageDistribution ? (
+                            <MenuItem icon={<IconRefresh />} label="Urutan Distribusi" onClick={() => router.push('/settings/distribution-order')} iconColor="#0EA5E9" />
+                        ) : null}
+                        {canReassignLeads ? (
+                            <MenuItem icon={<IconNavigation />} label="Leads Dialihkan" onClick={() => router.push('/settings/reassigned-leads')} iconColor="#7C3AED" />
+                        ) : null}
+                        {canManageDistribution ? (
+                            <MenuItem icon={<IconBuilding />} label="Kelola Unit" onClick={() => router.push('/settings/units')} iconColor="#0D9488" />
+                        ) : null}
+                        {canManageCancelReasons ? (
+                            <MenuItem icon={<IconRss />} label="Kelola Sumber Leads" onClick={() => router.push('/settings/lead-sources')} iconColor="#F97316" />
+                        ) : null}
+                        {canManageCancelReasons ? (
+                            <MenuItem icon={<IconXCircle />} label="Kelola Alasan Batal" onClick={() => router.push('/settings/cancel-reasons')} iconColor="#EF4444" />
+                        ) : null}
+                    </MenuGroup>
                 ) : null}
 
-                {canReassignLeads ? (
-                    <MenuItem icon={<IconNavigation />} label="Leads Dialihkan" onClick={() => router.push('/settings/reassigned-leads')} iconColor="#7C3AED" />
-                ) : null}
-
-                {canManageDistribution ? (
-                    <MenuItem icon={<IconBuilding />} label="Kelola Unit" onClick={() => router.push('/settings/units')} iconColor="#0D9488" />
-                ) : null}
-
-                {canManageCancelReasons ? (
-                    <MenuItem icon={<IconRss />} label="Kelola Sumber Leads" onClick={() => router.push('/settings/lead-sources')} iconColor="#F97316" />
-                ) : null}
-
-                {canManageCancelReasons ? (
-                    <MenuItem icon={<IconXCircle />} label="Kelola Alasan Batal" onClick={() => router.push('/settings/cancel-reasons')} iconColor="#EF4444" />
-                ) : null}
-
+                {/* WhatsApp */}
                 {canManageSharedWhatsApp ? (
-                    <MenuItem icon={<IconMessageSquare />} label="Pengaturan WhatsApp" onClick={() => router.push('/settings/whatsapp')} iconColor="#16A34A" />
+                    <MenuGroup title="WhatsApp" icon={<IconMessageSquare />} iconColor="#16A34A" isOpen={openGroups.whatsapp} onToggle={() => toggle('whatsapp')}>
+                        <MenuItem icon={<IconMessageSquare />} label="Pengaturan WhatsApp" onClick={() => router.push('/settings/whatsapp')} iconColor="#16A34A" />
+                        <MenuItem icon={<IconSend />} label="WhatsApp Broadcast" onClick={() => router.push('/broadcast')} iconColor="#16A34A" />
+                    </MenuGroup>
                 ) : null}
 
-                {canManageSharedWhatsApp ? (
-                    <MenuItem icon={<IconSend />} label="WhatsApp Broadcast" onClick={() => router.push('/broadcast')} iconColor="#16A34A" />
-                ) : null}
-
-                {canSeeLogs ? (
-                    <div className="pf-menu-mobile-only">
-                        <MenuItem icon={<IconFileText />} label="Log Aktivitas" onClick={() => router.push('/activity-logs')} iconColor="#0EA5E9" />
-                    </div>
-                ) : null}
+                {/* Riwayat (mobile only) */}
                 <div className="pf-menu-mobile-only">
-                    <MenuItem icon={<IconAlertTriangle />} label="Penalti" onClick={() => router.push('/penalties')} iconColor="#F97316" />
+                    <MenuGroup title="Riwayat" icon={<IconFileText />} iconColor="#0EA5E9" isOpen={openGroups.riwayat} onToggle={() => toggle('riwayat')}>
+                        {canSeeLogs ? (
+                            <MenuItem icon={<IconFileText />} label="Log Aktivitas" onClick={() => router.push('/activity-logs')} iconColor="#0EA5E9" />
+                        ) : null}
+                        <MenuItem icon={<IconAlertTriangle />} label="Penalti" onClick={() => router.push('/penalties')} iconColor="#F97316" />
+                    </MenuGroup>
                 </div>
 
                 <MenuItem icon={<IconLogOut />} label="Keluar" onClick={handleLogout} danger />
