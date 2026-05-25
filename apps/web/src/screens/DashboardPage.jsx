@@ -145,7 +145,7 @@ export default function DashboardPage() {
     const [filterLoading, setFilterLoading] = useState(false);
     const [pageAnalytics, setPageAnalytics] = useState(null);
     const [dashboardError, setDashboardError] = useState('');
-    const [appliedDateRange, setAppliedDateRange] = useState(() => getPresetRange('today'));
+    const [appliedDateRange, setAppliedDateRange] = useState(() => getPresetRange('thisMonth'));
 
     const showDateFilter = Boolean(user);
     const showHierarchyOverview = user?.role === 'root_admin';
@@ -213,6 +213,10 @@ export default function DashboardPage() {
         { value: 'custom', label: isCustomActive ? formatRangeButtonLabel(appliedDateRange) : 'Rentang Kustom' },
     ], [isCustomActive, appliedDateRange]);
 
+    const transactionPeriodLabel = isCustomActive
+        ? formatRangeButtonLabel(appliedDateRange)
+        : (PERIOD_SF_OPTIONS.find((o) => o.value === activePeriodKey)?.label ?? '');
+
     const handlePeriodChange = (v) => {
         if (!v) return;
         if (v === 'custom') { customPickerOpenRef.current?.(); return; }
@@ -249,7 +253,7 @@ export default function DashboardPage() {
     useEffect(() => {
         if (!user) {
             setPageAnalytics(null);
-            setAppliedDateRange(getPresetRange('today'));
+            setAppliedDateRange(getPresetRange('thisMonth'));
         }
     }, [user]);
 
@@ -633,6 +637,8 @@ export default function DashboardPage() {
                     viewerName={user?.name}
                     selectedTeam={globalTeamFilter}
                     unitType={transactionUnitType}
+                    periodLabel={transactionPeriodLabel}
+                    rangeSummary={formatRangeSummary(appliedDateRange)}
                 />
             ) : null}
 

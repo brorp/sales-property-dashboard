@@ -172,6 +172,8 @@ export default function TransactionRecapSection({
     selectedTeam = 'all',
     unitType = '',
     forceCompare = false,
+    periodLabel = '',
+    rangeSummary = '',
 }) {
     const router = useRouter();
     const [picAgentStatus, setPicAgentStatus] = useState('akad');
@@ -287,8 +289,12 @@ export default function TransactionRecapSection({
         <div className="ds-card">
             <div className="ds-card-head">
                 <div>
-                    <h2 className="ds-card-title">Rekap Transaksi</h2>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <h2 className="ds-card-title">Rekap Transaksi</h2>
+                        {periodLabel ? <span className="tpc-period-badge">{periodLabel}</span> : null}
+                    </div>
                     <span className="ds-card-summary">{data.totalOngoing || 0} berjalan • {data.totalClosing || 0} closing • {data.teams?.length || 0} tim</span>
+                    {rangeSummary ? <span className="tpc-range-summary">{rangeSummary}</span> : null}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                     {allowTeamFiltering && !selectedTeamData && !effectiveCompare ? (
