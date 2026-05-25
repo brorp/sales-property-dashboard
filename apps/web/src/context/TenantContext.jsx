@@ -99,6 +99,28 @@ export function TenantProvider({ children }) {
         document.title = titleBase;
     }, [context.loading, context.siteLabel, context.siteType]);
 
+    useEffect(() => {
+        if (typeof document === 'undefined' || context.loading) {
+            return;
+        }
+
+        const faviconMap = {
+            'avoria-001': '/favicon-avoria.ico',
+            'wr-001': '/favicon-wr.ico',
+        };
+
+        const tenantId = context.tenant?.id;
+        const faviconHref = (tenantId && faviconMap[tenantId]) ? faviconMap[tenantId] : '/favicon.ico';
+
+        let link = document.querySelector("link[rel~='icon']");
+        if (!link) {
+            link = document.createElement('link');
+            link.rel = 'icon';
+            document.head.appendChild(link);
+        }
+        link.href = faviconHref;
+    }, [context.loading, context.tenant]);
+
     const value = useMemo(() => {
         const isMasterSite = context.siteType === 'master';
         const isClientSite = context.siteType === 'client';
