@@ -41,6 +41,13 @@ export function WorkspaceProvider({ children }) {
                 const data = await response.json();
                 setWorkspaces(data);
 
+                // If only one workspace, always use it directly
+                if (data.length === 1) {
+                    setActiveWorkspace(data[0]);
+                    window.localStorage.setItem(WORKSPACE_STORAGE_KEY, JSON.stringify(data[0]));
+                    return;
+                }
+
                 // Restore previously selected workspace from localStorage
                 const saved = window.localStorage.getItem(WORKSPACE_STORAGE_KEY);
                 let current = null;
@@ -48,7 +55,7 @@ export function WorkspaceProvider({ children }) {
                     try {
                         const parsed = JSON.parse(saved);
                         current = data.find((w) => w.slug === parsed.slug) || null;
-                    } catch (err) {}
+                    } catch (err) { }
                 }
 
                 // Default to first workspace when nothing is stored / saved is stale

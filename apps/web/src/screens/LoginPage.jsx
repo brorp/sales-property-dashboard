@@ -51,6 +51,11 @@ export default function LoginPage() {
         ? `${tenant.siteLabel} workspace on Property Lounge`
         : 'Masuk ke akun Anda';
 
+    const isLogo = {
+        "avoria-001": "/logo-ae.png",
+        "wr-001": "/logo-wr.png",
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -81,7 +86,7 @@ export default function LoginPage() {
                     <div className="login-brand-badge">
                         {tenant.isClientSite ? tenant.siteLabel : 'Property Lounge'}
                     </div>
-                    <img src="/logo-wr.png" alt="Property Lounge" className="login-left-logo" />
+                    <img src={isLogo[tenant?.tenant?.id] || "/logo-wr.png"} alt={tenant.siteLabel} className="login-left-logo" />
                 </div>
 
                 <div className="login-left-middle">
@@ -117,7 +122,7 @@ export default function LoginPage() {
             <div className="login-right">
                 {/* Mobile: navy header strip */}
                 <div className="login-mobile-header">
-                    <img src="/logo-wr.png" alt="Property Lounge" className="login-mobile-logo" />
+                    <img src={isLogo[tenant?.tenant?.id] || "/logo-wr.png"} alt={tenant.siteLabel} className="login-mobile-logo" />
                     <p className="login-mobile-tagline">
                         Dashboard sales properti terpusat
                     </p>
@@ -125,92 +130,92 @@ export default function LoginPage() {
 
                 <div className="login-right-inner">
                     <div className="login-mobile-form-area">
-                    <div className="login-toggle-row">
-                        <button
-                            type="button"
-                            className="theme-toggle"
-                            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                            title={theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
-                        >
-                            <span className="tt-track">
-                                <span className="tt-thumb" />
-                                <span className="tt-icon tt-sun"><IconSun /></span>
-                                <span className="tt-icon tt-moon"><IconMoon /></span>
-                            </span>
-                        </button>
-                    </div>
-                    <div className="login-site-badge">
-                        {tenant.isClientSite ? `Client Site: ${tenant.siteLabel}` : 'Panel Manajemen Sales'}
-                    </div>
-
-                    <h2 className="login-body-title">Selamat datang</h2>
-                    <p className="login-body-subtitle">Masukkan kredensial Anda untuk melanjutkan</p>
-
-                    <form onSubmit={handleSubmit} className="login-form">
-                        <div className="input-group">
-                            <label>Email</label>
-                            <div className="input-icon-wrapper">
-                                <span className="input-icon">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <rect x="2" y="4" width="20" height="16" rx="2"/>
-                                        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-                                    </svg>
+                        <div className="login-toggle-row">
+                            <button
+                                type="button"
+                                className="theme-toggle"
+                                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                                title={theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
+                            >
+                                <span className="tt-track">
+                                    <span className="tt-thumb" />
+                                    <span className="tt-icon tt-sun"><IconSun /></span>
+                                    <span className="tt-icon tt-moon"><IconMoon /></span>
                                 </span>
-                                <input
-                                    type="email"
-                                    className="input-field"
-                                    placeholder="nama@email.com"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                />
-                            </div>
+                            </button>
+                        </div>
+                        <div className="login-site-badge">
+                            {tenant.isClientSite ? `Client Site: ${tenant.siteLabel}` : 'Panel Manajemen Sales'}
                         </div>
 
-                        <div className="input-group">
-                            <label>Password</label>
-                            <div className="input-icon-wrapper">
-                                <span className="input-icon">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <rect x="3" y="11" width="18" height="11" rx="2"/>
-                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                                    </svg>
-                                </span>
-                                <input
-                                    type={showPass ? 'text' : 'password'}
-                                    className="input-field"
-                                    placeholder="Masukkan password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                />
-                                <button type="button" className="input-action" onClick={() => setShowPass(!showPass)}>
-                                    {showPass ? (
+                        <h2 className="login-body-title">Selamat datang</h2>
+                        <p className="login-body-subtitle">Masukkan kredensial Anda untuk melanjutkan</p>
+
+                        <form onSubmit={handleSubmit} className="login-form">
+                            <div className="input-group">
+                                <label>Email</label>
+                                <div className="input-icon-wrapper">
+                                    <span className="input-icon">
                                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-                                            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-                                            <line x1="1" y1="1" x2="23" y2="23"/>
+                                            <rect x="2" y="4" width="20" height="16" rx="2" />
+                                            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                                         </svg>
-                                    ) : (
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                                            <circle cx="12" cy="12" r="3"/>
-                                        </svg>
-                                    )}
-                                </button>
+                                    </span>
+                                    <input
+                                        type="email"
+                                        className="input-field"
+                                        placeholder="nama@email.com"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        required
+                                    />
+                                </div>
                             </div>
+
+                            <div className="input-group">
+                                <label>Password</label>
+                                <div className="input-icon-wrapper">
+                                    <span className="input-icon">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <rect x="3" y="11" width="18" height="11" rx="2" />
+                                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                        </svg>
+                                    </span>
+                                    <input
+                                        type={showPass ? 'text' : 'password'}
+                                        className="input-field"
+                                        placeholder="Masukkan password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        required
+                                    />
+                                    <button type="button" className="input-action" onClick={() => setShowPass(!showPass)}>
+                                        {showPass ? (
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                                                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                                                <line x1="1" y1="1" x2="23" y2="23" />
+                                            </svg>
+                                        ) : (
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                                                <circle cx="12" cy="12" r="3" />
+                                            </svg>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {error && <div className="login-error">{error}</div>}
+
+                            <button type="submit" className="login-submit" disabled={loading}>
+                                {loading ? 'Memproses...' : 'Masuk'}
+                            </button>
+                        </form>
+
+                        <div className="login-footer">
+                            &copy; {new Date().getFullYear()} Property Lounge. Hak cipta dilindungi.
                         </div>
-
-                        {error && <div className="login-error">{error}</div>}
-
-                        <button type="submit" className="login-submit" disabled={loading}>
-                            {loading ? 'Memproses...' : 'Masuk'}
-                        </button>
-                    </form>
-
-                    <div className="login-footer">
-                        &copy; {new Date().getFullYear()} Property Lounge. Hak cipta dilindungi.
-                    </div>
                     </div>{/* login-mobile-form-area */}
                 </div>{/* login-right-inner */}
             </div>{/* login-right */}
