@@ -56,8 +56,6 @@ export default function LoginPage() {
         "wr-001": "/logo-wr.png",
     };
 
-
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
@@ -88,7 +86,7 @@ export default function LoginPage() {
                     <div className="login-brand-badge">
                         {tenant.isClientSite ? tenant.siteLabel : 'Property Lounge'}
                     </div>
-                    <img src={isLogo[tenant.id] || "/logo-wr.png"} alt={tenant.siteLabel} className="login-left-logo" />
+                    <img src={isLogo[tenant?.tenant?.id] || "/logo-wr.png"} alt={tenant.siteLabel} className="login-left-logo" />
                 </div>
 
                 <div className="login-left-middle">
@@ -124,7 +122,7 @@ export default function LoginPage() {
             <div className="login-right">
                 {/* Mobile: navy header strip */}
                 <div className="login-mobile-header">
-                    <img src={isLogo[tenant.id] || "/logo-wr.png"} alt={tenant.siteLabel} className="login-mobile-logo" />
+                    <img src={isLogo[tenant?.tenant?.id] || "/logo-wr.png"} alt={tenant.siteLabel} className="login-mobile-logo" />
                     <p className="login-mobile-tagline">
                         Dashboard sales properti terpusat
                     </p>
