@@ -1499,8 +1499,24 @@ html[data-theme="dark"] .dash-page {
         padding-bottom: 12px;
     }
 
+    .dash-sticky-bar-row {
+        align-items: stretch;
+    }
+
     .dash-section-tabs {
         margin-bottom: 10px;
+    }
+
+    .dash-filter-toggle {
+        height: auto;
+        width: 48px;
+        margin-bottom: 10px;
+        border-radius: 12px;
+    }
+
+    .dash-filter-toggle svg {
+        width: 24px;
+        height: 24px;
     }
 
     .dash-section-tab {

@@ -247,3 +247,51 @@ html[data-theme="dark"] .sf-wrap {
     background: var(--sf-trigger-border);
     margin: 0;
 }
+
+/* ── Search ─────────────────────────────────────────────────────────── */
+
+.sf-search-wrap {
+    padding: 8px 10px 6px;
+    border-bottom: 1px solid var(--sf-trigger-border);
+    position: sticky;
+    top: 0;
+    background: var(--sf-dropdown-bg);
+    z-index: 1;
+}
+
+.sf-search {
+    width: 100%;
+    height: 32px;
+    padding: 0 10px;
+    background: var(--sf-trigger-bg);
+    border: 1px solid var(--sf-trigger-border);
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    font-family: inherit;
+    color: var(--text-primary, #1E293B);
+    outline: none;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+    box-sizing: border-box;
+}
+
+.sf-search::placeholder {
+    color: var(--sf-chevron-color);
+}
+
+.sf-search:focus {
+    border-color: var(--sf-border-focus);
+    box-shadow: 0 0 0 3px var(--sf-glow);
+}
+
+.sf-options-list {
+    overflow-y: auto;
+    max-height: 220px;
+    overscroll-behavior: contain;
+}
+
+.sf-no-result {
+    padding: 14px 14px;
+    font-size: 0.8125rem;
+    color: var(--sf-chevron-color);
+    text-align: center;
+}

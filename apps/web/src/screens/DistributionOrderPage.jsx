@@ -21,6 +21,11 @@ export default function DistributionOrderPage() {
     const [queueInitialSignature, setQueueInitialSignature] = useState('');
     const [selectedSalesId, setSelectedSalesId] = useState('');
     const [selectedInsertOrder, setSelectedInsertOrder] = useState('end');
+    const [compensatingItem, setCompensatingItem] = useState(null);
+    const [compensatingPenaltyId, setCompensatingPenaltyId] = useState(null);
+    const [compensatingPenaltyLoading, setCompensatingPenaltyLoading] = useState(false);
+    const [compensationReason, setCompensationReason] = useState('');
+    const [submittingCompensation, setSubmittingCompensation] = useState(false);
     const [queuePreview, setQueuePreview] = useState({
         isRolledByActiveDistribution: false,
         rolledSalesIds: [],
@@ -198,6 +203,52 @@ export default function DistributionOrderPage() {
         }
     };
 
+    const openCompensateModal = async (item) => {
+        setCompensatingItem(item);
+        setCompensationReason('');
+        setCompensatingPenaltyId(null);
+        setQueueError('');
+        setCompensatingPenaltyLoading(true);
+        try {
+            const rows = await apiRequest('/api/penalties', { user });
+            const active = (Array.isArray(rows) ? rows : []).find(
+                (p) => p.salesId === item.id && p.status === 'active'
+            );
+            if (active) {
+                setCompensatingPenaltyId(active.id);
+            } else {
+                setQueueError('Tidak ada penalty aktif ditemukan untuk sales ini.');
+                setCompensatingItem(null);
+            }
+        } catch (err) {
+            setQueueError(err instanceof Error ? err.message : 'Gagal memuat data penalty');
+            setCompensatingItem(null);
+        } finally {
+            setCompensatingPenaltyLoading(false);
+        }
+    };
+
+    const handleCompensatePenalty = async () => {
+        if (!user || !compensatingItem || !compensatingPenaltyId) return;
+        if (!compensationReason.trim()) { setQueueError('Alasan kompensasi wajib diisi.'); return; }
+        setSubmittingCompensation(true);
+        setQueueError(''); setQueueFeedback('');
+        try {
+            await apiRequest(`/api/penalties/${compensatingPenaltyId}/compensate`, {
+                method: 'POST', user, body: { reason: compensationReason.trim() },
+            });
+            setQueueFeedback(`Penalty untuk ${compensatingItem.name} berhasil dikompensasi.`);
+            setCompensatingItem(null);
+            setCompensatingPenaltyId(null);
+            setCompensationReason('');
+            await loadQueueRows({ silent: true });
+        } catch (err) {
+            setQueueError(err instanceof Error ? err.message : 'Gagal mengompensasi penalty');
+        } finally {
+            setSubmittingCompensation(false);
+        }
+    };
+
     const queueDirty = buildQueueSignature(queueRows) !== queueInitialSignature;
     const queueLocked = Boolean(queuePreview?.isQueueLocked);
     const rewardOptions = [0, 1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n}x` }));
@@ -289,7 +340,7 @@ export default function DistributionOrderPage() {
                 {blockedSales.length > 0 ? (
                     <div className="settings-queue-list" style={{ marginTop: 18 }}>
                         {blockedSales.map((item) => (
-                            <div key={item.id} className="settings-queue-item" style={{ opacity: 0.84 }}>
+                            <div key={item.id} className="settings-queue-item settings-queue-item--blocked" style={{ opacity: 0.84 }}>
                                 <div className="settings-queue-main">
                                     <span className="settings-queue-order">!</span>
                                     <div>
@@ -307,7 +358,17 @@ export default function DistributionOrderPage() {
                                         ) : null}
                                     </div>
                                 </div>
-                                <span className="badge badge-danger">Penalty #{item.suspension?.penaltySequence || item.suspension?.penaltyLayer || '-'}</span>
+                                <span className="badge badge-danger" style={{ flexShrink: 0 }}>Penalty #{item.suspension?.penaltySequence || item.suspension?.penaltyLayer || '-'}</span>
+                                {item.isSuspended ? (
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-secondary settings-queue-compensate-btn"
+                                        onClick={() => void openCompensateModal(item)}
+                                        disabled={compensatingPenaltyLoading}
+                                    >
+                                        Kompensasi Penalty
+                                    </button>
+                                ) : null}
                             </div>
                         ))}
                     </div>
@@ -389,6 +450,36 @@ export default function DistributionOrderPage() {
                     {queueSaving ? 'Menyimpan...' : 'Simpan Urutan Distribusi'}
                 </button>
             </div>
+
+            {compensatingItem ? (
+                <div className="sheet-overlay" onClick={() => setCompensatingItem(null)}>
+                    <div className="bottom-sheet" onClick={(e) => e.stopPropagation()}>
+                        <div className="sheet-handle" />
+                        <h2>Kompensasi Penalty</h2>
+                        <p className="settings-help">
+                            Penalty untuk <strong>{compensatingItem.name}</strong> akan tetap tersimpan di history, tetapi tidak lagi dihitung untuk blocking dan eskalasi.
+                        </p>
+                        <div className="input-group" style={{ marginTop: 16 }}>
+                            <label>Alasan Kompensasi</label>
+                            <textarea
+                                className="input-field"
+                                rows={5}
+                                value={compensationReason}
+                                onChange={(e) => setCompensationReason(e.target.value)}
+                                placeholder="Contoh: kesalahan sistem / kondisi darurat"
+                            />
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+                            <button type="button" className="btn btn-secondary" onClick={() => setCompensatingItem(null)} disabled={submittingCompensation}>
+                                Batal
+                            </button>
+                            <button type="button" className="btn btn-primary" onClick={() => void handleCompensatePenalty()} disabled={submittingCompensation}>
+                                {submittingCompensation ? 'Menyimpan...' : 'Kompensasi'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }
