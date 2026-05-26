@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import { useAuth } from '../context/AuthContext';
+import VerifiedIcon from '../components/VerifiedIcon';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { apiRequest } from '../lib/api';
@@ -672,12 +673,14 @@ export default function DailyTaskPage() {
                                     >
                                         <div className="dt-card-header">
                                             <div className="dt-card-name-wrap">
-                                                <div className="dt-card-name">{lead.name}</div>
+                                                <div className="dt-card-name-row">
+                                                    <span className="dt-card-name">{lead.name}</span>
+                                                    <VerifiedIcon size={14} className="lc-verified-badge" />
+                                                </div>
                                                 <div className="dt-card-phone">{lead.phone}</div>
                                             </div>
                                             <div className="dt-card-badges">
                                                 <span className="badge badge-hot">HOT</span>
-                                                <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>✓ Validated</span>
                                             </div>
                                         </div>
                                         <div className="dt-meta-grid">

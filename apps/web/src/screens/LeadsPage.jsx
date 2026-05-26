@@ -26,6 +26,7 @@ import { usePagePolling } from '../hooks/usePagePolling';
 import { apiRequest } from '../lib/api';
 import { readLeadTransferWorkbook } from '../lib/lead-transfer-workbook';
 import UserAvatar from '../components/UserAvatar';
+import VerifiedIcon from '../components/VerifiedIcon';
 import './LeadsPage.css';
 
 const QUICK_RANGES = [
@@ -761,7 +762,7 @@ export default function LeadsPage() {
                             <div className="lc-row1">
                                 <span className="lc-name-wrap">
                                     <span className="lc-name">{lead.name}</span>
-                                    {isHotValidatedLead(lead) && <span className="lc-verified-badge" title="Validated">✓</span>}
+                                    {isHotValidatedLead(lead) && <VerifiedIcon size={14} className="lc-verified-badge" />}
                                 </span>
                                 <span className="lc-time">{getTimeAgo(lead.createdAt)}</span>
                             </div>
