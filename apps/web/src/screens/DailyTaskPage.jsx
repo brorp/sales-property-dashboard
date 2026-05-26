@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
+import Button from '../components/Button';
 import { useAuth } from '../context/AuthContext';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { usePagePolling } from '../hooks/usePagePolling';
@@ -526,14 +527,15 @@ export default function DailyTaskPage() {
 
                                         {/* submit */}
                                         <div className="dt-actions">
-                                            <button
-                                                type="button"
-                                                className="btn btn-primary"
-                                                disabled={draft.uploading || draft.submitting}
+                                            <Button
+                                                variant="primary"
+                                                loading={draft.submitting}
+                                                loadingText="Submitting..."
+                                                disabled={draft.uploading}
                                                 onClick={() => void (task.taskType === 'new_lead' ? handleSubmitNewLead(task) : handleSubmitFollowUp(task))}
                                             >
-                                                {draft.submitting ? 'Submitting...' : 'Submit Task'}
-                                            </button>
+                                                Submit Task
+                                            </Button>
                                         </div>
                                     </div>
                                 );
@@ -585,22 +587,22 @@ export default function DailyTaskPage() {
                                         </div>
 
                                         <div className="dt-deadline-actions">
-                                            <button
-                                                type="button"
-                                                className="btn btn-danger"
-                                                disabled={draft.submitting}
+                                            <Button
+                                                variant="danger"
+                                                loading={draft.submitting}
+                                                loadingText="Submitting..."
                                                 onClick={() => void handleDeadlineLeadAction(task, 'change_to_cold')}
                                             >
-                                                {draft.submitting ? 'Submitting...' : 'Change to Cold'}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="btn btn-secondary"
-                                                disabled={draft.submitting}
+                                                Change to Cold
+                                            </Button>
+                                            <Button
+                                                variant="secondary"
+                                                loading={draft.submitting}
+                                                loadingText="Submitting..."
                                                 onClick={() => void handleDeadlineLeadAction(task, 'stay')}
                                             >
                                                 Stay Warm
-                                            </button>
+                                            </Button>
                                         </div>
                                     </div>
                                 );

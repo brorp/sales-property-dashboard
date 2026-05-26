@@ -9,6 +9,41 @@ html[data-theme="light"] .daily-task-page {
     --border-color: #E5E7EB;
 }
 
+/* Light Mode Button overrides */
+html[data-theme="light"] .daily-task-page .btn-primary {
+    background: #1E3A5F;
+    border-color: #1E3A5F;
+    color: #FFFFFF;
+    box-shadow: none;
+}
+
+html[data-theme="light"] .daily-task-page .btn-primary:hover:not(:disabled) {
+    background: #2A5080;
+    border-color: #2A5080;
+    box-shadow: none;
+    transform: none;
+}
+
+html[data-theme="light"] .daily-task-page .btn-primary:disabled {
+    opacity: 0.55;
+    background: #1E3A5F;
+    border-color: #1E3A5F;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+html[data-theme="light"] .daily-task-page .btn-secondary {
+    background: #FFFFFF;
+    border-color: #E5E7EB;
+    color: #475569;
+}
+
+html[data-theme="light"] .daily-task-page .btn-secondary:hover:not(:disabled) {
+    background: #F8FAFC;
+    border-color: #CBD5E1;
+}
+
 /* ── Tab bar ───────────────────────────────────────────────────────── */
 
 .daily-task-tabs {
@@ -501,4 +536,19 @@ html[data-theme="light"] .daily-task-page {
     .dt-deadline-actions {
         grid-template-columns: 1fr;
     }
+}
+
+/* ── Follow Up style overrides (Navy Blue brand theme) ── */
+.daily-task-page .dt-card-followup {
+    border-left-color: var(--primary) !important;
+}
+
+html[data-theme="light"] .daily-task-page .badge-purple {
+    background: rgba(30, 58, 95, 0.08) !important;
+    color: #1E3A5F !important;
+}
+
+html[data-theme="dark"] .daily-task-page .badge-purple {
+    background: rgba(74, 144, 217, 0.12) !important;
+    color: #6BAEE8 !important;
 }
