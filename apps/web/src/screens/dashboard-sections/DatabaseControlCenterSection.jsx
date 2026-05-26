@@ -193,6 +193,7 @@ export default function DatabaseControlCenterSection({
                 <div className="chart-container-row">
                     <RankedPanel title="Top Domisili" items={data.domicileBreakdown?.slice(0, 10) || []} emptyLabel="Belum ada data domisili" renderLabel={(item) => item.city} />
                     <RankedPanel title="Distribusi Sumber Data" items={data.sourceBreakdown || []} emptyLabel="Belum ada data source" renderLabel={(item) => item.source} />
+                    <RankedPanel title="Distribusi Tipe Unit" items={data.unitTypeBreakdown || []} emptyLabel="Belum ada data tipe unit" renderLabel={(item) => item.label} />
                     <RankedPanel title="Alasan Batal" items={data.cancelReasonBreakdown || []} emptyLabel="Belum ada data alasan batal" renderLabel={(item) => item.label || item.key} />
                 </div>
             </div>
