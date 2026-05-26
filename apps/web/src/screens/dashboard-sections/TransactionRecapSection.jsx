@@ -386,7 +386,7 @@ export default function TransactionRecapSection({
                             </button>
                         </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+                    <div className="tpc-charts-grid">
                         {[
                             { title: 'Analisa Source Leads', subtitle: 'Komposisi source leads dari status transaksi terpilih.', items: sourceLeadItems, emptyLabel: 'Belum ada data transaksi untuk status ini.' },
                             { title: 'Komposisi Tipe Unit', subtitle: 'Distribusi tipe unit dari status transaksi terpilih.', items: unitTypeItems, emptyLabel: 'Belum ada tipe unit pada status ini.' },
