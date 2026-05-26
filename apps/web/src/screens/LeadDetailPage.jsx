@@ -23,11 +23,10 @@ import {
     isCancelResultStatus,
 } from '../constants/crm';
 import { INDONESIA_CITIES } from '../constants/indonesiaCities';
-import CustomerPipelineProgress from '../components/CustomerPipelineProgress';
 import Header from '../components/Header';
 import UserAvatar from '../components/UserAvatar';
 import Button from '../components/Button';
-import PickerTriggerField from '../components/PickerTriggerField';
+import DatePicker from '../components/DatePicker';
 import SelectFilter from '../components/SelectFilter';
 import { apiRequest } from '../lib/api';
 import './LeadDetailPage.css';
@@ -407,7 +406,7 @@ export default function LeadDetailPage({ leadId }) {
             <div className="page-container dash-page leads-page">
                 <Header title="Detail Lead" showBack rightAction={(
                     <button className="btn btn-sm btn-secondary btn-icon-refresh" onClick={() => void handleRefresh()} disabled={refreshing} title="Refresh">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
                     </button>
                 )} />
                 <div className="lc-empty">
@@ -422,6 +421,10 @@ export default function LeadDetailPage({ leadId }) {
 
     const handleSaveInlineEdit = async () => {
         if (!canEditProfile) return;
+        if (!flow2Form.name || !flow2Form.name.trim()) {
+            setRequestError('Nama Leads wajib diisi.');
+            return;
+        }
         if (!flow2Form.source) {
             setRequestError('Source lead wajib dipilih.');
             return;
@@ -435,6 +438,7 @@ export default function LeadDetailPage({ leadId }) {
             return;
         }
         const payload = {
+            name: flow2Form.name.trim(),
             source: flow2Form.source,
             agentOfficeName: isAgentSource(flow2Form.source) ? flow2Form.agentOfficeName : null,
             domicileCity: flow2Form.domicileCity || null,
@@ -617,10 +621,10 @@ export default function LeadDetailPage({ leadId }) {
                                 title="Hapus Lead"
                             >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <polyline points="3 6 5 6 21 6"/>
-                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                                    <path d="M10 11v6M14 11v6"/>
-                                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                    <path d="M10 11v6M14 11v6" />
+                                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
                                 </svg>
                             </button>
                         ) : null}
@@ -631,8 +635,8 @@ export default function LeadDetailPage({ leadId }) {
                             title="Refresh"
                         >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={refreshing ? { animation: 'btnSpin 0.7s linear infinite' } : {}}>
-                                <polyline points="23 4 23 10 17 10"/>
-                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                                <polyline points="23 4 23 10 17 10" />
+                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
                             </svg>
                         </button>
                     </>
@@ -644,7 +648,18 @@ export default function LeadDetailPage({ leadId }) {
                 <div className="ldp-profile-head">
                     <UserAvatar name={lead.name} size="md" shape="circle" />
                     <div className="ldp-profile-identity">
-                        <h1 className="ldp-name">{lead.name}</h1>
+                        {inlineEdit ? (
+                            <input
+                                type="text"
+                                className="input-field"
+                                style={{ width: '100%', maxWidth: '280px', padding: '6px 12px', fontSize: '1rem', fontWeight: 600, height: '34px' }}
+                                value={flow2Form.name}
+                                onChange={(e) => setFlow2Form({ ...flow2Form, name: e.target.value })}
+                                placeholder="Nama Leads"
+                            />
+                        ) : (
+                            <h1 className="ldp-name">{lead.name}</h1>
+                        )}
                         <div className="ldp-status-row">
                             <span className={`badge ${getStatusBadgeClass('flow', effectiveFlowStatus)}`}>{getFlowStatusLabel(effectiveFlowStatus)}</span>
                             {appointmentTag !== 'none' ? <span className={`badge ${getStatusBadgeClass('appointment', appointmentTag)}`}>{getAppointmentTagLabel(appointmentTag)}</span> : null}
@@ -707,6 +722,7 @@ export default function LeadDetailPage({ leadId }) {
                                         onChange={(val) => setFlow2Form({ ...flow2Form, domicileCity: val })}
                                         placeholder="Pilih kota"
                                         clearable
+                                        searchable
                                     />
                                 ) : (
                                     <span className="ldp-info-value">{lead.domicileCity || '-'}</span>
@@ -735,8 +751,8 @@ export default function LeadDetailPage({ leadId }) {
                         {canEditProfile ? (
                             <button type="button" className="ldp-inline-edit-btn" onClick={() => setInlineEdit((prev) => !prev)} title={inlineEdit ? 'Tutup' : 'Edit'}>
                                 {inlineEdit
-                                    ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                    : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                                    ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                    : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                 }
                             </button>
                         ) : null}
@@ -829,8 +845,20 @@ export default function LeadDetailPage({ leadId }) {
                             </div>
                             {showInlineAppt ? (
                                 <form className="ldp-inline-appt-form" onSubmit={(e) => void handleAddAppt(e)}>
-                                    <PickerTriggerField label="Tanggal" type="date" value={appt.date} onChange={(event) => setAppt({ ...appt, date: event.target.value })} required />
-                                    <PickerTriggerField label="Waktu" type="time" value={appt.time} onChange={(event) => setAppt({ ...appt, time: event.target.value })} required />
+                                    <DatePicker
+                                        label="Tanggal & Waktu"
+                                        showTime={true}
+                                        value={appt.date && appt.time ? `${appt.date}T${appt.time}` : ''}
+                                        onChange={(val) => {
+                                            if (!val) {
+                                                setAppt({ ...appt, date: '', time: '' });
+                                            } else {
+                                                const [d, t] = val.split('T');
+                                                setAppt({ ...appt, date: d, time: t });
+                                            }
+                                        }}
+                                        required
+                                    />
                                     <div className="input-group">
                                         <label>Lokasi</label>
                                         <input type="text" className="input-field" placeholder="Contoh: BSD City, Tangerang" value={appt.location} onChange={(event) => setAppt({ ...appt, location: event.target.value })} required />
@@ -877,10 +905,14 @@ export default function LeadDetailPage({ leadId }) {
                             ) : null}
                             <form onSubmit={handleSaveResult} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 <div className="input-group">
-                                    <select className="input-field" value={resultForm.resultStatus} onChange={(event) => setResultForm({ ...resultForm, resultStatus: event.target.value })} disabled={!canUpdateResult}>
-                                        <option value="">Pilih status transaksi</option>
-                                        {RESULT_STATUSES.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
-                                    </select>
+                                    <SelectFilter
+                                        options={RESULT_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
+                                        value={resultForm.resultStatus}
+                                        onChange={(val) => setResultForm({ ...resultForm, resultStatus: val })}
+                                        placeholder="Pilih status transaksi"
+                                        disabled={!canUpdateResult}
+                                        clearable={false}
+                                    />
                                 </div>
                                 {resultForm.resultStatus === 'akad' ? (
                                     <>
@@ -902,10 +934,14 @@ export default function LeadDetailPage({ leadId }) {
                                     <>
                                         <div className="input-group">
                                             <label>Alasan Cancel</label>
-                                            <select className="input-field" value={resultForm.rejectedReason} onChange={(event) => setResultForm({ ...resultForm, rejectedReason: event.target.value })} disabled={!canUpdateResult || cancelReasonsLoading}>
-                                                <option value="">{cancelReasonsLoading ? 'Loading alasan...' : 'Pilih alasan cancel'}</option>
-                                                {cancelReasons.map((item) => <option key={item.id} value={item.code}>{item.label}</option>)}
-                                            </select>
+                                            <SelectFilter
+                                                options={cancelReasons.map((item) => ({ value: item.code, label: item.label }))}
+                                                value={resultForm.rejectedReason}
+                                                onChange={(val) => setResultForm({ ...resultForm, rejectedReason: val })}
+                                                placeholder={cancelReasonsLoading ? 'Loading alasan...' : 'Pilih alasan cancel'}
+                                                disabled={!canUpdateResult || cancelReasonsLoading}
+                                                clearable={false}
+                                            />
                                         </div>
                                         <div className="input-group">
                                             <label>Catatan Cancel</label>
@@ -974,8 +1010,8 @@ export default function LeadDetailPage({ leadId }) {
                                                     <p className="ldp-pipeline-summary">
                                                         {step.status === 'done' ? `Proof disubmit${step.completedAt ? ` pada ${formatExactDateTime(step.completedAt)}` : ''}.`
                                                             : step.status === 'overdue' ? `Belum disubmit. Deadline ${formatExactDateTime(step.dueAt)}.`
-                                                            : step.status === 'pending' ? `Aktif${step.dueAt ? `, deadline ${formatExactDateTime(step.dueAt)}` : ''}.`
-                                                            : `Aktif ${formatExactDateTime(step.eligibleAt)}.`}
+                                                                : step.status === 'pending' ? `Aktif${step.dueAt ? `, deadline ${formatExactDateTime(step.dueAt)}` : ''}.`
+                                                                    : `Aktif ${formatExactDateTime(step.eligibleAt)}.`}
                                                     </p>
                                                     {step.eligibleAt ? (
                                                         <div className="ldp-pipeline-meta">
@@ -1049,8 +1085,20 @@ export default function LeadDetailPage({ leadId }) {
                         <h2>Edit Appointment</h2>
                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: 16 }}>Client: <strong>{lead.name}</strong></p>
                         <form onSubmit={handleAddAppt} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <PickerTriggerField label="Tanggal" type="date" value={appt.date} onChange={(event) => setAppt({ ...appt, date: event.target.value })} required />
-                            <PickerTriggerField label="Waktu" type="time" value={appt.time} onChange={(event) => setAppt({ ...appt, time: event.target.value })} required />
+                            <DatePicker
+                                label="Tanggal & Waktu"
+                                showTime={true}
+                                value={appt.date && appt.time ? `${appt.date}T${appt.time}` : ''}
+                                onChange={(val) => {
+                                    if (!val) {
+                                        setAppt({ ...appt, date: '', time: '' });
+                                    } else {
+                                        const [d, t] = val.split('T');
+                                        setAppt({ ...appt, date: d, time: t });
+                                    }
+                                }}
+                                required
+                            />
                             <div className="input-group">
                                 <label>Lokasi</label>
                                 <input type="text" className="input-field" placeholder="Contoh: BSD City, Tangerang" value={appt.location} onChange={(event) => setAppt({ ...appt, location: event.target.value })} required />

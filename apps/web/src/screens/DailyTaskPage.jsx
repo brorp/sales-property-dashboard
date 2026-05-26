@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
+import Button from '../components/Button';
 import { useAuth } from '../context/AuthContext';
+import VerifiedIcon from '../components/VerifiedIcon';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { apiRequest } from '../lib/api';
@@ -526,14 +528,15 @@ export default function DailyTaskPage() {
 
                                         {/* submit */}
                                         <div className="dt-actions">
-                                            <button
-                                                type="button"
-                                                className="btn btn-primary"
-                                                disabled={draft.uploading || draft.submitting}
+                                            <Button
+                                                variant="primary"
+                                                loading={draft.submitting}
+                                                loadingText="Submitting..."
+                                                disabled={draft.uploading}
                                                 onClick={() => void (task.taskType === 'new_lead' ? handleSubmitNewLead(task) : handleSubmitFollowUp(task))}
                                             >
-                                                {draft.submitting ? 'Submitting...' : 'Submit Task'}
-                                            </button>
+                                                Submit Task
+                                            </Button>
                                         </div>
                                     </div>
                                 );
@@ -585,22 +588,22 @@ export default function DailyTaskPage() {
                                         </div>
 
                                         <div className="dt-deadline-actions">
-                                            <button
-                                                type="button"
-                                                className="btn btn-danger"
-                                                disabled={draft.submitting}
+                                            <Button
+                                                variant="danger"
+                                                loading={draft.submitting}
+                                                loadingText="Submitting..."
                                                 onClick={() => void handleDeadlineLeadAction(task, 'change_to_cold')}
                                             >
-                                                {draft.submitting ? 'Submitting...' : 'Change to Cold'}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="btn btn-secondary"
-                                                disabled={draft.submitting}
+                                                Change to Cold
+                                            </Button>
+                                            <Button
+                                                variant="secondary"
+                                                loading={draft.submitting}
+                                                loadingText="Submitting..."
                                                 onClick={() => void handleDeadlineLeadAction(task, 'stay')}
                                             >
                                                 Stay Warm
-                                            </button>
+                                            </Button>
                                         </div>
                                     </div>
                                 );
@@ -670,12 +673,14 @@ export default function DailyTaskPage() {
                                     >
                                         <div className="dt-card-header">
                                             <div className="dt-card-name-wrap">
-                                                <div className="dt-card-name">{lead.name}</div>
+                                                <div className="dt-card-name-row">
+                                                    <span className="dt-card-name">{lead.name}</span>
+                                                    <VerifiedIcon size={14} className="lc-verified-badge" />
+                                                </div>
                                                 <div className="dt-card-phone">{lead.phone}</div>
                                             </div>
                                             <div className="dt-card-badges">
                                                 <span className="badge badge-hot">HOT</span>
-                                                <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>✓ Validated</span>
                                             </div>
                                         </div>
                                         <div className="dt-meta-grid">

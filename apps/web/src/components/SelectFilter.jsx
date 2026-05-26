@@ -36,12 +36,18 @@ function ClearIcon() {
  *   className?: string;
  * }} props
  */
-export default function SelectFilter({ options, value, onChange, placeholder = 'Pilih...', className = '', disabled = false, clearable = true, variant = 'default' }) {
+export default function SelectFilter({ options, value, onChange, placeholder = 'Pilih...', className = '', disabled = false, clearable = true, variant = 'default', searchable = false }) {
     const [open, setOpen] = useState(false);
     const [dropdownStyle, setDropdownStyle] = useState({});
+    const [searchQuery, setSearchQuery] = useState('');
     const wrapRef = useRef(null);
+    const searchRef = useRef(null);
 
     const selected = options.find((opt) => opt.value === value) || null;
+
+    const filteredOptions = searchable && searchQuery.trim()
+        ? options.filter((opt) => opt.label.toLowerCase().includes(searchQuery.toLowerCase()))
+        : options;
 
     useEffect(() => {
         if (!open) return;
@@ -52,7 +58,10 @@ export default function SelectFilter({ options, value, onChange, placeholder = '
             }
         };
 
-        const handleScroll = () => setOpen(false);
+        const handleScroll = (e) => {
+            if (wrapRef.current && wrapRef.current.contains(e.target)) return;
+            setOpen(false);
+        };
 
         document.addEventListener('mousedown', handleClick);
         window.addEventListener('scroll', handleScroll, true);
@@ -65,10 +74,11 @@ export default function SelectFilter({ options, value, onChange, placeholder = '
     const handleToggle = () => {
         if (disabled) return;
         if (!open) {
+            setSearchQuery('');
             const rect = wrapRef.current?.getBoundingClientRect();
             if (rect) {
                 const MARGIN = 8;
-                const MAX_HEIGHT = 240;
+                const MAX_HEIGHT = 300;
                 const left = Math.min(rect.left, window.innerWidth - rect.width - MARGIN);
                 const spaceBelow = window.innerHeight - rect.bottom - MARGIN;
                 const spaceAbove = rect.top - MARGIN;
@@ -83,10 +93,10 @@ export default function SelectFilter({ options, value, onChange, placeholder = '
                     left: Math.max(MARGIN, left),
                     minWidth: rect.width,
                     maxHeight: Math.min(MAX_HEIGHT, availableSpace),
-                    overflowY: 'auto',
                     zIndex: 1000,
                 });
             }
+            setTimeout(() => searchRef.current?.focus(), 50);
         }
         setOpen((prev) => !prev);
     };
@@ -134,21 +144,38 @@ export default function SelectFilter({ options, value, onChange, placeholder = '
 
             {open ? (
                 <div className="sf-dropdown" style={dropdownStyle} role="listbox">
-                    {options.map((opt) => (
-                        <button
-                            key={opt.value}
-                            type="button"
-                            role="option"
-                            aria-selected={opt.value === value}
-                            className={`sf-option${opt.value === value ? ' is-selected' : ''}`}
-                            onClick={() => handleSelect(opt.value)}
-                        >
-                            <span className="sf-option-label">{opt.label}</span>
-                            {opt.value === value ? (
-                                <span className="sf-option-check"><CheckIcon /></span>
-                            ) : null}
-                        </button>
-                    ))}
+                    {searchable && (
+                        <div className="sf-search-wrap">
+                            <input
+                                ref={searchRef}
+                                type="text"
+                                className="sf-search"
+                                placeholder="Cari..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        </div>
+                    )}
+                    <div className="sf-options-list">
+                        {filteredOptions.length > 0 ? filteredOptions.map((opt) => (
+                            <button
+                                key={opt.value}
+                                type="button"
+                                role="option"
+                                aria-selected={opt.value === value}
+                                className={`sf-option${opt.value === value ? ' is-selected' : ''}`}
+                                onClick={() => handleSelect(opt.value)}
+                            >
+                                <span className="sf-option-label">{opt.label}</span>
+                                {opt.value === value ? (
+                                    <span className="sf-option-check"><CheckIcon /></span>
+                                ) : null}
+                            </button>
+                        )) : (
+                            <div className="sf-no-result">Tidak ditemukan</div>
+                        )}
+                    </div>
                 </div>
             ) : null}
         </div>

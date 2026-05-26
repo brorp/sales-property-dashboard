@@ -1,6 +1,7 @@
 'use client';
 
 import CustomerPipelineProgress from './CustomerPipelineProgress';
+import VerifiedIcon from './VerifiedIcon';
 import {
     getAppointmentTagLabel,
     getFlowStatusLabel,
@@ -101,17 +102,17 @@ export default function LeadCardV2({ lead, onClick, salesName, showSales }) {
             onKeyDown={(e) => e.key === 'Enter' && onClick?.()}
         >
             <div className="lc2-top">
-                <span className="lc2-name">{lead.name}</span>
+                <span className="lc2-name-wrap">
+                    <span className="lc2-name">{lead.name}</span>
+                    {isHotValidated && <VerifiedIcon size={14} className="lc-verified-badge" />}
+                </span>
                 <span className="lc2-time">{getTimeAgo(lead.createdAt)}</span>
             </div>
 
             <div className="lc2-badges">
                 <span className={flowBadgeClass(lead.flowStatus)}>{getFlowStatusLabel(lead.flowStatus)}</span>
                 {isHotValidated ? (
-                    <>
-                        <span className="lc2-badge lc2-badge-red">HOT</span>
-                        <span className="lc2-badge lc2-badge-green">✓ Validated</span>
-                    </>
+                    <span className="lc2-badge lc2-badge-red">HOT</span>
                 ) : lead.salesStatus ? (
                     <span className={salesBadgeClass(lead.salesStatus)}>{getSalesStatusLabel(lead.salesStatus)}</span>
                 ) : null}

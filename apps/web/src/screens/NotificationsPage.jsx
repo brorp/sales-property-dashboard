@@ -40,8 +40,19 @@ function SectionHeader({ label, title, count }) {
 
 export default function NotificationsPage() {
     const router = useRouter();
-    const { user, isAdmin } = useAuth();
-    const { notifications, holdLeads, loading, reload } = useNotifications();
+    const { user } = useAuth();
+    const {
+        holdLeads,
+        newLeads,
+        followUps,
+        deadlineLeads,
+        appointments,
+        validatedHot,
+        hotLeads,
+        submittedTasks,
+        loading,
+        reload
+    } = useNotifications();
     const [startingId, setStartingId] = useState('');
     const [startError, setStartError] = useState('');
     const [startSuccess, setStartSuccess] = useState('');
@@ -61,7 +72,18 @@ export default function NotificationsPage() {
         }
     };
 
-    const isEmpty = notifications.length === 0 && holdLeads.length === 0;
+    const isAdmin = user?.role === 'root_admin' || user?.role === 'client_admin';
+    const isSales = user?.role === 'sales';
+    const isSpv = user?.role === 'supervisor';
+
+    let isEmpty = false;
+    if (isAdmin) {
+        isEmpty = holdLeads.length === 0;
+    } else if (isSales) {
+        isEmpty = newLeads.length === 0 && followUps.length === 0 && deadlineLeads.length === 0 && appointments.length === 0 && validatedHot.length === 0;
+    } else if (isSpv) {
+        isEmpty = hotLeads.length === 0 && submittedTasks.length === 0;
+    }
 
     const refreshBtn = (
         <button
@@ -111,60 +133,11 @@ export default function NotificationsPage() {
                         </svg>
                     </div>
                     <span className="notif-empty-title">Tidak ada pengingat</span>
-                    <span className="notif-empty-desc">Belum ada janji temu atau leads hold saat ini.</span>
+                    <span className="notif-empty-desc">Belum ada tugas atau janji temu saat ini.</span>
                 </div>
             ) : (
                 <>
-                    {/* ── Mau Survey ── */}
-                    {notifications.length > 0 ? (
-                        <div className="notif-section">
-                            <SectionHeader label="Janji Temu" title="Mau Survey" count={notifications.length} />
-                            <div className="notif-list">
-                                {notifications.map((item) => (
-                                    <div key={item.id} className="notif-card" onClick={() => router.push(`/leads/${item.leadId}`)}>
-                                        <div className="notif-card-top">
-                                            <span className="notif-card-name">{item.leadName}</span>
-                                            <span className="notif-card-badge">Mau Survey</span>
-                                        </div>
-                                        <div className="notif-card-meta">
-                                            <div className="notif-card-meta-row">
-                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
-                                                </svg>
-                                                <span>{formatDateTime(item.date, item.time)}</span>
-                                            </div>
-                                            {item.leadPhone ? (
-                                                <div className="notif-card-meta-row">
-                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.64 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.55 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.54a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
-                                                    </svg>
-                                                    <span>{item.leadPhone}</span>
-                                                </div>
-                                            ) : null}
-                                            {item.location ? (
-                                                <div className="notif-card-meta-row">
-                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
-                                                    </svg>
-                                                    <span>{item.location}</span>
-                                                </div>
-                                            ) : null}
-                                            {item.salesName ? (
-                                                <div className="notif-card-meta-row">
-                                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-                                                    </svg>
-                                                    <span>{item.salesName}</span>
-                                                </div>
-                                            ) : null}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ) : null}
-
-                    {/* ── Hold Leads ── */}
+                    {/* ── Admin Section ── */}
                     {isAdmin && holdLeads.length > 0 ? (
                         <div className="notif-section">
                             <SectionHeader label="Perlu Aksi" title="Leads Hold" count={holdLeads.length} />
@@ -218,6 +191,182 @@ export default function NotificationsPage() {
                                 ))}
                             </div>
                         </div>
+                    ) : null}
+
+                    {/* ── Sales Sections ── */}
+                    {isSales ? (
+                        <>
+                            {newLeads.length > 0 ? (
+                                <div className="notif-section">
+                                    <SectionHeader label="Tugas Sales" title="New Leads" count={newLeads.length} />
+                                    <div className="notif-list">
+                                        {newLeads.map((item) => (
+                                            <div key={item.id} className="notif-card" onClick={() => router.push('/daily-tasks')}>
+                                                <div className="notif-card-top">
+                                                    <span className="notif-card-name">{item.leadName}</span>
+                                                    <span className="notif-card-badge notif-card-badge--new">New Lead</span>
+                                                </div>
+                                                <div className="notif-card-meta">
+                                                    <div className="notif-card-meta-row">
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                                                        <span>Masuk: {formatDateTime(item.assignedAt)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            {followUps.length > 0 ? (
+                                <div className="notif-section">
+                                    <SectionHeader label="Tugas Sales" title="Follow Up" count={followUps.length} />
+                                    <div className="notif-list">
+                                        {followUps.map((item) => (
+                                            <div key={item.id} className="notif-card" onClick={() => router.push('/daily-tasks')}>
+                                                <div className="notif-card-top">
+                                                    <span className="notif-card-name">{item.leadName}</span>
+                                                    <span className="notif-card-badge notif-card-badge--followup">Follow Up {item.followupStage}/3</span>
+                                                </div>
+                                                <div className="notif-card-meta">
+                                                    <div className="notif-card-meta-row">
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                                                        <span>Masuk: {formatDateTime(item.assignedAt)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            {deadlineLeads.length > 0 ? (
+                                <div className="notif-section">
+                                    <SectionHeader label="Tugas Sales" title="Deadline Leads" count={deadlineLeads.length} />
+                                    <div className="notif-list">
+                                        {deadlineLeads.map((item) => (
+                                            <div key={item.id} className="notif-card" onClick={() => router.push('/daily-tasks')}>
+                                                <div className="notif-card-top">
+                                                    <span className="notif-card-name">{item.leadName}</span>
+                                                    <span className="notif-card-badge notif-card-badge--danger">Deadline</span>
+                                                </div>
+                                                <div className="notif-card-meta">
+                                                    <div className="notif-card-meta-row">
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                                                        <span>Deadline: {formatDateTime(item.dueAt)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            {appointments.length > 0 ? (
+                                <div className="notif-section">
+                                    <SectionHeader label="Janji Temu" title="Mau Survey" count={appointments.length} />
+                                    <div className="notif-list">
+                                        {appointments.map((item) => (
+                                            <div key={item.id} className="notif-card" onClick={() => router.push(`/leads/${item.leadId}`)}>
+                                                <div className="notif-card-top">
+                                                    <span className="notif-card-name">{item.leadName}</span>
+                                                    <span className="notif-card-badge">Mau Survey</span>
+                                                </div>
+                                                <div className="notif-card-meta">
+                                                    <div className="notif-card-meta-row">
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                                                        <span>{formatDateTime(item.date, item.time)}</span>
+                                                    </div>
+                                                    {item.location ? (
+                                                        <div className="notif-card-meta-row">
+                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
+                                                            <span>{item.location}</span>
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            {validatedHot.length > 0 ? (
+                                <div className="notif-section">
+                                    <SectionHeader label="Tugas Sales" title="HOT Validated" count={validatedHot.length} />
+                                    <div className="notif-list">
+                                        {validatedHot.map((item) => (
+                                            <div key={item.id} className="notif-card" onClick={() => router.push(`/leads/${item.id}`)}>
+                                                <div className="notif-card-top">
+                                                    <span className="notif-card-name">{item.name}</span>
+                                                    <span className="notif-card-badge notif-card-badge--success">HOT Validated</span>
+                                                </div>
+                                                <div className="notif-card-meta">
+                                                    <div className="notif-card-meta-row">
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+                                                        <span>Source: {item.source || '-'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
+                        </>
+                    ) : null}
+
+                    {/* ── Supervisor Sections ── */}
+                    {isSpv ? (
+                        <>
+                            {hotLeads.length > 0 ? (
+                                <div className="notif-section">
+                                    <SectionHeader label="Validasi SPV" title="Hot Leads menunggu Validasi" count={hotLeads.length} />
+                                    <div className="notif-list">
+                                        {hotLeads.map((item) => (
+                                            <div key={item.id} className="notif-card" onClick={() => router.push('/supervisor-tasks')}>
+                                                <div className="notif-card-top">
+                                                    <span className="notif-card-name">{item.name}</span>
+                                                    <span className="notif-card-badge notif-card-badge--hot">HOT</span>
+                                                </div>
+                                                <div className="notif-card-meta">
+                                                    <div className="notif-card-meta-row">
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                                        <span>Sales: {item.assignedUserName || '-'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            {submittedTasks.length > 0 ? (
+                                <div className="notif-section">
+                                    <SectionHeader label="Persetujuan SPV" title="Tugas diajukan Sales" count={submittedTasks.length} />
+                                    <div className="notif-list">
+                                        {submittedTasks.map((item) => (
+                                            <div key={item.id} className="notif-card" onClick={() => router.push('/supervisor-tasks')}>
+                                                <div className="notif-card-top">
+                                                    <span className="notif-card-name">{item.leadName}</span>
+                                                    <span className="notif-card-badge notif-card-badge--new">{item.label}</span>
+                                                </div>
+                                                <div className="notif-card-meta">
+                                                    <div className="notif-card-meta-row">
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                                        <span>Diajukan oleh: {item.salesName || 'Sales'}</span>
+                                                    </div>
+                                                    {item.submittedSalesStatus ? (
+                                                        <div className="notif-card-meta-row">
+                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                                            <span>Status L2: {item.submittedSalesStatus.toUpperCase()}</span>
+                                                        </div>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
+                        </>
                     ) : null}
                 </>
             )}

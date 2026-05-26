@@ -277,3 +277,54 @@ html[data-theme="dark"] .notif-card-badge--hold {
     color: #059669;
     border: 1px solid rgba(16, 185, 129, 0.2);
 }
+
+/* Custom badge classes */
+.notif-card-badge--new {
+    background: rgba(14, 165, 233, 0.12);
+    color: #0369a1;
+}
+
+html[data-theme="dark"] .notif-card-badge--new {
+    background: rgba(14, 165, 233, 0.18);
+    color: #38bdf8;
+}
+
+.notif-card-badge--followup {
+    background: rgba(124, 58, 237, 0.12);
+    color: #6d28d9;
+}
+
+html[data-theme="dark"] .notif-card-badge--followup {
+    background: rgba(124, 58, 237, 0.18);
+    color: #a78bfa;
+}
+
+.notif-card-badge--danger {
+    background: rgba(220, 38, 38, 0.12);
+    color: #b91c1c;
+}
+
+html[data-theme="dark"] .notif-card-badge--danger {
+    background: rgba(220, 38, 38, 0.18);
+    color: #fca5a5;
+}
+
+.notif-card-badge--success {
+    background: rgba(22, 163, 74, 0.12);
+    color: #15803d;
+}
+
+html[data-theme="dark"] .notif-card-badge--success {
+    background: rgba(22, 163, 74, 0.18);
+    color: #86efac;
+}
+
+.notif-card-badge--hot {
+    background: rgba(239, 68, 68, 0.12);
+    color: #dc2626;
+}
+
+html[data-theme="dark"] .notif-card-badge--hot {
+    background: rgba(239, 68, 68, 0.18);
+    color: #f87171;
+}

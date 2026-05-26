@@ -39,6 +39,15 @@
     gap: 8px;
 }
 
+.lc2-name-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+
 .lc2-name {
     font-size: 0.938rem;
     font-weight: 700;
@@ -46,8 +55,17 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    flex: 1;
     min-width: 0;
+}
+
+.lc-verified-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    margin-left: 2px;
 }
 
 .lc2-time {
