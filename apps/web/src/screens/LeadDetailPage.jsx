@@ -26,7 +26,7 @@ import { INDONESIA_CITIES } from '../constants/indonesiaCities';
 import Header from '../components/Header';
 import UserAvatar from '../components/UserAvatar';
 import Button from '../components/Button';
-import PickerTriggerField from '../components/PickerTriggerField';
+import DatePicker from '../components/DatePicker';
 import SelectFilter from '../components/SelectFilter';
 import { apiRequest } from '../lib/api';
 import './LeadDetailPage.css';
@@ -421,6 +421,10 @@ export default function LeadDetailPage({ leadId }) {
 
     const handleSaveInlineEdit = async () => {
         if (!canEditProfile) return;
+        if (!flow2Form.name || !flow2Form.name.trim()) {
+            setRequestError('Nama Leads wajib diisi.');
+            return;
+        }
         if (!flow2Form.source) {
             setRequestError('Source lead wajib dipilih.');
             return;
@@ -434,6 +438,7 @@ export default function LeadDetailPage({ leadId }) {
             return;
         }
         const payload = {
+            name: flow2Form.name.trim(),
             source: flow2Form.source,
             agentOfficeName: isAgentSource(flow2Form.source) ? flow2Form.agentOfficeName : null,
             domicileCity: flow2Form.domicileCity || null,
@@ -643,7 +648,18 @@ export default function LeadDetailPage({ leadId }) {
                 <div className="ldp-profile-head">
                     <UserAvatar name={lead.name} size="md" shape="circle" />
                     <div className="ldp-profile-identity">
-                        <h1 className="ldp-name">{lead.name}</h1>
+                        {inlineEdit ? (
+                            <input
+                                type="text"
+                                className="input-field"
+                                style={{ width: '100%', maxWidth: '280px', padding: '6px 12px', fontSize: '1rem', fontWeight: 600, height: '34px' }}
+                                value={flow2Form.name}
+                                onChange={(e) => setFlow2Form({ ...flow2Form, name: e.target.value })}
+                                placeholder="Nama Leads"
+                            />
+                        ) : (
+                            <h1 className="ldp-name">{lead.name}</h1>
+                        )}
                         <div className="ldp-status-row">
                             <span className={`badge ${getStatusBadgeClass('flow', effectiveFlowStatus)}`}>{getFlowStatusLabel(effectiveFlowStatus)}</span>
                             {appointmentTag !== 'none' ? <span className={`badge ${getStatusBadgeClass('appointment', appointmentTag)}`}>{getAppointmentTagLabel(appointmentTag)}</span> : null}
@@ -829,8 +845,20 @@ export default function LeadDetailPage({ leadId }) {
                             </div>
                             {showInlineAppt ? (
                                 <form className="ldp-inline-appt-form" onSubmit={(e) => void handleAddAppt(e)}>
-                                    <PickerTriggerField label="Tanggal" type="date" value={appt.date} onChange={(event) => setAppt({ ...appt, date: event.target.value })} required />
-                                    <PickerTriggerField label="Waktu" type="time" value={appt.time} onChange={(event) => setAppt({ ...appt, time: event.target.value })} required />
+                                    <DatePicker
+                                        label="Tanggal & Waktu"
+                                        showTime={true}
+                                        value={appt.date && appt.time ? `${appt.date}T${appt.time}` : ''}
+                                        onChange={(val) => {
+                                            if (!val) {
+                                                setAppt({ ...appt, date: '', time: '' });
+                                            } else {
+                                                const [d, t] = val.split('T');
+                                                setAppt({ ...appt, date: d, time: t });
+                                            }
+                                        }}
+                                        required
+                                    />
                                     <div className="input-group">
                                         <label>Lokasi</label>
                                         <input type="text" className="input-field" placeholder="Contoh: BSD City, Tangerang" value={appt.location} onChange={(event) => setAppt({ ...appt, location: event.target.value })} required />
@@ -877,10 +905,14 @@ export default function LeadDetailPage({ leadId }) {
                             ) : null}
                             <form onSubmit={handleSaveResult} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 <div className="input-group">
-                                    <select className="input-field" value={resultForm.resultStatus} onChange={(event) => setResultForm({ ...resultForm, resultStatus: event.target.value })} disabled={!canUpdateResult}>
-                                        <option value="">Pilih status transaksi</option>
-                                        {RESULT_STATUSES.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
-                                    </select>
+                                    <SelectFilter
+                                        options={RESULT_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
+                                        value={resultForm.resultStatus}
+                                        onChange={(val) => setResultForm({ ...resultForm, resultStatus: val })}
+                                        placeholder="Pilih status transaksi"
+                                        disabled={!canUpdateResult}
+                                        clearable={false}
+                                    />
                                 </div>
                                 {resultForm.resultStatus === 'akad' ? (
                                     <>
@@ -902,10 +934,14 @@ export default function LeadDetailPage({ leadId }) {
                                     <>
                                         <div className="input-group">
                                             <label>Alasan Cancel</label>
-                                            <select className="input-field" value={resultForm.rejectedReason} onChange={(event) => setResultForm({ ...resultForm, rejectedReason: event.target.value })} disabled={!canUpdateResult || cancelReasonsLoading}>
-                                                <option value="">{cancelReasonsLoading ? 'Loading alasan...' : 'Pilih alasan cancel'}</option>
-                                                {cancelReasons.map((item) => <option key={item.id} value={item.code}>{item.label}</option>)}
-                                            </select>
+                                            <SelectFilter
+                                                options={cancelReasons.map((item) => ({ value: item.code, label: item.label }))}
+                                                value={resultForm.rejectedReason}
+                                                onChange={(val) => setResultForm({ ...resultForm, rejectedReason: val })}
+                                                placeholder={cancelReasonsLoading ? 'Loading alasan...' : 'Pilih alasan cancel'}
+                                                disabled={!canUpdateResult || cancelReasonsLoading}
+                                                clearable={false}
+                                            />
                                         </div>
                                         <div className="input-group">
                                             <label>Catatan Cancel</label>
@@ -1049,8 +1085,20 @@ export default function LeadDetailPage({ leadId }) {
                         <h2>Edit Appointment</h2>
                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginBottom: 16 }}>Client: <strong>{lead.name}</strong></p>
                         <form onSubmit={handleAddAppt} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <PickerTriggerField label="Tanggal" type="date" value={appt.date} onChange={(event) => setAppt({ ...appt, date: event.target.value })} required />
-                            <PickerTriggerField label="Waktu" type="time" value={appt.time} onChange={(event) => setAppt({ ...appt, time: event.target.value })} required />
+                            <DatePicker
+                                label="Tanggal & Waktu"
+                                showTime={true}
+                                value={appt.date && appt.time ? `${appt.date}T${appt.time}` : ''}
+                                onChange={(val) => {
+                                    if (!val) {
+                                        setAppt({ ...appt, date: '', time: '' });
+                                    } else {
+                                        const [d, t] = val.split('T');
+                                        setAppt({ ...appt, date: d, time: t });
+                                    }
+                                }}
+                                required
+                            />
                             <div className="input-group">
                                 <label>Lokasi</label>
                                 <input type="text" className="input-field" placeholder="Contoh: BSD City, Tangerang" value={appt.location} onChange={(event) => setAppt({ ...appt, location: event.target.value })} required />
