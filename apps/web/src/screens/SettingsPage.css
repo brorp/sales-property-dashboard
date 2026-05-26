@@ -590,6 +590,88 @@ html[data-theme="dark"] .set-page {
     padding: 24px 12px;
 }
 
+/* ── bottom-sheet inside set-page: respect data-theme ───────────────── */
+
+html[data-theme="light"] .set-page ~ * .bottom-sheet,
+html[data-theme="light"] .bottom-sheet {
+    background: #ffffff;
+    border: 1px solid #E2EAF3;
+    box-shadow: 0 -4px 32px rgba(30, 58, 95, 0.13);
+    color: #0F172A;
+}
+
+html[data-theme="light"] .bottom-sheet h2 {
+    color: #0F172A;
+}
+
+html[data-theme="light"] .bottom-sheet .sheet-handle {
+    background: #CBD5E1;
+    opacity: 1;
+}
+
+html[data-theme="light"] .bottom-sheet .settings-help {
+    color: #374151;
+}
+
+html[data-theme="dark"] .bottom-sheet {
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.98), rgba(15, 23, 42, 0.98));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #F1F5F9;
+}
+
+html[data-theme="dark"] .bottom-sheet h2 {
+    color: #F1F5F9;
+}
+
+/* ── Blocked sales item layout ───────────────────────────────────────── */
+
+.settings-queue-item--blocked {
+    display: grid !important;
+    grid-template-areas: 
+        "main badge"
+        "main btn";
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    column-gap: 16px;
+    row-gap: 6px;
+}
+
+.settings-queue-item--blocked .settings-queue-main {
+    grid-area: main;
+}
+
+.settings-queue-item--blocked .badge {
+    grid-area: badge;
+    justify-self: end;
+}
+
+.settings-queue-item--blocked .settings-queue-compensate-btn {
+    grid-area: btn;
+    justify-self: end;
+    width: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@media (max-width: 479px) {
+    .settings-queue-item--blocked {
+        grid-template-areas: 
+            "main badge"
+            "btn btn";
+        grid-template-columns: 1fr auto;
+        align-items: start;
+        column-gap: 8px;
+        row-gap: 10px;
+    }
+
+    .settings-queue-item--blocked .settings-queue-compensate-btn {
+        justify-self: stretch;
+        width: 100%;
+    }
+}
+
 @media (max-width: 720px) {
     .settings-actions {
         grid-template-columns: 1fr;

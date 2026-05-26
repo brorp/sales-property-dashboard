@@ -9,6 +9,41 @@ html[data-theme="light"] .daily-task-page {
     --border-color: #E5E7EB;
 }
 
+/* Light Mode Button overrides */
+html[data-theme="light"] .daily-task-page .btn-primary {
+    background: #1E3A5F;
+    border-color: #1E3A5F;
+    color: #FFFFFF;
+    box-shadow: none;
+}
+
+html[data-theme="light"] .daily-task-page .btn-primary:hover:not(:disabled) {
+    background: #2A5080;
+    border-color: #2A5080;
+    box-shadow: none;
+    transform: none;
+}
+
+html[data-theme="light"] .daily-task-page .btn-primary:disabled {
+    opacity: 0.55;
+    background: #1E3A5F;
+    border-color: #1E3A5F;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+html[data-theme="light"] .daily-task-page .btn-secondary {
+    background: #FFFFFF;
+    border-color: #E5E7EB;
+    color: #475569;
+}
+
+html[data-theme="light"] .daily-task-page .btn-secondary:hover:not(:disabled) {
+    background: #F8FAFC;
+    border-color: #CBD5E1;
+}
+
 /* ── Tab bar ───────────────────────────────────────────────────────── */
 
 .daily-task-tabs {
@@ -321,6 +356,15 @@ html[data-theme="light"] .daily-task-page {
     min-width: 0;
 }
 
+.dt-card-name-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
 .dt-card-name {
     font-size: 0.9375rem;
     font-weight: 700;
@@ -329,12 +373,23 @@ html[data-theme="light"] .daily-task-page {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    min-width: 0;
 }
 
 .dt-card-phone {
     font-size: 0.8125rem;
     color: var(--text-secondary);
     margin-top: 2px;
+}
+
+.lc-verified-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    margin-left: 2px;
 }
 
 .dt-card-badges {
@@ -501,4 +556,19 @@ html[data-theme="light"] .daily-task-page {
     .dt-deadline-actions {
         grid-template-columns: 1fr;
     }
+}
+
+/* ── Follow Up style overrides (Navy Blue brand theme) ── */
+.daily-task-page .dt-card-followup {
+    border-left-color: var(--primary) !important;
+}
+
+html[data-theme="light"] .daily-task-page .badge-purple {
+    background: rgba(30, 58, 95, 0.08) !important;
+    color: #1E3A5F !important;
+}
+
+html[data-theme="dark"] .daily-task-page .badge-purple {
+    background: rgba(74, 144, 217, 0.12) !important;
+    color: #6BAEE8 !important;
 }
