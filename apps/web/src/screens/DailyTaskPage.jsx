@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import DatePicker from '../components/DatePicker';
+import SelectFilter from '../components/SelectFilter';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
 import VerifiedIcon from '../components/VerifiedIcon';
@@ -665,20 +666,16 @@ export default function DailyTaskPage() {
                                         {task.taskType === 'new_lead' ? (
                                             <div className="dt-status-wrap">
                                                 <span className="dt-status-label">Status Prospek</span>
-                                                <select
-                                                    className="input-field"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    value={draft.salesStatus || ''}
-                                                    onChange={(e) => mergeDraft(task.id, { salesStatus: e.target.value })}
-                                                    disabled={draft.submitting}
-                                                >
-                                                    <option value="" disabled hidden>Pilih Status ⌄</option>
-                                                    {visibleStatuses.map((item) => (
-                                                        <option key={item.key} value={item.key}>
-                                                            {getSalesStatusLabel(item.key)}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                <div onClick={(e) => e.stopPropagation()}>
+                                                    <SelectFilter
+                                                        options={visibleStatuses.map((item) => ({ value: item.key, label: getSalesStatusLabel(item.key) }))}
+                                                        value={draft.salesStatus || ''}
+                                                        onChange={(val) => { if (val) mergeDraft(task.id, { salesStatus: val }); }}
+                                                        placeholder="Pilih Status..."
+                                                        clearable={false}
+                                                        disabled={draft.submitting}
+                                                    />
+                                                </div>
                                             </div>
                                         ) : (
                                             <div className="dt-followup-hint" onClick={(e) => e.stopPropagation()}>

@@ -124,7 +124,7 @@ export default function LeadDetailPage({ leadId }) {
 
     const [showAppt, setShowAppt] = useState(false);
     const [showNote, setShowNote] = useState(false);
-    const [showCancelledAppts, setShowCancelledAppts] = useState(false);
+    const [apptStatusFilter, setApptStatusFilter] = useState('all');
 
     const [editingAppointment, setEditingAppointment] = useState(null);
     const [note, setNote] = useState('');
@@ -588,6 +588,13 @@ export default function LeadDetailPage({ leadId }) {
         const h = String(now.getHours()).padStart(2, '0');
         const min = String(now.getMinutes()).padStart(2, '0');
         return `${h}:${min}`;
+    };
+
+    const formatApptDate = (dateStr) => {
+        if (!dateStr) return '-';
+        const d = new Date(dateStr + 'T00:00:00');
+        if (Number.isNaN(d.getTime())) return dateStr;
+        return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
     };
 
     const openCreateAppointment = () => {
@@ -1111,68 +1118,60 @@ export default function LeadDetailPage({ leadId }) {
                                 </form>
                             ) : null}
                             <div className="ldp-appt-status-row">
+                                <button type="button" className={`badge ${apptStatusFilter === 'all' ? 'badge-neutral badge-active' : 'badge-neutral'}`} onClick={() => setApptStatusFilter('all')}>Semua</button>
                                 {APPOINTMENT_TAGS.map((tag) => (
-                                    <span key={tag.key} className={`badge ${appointmentTag === tag.key ? getStatusBadgeClass('appointment', tag.key) : 'badge-neutral'}`}>{tag.label}</span>
+                                    <button key={tag.key} type="button" className={`badge ${apptStatusFilter === tag.key ? getStatusBadgeClass('appointment', tag.key) : 'badge-neutral'}`} onClick={() => setApptStatusFilter(tag.key)}>{tag.label}</button>
                                 ))}
                             </div>
                             {lead.appointments?.length > 0 ? (
                                 <div className="ldp-appt-list">
                                     {lead.appointments
-                                        .filter((item) => showCancelledAppts || item.status !== 'dibatalkan')
+                                        .filter((item) => apptStatusFilter === 'all' ? item.status !== 'dibatalkan' : item.status === apptStatusFilter)
                                         .map((item) => (
                                         <div key={item.id} className="ldp-appt-card">
                                             <div className="ldp-appt-head">
-                                                <div className="ldp-appt-datetime">{item.date} · {item.time}</div>
-                                                <span className={`badge ${getStatusBadgeClass('appointment', item.status)}`}>{getAppointmentTagLabel(item.status || 'mau_survey')}</span>
+                                                <div className="ldp-appt-datetime">{formatApptDate(item.date)} · {item.time}</div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                    <span className={`badge ${getStatusBadgeClass('appointment', item.status)}`}>{getAppointmentTagLabel(item.status || 'mau_survey')}</span>
+                                                    {canEditLead ? (
+                                                        <button type="button" className="ldp-appt-edit-btn" onClick={() => openEditAppointment(item)} title="Edit appointment">
+                                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                        </button>
+                                                    ) : null}
+                                                </div>
                                             </div>
                                             <div className="ldp-appt-location">{item.location}</div>
                                             {item.notes ? <div className="ldp-appt-notes">{item.notes}</div> : null}
-                                            {canEditLead ? (
+                                            {canEditLead && item.status !== 'dibatalkan' && item.status !== 'sudah_survey' ? (
                                                 <div className="ldp-appt-actions-wrap">
-                                                    {item.status !== 'dibatalkan' && item.status !== 'sudah_survey' ? (
-                                                        <div className="ldp-appt-quick-actions">
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm btn-appt-done"
-                                                                onClick={() => void handleQuickSudahSurvey(item)}
-                                                                title="Tandai sudah survey"
-                                                            >
-                                                                ✓ Sudah Survey
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm btn-appt-reschedule"
-                                                                onClick={() => handleQuickReschedule(item)}
-                                                                title="Reschedule"
-                                                            >
-                                                                ↺ Reschedule
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn-sm btn-appt-cancel"
-                                                                onClick={() => void handleCancelAppointment(item)}
-                                                                title="Batal Survey"
-                                                            >
-                                                                ✕ Batal Survey
-                                                            </button>
-                                                        </div>
-                                                    ) : null}
-                                                    <div className="ldp-appt-actions">
-                                                        <button type="button" className="btn btn-sm btn-secondary" onClick={() => openEditAppointment(item)}>Edit</button>
-                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm btn-appt-done"
+                                                        onClick={() => void handleQuickSudahSurvey(item)}
+                                                        title="Tandai sudah survey"
+                                                    >
+                                                        ✓ Sudah Survey
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm btn-appt-reschedule"
+                                                        onClick={() => handleQuickReschedule(item)}
+                                                        title="Reschedule"
+                                                    >
+                                                        ↺ Reschedule
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm btn-appt-cancel"
+                                                        onClick={() => void handleCancelAppointment(item)}
+                                                        title="Batal Survey"
+                                                    >
+                                                        ✕ Batal Survey
+                                                    </button>
                                                 </div>
                                             ) : null}
                                         </div>
                                     ))}
-                                    {lead.appointments.some((item) => item.status === 'dibatalkan') ? (
-                                        <button
-                                            type="button"
-                                            className="ldp-appt-toggle-cancelled"
-                                            onClick={() => setShowCancelledAppts((prev) => !prev)}
-                                        >
-                                            {showCancelledAppts ? 'Sembunyikan' : 'Lihat'} riwayat dibatalkan ({lead.appointments.filter((a) => a.status === 'dibatalkan').length})
-                                        </button>
-                                    ) : null}
                                 </div>
                             ) : (
                                 <p className="ldp-section-desc">Belum ada appointment.</p>
@@ -1391,9 +1390,13 @@ export default function LeadDetailPage({ leadId }) {
                             </div>
                             <div className="input-group">
                                 <label>Status Janji Temu</label>
-                                <select className="input-field" value={appt.status} onChange={(event) => setAppt({ ...appt, status: event.target.value })}>
-                                    {APPOINTMENT_TAGS.map((tag) => <option key={tag.key} value={tag.key}>{tag.label}</option>)}
-                                </select>
+                                <SelectFilter
+                                    options={APPOINTMENT_TAGS.map((tag) => ({ value: tag.key, label: tag.label }))}
+                                    value={appt.status}
+                                    onChange={(val) => setAppt({ ...appt, status: val || 'mau_survey' })}
+                                    placeholder="Pilih status..."
+                                    clearable={false}
+                                />
                             </div>
                             <button type="submit" className="btn btn-primary btn-full">Simpan Appointment</button>
                             <button type="button" className="btn btn-secondary btn-full" onClick={() => { setShowAppt(false); setEditingAppointment(null); }}>Batal</button>

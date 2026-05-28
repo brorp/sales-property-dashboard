@@ -652,6 +652,22 @@ html[data-theme="light"] .leads-page .btn-primary:hover:not(:disabled) {
     margin-bottom: 12px;
 }
 
+.ldp-appt-status-row .badge {
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+    transition: opacity 120ms ease;
+}
+
+.ldp-appt-status-row .badge:hover {
+    opacity: 0.8;
+}
+
+.ldp-appt-status-row .badge-neutral.badge-active {
+    background: var(--primary);
+    color: #fff;
+}
+
 .ldp-appt-list {
     display: flex;
     flex-direction: column;
@@ -702,21 +718,43 @@ html[data-theme="light"] .leads-page .btn-primary:hover:not(:disabled) {
 
 .ldp-appt-actions-wrap {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    flex-wrap: wrap;
     gap: 6px;
     margin-top: 8px;
 }
 
-.ldp-appt-quick-actions {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
+.ldp-appt-actions-wrap .btn-appt-done,
+.ldp-appt-actions-wrap .btn-appt-reschedule,
+.ldp-appt-actions-wrap .btn-appt-cancel {
+    flex: 1;
+    justify-content: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.72rem;
+    padding: 5px 6px;
 }
 
-.ldp-appt-actions {
+.ldp-appt-edit-btn {
+    width: 26px;
+    height: 26px;
+    padding: 0;
     display: flex;
-    gap: 8px;
-    margin-top: 0;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+}
+
+.ldp-appt-edit-btn:hover {
+    background: var(--bg-input);
+    color: var(--text-primary);
 }
 
 .btn-appt-done {

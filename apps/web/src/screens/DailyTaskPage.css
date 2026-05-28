@@ -337,12 +337,12 @@ html[data-theme="light"] .daily-task-page .btn-secondary:hover:not(:disabled) {
     box-shadow: var(--shadow-md);
 }
 
-.dt-card-overdue   { border-left-color: var(--hot); }
-.dt-card-new       { border-left-color: var(--cold); }
-.dt-card-followup  { border-left-color: var(--purple); }
-.dt-card-deadline  { border-left-color: var(--danger); }
-.dt-card-appt      { border-left-color: var(--success); }
-.dt-card-hot       { border-left-color: var(--warm); }
+.dt-card-overdue,
+.dt-card-new,
+.dt-card-followup,
+.dt-card-deadline,
+.dt-card-appt,
+.dt-card-hot       { border-left-color: var(--primary); }
 
 .dt-card-header {
     display: flex;
