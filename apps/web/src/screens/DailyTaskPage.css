@@ -572,3 +572,92 @@ html[data-theme="dark"] .daily-task-page .badge-purple {
     background: rgba(74, 144, 217, 0.12) !important;
     color: #6BAEE8 !important;
 }
+
+/* ── Grouping and Action Buttons ── */
+
+.dt-group-section {
+    margin-bottom: 28px;
+}
+
+.dt-group-section:first-of-type {
+    margin-top: 8px;
+}
+
+.dt-group-title {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 12px;
+    padding-left: 2px;
+    letter-spacing: 0.01em;
+}
+
+.dt-appt-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.dt-btn-action {
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    border-radius: 10px;
+    background: transparent;
+    cursor: pointer;
+    text-align: center;
+    font-family: inherit;
+    transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+    border: 1.5px solid var(--border-color);
+    color: var(--text-primary);
+    outline: none;
+}
+
+.dt-btn-action.btn-sudah-survey {
+    border-color: #10B981;
+    color: #10B981;
+}
+
+.dt-btn-action.btn-sudah-survey:hover {
+    background: rgba(16, 185, 129, 0.08);
+}
+
+.dt-btn-action.btn-reschedule {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.dt-btn-action.btn-reschedule:hover {
+    background: rgba(30, 58, 95, 0.08);
+}
+
+.dt-btn-action.btn-batal-survey {
+    border-color: #EF4444;
+    color: #EF4444;
+}
+
+.dt-btn-action.btn-batal-survey:hover {
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.dt-reschedule-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 10px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-input);
+    border-radius: 10px;
+}
+
+.dt-reschedule-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+
+

@@ -712,7 +712,7 @@ export default function LeadDetailPage({ leadId }) {
                                     autoFocus
                                     type="text"
                                     className="input-field ldp-name-edit-input"
-                                    style={{ width: '100%', maxWidth: '240px', padding: '6px 12px', fontSize: '1rem', fontWeight: 600, height: '34px' }}
+                                    style={{ width: '100%', maxWidth: '240px', padding: '6px 12px', fontSize: '1rem', fontWeight: 600, height: '38px' }}
                                     value={tempName}
                                     onChange={(e) => setTempName(e.target.value)}
                                     placeholder="Nama Leads"
@@ -735,9 +735,9 @@ export default function LeadDetailPage({ leadId }) {
                                     className="btn btn-sm btn-primary ldp-save-name-btn"
                                     onClick={() => void handleSaveName()}
                                     title="Simpan"
-                                    style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '6px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    style={{ width: '36px', height: '36px', minWidth: '36px', borderRadius: '8px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                 >
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                                         <polyline points="20 6 9 17 4 12" />
                                     </svg>
                                 </button>
@@ -746,9 +746,9 @@ export default function LeadDetailPage({ leadId }) {
                                     className="btn btn-sm btn-secondary ldp-cancel-name-btn"
                                     onClick={() => setEditName(false)}
                                     title="Batal"
-                                    style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '6px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    style={{ width: '36px', height: '36px', minWidth: '36px', borderRadius: '8px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                 >
-                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                         <line x1="18" y1="6" x2="6" y2="18" />
                                         <line x1="6" y1="6" x2="18" y2="18" />
                                     </svg>
@@ -766,9 +766,9 @@ export default function LeadDetailPage({ leadId }) {
                                             setEditName(true);
                                         }}
                                         title="Edit Nama"
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--text-muted)' }}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', margin: '-8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}
                                     >
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                                         </svg>
@@ -812,9 +812,9 @@ export default function LeadDetailPage({ leadId }) {
                                         className="btn btn-sm btn-primary ldp-save-sales-btn"
                                         onClick={() => void handleSaveSales()}
                                         title="Simpan"
-                                        style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '6px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        style={{ width: '38px', height: '38px', minWidth: '38px', borderRadius: '8px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                     >
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                                             <polyline points="20 6 9 17 4 12" />
                                         </svg>
                                     </button>
@@ -823,9 +823,9 @@ export default function LeadDetailPage({ leadId }) {
                                         className="btn btn-sm btn-secondary ldp-cancel-sales-btn"
                                         onClick={() => setEditSales(false)}
                                         title="Batal"
-                                        style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '6px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        style={{ width: '38px', height: '38px', minWidth: '38px', borderRadius: '8px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                     >
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                             <line x1="18" y1="6" x2="6" y2="18" />
                                             <line x1="6" y1="6" x2="18" y2="18" />
                                         </svg>
@@ -843,9 +843,9 @@ export default function LeadDetailPage({ leadId }) {
                                                 setEditSales(true);
                                             }}
                                             title="Assign Sales"
-                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--text-muted)' }}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', margin: '-8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}
                                         >
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                                             </svg>
@@ -894,7 +894,7 @@ export default function LeadDetailPage({ leadId }) {
                                             <input
                                                 type="text"
                                                 className="input-field"
-                                                style={{ width: '120px', padding: '6px 10px', fontSize: '0.8125rem', height: '34px', margin: 0 }}
+                                                style={{ width: '120px', padding: '6px 10px', fontSize: '0.8125rem', height: '38px', margin: 0 }}
                                                 value={tempAgentOfficeName}
                                                 onChange={(e) => setTempAgentOfficeName(e.target.value)}
                                                 placeholder="Nama kantor agent"
@@ -933,9 +933,9 @@ export default function LeadDetailPage({ leadId }) {
                                             className="btn btn-sm btn-primary ldp-save-sourcedomicile-btn"
                                             onClick={() => void handleSaveSourceDomicile()}
                                             title="Simpan"
-                                            style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '6px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            style={{ width: '38px', height: '38px', minWidth: '38px', borderRadius: '8px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         >
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                                                 <polyline points="20 6 9 17 4 12" />
                                             </svg>
                                         </button>
@@ -944,9 +944,9 @@ export default function LeadDetailPage({ leadId }) {
                                             className="btn btn-sm btn-secondary ldp-cancel-sourcedomicile-btn"
                                             onClick={() => setEditSourceDomicile(false)}
                                             title="Batal"
-                                            style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '6px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                            style={{ width: '38px', height: '38px', minWidth: '38px', borderRadius: '8px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         >
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                                 <line x1="18" y1="6" x2="6" y2="18" />
                                                 <line x1="6" y1="6" x2="18" y2="18" />
                                             </svg>
@@ -963,9 +963,9 @@ export default function LeadDetailPage({ leadId }) {
                                             setEditSourceDomicile(true);
                                         }}
                                         title="Edit Sumber & Domisili"
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--text-muted)' }}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', margin: '-8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}
                                     >
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                                         </svg>

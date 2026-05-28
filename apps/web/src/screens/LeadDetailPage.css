@@ -179,35 +179,20 @@ html[data-theme="light"] .leads-page .btn-primary:hover:not(:disabled) {
     padding: 0;
     border-top: 1px solid var(--border-color);
 }
-
-/* On very small screen widths, stack items vertically if desired, but 2 columns is preferred */
-@media (max-width: 340px) {
+/* Stack info grid items vertically on mobile viewports */
+@media (max-width: 767px) {
     .ldp-info-grid {
         grid-template-columns: 1fr;
     }
-    .ldp-info-grid .ldp-info-item:nth-child(1),
-    .ldp-info-grid .ldp-info-item:nth-child(2),
-    .ldp-info-grid .ldp-info-item:nth-child(3) {
-        border-bottom: 1px solid var(--border-color) !important;
-    }
-    .ldp-info-grid .ldp-info-item:nth-child(even),
-    .ldp-info-grid .ldp-info-item:nth-child(odd) {
-        padding: 10px 0 !important;
+    .ldp-info-grid .ldp-info-item {
+        grid-column: span 1 !important;
         border-left: none !important;
-    }
-}
-
-@media (max-width: 767px) {
-    .ldp-info-grid.is-editing-sales .ldp-info-item:nth-child(1) {
-        grid-column: span 2;
+        border-right: none !important;
         border-bottom: 1px solid var(--border-color) !important;
-        padding-right: 0;
+        padding: 14px 0 !important;
     }
-    .ldp-info-grid.is-editing-sales .ldp-info-item:nth-child(2) {
-        grid-column: span 2;
-        border-bottom: 1px solid var(--border-color) !important;
-        padding-left: 0;
-        padding-right: 0;
+    .ldp-info-grid .ldp-info-item:last-child {
+        border-bottom: none !important;
     }
 }
 
