@@ -416,6 +416,13 @@ html[data-theme="light"] .leads-page {
     min-width: 0;
 }
 
+.lc-appointment-date {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    margin-top: 1px;
+    font-weight: 500;
+}
+
 .lc-dot {
     color: var(--text-muted);
 }

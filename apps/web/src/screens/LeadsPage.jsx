@@ -88,6 +88,25 @@ function formatRangeSummary(range) {
     return `${formatter.format(start)} – ${formatter.format(end)}`;
 }
 
+function formatAppointmentDate(appt) {
+    if (!appt || !appt.date) return '-';
+    const parts = String(appt.date).split('-');
+    if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const date = new Date(year, month, day);
+        if (Number.isNaN(date.getTime())) return '-';
+        const dateStr = date.toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric',
+        });
+        return `${dateStr} · ${appt.time || '00:00'}`;
+    }
+    return `${appt.date} · ${appt.time || '00:00'}`;
+}
+
 function getPresetRange(key) {
     const today = new Date();
     const end = formatDateInput(today);
@@ -363,9 +382,16 @@ export default function LeadsPage() {
     };
 
     const openAddLeadModal = (tab = 'manual') => {
+        const now = new Date();
+        const y = now.getFullYear();
+        const mo = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        const h = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const nowDateTimeLocal = `${y}-${mo}-${d}T${h}:${min}`;
         setSubmitError(''); setImportError(''); setImportSuccess('');
         setAddModalTab(tab);
-        setNewLead((prev) => ({ ...prev, source: prev.source || leadSources[0]?.value || '' }));
+        setNewLead((prev) => ({ ...prev, source: prev.source || leadSources[0]?.value || '', createdAt: nowDateTimeLocal }));
         void loadAgentOfficeOptions();
         setShowAddModal(true);
     };
@@ -680,20 +706,22 @@ export default function LeadsPage() {
                         onChange={handleDateSelectChange}
                         options={dateSelectOptions}
                     />
+                    {availableLeadSources.length > 0 ? (
+                        <SelectFilter
+                            placeholder="Sumber"
+                            value={sourceFilter === 'all' ? '' : sourceFilter}
+                            onChange={(v) => setSourceFilter(v || 'all')}
+                            options={availableLeadSources.map((s) => ({ value: s, label: s }))}
+                        />
+                    ) : null}
                     <SelectFilter
-                        placeholder="Distribusi"
-                        value={flowFilter === 'all' ? '' : flowFilter}
-                        onChange={(v) => setFlowFilter(v || 'all')}
-                        options={FLOW_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
-                    />
-                    <SelectFilter
-                        placeholder="Status Sales"
+                        placeholder="Status Prospek"
                         value={salesStatusFilter === 'all' ? '' : salesStatusFilter}
                         onChange={(v) => setSalesStatusFilter(v || 'all')}
                         options={[...SPECIAL_SALES_STATUS_FILTERS, ...SALES_STATUSES].map((item) => ({ value: item.key, label: item.label }))}
                     />
                     <SelectFilter
-                        placeholder="Result"
+                        placeholder="Hasil"
                         value={resultFilter === 'all' ? '' : resultFilter}
                         onChange={(v) => setResultFilter(v || 'all')}
                         options={RESULT_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
@@ -704,14 +732,12 @@ export default function LeadsPage() {
                         onChange={(v) => setAppointmentFilter(v || 'all')}
                         options={APPOINTMENT_TAGS.map((item) => ({ value: item.key, label: item.label }))}
                     />
-                    {availableLeadSources.length > 0 ? (
-                        <SelectFilter
-                            placeholder="Source"
-                            value={sourceFilter === 'all' ? '' : sourceFilter}
-                            onChange={(v) => setSourceFilter(v || 'all')}
-                            options={availableLeadSources.map((s) => ({ value: s, label: s }))}
-                        />
-                    ) : null}
+                    <SelectFilter
+                        placeholder="Distribusi"
+                        value={flowFilter === 'all' ? '' : flowFilter}
+                        onChange={(v) => setFlowFilter(v || 'all')}
+                        options={FLOW_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
+                    />
                     {isAdmin ? (
                         <SelectFilter
                             placeholder="Sales"
@@ -781,6 +807,9 @@ export default function LeadsPage() {
                                 {lead.source ? <><span className="lc-dot"> · </span>{lead.source}</> : null}
                                 {lead.agentOfficeName ? <><span className="lc-dot"> · </span>{lead.agentOfficeName}</> : null}
                                 {isAdmin ? <><span className="lc-dot"> · </span><span className="lc-sales-inline">{getSalesNameById(lead.assignedTo)}</span></> : null}
+                            </div>
+                            <div className="lc-appointment-date">
+                                Janji Temu: {lead.latestAppointment ? formatAppointmentDate(lead.latestAppointment) : '-'}
                             </div>
                             {lead.manualNote ? <div className="lc-note">{lead.manualNote}</div> : null}
                             {lead.customerPipelineTotalSteps > 0 ? (
@@ -1006,14 +1035,16 @@ export default function LeadsPage() {
                                 onChange={handleDateSelectChange}
                                 options={dateSelectOptions}
                             />
+                            {availableLeadSources.length > 0 ? (
+                                <SelectFilter
+                                    placeholder="Sumber"
+                                    value={sourceFilter === 'all' ? '' : sourceFilter}
+                                    onChange={(v) => setSourceFilter(v || 'all')}
+                                    options={availableLeadSources.map((s) => ({ value: s, label: s }))}
+                                />
+                            ) : null}
                             <SelectFilter
-                                placeholder="Distribusi"
-                                value={flowFilter === 'all' ? '' : flowFilter}
-                                onChange={(v) => setFlowFilter(v || 'all')}
-                                options={FLOW_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
-                            />
-                            <SelectFilter
-                                placeholder="Status Sales"
+                                placeholder="Status Prospek"
                                 value={salesStatusFilter === 'all' ? '' : salesStatusFilter}
                                 onChange={(v) => setSalesStatusFilter(v || 'all')}
                                 options={[...SPECIAL_SALES_STATUS_FILTERS, ...SALES_STATUSES].map((item) => ({ value: item.key, label: item.label }))}
@@ -1030,14 +1061,12 @@ export default function LeadsPage() {
                                 onChange={(v) => setAppointmentFilter(v || 'all')}
                                 options={APPOINTMENT_TAGS.map((item) => ({ value: item.key, label: item.label }))}
                             />
-                            {availableLeadSources.length > 0 ? (
-                                <SelectFilter
-                                    placeholder="Sumber"
-                                    value={sourceFilter === 'all' ? '' : sourceFilter}
-                                    onChange={(v) => setSourceFilter(v || 'all')}
-                                    options={availableLeadSources.map((s) => ({ value: s, label: s }))}
-                                />
-                            ) : null}
+                            <SelectFilter
+                                placeholder="Distribusi"
+                                value={flowFilter === 'all' ? '' : flowFilter}
+                                onChange={(v) => setFlowFilter(v || 'all')}
+                                options={FLOW_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
+                            />
                             {isAdmin ? (
                                 <SelectFilter
                                     placeholder="Sales"
@@ -1176,7 +1205,7 @@ export default function LeadsPage() {
                                 </div>
                             </div>
                             <div className="input-group">
-                                <label>Status Sales</label>
+                                <label>Status Prospek</label>
                                 <div className="export-checklist" style={{ marginBottom: 10 }}>
                                     <label className="export-checklist-item">
                                         <input type="checkbox" checked={Boolean(exportFilters.hotValidatedOnly)} onChange={(event) => setExportFilters((prev) => ({ ...prev, hotValidatedOnly: event.target.checked, salesStatuses: event.target.checked ? Array.from(new Set(['hot', ...prev.salesStatuses.filter((item) => item !== 'unfilled')])) : prev.salesStatuses }))} />

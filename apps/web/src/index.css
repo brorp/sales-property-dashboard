@@ -213,6 +213,15 @@ body.light-page {
     white-space: nowrap;
 }
 
+.btn:disabled,
+button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
 .btn-sm {
     padding: 8px 16px;
     font-size: 0.8125rem;

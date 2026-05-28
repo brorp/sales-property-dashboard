@@ -172,28 +172,63 @@ html[data-theme="light"] .leads-page .btn-primary:hover:not(:disabled) {
     align-items: center;
 }
 
-/* ── Info grid ──────────────────────────────────────────────────────── */
-
 .ldp-info-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px 20px;
-    padding-top: 14px;
-    border-top: 1.5px solid var(--border-color);
+    gap: 0;
+    padding: 0;
+    border-top: 1px solid var(--border-color);
 }
-
-@media (max-width: 380px) { .ldp-info-grid { grid-template-columns: 1fr; } }
-@media (min-width: 768px) { .ldp-info-grid { grid-template-columns: repeat(3, 1fr); } }
+/* Stack info grid items vertically on mobile viewports */
+@media (max-width: 767px) {
+    .ldp-info-grid {
+        grid-template-columns: 1fr;
+    }
+    .ldp-info-grid .ldp-info-item {
+        grid-column: span 1 !important;
+        border-left: none !important;
+        border-right: none !important;
+        border-bottom: 1px solid var(--border-color) !important;
+        padding: 14px 0 !important;
+    }
+    .ldp-info-grid .ldp-info-item:last-child {
+        border-bottom: none !important;
+    }
+}
 
 .ldp-info-item {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 4px;
     min-width: 0;
+    box-sizing: border-box;
+}
+
+/* WhatsApp (item 1) */
+.ldp-info-grid .ldp-info-item:nth-child(1) {
+    padding: 14px 16px 14px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Sales (item 2) */
+.ldp-info-grid .ldp-info-item:nth-child(2) {
+    padding: 14px 0 14px 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Tanggal Masuk (item 3) */
+.ldp-info-grid .ldp-info-item:nth-child(3) {
+    padding: 14px 16px 14px 0;
+}
+
+/* Diterima (item 4) */
+.ldp-info-grid .ldp-info-item:nth-child(4) {
+    padding: 14px 0 14px 20px;
+    border-left: 1px solid var(--border-color);
 }
 
 .ldp-info-label {
-    font-size: 0.688rem;
+    font-size: 0.75rem;
     font-weight: 700;
     color: var(--text-muted);
     text-transform: uppercase;
@@ -201,9 +236,9 @@ html[data-theme="light"] .leads-page .btn-primary:hover:not(:disabled) {
 }
 
 .ldp-info-value {
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: var(--primary);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -211,6 +246,7 @@ html[data-theme="light"] .leads-page .btn-primary:hover:not(:disabled) {
     align-items: center;
     gap: 4px;
 }
+
 
 /* ── Reassign inline button ─────────────────────────────────────────── */
 
@@ -275,8 +311,107 @@ html[data-theme="light"] .leads-page .btn-primary:hover:not(:disabled) {
 
 .ldp-card-actions {
     display: flex;
+    flex-direction: column;
     gap: 10px;
     padding-top: 4px;
+}
+
+.ldp-status-action-btn {
+    width: 100%;
+    height: 44px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    border-radius: 12px !important;
+    border: 1.5px solid !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 150ms ease;
+}
+
+.ldp-status-action-btn.is-hot {
+    background-color: #FEE2E2 !important;
+    border-color: #F87171 !important;
+    color: #DC2626 !important;
+}
+
+.ldp-status-action-btn.is-warm {
+    background-color: #FFEDD5 !important;
+    border-color: #FB923C !important;
+    color: #EA580C !important;
+}
+
+.ldp-status-action-btn.is-cold,
+.ldp-status-action-btn.is-no_response {
+    background-color: #E0F2FE !important;
+    border-color: #38BDF8 !important;
+    color: #0284C7 !important;
+}
+
+.ldp-status-action-btn.is-none,
+.ldp-status-action-btn.is-error,
+.ldp-status-action-btn.is-skip {
+    background-color: var(--bg-input) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-secondary) !important;
+}
+
+.ldp-status-option-btn {
+    font-weight: 600;
+    font-size: 0.9375rem;
+    height: 44px;
+    border-radius: 10px !important;
+    transition: all 120ms ease;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ldp-status-option-btn.is-hot {
+    background-color: #FEE2E2 !important;
+    border: 1.5px solid #F87171 !important;
+    color: #DC2626 !important;
+}
+.ldp-status-option-btn.is-hot:hover {
+    background-color: #FCA5A5 !important;
+}
+
+.ldp-status-option-btn.is-warm {
+    background-color: #FFEDD5 !important;
+    border: 1.5px solid #FB923C !important;
+    color: #EA580C !important;
+}
+.ldp-status-option-btn.is-warm:hover {
+    background-color: #FED7AA !important;
+}
+
+.ldp-status-option-btn.is-cold {
+    background-color: #E0F2FE !important;
+    border: 1.5px solid #38BDF8 !important;
+    color: #0284C7 !important;
+}
+.ldp-status-option-btn.is-cold:hover {
+    background-color: #BAE6FD !important;
+}
+
+.ldp-status-option-btn.is-neutral {
+    background-color: var(--bg-input) !important;
+    border: 1.5px solid var(--border-color) !important;
+    color: var(--text-secondary) !important;
+}
+.ldp-status-option-btn.is-neutral:hover {
+    background-color: var(--bg-card-hover) !important;
+}
+
+.ldp-edit-name-icon-btn {
+    opacity: 0.6;
+    transition: opacity 150ms ease, color 150ms ease;
+}
+.ldp-edit-name-icon-btn:hover {
+    opacity: 1;
+    color: var(--primary) !important;
 }
 
 /* ── Section ────────────────────────────────────────────────────────── */
@@ -517,6 +652,22 @@ html[data-theme="light"] .leads-page .btn-primary:hover:not(:disabled) {
     margin-bottom: 12px;
 }
 
+.ldp-appt-status-row .badge {
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+    transition: opacity 120ms ease;
+}
+
+.ldp-appt-status-row .badge:hover {
+    opacity: 0.8;
+}
+
+.ldp-appt-status-row .badge-neutral.badge-active {
+    background: var(--primary);
+    color: #fff;
+}
+
 .ldp-appt-list {
     display: flex;
     flex-direction: column;
@@ -565,11 +716,121 @@ html[data-theme="light"] .leads-page .btn-primary:hover:not(:disabled) {
     line-height: 1.45;
 }
 
-.ldp-appt-actions {
+.ldp-appt-actions-wrap {
     display: flex;
-    gap: 8px;
-    margin-top: 4px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
 }
+
+.ldp-appt-actions-wrap .btn-appt-done,
+.ldp-appt-actions-wrap .btn-appt-reschedule,
+.ldp-appt-actions-wrap .btn-appt-cancel {
+    flex: 1;
+    justify-content: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.72rem;
+    padding: 5px 6px;
+}
+
+.ldp-appt-edit-btn {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+}
+
+.ldp-appt-edit-btn:hover {
+    background: var(--bg-input);
+    color: var(--text-primary);
+}
+
+.btn-appt-done {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1.5px solid rgba(16, 185, 129, 0.35);
+    color: #059669;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 8px;
+    transition: background 150ms ease, border-color 150ms ease;
+}
+
+.btn-appt-done:hover:not(:disabled) {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: rgba(16, 185, 129, 0.55);
+}
+
+.btn-appt-reschedule {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1.5px solid rgba(59, 130, 246, 0.3);
+    color: #2563EB;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 8px;
+    transition: background 150ms ease, border-color 150ms ease;
+}
+
+.btn-appt-reschedule:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.18);
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+.btn-appt-cancel {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1.5px solid rgba(239, 68, 68, 0.25);
+    color: #DC2626;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 8px;
+    transition: background 150ms ease, border-color 150ms ease;
+}
+
+.btn-appt-cancel:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+html[data-theme='light'] .btn-appt-done { color: #065F46; }
+html[data-theme='light'] .btn-appt-reschedule { color: #1D4ED8; }
+html[data-theme='light'] .btn-appt-cancel { color: #B91C1C; }
+
+.ldp-appt-toggle-cancelled {
+    display: block;
+    width: 100%;
+    text-align: center;
+    margin-top: 8px;
+    padding: 7px 0;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: none;
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: color 150ms ease, border-color 150ms ease;
+}
+
+.ldp-appt-toggle-cancelled:hover {
+    color: var(--text-secondary);
+    border-color: var(--text-muted);
+}
+
+
 
 /* ── Activity timeline ──────────────────────────────────────────────── */
 
@@ -900,7 +1161,64 @@ html[data-theme="light"] .leads-page .btn-primary:hover:not(:disabled) {
     border: 1px solid var(--border-color);
 }
 
-/* ── Responsive ─────────────────────────────────────────────────────── */
+/* ── Responsive & Mobile Header ──────────────────────────────────────── */
+
+.ldp-mobile-top {
+    display: none;
+}
+
+@media (max-width: 1023px) {
+    .leads-page .app-header {
+        display: none !important;
+    }
+
+    .ldp-mobile-top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 16px 0 16px;
+    }
+
+    .ldp-mobile-title {
+        flex: 1;
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        letter-spacing: -0.02em;
+        text-align: center;
+    }
+}
+
+.ldp-mobile-back {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    color: var(--text-secondary);
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 150ms ease;
+}
+
+.ldp-mobile-back:hover {
+    background: var(--bg-card-hover, var(--bg-input));
+    color: var(--text-primary);
+}
+
+.ldp-header-btn {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 10px !important;
+}
 
 @media (max-width: 480px) {
     .ldp-pipeline-row-inner { flex-direction: column; }
