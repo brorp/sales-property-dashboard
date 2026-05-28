@@ -700,11 +700,99 @@ html[data-theme="light"] .leads-page .btn-primary:hover:not(:disabled) {
     line-height: 1.45;
 }
 
+.ldp-appt-actions-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.ldp-appt-quick-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
 .ldp-appt-actions {
     display: flex;
     gap: 8px;
-    margin-top: 4px;
+    margin-top: 0;
 }
+
+.btn-appt-done {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1.5px solid rgba(16, 185, 129, 0.35);
+    color: #059669;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 8px;
+    transition: background 150ms ease, border-color 150ms ease;
+}
+
+.btn-appt-done:hover:not(:disabled) {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: rgba(16, 185, 129, 0.55);
+}
+
+.btn-appt-reschedule {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1.5px solid rgba(59, 130, 246, 0.3);
+    color: #2563EB;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 8px;
+    transition: background 150ms ease, border-color 150ms ease;
+}
+
+.btn-appt-reschedule:hover:not(:disabled) {
+    background: rgba(59, 130, 246, 0.18);
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+.btn-appt-cancel {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1.5px solid rgba(239, 68, 68, 0.25);
+    color: #DC2626;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 8px;
+    transition: background 150ms ease, border-color 150ms ease;
+}
+
+.btn-appt-cancel:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+html[data-theme='light'] .btn-appt-done { color: #065F46; }
+html[data-theme='light'] .btn-appt-reschedule { color: #1D4ED8; }
+html[data-theme='light'] .btn-appt-cancel { color: #B91C1C; }
+
+.ldp-appt-toggle-cancelled {
+    display: block;
+    width: 100%;
+    text-align: center;
+    margin-top: 8px;
+    padding: 7px 0;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: none;
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: color 150ms ease, border-color 150ms ease;
+}
+
+.ldp-appt-toggle-cancelled:hover {
+    color: var(--text-secondary);
+    border-color: var(--text-muted);
+}
+
+
 
 /* ── Activity timeline ──────────────────────────────────────────────── */
 

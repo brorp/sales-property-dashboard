@@ -382,9 +382,16 @@ export default function LeadsPage() {
     };
 
     const openAddLeadModal = (tab = 'manual') => {
+        const now = new Date();
+        const y = now.getFullYear();
+        const mo = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        const h = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const nowDateTimeLocal = `${y}-${mo}-${d}T${h}:${min}`;
         setSubmitError(''); setImportError(''); setImportSuccess('');
         setAddModalTab(tab);
-        setNewLead((prev) => ({ ...prev, source: prev.source || leadSources[0]?.value || '' }));
+        setNewLead((prev) => ({ ...prev, source: prev.source || leadSources[0]?.value || '', createdAt: nowDateTimeLocal }));
         void loadAgentOfficeOptions();
         setShowAddModal(true);
     };

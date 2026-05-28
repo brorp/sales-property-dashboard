@@ -124,6 +124,7 @@ export default function LeadDetailPage({ leadId }) {
 
     const [showAppt, setShowAppt] = useState(false);
     const [showNote, setShowNote] = useState(false);
+    const [showCancelledAppts, setShowCancelledAppts] = useState(false);
 
     const [editingAppointment, setEditingAppointment] = useState(null);
     const [note, setNote] = useState('');
@@ -574,11 +575,26 @@ export default function LeadDetailPage({ leadId }) {
         await runAddAppointment(appt);
     };
 
+    const getNowDateStr = () => {
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
+    const getNowTimeStr = () => {
+        const now = new Date();
+        const h = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        return `${h}:${min}`;
+    };
+
     const openCreateAppointment = () => {
         setEditingAppointment(null);
         setAppt({
-            date: '',
-            time: '',
+            date: getNowDateStr(),
+            time: getNowTimeStr(),
             location: '',
             notes: '',
             status: 'mau_survey',
@@ -596,6 +612,22 @@ export default function LeadDetailPage({ leadId }) {
             status: item.status || 'mau_survey',
         });
         setShowAppt(true);
+    };
+
+    const handleQuickSudahSurvey = async (item) => {
+        if (!item?.id) return;
+        try {
+            setRequestError('');
+            setRequestSuccess('');
+            await updateAppointment(item.id, { status: 'sudah_survey' });
+            setRequestSuccess('Status diubah ke Sudah Survey.');
+        } catch (err) {
+            setRequestError(err instanceof Error ? err.message : 'Gagal update status');
+        }
+    };
+
+    const handleQuickReschedule = (item) => {
+        openEditAppointment(item);
     };
 
     const handleCancelAppointment = async (item) => {
@@ -1043,7 +1075,13 @@ export default function LeadDetailPage({ leadId }) {
                                 <button
                                     type="button"
                                     className={`btn btn-sm ${showInlineAppt ? 'btn-secondary' : 'btn-primary'}`}
-                                    onClick={() => { setShowInlineAppt((prev) => !prev); setEditingAppointment(null); setAppt({ date: '', time: '', location: '', notes: '', status: 'mau_survey' }); }}
+                                    onClick={() => {
+                                        const nowDate = getNowDateStr();
+                                        const nowTime = getNowTimeStr();
+                                        setShowInlineAppt((prev) => !prev);
+                                        setEditingAppointment(null);
+                                        setAppt({ date: nowDate, time: nowTime, location: '', notes: '', status: 'mau_survey' });
+                                    }}
                                     disabled={!canEditLead}
                                 >
                                     {showInlineAppt ? 'Batal' : 'Buat'}
@@ -1079,7 +1117,9 @@ export default function LeadDetailPage({ leadId }) {
                             </div>
                             {lead.appointments?.length > 0 ? (
                                 <div className="ldp-appt-list">
-                                    {lead.appointments.map((item) => (
+                                    {lead.appointments
+                                        .filter((item) => showCancelledAppts || item.status !== 'dibatalkan')
+                                        .map((item) => (
                                         <div key={item.id} className="ldp-appt-card">
                                             <div className="ldp-appt-head">
                                                 <div className="ldp-appt-datetime">{item.date} · {item.time}</div>
@@ -1088,15 +1128,51 @@ export default function LeadDetailPage({ leadId }) {
                                             <div className="ldp-appt-location">{item.location}</div>
                                             {item.notes ? <div className="ldp-appt-notes">{item.notes}</div> : null}
                                             {canEditLead ? (
-                                                <div className="ldp-appt-actions">
-                                                    <button type="button" className="btn btn-sm btn-secondary" onClick={() => openEditAppointment(item)}>Edit</button>
-                                                    {item.status !== 'dibatalkan' ? (
-                                                        <button type="button" className="btn btn-sm btn-danger" onClick={() => void handleCancelAppointment(item)}>Batalkan</button>
+                                                <div className="ldp-appt-actions-wrap">
+                                                    {item.status !== 'dibatalkan' && item.status !== 'sudah_survey' ? (
+                                                        <div className="ldp-appt-quick-actions">
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-sm btn-appt-done"
+                                                                onClick={() => void handleQuickSudahSurvey(item)}
+                                                                title="Tandai sudah survey"
+                                                            >
+                                                                ✓ Sudah Survey
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-sm btn-appt-reschedule"
+                                                                onClick={() => handleQuickReschedule(item)}
+                                                                title="Reschedule"
+                                                            >
+                                                                ↺ Reschedule
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-sm btn-appt-cancel"
+                                                                onClick={() => void handleCancelAppointment(item)}
+                                                                title="Batal Survey"
+                                                            >
+                                                                ✕ Batal Survey
+                                                            </button>
+                                                        </div>
                                                     ) : null}
+                                                    <div className="ldp-appt-actions">
+                                                        <button type="button" className="btn btn-sm btn-secondary" onClick={() => openEditAppointment(item)}>Edit</button>
+                                                    </div>
                                                 </div>
                                             ) : null}
                                         </div>
                                     ))}
+                                    {lead.appointments.some((item) => item.status === 'dibatalkan') ? (
+                                        <button
+                                            type="button"
+                                            className="ldp-appt-toggle-cancelled"
+                                            onClick={() => setShowCancelledAppts((prev) => !prev)}
+                                        >
+                                            {showCancelledAppts ? 'Sembunyikan' : 'Lihat'} riwayat dibatalkan ({lead.appointments.filter((a) => a.status === 'dibatalkan').length})
+                                        </button>
+                                    ) : null}
                                 </div>
                             ) : (
                                 <p className="ldp-section-desc">Belum ada appointment.</p>

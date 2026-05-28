@@ -909,20 +909,22 @@ export default function DailyTaskPage() {
                                                 >
                                                     Sudah Survey
                                                 </button>
-                                                <button
-                                                    type="button"
-                                                    className="dt-btn-action btn-reschedule"
-                                                    onClick={(e) => handleStartReschedule(e, appt)}
-                                                >
-                                                    Reschedule
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="dt-btn-action btn-batal-survey"
-                                                    onClick={(e) => { e.stopPropagation(); void handleUpdateAppointmentStatus(appt, 'dibatalkan'); }}
-                                                >
-                                                     Batal Survey
-                                                 </button>
+                                                <div className="dt-appt-actions-row">
+                                                    <button
+                                                        type="button"
+                                                        className="dt-btn-action btn-reschedule"
+                                                        onClick={(e) => handleStartReschedule(e, appt)}
+                                                    >
+                                                        Reschedule
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="dt-btn-action btn-batal-survey"
+                                                        onClick={(e) => { e.stopPropagation(); void handleUpdateAppointmentStatus(appt, 'dibatalkan'); }}
+                                                    >
+                                                         Batal Survey
+                                                     </button>
+                                                </div>
                                              </div>
                                         </div>
                                     )}

@@ -599,6 +599,17 @@ html[data-theme="dark"] .daily-task-page .badge-purple {
     margin-top: 10px;
 }
 
+.dt-appt-actions-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.dt-appt-actions-row .dt-btn-action {
+    flex: 1;
+    min-width: 0;
+}
+
 .dt-btn-action {
     width: 100%;
     padding: 10px 16px;
