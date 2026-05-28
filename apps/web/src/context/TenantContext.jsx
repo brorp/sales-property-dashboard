@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { publicApiRequest } from '../lib/api';
+import { buildCrmTitle } from '../lib/crm-title';
 
 const TenantContext = createContext(null);
 
@@ -92,12 +93,8 @@ export function TenantProvider({ children }) {
             return;
         }
 
-        const titleBase = context.siteType === 'client'
-            ? `${context.siteLabel} | Property Lounge`
-            : 'Property Lounge Master';
-
-        document.title = titleBase;
-    }, [context.loading, context.siteLabel, context.siteType]);
+        document.title = buildCrmTitle(context.tenant?.name || context.siteLabel || context.host);
+    }, [context.host, context.loading, context.siteLabel, context.tenant]);
 
     useEffect(() => {
         if (typeof document === 'undefined' || context.loading) {
