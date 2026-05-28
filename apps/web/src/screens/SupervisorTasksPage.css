@@ -521,12 +521,81 @@ html[data-theme="light"] .spv-filter-trigger.is-active {
 }
 
 .spv-card-list--top {
-    margin-top: 100px;
+    margin-top: 16px;
 }
 
 @media (min-width: 1024px) {
-    .spv-card-list--top { margin-top: 52px; }
+    .spv-card-list--top { margin-top: 16px; }
 }
+
+/* ── Hot Leads Sub-tabs ───────────────────────────────────────────────── */
+
+.spv-hot-subtabs {
+    display: flex;
+    gap: 8px;
+    margin-top: 104px;
+    margin-bottom: 14px;
+}
+
+@media (min-width: 1024px) {
+    .spv-hot-subtabs { margin-top: 56px; }
+}
+
+.spv-hot-subtab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 14px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+}
+
+.spv-hot-subtab:hover {
+    border-color: var(--primary);
+    background: var(--bg-card-hover);
+    color: var(--text-primary);
+}
+
+.spv-hot-subtab.is-active {
+    border-color: var(--primary);
+    background: var(--info-bg);
+    color: var(--primary);
+    font-weight: 700;
+}
+
+.spv-hot-subtab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: rgba(239, 68, 68, 0.15);
+    color: #dc2626;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.spv-hot-subtab-badge--validated {
+    background: rgba(16, 185, 129, 0.15);
+    color: #059669;
+}
+
+html[data-theme='light'] .spv-hot-subtab-badge { color: #b91c1c; }
+html[data-theme='light'] .spv-hot-subtab-badge--validated { color: #065f46; }
+
+
 
 .spv-card {
     background: var(--bg-card);

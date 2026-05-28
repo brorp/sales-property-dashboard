@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
+import { useLeads } from '../context/LeadsContext';
 import { apiRequest } from '../lib/api';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { getSalesStatusLabel, getTimeAgo } from '../constants/crm';
@@ -130,8 +131,10 @@ function SpvEmpty({ variant = 'default', title, desc }) {
 
 export default function SupervisorTasksPage() {
     const { user } = useAuth();
+    const { getLeadsForUser } = useLeads();
     const router = useRouter();
     const [activeSection, setActiveSection] = useState('hot_leads');
+    const [hotSubTab, setHotSubTab] = useState('pending');
     const [leads, setLeads] = useState([]);
     const [submittedTaskGroups, setSubmittedTaskGroups] = useState([]);
     const [deadlineTaskGroups, setDeadlineTaskGroups] = useState([]);
@@ -150,6 +153,12 @@ export default function SupervisorTasksPage() {
     const [filterSearch, setFilterSearch] = useState('');
     const [submittedNameSearch, setSubmittedNameSearch] = useState('');
     const [coldNameSearch, setColdNameSearch] = useState('');
+
+    // Hot Validated leads from context (already loaded)
+    const allLeads = getLeadsForUser(user?.id, user?.role);
+    const validatedLeads = useMemo(() => (
+        allLeads.filter((l) => l.salesStatus === 'hot' && l.validated === true)
+    ), [allLeads]);
 
     const handleNudgeSales = (salesId, salesName, leadName, leadPhone) => {
         const salesMember = managedSales.find(s => s.id === salesId);
@@ -479,15 +488,119 @@ export default function SupervisorTasksPage() {
                     {actionError && <div className="alert alert-danger" style={{ marginBottom: 12 }}>{actionError}</div>}
                     {actionSuccess && <div className="alert alert-success" style={{ marginBottom: 12 }}>{actionSuccess}</div>}
 
-                    {loading ? (
-                        <SpvEmpty variant="loading" title="Memuat data..." />
-                    ) : leads.length === 0 ? (
-                        <SpvEmpty variant="success" title="Semua lead tervalidasi" desc="Tidak ada lead HOT yang menunggu validasi saat ini." />
+                    {/* Sub-tabs: Hot Pending & Hot Validated */}
+                    <div className="spv-hot-subtabs">
+                        <button
+                            type="button"
+                            className={`spv-hot-subtab ${hotSubTab === 'pending' ? 'is-active' : ''}`}
+                            onClick={() => setHotSubTab('pending')}
+                        >
+                            Hot Pending
+                            {leads.length > 0 && <span className="spv-hot-subtab-badge">{leads.length}</span>}
+                        </button>
+                        <button
+                            type="button"
+                            className={`spv-hot-subtab ${hotSubTab === 'validated' ? 'is-active' : ''}`}
+                            onClick={() => setHotSubTab('validated')}
+                        >
+                            Hot Validated
+                            {validatedLeads.length > 0 && <span className="spv-hot-subtab-badge spv-hot-subtab-badge--validated">{validatedLeads.length}</span>}
+                        </button>
+                    </div>
+
+                    {hotSubTab === 'pending' ? (
+                        loading ? (
+                            <SpvEmpty variant="loading" title="Memuat data..." />
+                        ) : leads.length === 0 ? (
+                            <SpvEmpty variant="success" title="Semua lead tervalidasi" desc="Tidak ada lead HOT yang menunggu validasi saat ini." />
+                        ) : (
+                            <div className="spv-card-list spv-card-list--top">
+                                {leads.map((lead) => {
+                                    const isBusy = actionLoading === lead.id;
+                                    return (
+                                        <div key={lead.id} className="spv-card spv-card-hot">
+                                            <div className="spv-card-header">
+                                                <span
+                                                    className="spv-card-title spv-card-title-link"
+                                                    onClick={() => router.push(`/leads/${lead.id}`)}
+                                                >
+                                                    {lead.name}
+                                                </span>
+                                                <span className="badge badge-hot">HOT</span>
+                                            </div>
+
+                                            <div className="spv-card-meta-grid">
+                                                <span className="spv-meta-item"><IconPhone /> {lead.phone}</span>
+                                                <span className="spv-meta-item"><IconUser /> {lead.assignedUserName || '-'}</span>
+                                                <span className="spv-meta-item"><IconClock /> {getTimeAgo(lead.updatedAt)}</span>
+                                                <span className="spv-meta-item"><IconMegaphone /> {lead.source}</span>
+                                            </div>
+
+                                            {showRejectNote[lead.id] ? (
+                                                <div className="input-group" style={{ marginTop: 0 }}>
+                                                    <label>Catatan Penolakan (opsional)</label>
+                                                    <input
+                                                        type="text"
+                                                        className="input-field"
+                                                        placeholder="Alasan penolakan..."
+                                                        value={rejectNotes[lead.id] || ''}
+                                                        onChange={(e) => setRejectNotes((prev) => ({ ...prev, [lead.id]: e.target.value }))}
+                                                    />
+                                                </div>
+                                            ) : null}
+
+                                            <div className="spv-card-actions">
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-sm spv-btn-validate"
+                                                    disabled={isBusy}
+                                                    onClick={() => void handleValidate(lead.id)}
+                                                >
+                                                    {isBusy ? 'Memproses...' : <><IconCheck /> Validasi</>}
+                                                </button>
+                                                {!showRejectNote[lead.id] ? (
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-sm spv-btn-reject"
+                                                        disabled={isBusy}
+                                                        onClick={() => toggleRejectNote(lead.id)}
+                                                    >
+                                                        <IconX /> Tolak
+                                                    </button>
+                                                ) : (
+                                                    <>
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-sm"
+                                                            style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#dc2626' }}
+                                                            disabled={isBusy}
+                                                            onClick={() => void handleReject(lead.id)}
+                                                        >
+                                                            {isBusy ? 'Memproses...' : 'Konfirmasi Tolak'}
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-ghost btn-sm"
+                                                            disabled={isBusy}
+                                                            onClick={() => toggleRejectNote(lead.id)}
+                                                        >
+                                                            Batal
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )
                     ) : (
-                        <div className="spv-card-list spv-card-list--top">
-                            {leads.map((lead) => {
-                                const isBusy = actionLoading === lead.id;
-                                return (
+                        /* Hot Validated list */
+                        validatedLeads.length === 0 ? (
+                            <SpvEmpty variant="success" title="Belum ada Hot Validated" desc="Lead HOT yang sudah divalidasi SPV akan muncul di sini." />
+                        ) : (
+                            <div className="spv-card-list spv-card-list--top">
+                                {validatedLeads.map((lead) => (
                                     <div key={lead.id} className="spv-card spv-card-hot">
                                         <div className="spv-card-header">
                                             <span
@@ -496,73 +609,18 @@ export default function SupervisorTasksPage() {
                                             >
                                                 {lead.name}
                                             </span>
-                                            <span className="badge badge-hot">HOT</span>
+                                            <span className="badge badge-hot" style={{ background: 'rgba(16,185,129,0.15)', color: '#059669', borderColor: 'rgba(16,185,129,0.4)' }}>HOT ✓</span>
                                         </div>
-
                                         <div className="spv-card-meta-grid">
                                             <span className="spv-meta-item"><IconPhone /> {lead.phone}</span>
-                                            <span className="spv-meta-item"><IconUser /> {lead.assignedUserName || '-'}</span>
+                                            <span className="spv-meta-item"><IconUser /> {lead.assignedUserName || lead.assignedTo || '-'}</span>
                                             <span className="spv-meta-item"><IconClock /> {getTimeAgo(lead.updatedAt)}</span>
                                             <span className="spv-meta-item"><IconMegaphone /> {lead.source}</span>
                                         </div>
-
-                                        {showRejectNote[lead.id] ? (
-                                            <div className="input-group" style={{ marginTop: 0 }}>
-                                                <label>Catatan Penolakan (opsional)</label>
-                                                <input
-                                                    type="text"
-                                                    className="input-field"
-                                                    placeholder="Alasan penolakan..."
-                                                    value={rejectNotes[lead.id] || ''}
-                                                    onChange={(e) => setRejectNotes((prev) => ({ ...prev, [lead.id]: e.target.value }))}
-                                                />
-                                            </div>
-                                        ) : null}
-
-                                        <div className="spv-card-actions">
-                                            <button
-                                                type="button"
-                                                className="btn btn-sm spv-btn-validate"
-                                                disabled={isBusy}
-                                                onClick={() => void handleValidate(lead.id)}
-                                            >
-                                                {isBusy ? 'Memproses...' : <><IconCheck /> Validasi</>}
-                                            </button>
-                                            {!showRejectNote[lead.id] ? (
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-sm spv-btn-reject"
-                                                    disabled={isBusy}
-                                                    onClick={() => toggleRejectNote(lead.id)}
-                                                >
-                                                    <IconX /> Tolak
-                                                </button>
-                                            ) : (
-                                                <>
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-sm"
-                                                        style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.35)', color: '#dc2626' }}
-                                                        disabled={isBusy}
-                                                        onClick={() => void handleReject(lead.id)}
-                                                    >
-                                                        {isBusy ? 'Memproses...' : 'Konfirmasi Tolak'}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-ghost btn-sm"
-                                                        disabled={isBusy}
-                                                        onClick={() => toggleRejectNote(lead.id)}
-                                                    >
-                                                        Batal
-                                                    </button>
-                                                </>
-                                            )}
-                                        </div>
                                     </div>
-                                );
-                            })}
-                        </div>
+                                ))}
+                            </div>
+                        )
                     )}
                 </section>
             ) : null}

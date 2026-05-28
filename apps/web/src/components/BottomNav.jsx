@@ -18,10 +18,10 @@ const ADMIN_TABS = [
 
 const SUPERVISOR_TABS = [
     { key: '/supervisor-tasks', icon: 'tasks', label: 'Tugas' },
-    { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/appointments', icon: 'appointment', label: 'Janji Temu' },
     { key: '/', icon: 'analytics', label: 'Analitik' },
     { key: '/team', icon: 'team', label: 'Tim' },
+    { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/settings', icon: 'settings', label: 'Pengaturan' },
 ];
 

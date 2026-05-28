@@ -86,12 +86,12 @@ export default function DatePicker({
     const timePart = showTime ? ((value || '').split('T')[1] || '') : '';
     const parsedDate = parseDatePart(datePart);
 
-    let tHour = 8;
-    let tMin = 0;
+    let tHour = today.getHours();
+    let tMin = today.getMinutes();
     if (showTime && timePart) {
         const [h, m] = timePart.split(':').map(Number);
-        tHour = isNaN(h) ? 8 : Math.min(23, Math.max(0, h));
-        tMin = isNaN(m) ? 0 : Math.min(59, Math.max(0, m));
+        tHour = isNaN(h) ? today.getHours() : Math.min(23, Math.max(0, h));
+        tMin = isNaN(m) ? today.getMinutes() : Math.min(59, Math.max(0, m));
     }
 
     const [isOpen, setIsOpen] = useState(false);

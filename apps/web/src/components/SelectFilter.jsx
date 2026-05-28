@@ -60,6 +60,7 @@ export default function SelectFilter({ options, value, onChange, placeholder = '
 
         const handleScroll = (e) => {
             if (wrapRef.current && wrapRef.current.contains(e.target)) return;
+            if (window.innerWidth < 768) return;
             setOpen(false);
         };
 

@@ -4,25 +4,29 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import Button from '../components/Button';
+import DatePicker from '../components/DatePicker';
+import SelectFilter from '../components/SelectFilter';
 import { useAuth } from '../context/AuthContext';
+import { useLeads } from '../context/LeadsContext';
 import VerifiedIcon from '../components/VerifiedIcon';
 import { useWorkspace } from '../context/WorkspaceContext';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { apiRequest } from '../lib/api';
 import { uploadTaskProofImage } from '../lib/image-upload';
-import { SALES_STATUSES, getSalesStatusLabel, getTimeAgo } from '../constants/crm';
+import { SALES_STATUSES, getSalesStatusLabel, getTimeAgo, toWaLink } from '../constants/crm';
 
 function formatDateTime(value) {
     if (!value) return '-';
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '-';
-    return date.toLocaleString('id-ID', {
-        day: 'numeric',
-        month: 'short',
+    const dateStr = date.toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'long',
         year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
     });
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${dateStr} · ${hours}:${minutes}`;
 }
 
 function isOlderThanDays(value, days) {
@@ -76,7 +80,7 @@ function getTaskUrgency(task) {
 
 function buildDefaultDraft(task) {
     return {
-        salesStatus: task?.submittedSalesStatus || 'warm',
+        salesStatus: task?.submittedSalesStatus || '',
         previewUrl: '',
         screenshotUrl: '',
         uploadError: '',
@@ -189,11 +193,34 @@ function IcUser() { return <svg {...IC}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0
 function IcUpload() { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>; }
 function IcAlert() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>; }
 function IcCheck() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>; }
+function IcNotes() { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>; }
+
+function getAppointmentGroup(appt) {
+    if (!appt.date) return 'nanti';
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const parts = appt.date.split('-').map(Number);
+    if (parts.length !== 3) return 'nanti';
+    const apptTime = new Date(parts[0], parts[1] - 1, parts[2]).getTime();
+
+    if (apptTime < todayStart) return 'terlewat';
+    if (apptTime === todayStart) return 'hari_ini';
+    return 'nanti';
+}
+
+function isOlderThan30Days(val) {
+    if (!val) return false;
+    const date = new Date(val);
+    if (Number.isNaN(date.getTime())) return false;
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    return Date.now() - date.getTime() > thirtyDaysMs;
+}
 
 /* ── Main component ────────────────────────────────────────────────── */
 
 export default function DailyTaskPage() {
     const { user } = useAuth();
+    const { leads } = useLeads();
     const { activeWorkspace } = useWorkspace();
     const router = useRouter();
     const [activeTab, setActiveTab] = useState('new_leads');
@@ -211,6 +238,119 @@ export default function DailyTaskPage() {
     const [validatedHot, setValidatedHot] = useState([]);
     const [sideLoading, setSideLoading] = useState(false);
     const [nameSearch, setNameSearch] = useState('');
+    const [reschedulingApptId, setReschedulingApptId] = useState(null);
+    const [rescheduleValue, setRescheduleValue] = useState('');
+
+    const normalizeLeadCardData = (raw, type) => {
+        const leadId = type === 'hot' ? raw.id : raw.leadId;
+        const leadDetail = (Array.isArray(leads) ? leads : []).find((l) => l.id === leadId) || null;
+
+        if (type === 'appt') {
+            return {
+                leadSource: leadDetail?.source || raw.leadSource,
+                createdAt: leadDetail?.createdAt || raw.leadCreatedAt,
+                assignedAt: raw.createdAt,
+                latestAppointment: {
+                    date: raw.date,
+                    time: raw.time,
+                    location: raw.location,
+                    status: raw.status,
+                    notes: raw.notes,
+                },
+                manualNote: leadDetail?.manualNote || raw.leadManualNote,
+            };
+        }
+        if (type === 'hot') {
+            return {
+                leadSource: leadDetail?.source || raw.source,
+                createdAt: leadDetail?.createdAt || raw.createdAt,
+                assignedAt: raw.updatedAt,
+                latestAppointment: leadDetail?.latestAppointment || raw.latestAppointment,
+                manualNote: leadDetail?.manualNote || raw.manualNote,
+            };
+        }
+        return {
+            leadSource: leadDetail?.source || raw.leadSource,
+            createdAt: leadDetail?.createdAt || raw.createdAt,
+            assignedAt: raw.assignedAt,
+            latestAppointment: leadDetail?.latestAppointment || raw.latestAppointment,
+            manualNote: leadDetail?.manualNote || raw.manualNote,
+        };
+    };
+
+    const renderDisplayLeadCardInfo = (cardData) => {
+        const {
+            leadSource,
+            createdAt,
+            assignedAt,
+            latestAppointment,
+            manualNote,
+        } = cardData;
+
+        const formattedAppt = () => {
+            if (!latestAppointment || !latestAppointment.date) return 'belum ada';
+            const parts = latestAppointment.date.split('-');
+            if (parts.length === 3) {
+                const year = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const day = parseInt(parts[2], 10);
+                const date = new Date(year, month, day);
+                const dateStr = date.toLocaleDateString('id-ID', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric',
+                });
+                return `${dateStr} · ${latestAppointment.time || '00:00'}`;
+            }
+            return `${latestAppointment.date} · ${latestAppointment.time || '00:00'}`;
+        };
+
+        return (
+            <div className="dt-meta-grid">
+                <div className="dt-meta-item" title="Sumber Lead">
+                    <IcPin />
+                    <span>{leadSource || 'Manual Input'}</span>
+                </div>
+                <div className="dt-meta-item" title="Umur Lead">
+                    <IcUser />
+                    <span>Lead age: {getTimeAgo(createdAt)}</span>
+                </div>
+                <div className="dt-meta-item" title="Waktu Masuk Tugas Harian">
+                    <IcCalendar />
+                    <span>Masuk: {formatDateTime(assignedAt)}</span>
+                </div>
+                <div className="dt-meta-item" title="Janji Temu / Survey">
+                    <IcClock />
+                    <span>Janji Temu: {formattedAppt()}</span>
+                </div>
+                <div className="dt-meta-item dt-meta-item-notes" title="Catatan Lead" style={{ gridColumn: '1 / -1' }}>
+                    <IcNotes />
+                    <span className="dt-meta-notes-text">{manualNote ? `Catatan: ${manualNote}` : 'Catatan: belum ada'}</span>
+                </div>
+            </div>
+        );
+    };
+
+    const renderCardHeader = (name, phone, badges, isVerified = false) => {
+        return (
+            <div className="dt-card-header">
+                <div className="dt-card-name-wrap">
+                    <div className="dt-card-name-row">
+                        <span className="dt-card-name">{name}</span>
+                        {isVerified && <VerifiedIcon size={14} className="lc-verified-badge" />}
+                    </div>
+                    <div className="dt-card-phone">{phone}</div>
+                </div>
+                <div className="dt-card-badges">
+                    {badges.map((b, idx) => (
+                        <span key={idx} className={`badge ${b.className || 'badge-neutral'}`}>
+                            {b.label}
+                        </span>
+                    ))}
+                </div>
+            </div>
+        );
+    };
 
     const mergeDraft = useCallback((taskId, partial) => {
         setDrafts((prev) => ({
@@ -331,7 +471,7 @@ export default function DailyTaskPage() {
 
     const handleSubmitNewLead = async (task) => {
         const draft = drafts[task.id] || buildDefaultDraft(task);
-        if (!draft.salesStatus) { setError('Status L2 wajib dipilih sebelum submit.'); return; }
+        if (!draft.salesStatus) { setError('Status Prospek wajib dipilih sebelum submit.'); return; }
         await handleSubmitTask(task, `/api/daily-tasks/${task.id}/submit-new-lead`, { salesStatus: draft.salesStatus });
     };
 
@@ -356,6 +496,55 @@ export default function DailyTaskPage() {
             return;
         }
         mergeDraft(task.id, { submitting: false });
+    };
+
+    const handleUpdateAppointmentStatus = async (appt, status) => {
+        try {
+            setError('');
+            setSuccess('');
+            await apiRequest(`/api/appointments/${appt.id}`, {
+                method: 'PATCH',
+                user,
+                body: { status }
+            });
+            setSuccess(
+                status === 'sudah_survey'
+                    ? `Janji temu dengan ${appt.leadName} ditandai Sudah Survey.`
+                    : `Janji temu dengan ${appt.leadName} dibatalkan.`
+            );
+            await loadSideData({ silent: true });
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Gagal memperbarui janji temu');
+        }
+    };
+
+    const handleStartReschedule = (e, appt) => {
+        e.stopPropagation();
+        setReschedulingApptId(appt.id);
+        const defaultVal = appt.date ? `${appt.date}T${appt.time || '12:00'}` : '';
+        setRescheduleValue(defaultVal);
+    };
+
+    const handleSaveReschedule = async (appt) => {
+        if (!rescheduleValue) return;
+        const [datePart, timePart] = rescheduleValue.split('T');
+        try {
+            setError('');
+            setSuccess('');
+            await apiRequest(`/api/appointments/${appt.id}`, {
+                method: 'PATCH',
+                user,
+                body: {
+                    date: datePart,
+                    time: timePart || '12:00'
+                }
+            });
+            setSuccess(`Janji temu dengan ${appt.leadName} berhasil dijadwal ulang.`);
+            setReschedulingApptId(null);
+            await loadSideData({ silent: true });
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Gagal mengubah jadwal janji temu');
+        }
     };
 
     return (
@@ -441,72 +630,61 @@ export default function DailyTaskPage() {
                             {visibleTasks.map((task) => {
                                 const draft = drafts[task.id] || buildDefaultDraft(task);
                                 const visibleStatuses = getVisibleSalesStatuses(task);
-                                const urgency = getTaskUrgency(task);
                                 const cardClass = task.status === 'overdue'
                                     ? 'dt-card-overdue'
                                     : task.taskType === 'follow_up' ? 'dt-card-followup' : 'dt-card-new';
+                                const badges = [
+                                    {
+                                        label: task.status === 'overdue' ? 'Overdue' : task.label,
+                                        className: task.status === 'overdue' ? 'badge-danger' : task.taskType === 'follow_up' ? 'badge-purple' : 'badge-info'
+                                    }
+                                ];
+                                if (task.taskType === 'follow_up') {
+                                    badges.push({ label: `${task.followupStage}/3`, className: 'badge-neutral' });
+                                }
+                                if (task.salesStatus) {
+                                    badges.push({
+                                        label: getSalesStatusLabel(task.salesStatus),
+                                        className: task.salesStatus === 'hot' ? 'badge-hot' : 'badge-warm'
+                                    });
+                                }
 
                                 return (
-                                    <div key={task.id} className={`dt-card ${cardClass}`}>
+                                    <div
+                                        key={task.id}
+                                        className={`dt-card ${cardClass}`}
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={() => router.push(`/leads/${task.leadId}`)}
+                                    >
                                         {/* header */}
-                                        <div className="dt-card-header">
-                                            <div className="dt-card-name-wrap">
-                                                <div className="dt-card-name">{task.leadName}</div>
-                                                <div className="dt-card-phone">{task.leadPhone}</div>
-                                            </div>
-                                            <div className="dt-card-badges">
-                                                <span className={`badge ${task.status === 'overdue' ? 'badge-danger' : task.taskType === 'follow_up' ? 'badge-purple' : 'badge-info'}`}>
-                                                    {task.status === 'overdue' ? 'Overdue' : task.label}
-                                                </span>
-                                                {task.taskType === 'follow_up'
-                                                    ? <span className="badge badge-neutral">{task.followupStage}/3</span>
-                                                    : null}
-                                            </div>
-                                        </div>
+                                        {renderCardHeader(task.leadName, task.leadPhone, badges, false)}
 
                                         {/* meta */}
-                                        <div className="dt-meta-grid">
-                                            {task.leadSource ? (
-                                                <div className="dt-meta-item"><IcPin /><span>{task.leadSource}</span></div>
-                                            ) : null}
-                                            <div className="dt-meta-item"><IcUser /><span>Lead age: {getTimeAgo(task.createdAt)}</span></div>
-                                            <div className="dt-meta-item"><IcCalendar /><span>Masuk: {formatDateTime(task.assignedAt)}</span></div>
-                                            {task.acceptedAt
-                                                ? <div className="dt-meta-item"><IcCheck /><span>Accepted: {formatDateTime(task.acceptedAt)}</span></div>
-                                                : null}
-                                        </div>
-
-                                        {/* urgency */}
-                                        <div className={`dt-urgency${urgency.type === 'overdue' ? ' dt-urgency-overdue' : urgency.type === 'ok' ? ' dt-urgency-ok' : ''}`}>
-                                            <IcAlert />
-                                            {urgency.text}
-                                        </div>
+                                        {renderDisplayLeadCardInfo(normalizeLeadCardData(task, 'task'))}
 
                                         {/* status select or followup hint */}
                                         {task.taskType === 'new_lead' ? (
                                             <div className="dt-status-wrap">
-                                                <span className="dt-status-label">Status L2</span>
-                                                <select
-                                                    className="input-field"
-                                                    value={draft.salesStatus || 'warm'}
-                                                    onChange={(e) => mergeDraft(task.id, { salesStatus: e.target.value })}
-                                                    disabled={draft.submitting}
-                                                >
-                                                    {visibleStatuses.map((item) => (
-                                                        <option key={item.key} value={item.key}>
-                                                            {getSalesStatusLabel(item.key)}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                <span className="dt-status-label">Status Prospek</span>
+                                                <div onClick={(e) => e.stopPropagation()}>
+                                                    <SelectFilter
+                                                        options={visibleStatuses.map((item) => ({ value: item.key, label: getSalesStatusLabel(item.key) }))}
+                                                        value={draft.salesStatus || ''}
+                                                        onChange={(val) => { if (val) mergeDraft(task.id, { salesStatus: val }); }}
+                                                        placeholder="Pilih Status..."
+                                                        clearable={false}
+                                                        disabled={draft.submitting}
+                                                    />
+                                                </div>
                                             </div>
                                         ) : (
-                                            <div className="dt-followup-hint">
+                                            <div className="dt-followup-hint" onClick={(e) => e.stopPropagation()}>
                                                 Submit screenshot proof untuk milestone <strong>{task.followupStage}/3</strong>
                                             </div>
                                         )}
 
                                         {/* upload */}
-                                        <div className="dt-upload-section">
+                                        <div className="dt-upload-section" onClick={(e) => e.stopPropagation()}>
                                             <label className={`dt-upload-btn${draft.screenshotUrl ? ' has-file' : ''}`}>
                                                 <input
                                                     type="file"
@@ -518,22 +696,33 @@ export default function DailyTaskPage() {
                                                 {draft.uploading ? 'Uploading...' : draft.screenshotUrl ? 'Ganti Screenshot' : 'Upload Screenshot'}
                                             </label>
                                             {draft.previewUrl
-                                                ? <img src={draft.previewUrl} alt="Preview proof" className="dt-preview-img" />
+                                                ? <img src={draft.previewUrl} alt="Preview proof" className="dt-preview-img" onClick={(e) => e.stopPropagation()} />
                                                 : null}
                                         </div>
 
                                         {draft.uploadError
-                                            ? <div className="settings-error" style={{ marginBottom: 0 }}>{draft.uploadError}</div>
+                                            ? <div className="settings-error" style={{ marginBottom: 0 }} onClick={(e) => e.stopPropagation()}>{draft.uploadError}</div>
                                             : null}
 
                                         {/* submit */}
-                                        <div className="dt-actions">
+                                        <div className="dt-actions" onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '12px' }}>
+                                            <a
+                                                href={toWaLink(task.leadPhone)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="btn btn-whatsapp"
+                                                style={{ width: '100%', height: '40px', padding: '0 12px', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                                            >
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                                                Chat WhatsApp
+                                            </a>
                                             <Button
                                                 variant="primary"
                                                 loading={draft.submitting}
                                                 loadingText="Submitting..."
                                                 disabled={draft.uploading}
                                                 onClick={() => void (task.taskType === 'new_lead' ? handleSubmitNewLead(task) : handleSubmitFollowUp(task))}
+                                                style={{ width: '100%', height: '40px', padding: '0 12px', fontSize: '0.875rem' }}
                                             >
                                                 Submit Task
                                             </Button>
@@ -559,51 +748,64 @@ export default function DailyTaskPage() {
                         <div className="dt-task-grid">
                             {visibleTasks.map((task) => {
                                 const draft = drafts[task.id] || buildDefaultDraft(task);
+                                const badges = [
+                                    { label: 'Deadline', className: 'badge-danger' }
+                                ];
+                                if (task.salesStatus) {
+                                    badges.push({
+                                        label: getSalesStatusLabel(task.salesStatus),
+                                        className: task.salesStatus === 'hot' ? 'badge-hot' : 'badge-warm'
+                                    });
+                                }
+
                                 return (
-                                    <div key={task.id} className="dt-card dt-card-deadline">
-                                        <div className="dt-card-header">
-                                            <div className="dt-card-name-wrap">
-                                                <div className="dt-card-name">{task.leadName}</div>
-                                                <div className="dt-card-phone">{task.leadPhone}</div>
-                                            </div>
-                                            <div className="dt-card-badges">
-                                                <span className="badge badge-danger">Deadline</span>
-                                                {task.salesStatus ? (
-                                                    <span className={`badge ${task.salesStatus === 'hot' ? 'badge-hot' : 'badge-warm'}`}>
-                                                        {getSalesStatusLabel(task.salesStatus)}
-                                                    </span>
-                                                ) : null}
-                                            </div>
-                                        </div>
+                                    <div
+                                        key={task.id}
+                                        className="dt-card dt-card-deadline"
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={() => router.push(`/leads/${task.leadId}`)}
+                                    >
+                                        {/* header */}
+                                        {renderCardHeader(task.leadName, task.leadPhone, badges, false)}
 
-                                        <div className="dt-meta-grid">
-                                            {task.leadSource ? <div className="dt-meta-item"><IcPin /><span>{task.leadSource}</span></div> : null}
-                                            <div className="dt-meta-item"><IcUser /><span>Lead age: {getTimeAgo(task.createdAt)}</span></div>
-                                            <div className="dt-meta-item"><IcCalendar /><span>Masuk: {formatDateTime(task.assignedAt)}</span></div>
-                                            <div className="dt-meta-item"><IcClock /><span>Janji Temu: belum ada</span></div>
-                                        </div>
+                                        {/* meta */}
+                                        {renderDisplayLeadCardInfo(normalizeLeadCardData(task, 'task'))}
 
-                                        <div className="dt-followup-hint">
+                                        <div className="dt-followup-hint" onClick={(e) => e.stopPropagation()}>
                                             Tentukan apakah lead ini perlu diubah ke Cold atau tetap dipertahankan.
                                         </div>
 
-                                        <div className="dt-deadline-actions">
-                                            <Button
-                                                variant="danger"
-                                                loading={draft.submitting}
-                                                loadingText="Submitting..."
-                                                onClick={() => void handleDeadlineLeadAction(task, 'change_to_cold')}
+                                        <div className="dt-deadline-actions" onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '12px' }}>
+                                            <a
+                                                href={toWaLink(task.leadPhone)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="btn btn-whatsapp"
+                                                style={{ width: '100%', height: '40px', padding: '0 12px', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                                             >
-                                                Change to Cold
-                                            </Button>
-                                            <Button
-                                                variant="secondary"
-                                                loading={draft.submitting}
-                                                loadingText="Submitting..."
-                                                onClick={() => void handleDeadlineLeadAction(task, 'stay')}
-                                            >
-                                                Stay Warm
-                                            </Button>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                                                Chat WhatsApp
+                                            </a>
+                                            <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                                                <Button
+                                                    variant="danger"
+                                                    style={{ flex: 1, height: '40px', padding: '0 12px', fontSize: '0.875rem' }}
+                                                    loading={draft.submitting}
+                                                    loadingText="Submitting..."
+                                                    onClick={() => void handleDeadlineLeadAction(task, 'change_to_cold')}
+                                                >
+                                                    Change to Cold
+                                                </Button>
+                                                <Button
+                                                    variant="secondary"
+                                                    style={{ flex: 1, height: '40px', padding: '0 12px', fontSize: '0.875rem' }}
+                                                    loading={draft.submitting}
+                                                    loadingText="Submitting..."
+                                                    onClick={() => void handleDeadlineLeadAction(task, 'stay')}
+                                                >
+                                                    Stay Warm
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                 );
@@ -623,29 +825,136 @@ export default function DailyTaskPage() {
                             ? appointments.filter((a) => a.leadName?.toLowerCase().includes(nameSearch.toLowerCase()))
                             : appointments;
                         if (filtered.length === 0) return <DtEmpty variant="no_search" />;
-                        return (
-                            <div className="dt-task-grid">
-                                {filtered.map((appt) => (
-                                    <div
-                                        key={appt.id}
-                                        className="dt-card dt-card-appt"
-                                        style={{ cursor: 'pointer' }}
-                                        onClick={() => router.push(`/leads/${appt.leadId}`)}
-                                    >
-                                        <div className="dt-card-header">
-                                            <div className="dt-card-name-wrap">
-                                                <div className="dt-card-name">{appt.leadName}</div>
-                                                <div className="dt-card-phone">{appt.leadPhone}</div>
+
+                        const grouped = {
+                            terlewat: [],
+                            hari_ini: [],
+                            nanti: []
+                        };
+                        filtered.forEach((appt) => {
+                            const group = getAppointmentGroup(appt);
+                            grouped[group].push(appt);
+                        });
+
+                        const renderApptCard = (appt) => {
+                            const badges = [
+                                { label: 'Mau Survey', className: 'badge-hot' }
+                            ];
+                            const leadDetail = (Array.isArray(leads) ? leads : []).find((l) => l.id === appt.leadId);
+                            const salesStatus = leadDetail?.salesStatus || appt.leadSalesStatus;
+                            if (salesStatus) {
+                                badges.push({
+                                    label: getSalesStatusLabel(salesStatus),
+                                    className: salesStatus === 'hot' ? 'badge-hot' : 'badge-warm'
+                                });
+                            }
+
+                            return (
+                                <div
+                                    key={appt.id}
+                                    className="dt-card dt-card-appt"
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => router.push(`/leads/${appt.leadId}`)}
+                                >
+                                    {/* header */}
+                                    {renderCardHeader(appt.leadName, appt.leadPhone, badges, false)}
+
+                                    {/* meta */}
+                                    {renderDisplayLeadCardInfo(normalizeLeadCardData(appt, 'appt'))}
+                                
+                                    {reschedulingApptId === appt.id ? (
+                                        <div className="dt-reschedule-form" onClick={(e) => e.stopPropagation()}>
+                                            <DatePicker
+                                                value={rescheduleValue}
+                                                onChange={setRescheduleValue}
+                                                showTime={true}
+                                                placeholder="Pilih tanggal & waktu"
+                                            />
+                                            <div className="dt-reschedule-actions">
+                                                <Button
+                                                    variant="primary"
+                                                    onClick={() => void handleSaveReschedule(appt)}
+                                                    disabled={!rescheduleValue}
+                                                >
+                                                    Simpan
+                                                </Button>
+                                                <Button
+                                                    variant="secondary"
+                                                    onClick={(e) => { e.stopPropagation(); setReschedulingApptId(null); }}
+                                                >
+                                                    Batal
+                                                </Button>
                                             </div>
-                                            <span className="badge badge-hot">Mau Survey</span>
                                         </div>
-                                        <div className="dt-meta-grid">
-                                            <div className="dt-meta-item"><IcCalendar /><span>{appt.date} · {appt.time}</span></div>
-                                            <div className="dt-meta-item"><IcPin /><span>{appt.location}</span></div>
-                                            {appt.notes ? <div className="dt-meta-item"><IcClock /><span>{appt.notes}</span></div> : null}
+                                    ) : (
+                                        <div className="dt-appt-actions-wrap" onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '8px' }}>
+                                            <a
+                                                href={toWaLink(appt.leadPhone)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="btn btn-whatsapp"
+                                                style={{ width: '100%', height: '40px', padding: '0 12px', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                                            >
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                                                Chat WhatsApp
+                                            </a>
+                                            <div className="dt-appt-actions">
+                                                <button
+                                                    type="button"
+                                                    className="dt-btn-action btn-sudah-survey"
+                                                    onClick={(e) => { e.stopPropagation(); void handleUpdateAppointmentStatus(appt, 'sudah_survey'); }}
+                                                >
+                                                    Sudah Survey
+                                                </button>
+                                                <div className="dt-appt-actions-row">
+                                                    <button
+                                                        type="button"
+                                                        className="dt-btn-action btn-reschedule"
+                                                        onClick={(e) => handleStartReschedule(e, appt)}
+                                                    >
+                                                        Reschedule
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="dt-btn-action btn-batal-survey"
+                                                        onClick={(e) => { e.stopPropagation(); void handleUpdateAppointmentStatus(appt, 'dibatalkan'); }}
+                                                    >
+                                                         Batal Survey
+                                                     </button>
+                                                </div>
+                                             </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        };
+
+                        return (
+                            <div className="dt-appointments-container">
+                                {grouped.hari_ini.length > 0 && (
+                                    <div className="dt-group-section">
+                                        <h3 className="dt-group-title">Hari ini</h3>
+                                        <div className="dt-task-grid">
+                                            {grouped.hari_ini.map(renderApptCard)}
                                         </div>
                                     </div>
-                                ))}
+                                )}
+                                {grouped.nanti.length > 0 && (
+                                    <div className="dt-group-section">
+                                        <h3 className="dt-group-title">Nanti</h3>
+                                        <div className="dt-task-grid">
+                                            {grouped.nanti.map(renderApptCard)}
+                                        </div>
+                                    </div>
+                                )}
+                                {grouped.terlewat.length > 0 && (
+                                    <div className="dt-group-section">
+                                        <h3 className="dt-group-title">Terlewat</h3>
+                                        <div className="dt-task-grid">
+                                            {grouped.terlewat.map(renderApptCard)}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         );
                     })() : null}
@@ -662,33 +971,70 @@ export default function DailyTaskPage() {
                             ? validatedHot.filter((l) => l.name?.toLowerCase().includes(nameSearch.toLowerCase()))
                             : validatedHot;
                         if (filtered.length === 0) return <DtEmpty variant="no_search" />;
+
+                        const groupLess = [];
+                        const groupMore = [];
+                        filtered.forEach((lead) => {
+                            if (isOlderThan30Days(lead.updatedAt)) {
+                                groupMore.push(lead);
+                            } else {
+                                groupLess.push(lead);
+                            }
+                        });
+
+                        const renderHotCard = (lead) => {
+                            const badges = [
+                                { label: 'HOT', className: 'badge-hot' }
+                            ];
+
+                            return (
+                                <div
+                                    key={lead.id}
+                                    className="dt-card dt-card-hot"
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => router.push(`/leads/${lead.id}`)}
+                                >
+                                    {/* header */}
+                                    {renderCardHeader(lead.name, lead.phone, badges, true)}
+
+                                    {/* meta */}
+                                    {renderDisplayLeadCardInfo(normalizeLeadCardData(lead, 'hot'))}
+
+                                    {/* actions */}
+                                    <div className="dt-hot-actions" onClick={(e) => e.stopPropagation()} style={{ marginTop: '12px' }}>
+                                        <a
+                                            href={toWaLink(lead.phone)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="btn btn-whatsapp"
+                                            style={{ width: '100%', height: '40px', padding: '0 12px', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                                        >
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                                            Chat WhatsApp
+                                        </a>
+                                    </div>
+                                </div>
+                            );
+                        };
+
                         return (
-                            <div className="dt-task-grid">
-                                {filtered.map((lead) => (
-                                    <div
-                                        key={lead.id}
-                                        className="dt-card dt-card-hot"
-                                        style={{ cursor: 'pointer' }}
-                                        onClick={() => router.push(`/leads/${lead.id}`)}
-                                    >
-                                        <div className="dt-card-header">
-                                            <div className="dt-card-name-wrap">
-                                                <div className="dt-card-name-row">
-                                                    <span className="dt-card-name">{lead.name}</span>
-                                                    <VerifiedIcon size={14} className="lc-verified-badge" />
-                                                </div>
-                                                <div className="dt-card-phone">{lead.phone}</div>
-                                            </div>
-                                            <div className="dt-card-badges">
-                                                <span className="badge badge-hot">HOT</span>
-                                            </div>
-                                        </div>
-                                        <div className="dt-meta-grid">
-                                            {lead.source ? <div className="dt-meta-item"><IcPin /><span>{lead.source}</span></div> : null}
-                                            <div className="dt-meta-item"><IcClock /><span>Update {getTimeAgo(lead.updatedAt)}</span></div>
+                            <div className="dt-hot-container">
+                                {groupLess.length > 0 && (
+                                    <div className="dt-group-section">
+                                        <h3 className="dt-group-title">&lt; 1 Bulan</h3>
+                                        <div className="dt-task-grid">
+                                            {groupLess.map(renderHotCard)}
                                         </div>
                                     </div>
-                                ))}
+                                )}
+                                {groupMore.length > 0 && (
+                                    <div className="dt-group-section">
+                                        <h3 className="dt-group-title">&gt; 1 Bulan</h3>
+                                        <div className="dt-task-grid">
+                                            {groupMore.map(renderHotCard)}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         );
                     })() : null}

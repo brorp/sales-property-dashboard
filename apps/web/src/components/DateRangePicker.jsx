@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import './DateRangePicker.css';
 
 const DAY_LABELS = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
@@ -77,12 +78,20 @@ export default function DateRangePicker({ value = {}, onApply, onReset, loading,
 
     const handleOpen = () => {
         if (isOpen) { setIsOpen(false); return; }
-        const rect = triggerRef.current?.getBoundingClientRect();
-        if (rect) {
+        if (typeof window !== 'undefined' && window.innerWidth < 768) {
             const POPOVER_WIDTH = 286;
-            const MARGIN = 8;
-            const left = Math.min(rect.left, window.innerWidth - POPOVER_WIDTH - MARGIN);
-            setPopoverPos({ top: rect.bottom + 8, left: Math.max(MARGIN, left) });
+            const POPOVER_HEIGHT = 380;
+            const left = (window.innerWidth - POPOVER_WIDTH) / 2;
+            const top = (window.innerHeight - POPOVER_HEIGHT) / 2;
+            setPopoverPos({ top, left });
+        } else {
+            const rect = triggerRef.current?.getBoundingClientRect();
+            if (rect) {
+                const POPOVER_WIDTH = 286;
+                const MARGIN = 8;
+                const left = Math.min(rect.left, window.innerWidth - POPOVER_WIDTH - MARGIN);
+                setPopoverPos({ top: rect.bottom + 8, left: Math.max(MARGIN, left) });
+            }
         }
         setDraft({ dateFrom: value.dateFrom || '', dateTo: value.dateTo || '' });
         setCalMonth(startOfMonth(parseDateStr(value.dateFrom) || new Date()));
@@ -120,7 +129,7 @@ export default function DateRangePicker({ value = {}, onApply, onReset, loading,
         <div ref={triggerRef} style={{ display: 'inline-block' }}>
             {trigger?.({ open: handleOpen, isActive })}
 
-            {isOpen ? (
+            {isOpen && typeof document !== 'undefined' ? createPortal(
                 <div ref={popoverRef} className="drp-popover" style={{ position: 'fixed', top: popoverPos.top, left: popoverPos.left }}>
                     <div className="drp">
                         <div className="drp-nav">
@@ -193,7 +202,8 @@ export default function DateRangePicker({ value = {}, onApply, onReset, loading,
                             {loading ? 'Loading...' : 'Terapkan'}
                         </button>
                     </div>
-                </div>
+                </div>,
+                document.body
             ) : null}
         </div>
     );
