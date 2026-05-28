@@ -155,6 +155,15 @@ function toLowerTrimmed(value: string | null | undefined) {
     return String(value || "").trim().toLowerCase();
 }
 
+function isMissingRelationError(error: unknown, relationName: string) {
+    const maybeError = error as { code?: string; message?: string };
+    const message = String(maybeError?.message || "").toLowerCase();
+    return (
+        maybeError?.code === "42P01" ||
+        message.includes(`relation "${relationName}" does not exist`)
+    );
+}
+
 function getJakartaDateParts(now: Date) {
     const shifted = new Date(now.getTime() + JAKARTA_OFFSET_MS);
     return {
@@ -641,36 +650,50 @@ async function loadAnalyticsTeamGroups(scope?: QueryScope) {
         return [];
     }
 
-    const groupRows = await db
-        .select({
-            id: teamGroup.id,
-            clientId: teamGroup.clientId,
-            name: teamGroup.name,
-        })
-        .from(teamGroup)
-        .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(asc(teamGroup.name));
+    let groupRows: Array<{ id: string; clientId: string; name: string }> = [];
+    let memberRows: Array<{ groupId: string; userId: string; role: string; clientId: string | null }> = [];
 
-    if (groupRows.length === 0) {
-        return [];
+    try {
+        groupRows = await db
+            .select({
+                id: teamGroup.id,
+                clientId: teamGroup.clientId,
+                name: teamGroup.name,
+            })
+            .from(teamGroup)
+            .where(conditions.length > 0 ? and(...conditions) : undefined)
+            .orderBy(asc(teamGroup.name));
+
+        if (groupRows.length === 0) {
+            return [];
+        }
+
+        memberRows = await db
+            .select({
+                groupId: teamGroupMember.groupId,
+                userId: user.id,
+                role: user.role,
+                clientId: user.clientId,
+            })
+            .from(teamGroupMember)
+            .innerJoin(user, eq(teamGroupMember.userId, user.id))
+            .where(
+                and(
+                    inArray(teamGroupMember.groupId, groupRows.map((row) => row.id)),
+                    eq(user.isActive, true),
+                    inArray(user.role, ["supervisor", "sales"])
+                )
+            );
+    } catch (error) {
+        if (
+            isMissingRelationError(error, "team_group") ||
+            isMissingRelationError(error, "team_group_member")
+        ) {
+            return [];
+        }
+
+        throw error;
     }
-
-    const memberRows = await db
-        .select({
-            groupId: teamGroupMember.groupId,
-            userId: user.id,
-            role: user.role,
-            clientId: user.clientId,
-        })
-        .from(teamGroupMember)
-        .innerJoin(user, eq(teamGroupMember.userId, user.id))
-        .where(
-            and(
-                inArray(teamGroupMember.groupId, groupRows.map((row) => row.id)),
-                eq(user.isActive, true),
-                inArray(user.role, ["supervisor", "sales"])
-            )
-        );
 
     const supervisorIds = memberRows
         .filter((row) => row.role === "supervisor")
@@ -2112,6 +2135,7 @@ export async function getHomeAnalytics(
                 totalFullBook += 1;
             }
         }
+    }
 
         const teamList = buildTeamList(teamStats);
 
@@ -2493,5 +2517,4 @@ export async function getHomeAnalytics(
             databaseControl,
             lineChart,
         };
-    }
 }
