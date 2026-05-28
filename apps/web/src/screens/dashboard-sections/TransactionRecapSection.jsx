@@ -48,7 +48,7 @@ const PIC_AGENT_STATUS_OPTIONS = [
     { key: 'full_book', label: 'Full Book' },
     { key: 'on_process', label: 'On Process' },
     { key: 'reserve', label: 'Reserve' },
-    { key: 'cancel', label: 'Cancel' },
+    { key: 'cancel_transaksi', label: 'Cancel Transaksi' },
 ];
 
 
@@ -58,7 +58,7 @@ const TRANSACTION_STATUS_OPTIONS = [
     { value: 'full_book', label: 'Full Book' },
     { value: 'on_process', label: 'On Process' },
     { value: 'reserve', label: 'Reserve' },
-    { value: 'cancel', label: 'Cancel' },
+    { value: 'cancel_transaksi', label: 'Cancel Transaksi' },
 ];
 
 const PIC_AGENT_SF_OPTIONS = PIC_AGENT_STATUS_OPTIONS.map((o) => ({ value: o.key, label: o.label }));
@@ -319,7 +319,7 @@ export default function TransactionRecapSection({
                         { key: 'full_book', label: 'Total Full Book', color: 'var(--purple)', value: summaryScope.totalFullBook, filter: 'full_book' },
                         { key: 'on_process', label: 'Total On Process', color: 'var(--primary)', value: summaryScope.totalOnProcess, filter: 'on_process' },
                         { key: 'reserve', label: 'Total Reserve', color: 'var(--text-primary)', value: summaryScope.totalReserve, filter: 'reserve' },
-                        { key: 'cancel', label: 'Total Batal', color: 'var(--danger)', value: summaryScope.totalCancel, filter: 'cancel' },
+                        { key: 'cancel', label: 'Total Batal', color: 'var(--danger)', value: summaryScope.totalCancel, filter: 'cancel_transaksi' },
                     ];
                     const OPTIONAL_KEYS = ['akad', 'on_process', 'reserve'];
                     const visibleItems = ALL_STAT_DEFS.filter((s) => visibleStats.includes(s.key));

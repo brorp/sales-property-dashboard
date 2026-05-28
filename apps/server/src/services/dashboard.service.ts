@@ -1763,7 +1763,7 @@ export async function getHomeAnalytics(
         for (const item of items) {
             const flags = incrementTeamStatsFromLead(statsMap, item);
             if (flags.isAkad) totals.totalClosing += 1;
-            if (flags.isCancel) totals.totalBatal += 1;
+            if (flags.isCancelTransaksi) totals.totalBatal += 1;
             if (flags.isFullBook) totals.totalFullBook += 1;
             if (flags.isHot) totals.totalHot += 1;
             if (flags.isHotValidated) totals.totalHotValidated += 1;
@@ -2076,7 +2076,6 @@ export async function getHomeAnalytics(
                 const reason = item.rejectedReason || "Lainnya";
                 stats.cancelReasons[reason] = (stats.cancelReasons[reason] || 0) + 1;
             } else if (isCancel) {
-                totalBatal += 1;
                 const reason = item.rejectedReason || "Lainnya";
                 stats.cancelReasons[reason] = (stats.cancelReasons[reason] || 0) + 1;
             } else if (isHold) {
