@@ -124,7 +124,7 @@ export default function LeadDetailPage({ leadId }) {
 
     const [showAppt, setShowAppt] = useState(false);
     const [showNote, setShowNote] = useState(false);
-    const [showReassign, setShowReassign] = useState(false);
+
     const [editingAppointment, setEditingAppointment] = useState(null);
     const [note, setNote] = useState('');
     const [appt, setAppt] = useState({
@@ -135,10 +135,8 @@ export default function LeadDetailPage({ leadId }) {
         status: 'mau_survey',
     });
     const [flow2Form, setFlow2Form] = useState({
-        name: '',
         source: '',
         agentOfficeName: '',
-        salesStatus: '',
         domicileCity: '',
         interestUnitId: '',
     });
@@ -164,8 +162,16 @@ export default function LeadDetailPage({ leadId }) {
     const [cancelReasons, setCancelReasons] = useState([]);
     const [cancelReasonsLoading, setCancelReasonsLoading] = useState(false);
     const [activeTab, setActiveTab] = useState('action');
-    const [inlineEdit, setInlineEdit] = useState(false);
+    const [editSales, setEditSales] = useState(false);
+    const [tempSales, setTempSales] = useState('');
+    const [editSourceDomicile, setEditSourceDomicile] = useState(false);
+    const [tempSource, setTempSource] = useState('');
+    const [tempAgentOfficeName, setTempAgentOfficeName] = useState('');
+    const [tempDomicile, setTempDomicile] = useState('');
     const [showInlineAppt, setShowInlineAppt] = useState(false);
+    const [showProspectStatusSheet, setShowProspectStatusSheet] = useState(false);
+    const [editName, setEditName] = useState(false);
+    const [tempName, setTempName] = useState('');
 
     const lead = getLeadById(leadId);
     const salesUsers = getSalesUsers();
@@ -234,10 +240,8 @@ export default function LeadDetailPage({ leadId }) {
         }
 
         setFlow2Form({
-            name: lead.name || '',
             source: lead.source || availableLeadSources[0] || '',
             agentOfficeName: lead.agentOfficeName || '',
-            salesStatus: lead.salesStatus || 'warm',
             domicileCity: lead.domicileCity || '',
             interestUnitId: lead.interestUnitId || '',
         });
@@ -340,6 +344,8 @@ export default function LeadDetailPage({ leadId }) {
     const isLockedByAkad = lead?.resultStatus === 'akad';
     const appointmentTag = lead?.appointmentTag || 'none';
     const canUpdateLayer2 = isAcceptedLead && !isLockedByAkad;
+    const canEditProspectStatus = (isAdmin || (canEditLead && isAcceptedLead)) && !isLockedByAkad;
+    const canEditInterestUnit = (isAdmin || (canEditLead && isAcceptedLead)) && !isLockedByAkad;
     const canUpdateResult = canEditLead && !isLockedByAkad;
     const leadAllowsDelayedStatuses = isOlderThanDays(lead?.createdAt, SALES_STATUS_COLD_OPEN_DAYS);
     const visibleSalesStatuses = SALES_STATUSES.filter((item) => (
@@ -419,45 +425,85 @@ export default function LeadDetailPage({ leadId }) {
 
     const canEditProfile = canEditLead || isAdmin;
 
-    const handleSaveInlineEdit = async () => {
+    const handleSaveSales = async () => {
+        if (!isAdmin) return;
+        const nextSales = tempSales || null;
+        if (nextSales === lead.assignedTo) {
+            setEditSales(false);
+            return;
+        }
+        const message = nextSales
+            ? `Lead berhasil di-assign ke ${getSalesNameById(nextSales)}.`
+            : 'Lead dikembalikan ke Open (tanpa sales).';
+        const ok = await runLeadUpdate({
+            assignedTo: nextSales,
+            activityNote: nextSales
+                ? `Lead diassign ke ${getSalesNameById(nextSales)}`
+                : 'Lead diassign kembali ke Open (tanpa sales)'
+        }, message);
+        if (ok) {
+            setEditSales(false);
+        }
+    };
+
+    const handleSaveSourceDomicile = async () => {
         if (!canEditProfile) return;
-        if (!flow2Form.name || !flow2Form.name.trim()) {
-            setRequestError('Nama Leads wajib diisi.');
+        if (!tempSource) {
+            setRequestError('Sumber lead wajib dipilih.');
             return;
         }
-        if (!flow2Form.source) {
-            setRequestError('Source lead wajib dipilih.');
-            return;
-        }
-        if (isAgentSource(flow2Form.source) && !flow2Form.agentOfficeName.trim()) {
+        if (isAgentSource(tempSource) && !tempAgentOfficeName.trim()) {
             setRequestError('Nama kantor wajib diisi untuk source Agent.');
             return;
         }
-        if (canUpdateLayer2 && !flow2Form.salesStatus) {
-            setRequestError('Sales status wajib dipilih.');
-            return;
-        }
         const payload = {
-            name: flow2Form.name.trim(),
-            source: flow2Form.source,
-            agentOfficeName: isAgentSource(flow2Form.source) ? flow2Form.agentOfficeName : null,
-            domicileCity: flow2Form.domicileCity || null,
+            source: tempSource,
+            agentOfficeName: isAgentSource(tempSource) ? tempAgentOfficeName.trim() : null,
+            domicileCity: tempDomicile || null,
             activityNote: 'Profile info diperbarui',
         };
-        if (canUpdateLayer2) {
-            payload.salesStatus = flow2Form.salesStatus;
-        }
         const ok = await runLeadUpdate(payload, 'Info berhasil disimpan.');
-        if (ok) setInlineEdit(false);
+        if (ok) {
+            setEditSourceDomicile(false);
+        }
     };
 
     const handleInterestUnitChange = async (unitId) => {
-        if (!canEditLead || !canUpdateLayer2) return;
+        if (!canEditInterestUnit) return;
         setFlow2Form((prev) => ({ ...prev, interestUnitId: unitId }));
         await runLeadUpdate({
             interestUnitId: unitId || null,
             activityNote: 'Interest unit diperbarui',
         }, 'Unit berhasil disimpan.');
+    };
+
+    const handleSaveName = async () => {
+        if (!tempName.trim()) {
+            setRequestError('Nama lead tidak boleh kosong.');
+            return;
+        }
+        if (tempName.trim() === lead.name) {
+            setEditName(false);
+            return;
+        }
+        const ok = await runLeadUpdate({
+            name: tempName.trim(),
+            activityNote: `Nama lead diubah menjadi ${tempName.trim()}`
+        }, 'Nama lead berhasil disimpan.');
+        if (ok) {
+            setEditName(false);
+        }
+    };
+
+    const handleUpdateProspectStatus = async (statusKey) => {
+        if (!canEditProspectStatus) return;
+        const ok = await runLeadUpdate({
+            salesStatus: statusKey,
+            activityNote: `Prospect status diperbarui ke ${getSalesStatusLabel(statusKey)}`,
+        }, `Prospect status berhasil diubah.`);
+        if (ok) {
+            setShowProspectStatusSheet(false);
+        }
     };
 
     const handleSaveResult = async (event) => {
@@ -607,58 +653,128 @@ export default function LeadDetailPage({ leadId }) {
         }
     };
 
+    const rightActions = (
+        <div style={{ display: 'flex', gap: '8px' }}>
+            {canDeleteLead ? (
+                <button
+                    className="btn btn-sm btn-danger btn-icon-only ldp-header-btn"
+                    onClick={() => setDeleteLeadState({ open: true, passwordConfirmation: '', submitting: false, error: '' })}
+                    title="Hapus Lead"
+                >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6M14 11v6" />
+                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                    </svg>
+                </button>
+            ) : null}
+            <button
+                className="btn btn-sm btn-secondary btn-icon-only ldp-header-btn"
+                onClick={() => void handleRefresh()}
+                disabled={refreshing}
+                title="Refresh"
+            >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={refreshing ? { animation: 'btnSpin 0.7s linear infinite' } : {}}>
+                    <polyline points="23 4 23 10 17 10" />
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+            </button>
+        </div>
+    );
+
     return (
         <div className="page-container dash-page leads-page">
             <Header
                 title="Detail Lead"
                 showBack
-                rightAction={(
-                    <>
-                        {canDeleteLead ? (
-                            <button
-                                className="btn btn-sm btn-danger btn-icon-only"
-                                onClick={() => setDeleteLeadState({ open: true, passwordConfirmation: '', submitting: false, error: '' })}
-                                title="Hapus Lead"
-                            >
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <polyline points="3 6 5 6 21 6" />
-                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                                    <path d="M10 11v6M14 11v6" />
-                                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                                </svg>
-                            </button>
-                        ) : null}
-                        <button
-                            className="btn btn-sm btn-secondary btn-icon-only"
-                            onClick={() => void handleRefresh()}
-                            disabled={refreshing}
-                            title="Refresh"
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={refreshing ? { animation: 'btnSpin 0.7s linear infinite' } : {}}>
-                                <polyline points="23 4 23 10 17 10" />
-                                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-                            </svg>
-                        </button>
-                    </>
-                )}
+                rightAction={rightActions}
             />
+
+            <div className="ldp-mobile-top">
+                <button className="ldp-mobile-back" onClick={() => router.back()} aria-label="Kembali">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                </button>
+                <span className="ldp-mobile-title">Detail Lead</span>
+                {rightActions}
+            </div>
 
             {/* ── Profile card ─────────────────────────────────── */}
             <div className="ldp-profile-card">
                 <div className="ldp-profile-head">
                     <UserAvatar name={lead.name} size="md" shape="circle" />
                     <div className="ldp-profile-identity">
-                        {inlineEdit ? (
-                            <input
-                                type="text"
-                                className="input-field"
-                                style={{ width: '100%', maxWidth: '280px', padding: '6px 12px', fontSize: '1rem', fontWeight: 600, height: '34px' }}
-                                value={flow2Form.name}
-                                onChange={(e) => setFlow2Form({ ...flow2Form, name: e.target.value })}
-                                placeholder="Nama Leads"
-                            />
+                        {editName ? (
+                            <div className="ldp-edit-name-wrap" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    className="input-field ldp-name-edit-input"
+                                    style={{ width: '100%', maxWidth: '240px', padding: '6px 12px', fontSize: '1rem', fontWeight: 600, height: '34px' }}
+                                    value={tempName}
+                                    onChange={(e) => setTempName(e.target.value)}
+                                    placeholder="Nama Leads"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            void handleSaveName();
+                                        } else if (e.key === 'Escape') {
+                                            setEditName(false);
+                                        }
+                                    }}
+                                    onBlur={(e) => {
+                                        if (e.relatedTarget && e.relatedTarget.classList.contains('ldp-cancel-name-btn')) {
+                                            return;
+                                        }
+                                        void handleSaveName();
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    className="btn btn-sm btn-primary ldp-save-name-btn"
+                                    onClick={() => void handleSaveName()}
+                                    title="Simpan"
+                                    style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '6px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-sm btn-secondary ldp-cancel-name-btn"
+                                    onClick={() => setEditName(false)}
+                                    title="Batal"
+                                    style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '6px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </button>
+                            </div>
                         ) : (
-                            <h1 className="ldp-name">{lead.name}</h1>
+                            <h1 className="ldp-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {lead.name}
+                                {canEditProfile && (
+                                    <button
+                                        type="button"
+                                        className="ldp-edit-name-icon-btn"
+                                        onClick={() => {
+                                            setTempName(lead.name || '');
+                                            setEditName(true);
+                                        }}
+                                        title="Edit Nama"
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--text-muted)' }}
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </h1>
                         )}
                         <div className="ldp-status-row">
                             <span className={`badge ${getStatusBadgeClass('flow', effectiveFlowStatus)}`}>{getFlowStatusLabel(effectiveFlowStatus)}</span>
@@ -668,10 +784,76 @@ export default function LeadDetailPage({ leadId }) {
                     </div>
                 </div>
 
-                <div className="ldp-info-grid">
+                <div className={`ldp-info-grid ${editSales ? 'is-editing-sales' : ''}`}>
                     <div className="ldp-info-item">
                         <span className="ldp-info-label">WhatsApp</span>
                         <span className="ldp-info-value">{lead.phone}</span>
+                    </div>
+                    <div className="ldp-info-item">
+                        <span className="ldp-info-label">Sales</span>
+                        <span className="ldp-info-value">
+                            {editSales ? (
+                                <div className="ldp-edit-inline-wrap" style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+                                    <div style={{ flex: 1, maxWidth: '240px' }}>
+                                        <SelectFilter
+                                            options={[
+                                                { value: '', label: 'Open (tanpa sales)' },
+                                                ...salesUsers.map((s) => ({ value: s.id, label: s.name }))
+                                            ]}
+                                            value={tempSales}
+                                            onChange={(val) => setTempSales(val)}
+                                            placeholder="Pilih Sales"
+                                            clearable={false}
+                                            searchable
+                                        />
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-primary ldp-save-sales-btn"
+                                        onClick={() => void handleSaveSales()}
+                                        title="Simpan"
+                                        style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '6px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    >
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="20 6 9 17 4 12" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-secondary ldp-cancel-sales-btn"
+                                        onClick={() => setEditSales(false)}
+                                        title="Batal"
+                                        style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '6px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    >
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="18" y1="6" x2="6" y2="18" />
+                                            <line x1="6" y1="6" x2="18" y2="18" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    {getSalesNameById(lead.assignedTo)}
+                                    {isAdmin && (
+                                        <button
+                                            type="button"
+                                            className="ldp-edit-name-icon-btn"
+                                            onClick={() => {
+                                                setTempSales(lead.assignedTo || '');
+                                                setEditSales(true);
+                                            }}
+                                            title="Assign Sales"
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--text-muted)' }}
+                                        >
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                            </svg>
+                                        </button>
+                                    )}
+                                </>
+                            )}
+                        </span>
                     </div>
                     <div className="ldp-info-item">
                         <span className="ldp-info-label">Tanggal Masuk</span>
@@ -683,99 +865,115 @@ export default function LeadDetailPage({ leadId }) {
                             <span className="ldp-info-value">{formatExactDateTime(lead.acceptedAt)}</span>
                         </div>
                     ) : null}
-                    <div className="ldp-info-item">
-                        <span className="ldp-info-label">Sales</span>
-                        <span className="ldp-info-value">
-                            {getSalesNameById(lead.assignedTo)}
-                            {canAdminAssignOpenLead ? (
-                                <button className="ldp-reassign-btn" onClick={() => setShowReassign(true)}>Ubah</button>
-                            ) : null}
-                        </span>
-                    </div>
                 </div>
 
-                {/* Inline edit: Sumber Leads + Domisili + Prospect Status */}
+                {/* Inline edit: Sumber Leads + Domisili */}
                 <div className="ldp-editable-row">
-                    <div className="ldp-editable-row-head">
+                    <div className="ldp-editable-row-head" style={{ alignItems: 'center' }}>
                         <div className="ldp-editable-pairs">
                             <div className="ldp-editable-pair">
                                 <span className="ldp-info-label">Sumber Leads</span>
-                                {inlineEdit ? (
-                                    <SelectFilter
-                                        options={availableLeadSources.map((s) => ({ value: s, label: s }))}
-                                        value={flow2Form.source}
-                                        onChange={(next) => setFlow2Form({ ...flow2Form, source: next, agentOfficeName: isAgentSource(next) ? flow2Form.agentOfficeName : '' })}
-                                        placeholder={availableLeadSources.length === 0 ? 'Belum tersedia' : 'Pilih sumber'}
-                                        disabled={availableLeadSources.length === 0}
-                                        clearable={false}
-                                    />
+                                {editSourceDomicile ? (
+                                    <div className="ldp-edit-inline-wrap" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                        <div style={{ minWidth: '140px' }}>
+                                            <SelectFilter
+                                                options={availableLeadSources.map((s) => ({ value: s, label: s }))}
+                                                value={tempSource}
+                                                onChange={(next) => {
+                                                    setTempSource(next);
+                                                    if (!isAgentSource(next)) {
+                                                        setTempAgentOfficeName('');
+                                                    }
+                                                }}
+                                                placeholder={availableLeadSources.length === 0 ? 'Belum tersedia' : 'Pilih sumber'}
+                                                disabled={availableLeadSources.length === 0}
+                                                clearable={false}
+                                            />
+                                        </div>
+                                        {isAgentSource(tempSource) && (
+                                            <input
+                                                type="text"
+                                                className="input-field"
+                                                style={{ width: '120px', padding: '6px 10px', fontSize: '0.8125rem', height: '34px', margin: 0 }}
+                                                value={tempAgentOfficeName}
+                                                onChange={(e) => setTempAgentOfficeName(e.target.value)}
+                                                placeholder="Nama kantor agent"
+                                            />
+                                        )}
+                                    </div>
                                 ) : (
                                     <span className="ldp-info-value">{lead.source || '-'}{lead.agentOfficeName ? ` · ${lead.agentOfficeName}` : ''}</span>
                                 )}
                             </div>
                             <div className="ldp-editable-pair">
                                 <span className="ldp-info-label">Domisili</span>
-                                {inlineEdit ? (
-                                    <SelectFilter
-                                        options={INDONESIA_CITIES.map((city) => ({ value: city, label: city }))}
-                                        value={flow2Form.domicileCity}
-                                        onChange={(val) => setFlow2Form({ ...flow2Form, domicileCity: val })}
-                                        placeholder="Pilih kota"
-                                        clearable
-                                        searchable
-                                    />
+                                {editSourceDomicile ? (
+                                    <div style={{ minWidth: '140px' }}>
+                                        <SelectFilter
+                                            options={INDONESIA_CITIES.map((city) => ({ value: city, label: city }))}
+                                            value={tempDomicile}
+                                            onChange={(val) => setTempDomicile(val)}
+                                            placeholder="Pilih kota"
+                                            clearable
+                                            searchable
+                                        />
+                                    </div>
                                 ) : (
                                     <span className="ldp-info-value">{lead.domicileCity || '-'}</span>
                                 )}
                             </div>
-                            <div className="ldp-editable-pair">
-                                <span className="ldp-info-label">Prospect Status</span>
-                                {inlineEdit ? (
-                                    <SelectFilter
-                                        options={visibleSalesStatuses.map((item) => ({ value: item.key, label: item.label }))}
-                                        value={flow2Form.salesStatus}
-                                        onChange={(val) => setFlow2Form({ ...flow2Form, salesStatus: val })}
-                                        placeholder="Pilih status"
-                                        disabled={!canUpdateLayer2}
-                                        clearable={false}
-                                    />
+                        </div>
+
+                        {canEditProfile && (
+                            <div className="ldp-row-action-wrap">
+                                {editSourceDomicile ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm btn-primary ldp-save-sourcedomicile-btn"
+                                            onClick={() => void handleSaveSourceDomicile()}
+                                            title="Simpan"
+                                            style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '6px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        >
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="20 6 9 17 4 12" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm btn-secondary ldp-cancel-sourcedomicile-btn"
+                                            onClick={() => setEditSourceDomicile(false)}
+                                            title="Batal"
+                                            style={{ width: '28px', height: '28px', minWidth: '28px', borderRadius: '6px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        >
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <line x1="18" y1="6" x2="6" y2="18" />
+                                                <line x1="6" y1="6" x2="18" y2="18" />
+                                            </svg>
+                                        </button>
+                                    </div>
                                 ) : (
-                                    <span className="ldp-info-value">
-                                        {lead.salesStatus
-                                            ? <span className={`badge ${getStatusBadgeClass('sales', lead.salesStatus)}`}>{getSalesStatusLabel(lead.salesStatus)}</span>
-                                            : '-'}
-                                    </span>
+                                    <button
+                                        type="button"
+                                        className="ldp-edit-name-icon-btn"
+                                        onClick={() => {
+                                            setTempSource(lead.source || '');
+                                            setTempAgentOfficeName(lead.agentOfficeName || '');
+                                            setTempDomicile(lead.domicileCity || '');
+                                            setEditSourceDomicile(true);
+                                        }}
+                                        title="Edit Sumber & Domisili"
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', color: 'var(--text-muted)' }}
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                        </svg>
+                                    </button>
                                 )}
                             </div>
-                        </div>
-                        {canEditProfile ? (
-                            <button type="button" className="ldp-inline-edit-btn" onClick={() => setInlineEdit((prev) => !prev)} title={inlineEdit ? 'Tutup' : 'Edit'}>
-                                {inlineEdit
-                                    ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                                    : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                }
-                            </button>
-                        ) : null}
+                        )}
                     </div>
-                    {inlineEdit ? (
-                        <div className="ldp-inline-form-fields">
-                            {isAgentSource(flow2Form.source) ? (
-                                <div className="input-group" style={{ marginBottom: 0 }}>
-                                    <label>Nama Kantor Agent</label>
-                                    <input type="text" className="input-field" value={flow2Form.agentOfficeName} onChange={(event) => setFlow2Form({ ...flow2Form, agentOfficeName: event.target.value })} placeholder="Nama kantor agent" />
-                                </div>
-                            ) : null}
-                            {canUpdateLayer2 && !leadAllowsDelayedStatuses ? (
-                                <p className="ldp-inline-hint">Cold & No Response terbuka setelah {SALES_STATUS_COLD_OPEN_DAYS} hari.</p>
-                            ) : null}
-                        </div>
-                    ) : null}
-                    {inlineEdit ? (
-                        <div className="ldp-inline-form-actions">
-                            <Button size="sm" variant="primary" onClick={() => void handleSaveInlineEdit()}>Simpan</Button>
-                            <Button size="sm" variant="ghost" onClick={() => setInlineEdit(false)}>Batal</Button>
-                        </div>
-                    ) : null}
                 </div>
 
                 {lead.manualNote ? (
@@ -798,10 +996,18 @@ export default function LeadDetailPage({ leadId }) {
                 ) : null}
 
                 <div className="ldp-card-actions">
-                    <a href={toWaLink(lead.phone)} target="_blank" rel="noopener noreferrer" className="btn btn-whatsapp" style={{ flex: 1 }}>
+                    <a href={toWaLink(lead.phone)} target="_blank" rel="noopener noreferrer" className="btn btn-whatsapp">
                         Chat WhatsApp
                     </a>
-                    <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setNote(lead.manualNote || ''); setShowNote(true); }} disabled={!canEditLead}>
+                    <button
+                        type="button"
+                        className={`btn ldp-status-action-btn is-${lead.salesStatus || 'none'}`}
+                        onClick={() => setShowProspectStatusSheet(true)}
+                        disabled={!canEditProspectStatus}
+                    >
+                        Prospect Status : {lead.salesStatus ? getSalesStatusLabel(lead.salesStatus) : 'Belum Diisi'}
+                    </button>
+                    <button className="btn btn-secondary" onClick={() => { setNote(lead.manualNote || ''); setShowNote(true); }} disabled={!canEditProfile}>
                         {lead.manualNote ? 'Ubah Catatan' : 'Tambah Catatan'}
                     </button>
                 </div>
@@ -821,7 +1027,7 @@ export default function LeadDetailPage({ leadId }) {
                         {/* Product / Interest unit */}
                         <div className="ldp-action-card">
                             <h4 className="ldp-action-card-title">Product</h4>
-                            <select className="input-field" value={flow2Form.interestUnitId} onChange={(event) => void handleInterestUnitChange(event.target.value)} disabled={!canEditLead || !canUpdateLayer2 || unitsLoading}>
+                            <select className="input-field" value={flow2Form.interestUnitId} onChange={(event) => void handleInterestUnitChange(event.target.value)} disabled={!canEditInterestUnit || unitsLoading}>
                                 <option value="">{unitsLoading ? 'Loading unit...' : 'Pilih tipe unit'}</option>
                                 {unitOptions.map((item) => <option key={item.id} value={item.id}>{item.projectType} - {item.unitName}</option>)}
                             </select>
@@ -1120,40 +1326,7 @@ export default function LeadDetailPage({ leadId }) {
                 </div>
             ) : null}
 
-            {showReassign && canAdminAssignOpenLead ? (
-                <div className="sheet-overlay" onClick={(event) => { if (event.target === event.currentTarget) setShowReassign(false); }}>
-                    <div className="bottom-sheet">
-                        <div className="sheet-handle" />
-                        <h2>Assign ke Sales</h2>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            <button
-                                className={`btn ${!lead.assignedTo ? 'btn-primary' : 'btn-secondary'} btn-full`}
-                                onClick={() => {
-                                    void runLeadUpdate({ assignedTo: null }, 'Lead dikembalikan ke Open.');
-                                    setShowReassign(false);
-                                }}
-                            >
-                                Open (tanpa sales)
-                            </button>
-                            {salesUsers.map((sales) => (
-                                <button
-                                    key={sales.id}
-                                    className={`btn ${sales.id === lead.assignedTo ? 'btn-primary' : 'btn-secondary'} btn-full`}
-                                    onClick={() => {
-                                        void runLeadUpdate({ assignedTo: sales.id }, `Lead berhasil di-assign ke ${sales.name}.`);
-                                        setShowReassign(false);
-                                    }}
-                                >
-                                    {sales.name} {sales.id === lead.assignedTo ? '✓' : ''}
-                                </button>
-                            ))}
-                            <button className="btn btn-secondary btn-full" onClick={() => setShowReassign(false)} style={{ marginTop: 8 }}>
-                                Batal
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
+
 
             {deleteLeadState.open ? (
                 <div className="sheet-overlay" onClick={(event) => {
@@ -1203,6 +1376,37 @@ export default function LeadDetailPage({ leadId }) {
                                 disabled={deleteLeadState.submitting}
                             >
                                 {deleteLeadState.submitting ? 'Menghapus...' : 'Ya, Hapus Lead'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {showProspectStatusSheet && canEditProspectStatus ? (
+                <div className="sheet-overlay" onClick={(event) => { if (event.target === event.currentTarget) setShowProspectStatusSheet(false); }}>
+                    <div className="bottom-sheet">
+                        <div className="sheet-handle" />
+                        <h2>Pilih Prospect Status</h2>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+                            {visibleSalesStatuses.map((item) => {
+                                let statusClass = 'is-neutral';
+                                if (item.key === 'hot') statusClass = 'is-hot';
+                                else if (item.key === 'warm') statusClass = 'is-warm';
+                                else if (['cold', 'no_response'].includes(item.key)) statusClass = 'is-cold';
+
+                                return (
+                                    <button
+                                        key={item.key}
+                                        type="button"
+                                        className={`btn btn-full ldp-status-option-btn ${statusClass}`}
+                                        onClick={() => void handleUpdateProspectStatus(item.key)}
+                                    >
+                                        {item.label} {item.key === lead.salesStatus ? '✓' : ''}
+                                    </button>
+                                );
+                            })}
+                            <button type="button" className="btn btn-secondary btn-full" onClick={() => setShowProspectStatusSheet(false)} style={{ marginTop: 8 }}>
+                                Batal
                             </button>
                         </div>
                     </div>
