@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
@@ -108,6 +111,63 @@ function buildCustomerPipelineRows(lead) {
     });
 }
 
+const sourceDomicileSchema = z.object({
+    source: z.string().min(1, 'Sumber lead wajib dipilih.'),
+    agentOfficeName: z.string().optional(),
+    domicileCity: z.string().optional().nullable(),
+}).superRefine((data, ctx) => {
+    if (isAgentSource(data.source)) {
+        if (!data.agentOfficeName || !data.agentOfficeName.trim()) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Nama kantor wajib diisi.',
+                path: ['agentOfficeName'],
+            });
+        }
+    }
+});
+
+const transactionSchema = z.object({
+    resultStatus: z.string().min(1, 'Status transaksi wajib dipilih.'),
+    unitName: z.string().optional(),
+    unitDetail: z.string().optional(),
+    paymentMethod: z.string().optional(),
+    rejectedReason: z.string().optional(),
+    rejectedNote: z.string().optional(),
+}).superRefine((data, ctx) => {
+    if (data.resultStatus === 'akad') {
+        if (!data.unitName || !data.unitName.trim()) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Nama unit wajib diisi.',
+                path: ['unitName'],
+            });
+        }
+        if (!data.unitDetail || !data.unitDetail.trim()) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Detail unit wajib diisi.',
+                path: ['unitDetail'],
+            });
+        }
+        if (!data.paymentMethod || !data.paymentMethod.trim()) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Cara bayar wajib diisi.',
+                path: ['paymentMethod'],
+            });
+        }
+    } else if (isCancelResultStatus(data.resultStatus)) {
+        if (!data.rejectedReason || !data.rejectedReason.trim()) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Alasan cancel wajib dipilih.',
+                path: ['rejectedReason'],
+            });
+        }
+    }
+});
+
 export default function LeadDetailPage({ leadId }) {
     const { user, isAdmin } = useAuth();
     const {
@@ -137,24 +197,9 @@ export default function LeadDetailPage({ leadId }) {
         notes: '',
         status: 'mau_survey',
     });
-    const [flow2Form, setFlow2Form] = useState({
-        source: '',
-        agentOfficeName: '',
-        domicileCity: '',
-        interestUnitId: '',
-    });
-    const [resultForm, setResultForm] = useState({
-        resultStatus: '',
-        unitName: '',
-        unitDetail: '',
-        paymentMethod: '',
-        rejectedReason: '',
-        rejectedNote: '',
-    });
+    const [interestUnitId, setInterestUnitId] = useState('');
     const [requestError, setRequestError] = useState('');
     const [nameError, setNameError] = useState('');
-    const [profileErrors, setProfileErrors] = useState({});
-    const [transactionErrors, setTransactionErrors] = useState({});
     const [refreshing, setRefreshing] = useState(false);
     const [deleteLeadState, setDeleteLeadState] = useState({
         open: false,
@@ -170,13 +215,48 @@ export default function LeadDetailPage({ leadId }) {
     const [editSales, setEditSales] = useState(false);
     const [tempSales, setTempSales] = useState('');
     const [editSourceDomicile, setEditSourceDomicile] = useState(false);
-    const [tempSource, setTempSource] = useState('');
-    const [tempAgentOfficeName, setTempAgentOfficeName] = useState('');
-    const [tempDomicile, setTempDomicile] = useState('');
     const [showInlineAppt, setShowInlineAppt] = useState(false);
     const [showProspectStatusSheet, setShowProspectStatusSheet] = useState(false);
     const [editName, setEditName] = useState(false);
     const [tempName, setTempName] = useState('');
+
+    const {
+        register: registerSource,
+        handleSubmit: handleSubmitSource,
+        control: controlSource,
+        formState: { errors: sourceErrors },
+        reset: resetSource,
+        watch: watchSource,
+    } = useForm({
+        resolver: zodResolver(sourceDomicileSchema),
+        defaultValues: {
+            source: '',
+            agentOfficeName: '',
+            domicileCity: '',
+        }
+    });
+
+    const {
+        register: registerResult,
+        handleSubmit: handleSubmitResult,
+        control: controlResult,
+        formState: { errors: resultErrors },
+        reset: resetResult,
+        watch: watchResult,
+    } = useForm({
+        resolver: zodResolver(transactionSchema),
+        defaultValues: {
+            resultStatus: '',
+            unitName: '',
+            unitDetail: '',
+            paymentMethod: '',
+            rejectedReason: '',
+            rejectedNote: '',
+        }
+    });
+
+    const watchedSource = watchSource('source');
+    const watchedResultStatus = watchResult('resultStatus');
 
     const lead = getLeadById(leadId);
     const salesUsers = getSalesUsers();
@@ -244,13 +324,13 @@ export default function LeadDetailPage({ leadId }) {
             return;
         }
 
-        setFlow2Form({
+        setInterestUnitId(lead.interestUnitId || '');
+        resetSource({
             source: lead.source || availableLeadSources[0] || '',
             agentOfficeName: lead.agentOfficeName || '',
             domicileCity: lead.domicileCity || '',
-            interestUnitId: lead.interestUnitId || '',
         });
-        setResultForm({
+        resetResult({
             resultStatus: normalizeResultStatusForForm(lead.resultStatus),
             unitName: lead.unitName || '',
             unitDetail: lead.unitDetail || '',
@@ -258,7 +338,7 @@ export default function LeadDetailPage({ leadId }) {
             rejectedReason: lead.rejectedReason || '',
             rejectedNote: lead.rejectedNote || '',
         });
-    }, [availableLeadSources, lead]);
+    }, [availableLeadSources, lead, resetSource, resetResult]);
 
     useEffect(() => {
         let cancelled = false;
@@ -356,7 +436,6 @@ export default function LeadDetailPage({ leadId }) {
     const visibleSalesStatuses = SALES_STATUSES.filter((item) => (
         leadAllowsDelayedStatuses ||
         !['cold', 'no_response'].includes(item.key) ||
-        item.key === flow2Form.salesStatus ||
         item.key === lead?.salesStatus
     ));
     const customerPipelineRows = useMemo(() => buildCustomerPipelineRows(lead), [lead]);
@@ -447,24 +526,12 @@ export default function LeadDetailPage({ leadId }) {
         }
     };
 
-    const handleSaveSourceDomicile = async () => {
-        setProfileErrors({});
+    const handleSaveSourceDomicile = async (data) => {
         if (!canEditProfile) return;
-        const errors = {};
-        if (!tempSource) {
-            errors.source = 'Sumber lead wajib dipilih.';
-        }
-        if (isAgentSource(tempSource) && !tempAgentOfficeName.trim()) {
-            errors.agentOfficeName = 'Nama kantor wajib diisi.';
-        }
-        if (Object.keys(errors).length > 0) {
-            setProfileErrors(errors);
-            return;
-        }
         const payload = {
-            source: tempSource,
-            agentOfficeName: isAgentSource(tempSource) ? tempAgentOfficeName.trim() : null,
-            domicileCity: tempDomicile || null,
+            source: data.source,
+            agentOfficeName: isAgentSource(data.source) ? data.agentOfficeName?.trim() || null : null,
+            domicileCity: data.domicileCity || null,
             activityNote: 'Profile info diperbarui',
         };
         const ok = await runLeadUpdate(payload, 'Info berhasil disimpan.');
@@ -475,7 +542,7 @@ export default function LeadDetailPage({ leadId }) {
 
     const handleInterestUnitChange = async (unitId) => {
         if (!canEditInterestUnit) return;
-        setFlow2Form((prev) => ({ ...prev, interestUnitId: unitId }));
+        setInterestUnitId(unitId);
         await runLeadUpdate({
             interestUnitId: unitId || null,
             activityNote: 'Interest unit diperbarui',
@@ -512,59 +579,33 @@ export default function LeadDetailPage({ leadId }) {
         }
     };
 
-    const handleSaveResult = async (event) => {
-        event.preventDefault();
-        setTransactionErrors({});
+    const handleSaveResult = async (data) => {
         if (!canEditLead) {
             return;
         }
-        const errors = {};
-        if (!resultForm.resultStatus) {
-            errors.resultStatus = 'Status transaksi wajib dipilih.';
-        }
-        if (resultForm.resultStatus === 'akad') {
-            if (!resultForm.unitName) {
-                errors.unitName = 'Nama unit wajib diisi.';
-            }
-            if (!resultForm.unitDetail) {
-                errors.unitDetail = 'Detail unit wajib diisi.';
-            }
-            if (!resultForm.paymentMethod) {
-                errors.paymentMethod = 'Cara bayar wajib diisi.';
-            }
-        }
-        if (isCancelResultStatus(resultForm.resultStatus)) {
-            if (!resultForm.rejectedReason) {
-                errors.rejectedReason = 'Alasan cancel wajib dipilih.';
-            }
-        }
-        if (Object.keys(errors).length > 0) {
-            setTransactionErrors(errors);
-            return;
-        }
 
-        if (resultForm.resultStatus === 'akad') {
+        if (data.resultStatus === 'akad') {
             await runLeadUpdate({
                 resultStatus: 'akad',
-                unitName: resultForm.unitName,
-                unitDetail: resultForm.unitDetail,
-                paymentMethod: resultForm.paymentMethod,
+                unitName: data.unitName,
+                unitDetail: data.unitDetail,
+                paymentMethod: data.paymentMethod,
             }, 'Result status berhasil diubah ke Akad.');
             return;
         }
 
-        if (isCancelResultStatus(resultForm.resultStatus)) {
+        if (isCancelResultStatus(data.resultStatus)) {
             await runLeadUpdate({
-                resultStatus: resultForm.resultStatus,
-                rejectedReason: resultForm.rejectedReason,
-                rejectedNote: resultForm.rejectedNote.trim() || null,
-            }, `Result status berhasil diubah ke ${getResultStatusLabel(resultForm.resultStatus)}. Status L2 otomatis menjadi Skip.`);
+                resultStatus: data.resultStatus,
+                rejectedReason: data.rejectedReason,
+                rejectedNote: data.rejectedNote?.trim() || null,
+            }, `Result status berhasil diubah ke ${getResultStatusLabel(data.resultStatus)}. Status L2 otomatis menjadi Skip.`);
             return;
         }
 
         await runLeadUpdate({
-            resultStatus: resultForm.resultStatus,
-        }, `Result status berhasil diubah ke ${getResultStatusLabel(resultForm.resultStatus)}.`);
+            resultStatus: data.resultStatus,
+        }, `Result status berhasil diubah ke ${getResultStatusLabel(data.resultStatus)}.`);
     };
 
     const handleAddNote = async (event) => {
@@ -917,39 +958,39 @@ export default function LeadDetailPage({ leadId }) {
 
                 {/* Inline edit: Sumber Leads + Domisili */}
                 <div className="ldp-editable-row">
-                    <div className="ldp-editable-row-head" style={{ alignItems: 'center' }}>
+                    <form onSubmit={handleSubmitSource(handleSaveSourceDomicile)} className="ldp-editable-row-head" style={{ alignItems: 'center', display: 'flex', justifyContent: 'space-between', width: '100%', border: 'none', padding: 0, margin: 0, background: 'none' }}>
                         <div className="ldp-editable-pairs">
                             <div className="ldp-editable-pair">
                                 <span className="ldp-info-label">Sumber Leads</span>
                                 {editSourceDomicile ? (
                                     <div className="ldp-edit-inline-wrap" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                                         <div style={{ minWidth: '140px' }}>
-                                            <SelectFilter
-                                                options={availableLeadSources.map((s) => ({ value: s, label: s }))}
-                                                value={tempSource}
-                                                onChange={(next) => {
-                                                    setTempSource(next);
-                                                    if (!isAgentSource(next)) {
-                                                        setTempAgentOfficeName('');
-                                                    }
-                                                }}
-                                                placeholder={availableLeadSources.length === 0 ? 'Belum tersedia' : 'Pilih sumber'}
-                                                disabled={availableLeadSources.length === 0}
-                                                clearable={false}
+                                            <Controller
+                                                name="source"
+                                                control={controlSource}
+                                                render={({ field }) => (
+                                                    <SelectFilter
+                                                        options={availableLeadSources.map((s) => ({ value: s, label: s }))}
+                                                        value={field.value}
+                                                        onChange={field.onChange}
+                                                        placeholder={availableLeadSources.length === 0 ? 'Belum tersedia' : 'Pilih sumber'}
+                                                        disabled={availableLeadSources.length === 0}
+                                                        clearable={false}
+                                                    />
+                                                )}
                                             />
-                                            {profileErrors.source && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{profileErrors.source}</div>}
+                                            {sourceErrors.source && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{sourceErrors.source.message}</div>}
                                         </div>
-                                        {isAgentSource(tempSource) && (
+                                        {isAgentSource(watchedSource) && (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                 <input
                                                     type="text"
                                                     className="input-field"
                                                     style={{ width: '120px', padding: '6px 10px', fontSize: '0.8125rem', height: '38px', margin: 0 }}
-                                                    value={tempAgentOfficeName}
-                                                    onChange={(e) => setTempAgentOfficeName(e.target.value)}
                                                     placeholder="Nama kantor agent"
+                                                    {...registerSource('agentOfficeName')}
                                                 />
-                                                {profileErrors.agentOfficeName && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 500 }}>{profileErrors.agentOfficeName}</div>}
+                                                {sourceErrors.agentOfficeName && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 500 }}>{sourceErrors.agentOfficeName.message}</div>}
                                             </div>
                                         )}
                                     </div>
@@ -961,13 +1002,19 @@ export default function LeadDetailPage({ leadId }) {
                                 <span className="ldp-info-label">Domisili</span>
                                 {editSourceDomicile ? (
                                     <div style={{ minWidth: '140px' }}>
-                                        <SelectFilter
-                                            options={INDONESIA_CITIES.map((city) => ({ value: city, label: city }))}
-                                            value={tempDomicile}
-                                            onChange={(val) => setTempDomicile(val)}
-                                            placeholder="Pilih kota"
-                                            clearable
-                                            searchable
+                                        <Controller
+                                            name="domicileCity"
+                                            control={controlSource}
+                                            render={({ field }) => (
+                                                <SelectFilter
+                                                    options={INDONESIA_CITIES.map((city) => ({ value: city, label: city }))}
+                                                    value={field.value || ''}
+                                                    onChange={field.onChange}
+                                                    placeholder="Pilih kota"
+                                                    clearable
+                                                    searchable
+                                                />
+                                            )}
                                         />
                                     </div>
                                 ) : (
@@ -981,9 +1028,8 @@ export default function LeadDetailPage({ leadId }) {
                                 {editSourceDomicile ? (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <button
-                                            type="button"
+                                            type="submit"
                                             className="btn btn-sm btn-primary ldp-save-sourcedomicile-btn"
-                                            onClick={() => void handleSaveSourceDomicile()}
                                             title="Simpan"
                                             style={{ width: '38px', height: '38px', minWidth: '38px', borderRadius: '8px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         >
@@ -994,7 +1040,10 @@ export default function LeadDetailPage({ leadId }) {
                                         <button
                                             type="button"
                                             className="btn btn-sm btn-secondary ldp-cancel-sourcedomicile-btn"
-                                            onClick={() => setEditSourceDomicile(false)}
+                                            onClick={() => {
+                                                resetSource();
+                                                setEditSourceDomicile(false);
+                                            }}
                                             title="Batal"
                                             style={{ width: '38px', height: '38px', minWidth: '38px', borderRadius: '8px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                         >
@@ -1009,9 +1058,11 @@ export default function LeadDetailPage({ leadId }) {
                                         type="button"
                                         className="ldp-edit-name-icon-btn"
                                         onClick={() => {
-                                            setTempSource(lead.source || '');
-                                            setTempAgentOfficeName(lead.agentOfficeName || '');
-                                            setTempDomicile(lead.domicileCity || '');
+                                            resetSource({
+                                                source: lead.source || availableLeadSources[0] || '',
+                                                agentOfficeName: lead.agentOfficeName || '',
+                                                domicileCity: lead.domicileCity || '',
+                                            });
                                             setEditSourceDomicile(true);
                                         }}
                                         title="Edit Sumber & Domisili"
@@ -1025,7 +1076,7 @@ export default function LeadDetailPage({ leadId }) {
                                 )}
                             </div>
                         )}
-                    </div>
+                    </form>
                 </div>
 
                 {lead.manualNote ? (
@@ -1078,10 +1129,15 @@ export default function LeadDetailPage({ leadId }) {
                         {/* Product / Interest unit */}
                         <div className="ldp-action-card">
                             <h4 className="ldp-action-card-title">Product</h4>
-                            <select className="input-field" value={flow2Form.interestUnitId} onChange={(event) => void handleInterestUnitChange(event.target.value)} disabled={!canEditInterestUnit || unitsLoading}>
-                                <option value="">{unitsLoading ? 'Loading unit...' : 'Pilih tipe unit'}</option>
-                                {unitOptions.map((item) => <option key={item.id} value={item.id}>{item.projectType} - {item.unitName}</option>)}
-                            </select>
+                            <SelectFilter
+                                options={unitOptions.map((item) => ({ value: item.id, label: `${item.projectType} - ${item.unitName}` }))}
+                                value={interestUnitId}
+                                onChange={(val) => void handleInterestUnitChange(val)}
+                                placeholder={unitsLoading ? 'Loading unit...' : 'Pilih tipe unit'}
+                                disabled={!canEditInterestUnit || unitsLoading}
+                                clearable={true}
+                                searchable={true}
+                            />
                             {lead.interestProjectType && lead.interestUnitName ? (
                                 <p className="ldp-inline-hint" style={{ marginTop: 6 }}>{lead.interestProjectType} – {lead.interestUnitName}</p>
                             ) : null}
@@ -1196,54 +1252,66 @@ export default function LeadDetailPage({ leadId }) {
                             {isLockedByAkad ? (
                                 <div className="ldp-alert ldp-alert-error" style={{ marginBottom: 12 }}>Lead terkunci — sudah mencapai status Akad.</div>
                             ) : null}
-                            <form onSubmit={handleSaveResult} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <form onSubmit={handleSubmitResult(handleSaveResult)} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 <div className="input-group">
-                                    <SelectFilter
-                                        options={RESULT_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
-                                        value={resultForm.resultStatus}
-                                        onChange={(val) => setResultForm({ ...resultForm, resultStatus: val })}
-                                        placeholder="Pilih status transaksi"
-                                        disabled={!canUpdateResult}
-                                        clearable={false}
+                                    <Controller
+                                        name="resultStatus"
+                                        control={controlResult}
+                                        render={({ field }) => (
+                                            <SelectFilter
+                                                options={RESULT_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                placeholder="Pilih status transaksi"
+                                                disabled={!canUpdateResult}
+                                                clearable={false}
+                                            />
+                                        )}
                                     />
-                                    {transactionErrors.resultStatus && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{transactionErrors.resultStatus}</div>}
+                                    {resultErrors.resultStatus && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{resultErrors.resultStatus.message}</div>}
                                 </div>
-                                {resultForm.resultStatus === 'akad' ? (
+                                {watchedResultStatus === 'akad' ? (
                                     <>
                                         <div className="input-group">
                                             <label>Nama Unit</label>
-                                            <input className="input-field" value={resultForm.unitName} onChange={(event) => setResultForm({ ...resultForm, unitName: event.target.value })} disabled={!canUpdateResult} />
-                                            {transactionErrors.unitName && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{transactionErrors.unitName}</div>}
+                                            <input className="input-field" disabled={!canUpdateResult} {...registerResult('unitName')} />
+                                            {resultErrors.unitName && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{resultErrors.unitName.message}</div>}
                                         </div>
                                         <div className="input-group">
                                             <label>Detail Unit</label>
-                                            <textarea className="input-field" rows={3} value={resultForm.unitDetail} onChange={(event) => setResultForm({ ...resultForm, unitDetail: event.target.value })} disabled={!canUpdateResult} style={{ resize: 'vertical' }} />
-                                            {transactionErrors.unitDetail && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{transactionErrors.unitDetail}</div>}
+                                            <textarea className="input-field" rows={3} disabled={!canUpdateResult} style={{ resize: 'vertical' }} {...registerResult('unitDetail')} />
+                                            {resultErrors.unitDetail && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{resultErrors.unitDetail.message}</div>}
                                         </div>
                                         <div className="input-group">
                                             <label>Cara Bayar</label>
-                                            <input className="input-field" value={resultForm.paymentMethod} onChange={(event) => setResultForm({ ...resultForm, paymentMethod: event.target.value })} disabled={!canUpdateResult} />
-                                            {transactionErrors.paymentMethod && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{transactionErrors.paymentMethod}</div>}
+                                            <input className="input-field" disabled={!canUpdateResult} {...registerResult('paymentMethod')} />
+                                            {resultErrors.paymentMethod && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{resultErrors.paymentMethod.message}</div>}
                                         </div>
                                     </>
                                 ) : null}
-                                {isCancelResultStatus(resultForm.resultStatus) ? (
+                                {isCancelResultStatus(watchedResultStatus) ? (
                                     <>
                                         <div className="input-group">
                                             <label>Alasan Cancel</label>
-                                            <SelectFilter
-                                                options={cancelReasons.map((item) => ({ value: item.code, label: item.label }))}
-                                                value={resultForm.rejectedReason}
-                                                onChange={(val) => setResultForm({ ...resultForm, rejectedReason: val })}
-                                                placeholder={cancelReasonsLoading ? 'Loading alasan...' : 'Pilih alasan cancel'}
-                                                disabled={!canUpdateResult || cancelReasonsLoading}
-                                                clearable={false}
+                                            <Controller
+                                                name="rejectedReason"
+                                                control={controlResult}
+                                                render={({ field }) => (
+                                                    <SelectFilter
+                                                        options={cancelReasons.map((item) => ({ value: item.code, label: item.label }))}
+                                                        value={field.value || ''}
+                                                        onChange={field.onChange}
+                                                        placeholder={cancelReasonsLoading ? 'Loading alasan...' : 'Pilih alasan cancel'}
+                                                        disabled={!canUpdateResult || cancelReasonsLoading}
+                                                        clearable={false}
+                                                    />
+                                                )}
                                             />
-                                            {transactionErrors.rejectedReason && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{transactionErrors.rejectedReason}</div>}
+                                            {resultErrors.rejectedReason && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{resultErrors.rejectedReason.message}</div>}
                                         </div>
                                         <div className="input-group">
                                             <label>Catatan Cancel</label>
-                                            <textarea className="input-field" rows={3} value={resultForm.rejectedNote} onChange={(event) => setResultForm({ ...resultForm, rejectedNote: event.target.value })} disabled={!canUpdateResult} style={{ resize: 'vertical' }} />
+                                            <textarea className="input-field" rows={3} disabled={!canUpdateResult} style={{ resize: 'vertical' }} {...registerResult('rejectedNote')} />
                                         </div>
                                     </>
                                 ) : null}
