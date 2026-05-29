@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatCount as fmt } from './utils';
-import SelectFilter from '../../components/SelectFilter';
+import Select from '../../components/Select';
 import './DashboardSections.css';
 
 const LINE_COLORS = ['#7C3AED', '#22C55E', '#0EA5E9', '#F59E0B', '#EF4444', '#06B6D4', '#8B5CF6'];
@@ -124,7 +124,7 @@ export default function LineChartSection({ data, granularity = 'month', onGranul
                 </div>
                 {granularityOptions.length > 0 && (
                     <div className="lc-controls" style={{ minWidth: '150px' }}>
-                        <SelectFilter
+                        <Select
                             options={granularityOptions}
                             value={granularity}
                             onChange={(v) => onGranularityChange?.(v || 'month')}

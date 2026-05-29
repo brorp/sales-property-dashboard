@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
 import Header from '../components/Header';
 import Modal from '../components/Modal';
-import SelectFilter from '../components/SelectFilter';
+import Select from '../components/Select';
 import UserAvatar from '../components/UserAvatar';
 import { apiRequest } from '../lib/api';
 import { downloadLeadTransferWorkbook } from '../lib/lead-transfer-workbook';
@@ -1012,7 +1012,7 @@ export default function TeamPage() {
                             {user?.role === 'client_admin' ? (
                                 <div className="input-group">
                                     <label>Supervisor</label>
-                                    <SelectFilter
+                                    <Select
                                         options={availableSupervisors.map((s) => ({ value: s.id, label: s.name }))}
                                         value={form.supervisorId}
                                         onChange={(val) => setForm({ ...form, supervisorId: val })}
@@ -1054,7 +1054,7 @@ export default function TeamPage() {
                 </p>
                 <div className="input-group">
                     <label>Supervisor Tujuan</label>
-                    <SelectFilter
+                    <Select
                         options={(supervisorOptionsByClient.get(assignmentState?.clientId || 'no-client') || []).map((s) => ({ value: s.id, label: s.name }))}
                         value={assignmentState?.supervisorId || ''}
                         onChange={(val) => setAssignmentState((prev) => prev ? { ...prev, supervisorId: val, error: '' } : prev)}

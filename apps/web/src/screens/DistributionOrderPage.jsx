@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Header from '../components/Header';
-import SelectFilter from '../components/SelectFilter';
+import Select from '../components/Select';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
 import { usePagePolling } from '../hooks/usePagePolling';
@@ -310,7 +310,7 @@ export default function DistributionOrderPage() {
                 <div className="input-group" style={{ marginTop: 16 }}>
                     <label>Tambah Sales ke Antrian</label>
                     <div className="settings-inline-grid">
-                        <SelectFilter
+                        <Select
                             options={salesOptions}
                             value={selectedSalesId}
                             onChange={(v) => setSelectedSalesId(v || '')}
@@ -318,7 +318,7 @@ export default function DistributionOrderPage() {
                             disabled={queueLoading || queueSaving || queueMutating || queueLocked || availableSales.length === 0}
                             clearable={false}
                         />
-                        <SelectFilter
+                        <Select
                             options={insertOrderOptions}
                             value={selectedInsertOrder}
                             onChange={(v) => setSelectedInsertOrder(v || 'end')}
@@ -398,7 +398,7 @@ export default function DistributionOrderPage() {
                                     <div className="settings-queue-reward">
                                         <span>Pengulangan</span>
                                         <div style={{ width: 88 }}>
-                                            <SelectFilter
+                                            <Select
                                                 options={rewardOptions}
                                                 value={String(Number(item.repeatOrderRemaining || 0))}
                                                 onChange={(v) => void updateRepeatOrder(item.id, v || '0')}

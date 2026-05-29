@@ -8,7 +8,7 @@ import { useLeads } from '../context/LeadsContext';
 import { apiRequest } from '../lib/api';
 import Header from '../components/Header';
 import DateRangePicker from '../components/DateRangePicker';
-import SelectFilter from '../components/SelectFilter';
+import Select from '../components/Select';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { useNotifications } from '../hooks/useNotifications';
 import TransactionRecapSection from './dashboard-sections/TransactionRecapSection';
@@ -539,7 +539,7 @@ export default function DashboardPage() {
                         <div className="dash-drawer-body">
                             <div className="dash-drawer-section">
                                 <span className="dash-drawer-section-label">Periode</span>
-                                <SelectFilter
+                                <Select
                                     options={periodOptions}
                                     value={activePeriodKey}
                                     onChange={handlePeriodChange}
@@ -563,7 +563,7 @@ export default function DashboardPage() {
                             {canUseTeamFilters && globalTeamList.length > 0 ? (
                                 <div className="dash-drawer-section">
                                     <span className="dash-drawer-section-label">Tim (SPV)</span>
-                                    <SelectFilter
+                                    <Select
                                         options={globalTeamList.map((team) => ({
                                             value: team.teamId,
                                             label: team.teamId === 'unassigned_sup' || team.teamName === 'Unassigned Supervisor' ? 'PIC Agent' : team.teamName,
@@ -578,7 +578,7 @@ export default function DashboardPage() {
                             {teamSourceOptions.length > 1 ? (
                                 <div className="dash-drawer-section">
                                     <span className="dash-drawer-section-label">Sumber Leads</span>
-                                    <SelectFilter
+                                    <Select
                                         options={teamSourceOptions.filter((o) => o.key !== 'all').map((o) => ({
                                             value: o.key,
                                             label: o.count !== undefined ? `${o.label} (${o.count})` : o.label,
@@ -594,7 +594,7 @@ export default function DashboardPage() {
                             {activeSectionTab === 'transaction' && transactionUnitOptions.length > 0 ? (
                                 <div className="dash-drawer-section">
                                     <span className="dash-drawer-section-label">Tipe Unit</span>
-                                    <SelectFilter
+                                    <Select
                                         options={transactionUnitOptions}
                                         value={transactionUnitType}
                                         onChange={setTransactionUnitType}

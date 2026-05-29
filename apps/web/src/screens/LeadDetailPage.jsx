@@ -30,7 +30,7 @@ import Header from '../components/Header';
 import UserAvatar from '../components/UserAvatar';
 import Button from '../components/Button';
 import DatePicker from '../components/DatePicker';
-import SelectFilter from '../components/SelectFilter';
+import Select from '../components/Select';
 import { apiRequest } from '../lib/api';
 import { useToast } from '../context/ToastContext';
 import './LeadDetailPage.css';
@@ -884,7 +884,7 @@ export default function LeadDetailPage({ leadId }) {
                             {editSales ? (
                                 <div className="ldp-edit-inline-wrap" style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
                                     <div style={{ flex: 1, maxWidth: '240px' }}>
-                                        <SelectFilter
+                                        <Select
                                             options={[
                                                 { value: '', label: 'Open (tanpa sales)' },
                                                 ...salesUsers.map((s) => ({ value: s.id, label: s.name }))
@@ -969,7 +969,7 @@ export default function LeadDetailPage({ leadId }) {
                                                 name="source"
                                                 control={controlSource}
                                                 render={({ field }) => (
-                                                    <SelectFilter
+                                                    <Select
                                                         options={availableLeadSources.map((s) => ({ value: s, label: s }))}
                                                         value={field.value}
                                                         onChange={field.onChange}
@@ -1006,7 +1006,7 @@ export default function LeadDetailPage({ leadId }) {
                                             name="domicileCity"
                                             control={controlSource}
                                             render={({ field }) => (
-                                                <SelectFilter
+                                                <Select
                                                     options={INDONESIA_CITIES.map((city) => ({ value: city, label: city }))}
                                                     value={field.value || ''}
                                                     onChange={field.onChange}
@@ -1129,7 +1129,7 @@ export default function LeadDetailPage({ leadId }) {
                         {/* Product / Interest unit */}
                         <div className="ldp-action-card">
                             <h4 className="ldp-action-card-title">Product</h4>
-                            <SelectFilter
+                            <Select
                                 options={unitOptions.map((item) => ({ value: item.id, label: `${item.projectType} - ${item.unitName}` }))}
                                 value={interestUnitId}
                                 onChange={(val) => void handleInterestUnitChange(val)}
@@ -1258,7 +1258,7 @@ export default function LeadDetailPage({ leadId }) {
                                         name="resultStatus"
                                         control={controlResult}
                                         render={({ field }) => (
-                                            <SelectFilter
+                                            <Select
                                                 options={RESULT_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
                                                 value={field.value}
                                                 onChange={field.onChange}
@@ -1297,7 +1297,7 @@ export default function LeadDetailPage({ leadId }) {
                                                 name="rejectedReason"
                                                 control={controlResult}
                                                 render={({ field }) => (
-                                                    <SelectFilter
+                                                    <Select
                                                         options={cancelReasons.map((item) => ({ value: item.code, label: item.label }))}
                                                         value={field.value || ''}
                                                         onChange={field.onChange}
@@ -1475,7 +1475,7 @@ export default function LeadDetailPage({ leadId }) {
                             </div>
                             <div className="input-group">
                                 <label>Status Janji Temu</label>
-                                <SelectFilter
+                                <Select
                                     options={APPOINTMENT_TAGS.map((tag) => ({ value: tag.key, label: tag.label }))}
                                     value={appt.status}
                                     onChange={(val) => setAppt({ ...appt, status: val || 'mau_survey' })}
