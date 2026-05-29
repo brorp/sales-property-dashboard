@@ -1,0 +1,229 @@
+/* ── Toast Container Styles ────────────────────────────────────────── */
+
+.toast-container {
+    position: fixed;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    pointer-events: none;
+    transition: all 0.3s ease;
+}
+
+/* Position Mappings (Desktop) */
+.toast-pos-bottom-right {
+    bottom: 24px;
+    right: 24px;
+    flex-direction: column-reverse;
+}
+
+.toast-pos-top-right {
+    top: 24px;
+    right: 24px;
+    flex-direction: column;
+}
+
+.toast-pos-bottom-left {
+    bottom: 24px;
+    left: 24px;
+    flex-direction: column-reverse;
+}
+
+.toast-pos-top-left {
+    top: 24px;
+    left: 24px;
+    flex-direction: column;
+}
+
+/* ── Toast Item Base Styling ───────────────────────────────────────── */
+
+.toast-item {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 350px;
+    max-width: 100%;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+}
+
+/* Accent Left Border to indicate type */
+.toast-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+}
+
+/* ── Type Variations (Dark & Light Theme Adaptive) ────────────────── */
+
+/* Success */
+.toast-item.toast-success::before {
+    background: var(--success);
+}
+.toast-item.toast-success .toast-icon {
+    color: var(--success);
+}
+
+/* Error / Danger */
+.toast-item.toast-error::before {
+    background: var(--danger);
+}
+.toast-item.toast-error .toast-icon {
+    color: var(--danger);
+}
+
+/* Warning */
+.toast-item.toast-warning::before {
+    background: var(--warm);
+}
+.toast-item.toast-warning .toast-icon {
+    color: var(--warm);
+}
+
+/* Info */
+.toast-item.toast-info::before {
+    background: var(--info);
+}
+.toast-item.toast-info .toast-icon {
+    color: var(--info);
+}
+
+/* ── Inner Content ────────────────────────────────────────────────── */
+
+.toast-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+}
+
+.toast-message {
+    flex-grow: 1;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    padding-right: 8px;
+}
+
+.toast-close-btn {
+    background: transparent;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: var(--text-muted);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+    flex-shrink: 0;
+}
+
+.toast-close-btn:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary);
+}
+
+html[data-theme="light"] .toast-close-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+/* ── Entrance & Exit Animations (Desktop) ─────────────────────────── */
+
+/* Entrance Animation for Right-aligned Toasts */
+.toast-pos-top-right .toast-item,
+.toast-pos-bottom-right .toast-item {
+    animation: toast-slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Entrance Animation for Left-aligned Toasts */
+.toast-pos-top-left .toast-item,
+.toast-pos-bottom-left .toast-item {
+    animation: toast-slide-in-left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Exit Animation for Right-aligned Toasts */
+.toast-pos-top-right .toast-item.is-exiting,
+.toast-pos-bottom-right .toast-item.is-exiting {
+    animation: toast-slide-out-right 0.25s forwards cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Exit Animation for Left-aligned Toasts */
+.toast-pos-top-left .toast-item.is-exiting,
+.toast-pos-bottom-left .toast-item.is-exiting {
+    animation: toast-slide-out-left 0.25s forwards cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes toast-slide-in-right {
+    from { transform: translateX(120%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes toast-slide-out-right {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(120%); opacity: 0; }
+}
+
+@keyframes toast-slide-in-left {
+    from { transform: translateX(-120%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes toast-slide-out-left {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(-120%); opacity: 0; }
+}
+
+/* ── Responsive Styling (Mobile < 768px Override) ─────────────────── */
+
+@media (max-width: 767px) {
+    .toast-container {
+        /* Force top-center alignment on mobile, ignoring position class */
+        top: 16px !important;
+        left: 16px !important;
+        right: 16px !important;
+        bottom: auto !important;
+        transform: none !important;
+        align-items: center !important;
+        flex-direction: column !important;
+        width: calc(100% - 32px) !important;
+        padding: 0 !important;
+    }
+
+    .toast-item {
+        width: 100% !important;
+        max-width: 100% !important;
+        animation: toast-slide-down-mobile 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+
+    .toast-item.is-exiting {
+        animation: toast-slide-up-out-mobile 0.25s forwards cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+
+    @keyframes toast-slide-down-mobile {
+        from { transform: translateY(-40px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+
+    @keyframes toast-slide-up-out-mobile {
+        from { transform: translateY(0); opacity: 1; }
+        to { transform: translateY(-40px); opacity: 0; }
+    }
+}

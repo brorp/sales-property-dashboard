@@ -29,6 +29,7 @@ import Button from '../components/Button';
 import DatePicker from '../components/DatePicker';
 import SelectFilter from '../components/SelectFilter';
 import { apiRequest } from '../lib/api';
+import { useToast } from '../context/ToastContext';
 import './LeadDetailPage.css';
 
 function formatExactDateTime(value) {
@@ -121,6 +122,7 @@ export default function LeadDetailPage({ leadId }) {
         getLeadSources,
     } = useLeads();
     const router = useRouter();
+    const toast = useToast();
 
     const [showAppt, setShowAppt] = useState(false);
     const [showNote, setShowNote] = useState(false);
@@ -150,7 +152,9 @@ export default function LeadDetailPage({ leadId }) {
         rejectedNote: '',
     });
     const [requestError, setRequestError] = useState('');
-    const [requestSuccess, setRequestSuccess] = useState('');
+    const [nameError, setNameError] = useState('');
+    const [profileErrors, setProfileErrors] = useState({});
+    const [transactionErrors, setTransactionErrors] = useState({});
     const [refreshing, setRefreshing] = useState(false);
     const [deleteLeadState, setDeleteLeadState] = useState({
         open: false,
@@ -359,21 +363,17 @@ export default function LeadDetailPage({ leadId }) {
 
     const runLeadUpdate = async (payload, successMessage = 'Update berhasil disimpan.') => {
         try {
-            setRequestError('');
-            setRequestSuccess('');
             await updateLead(lead.id, payload);
-            setRequestSuccess(successMessage);
+            toast.success(successMessage);
             return true;
         } catch (err) {
-            setRequestError(err instanceof Error ? err.message : 'Failed updating lead');
+            toast.error(err instanceof Error ? err.message : 'Failed updating lead');
             return false;
         }
     };
 
     const runAddAppointment = async (payload) => {
         try {
-            setRequestError('');
-            setRequestSuccess('');
             if (editingAppointment?.id) {
                 await updateAppointment(editingAppointment.id, payload);
             } else {
@@ -383,13 +383,13 @@ export default function LeadDetailPage({ leadId }) {
             setAppt({ date: '', time: '', location: '', notes: '', status: 'mau_survey' });
             setEditingAppointment(null);
             setShowAppt(false);
-            setRequestSuccess(
+            toast.success(
                 editingAppointment?.id
                     ? 'Janji temu berhasil diperbarui.'
                     : 'Janji temu berhasil dibuat.'
             );
         } catch (err) {
-            setRequestError(err instanceof Error ? err.message : 'Failed saving appointment');
+            toast.error(err instanceof Error ? err.message : 'Failed saving appointment');
         }
     };
 
@@ -448,13 +448,17 @@ export default function LeadDetailPage({ leadId }) {
     };
 
     const handleSaveSourceDomicile = async () => {
+        setProfileErrors({});
         if (!canEditProfile) return;
+        const errors = {};
         if (!tempSource) {
-            setRequestError('Sumber lead wajib dipilih.');
-            return;
+            errors.source = 'Sumber lead wajib dipilih.';
         }
         if (isAgentSource(tempSource) && !tempAgentOfficeName.trim()) {
-            setRequestError('Nama kantor wajib diisi untuk source Agent.');
+            errors.agentOfficeName = 'Nama kantor wajib diisi.';
+        }
+        if (Object.keys(errors).length > 0) {
+            setProfileErrors(errors);
             return;
         }
         const payload = {
@@ -479,8 +483,9 @@ export default function LeadDetailPage({ leadId }) {
     };
 
     const handleSaveName = async () => {
+        setNameError('');
         if (!tempName.trim()) {
-            setRequestError('Nama lead tidak boleh kosong.');
+            setNameError('Nama lead tidak boleh kosong.');
             return;
         }
         if (tempName.trim() === lead.name) {
@@ -509,21 +514,36 @@ export default function LeadDetailPage({ leadId }) {
 
     const handleSaveResult = async (event) => {
         event.preventDefault();
+        setTransactionErrors({});
         if (!canEditLead) {
             return;
         }
-
+        const errors = {};
         if (!resultForm.resultStatus) {
-            setRequestError('Result status wajib dipilih.');
+            errors.resultStatus = 'Status transaksi wajib dipilih.';
+        }
+        if (resultForm.resultStatus === 'akad') {
+            if (!resultForm.unitName) {
+                errors.unitName = 'Nama unit wajib diisi.';
+            }
+            if (!resultForm.unitDetail) {
+                errors.unitDetail = 'Detail unit wajib diisi.';
+            }
+            if (!resultForm.paymentMethod) {
+                errors.paymentMethod = 'Cara bayar wajib diisi.';
+            }
+        }
+        if (isCancelResultStatus(resultForm.resultStatus)) {
+            if (!resultForm.rejectedReason) {
+                errors.rejectedReason = 'Alasan cancel wajib dipilih.';
+            }
+        }
+        if (Object.keys(errors).length > 0) {
+            setTransactionErrors(errors);
             return;
         }
 
         if (resultForm.resultStatus === 'akad') {
-            if (!resultForm.unitName || !resultForm.unitDetail || !resultForm.paymentMethod) {
-                setRequestError('Untuk status akad, unit name, detail unit, dan payment method wajib diisi.');
-                return;
-            }
-
             await runLeadUpdate({
                 resultStatus: 'akad',
                 unitName: resultForm.unitName,
@@ -534,20 +554,10 @@ export default function LeadDetailPage({ leadId }) {
         }
 
         if (isCancelResultStatus(resultForm.resultStatus)) {
-            if (!resultForm.rejectedReason) {
-                setRequestError('Alasan cancel wajib dipilih.');
-                return;
-            }
-
-            if (!resultForm.rejectedNote.trim()) {
-                setRequestError('Catatan cancel wajib diisi.');
-                return;
-            }
-
             await runLeadUpdate({
                 resultStatus: resultForm.resultStatus,
                 rejectedReason: resultForm.rejectedReason,
-                rejectedNote: resultForm.rejectedNote.trim(),
+                rejectedNote: resultForm.rejectedNote.trim() || null,
             }, `Result status berhasil diubah ke ${getResultStatusLabel(resultForm.resultStatus)}. Status L2 otomatis menjadi Skip.`);
             return;
         }
@@ -624,12 +634,10 @@ export default function LeadDetailPage({ leadId }) {
     const handleQuickSudahSurvey = async (item) => {
         if (!item?.id) return;
         try {
-            setRequestError('');
-            setRequestSuccess('');
             await updateAppointment(item.id, { status: 'sudah_survey' });
-            setRequestSuccess('Status diubah ke Sudah Survey.');
+            toast.success('Status diubah ke Sudah Survey.');
         } catch (err) {
-            setRequestError(err instanceof Error ? err.message : 'Gagal update status');
+            toast.error(err instanceof Error ? err.message : 'Gagal update status');
         }
     };
 
@@ -648,14 +656,12 @@ export default function LeadDetailPage({ leadId }) {
         }
 
         try {
-            setRequestError('');
-            setRequestSuccess('');
             await cancelAppointment(item.id, {
                 notes: item.notes || null,
             });
-            setRequestSuccess('Janji temu berhasil dibatalkan.');
+            toast.success('Janji temu berhasil dibatalkan.');
         } catch (err) {
-            setRequestError(err instanceof Error ? err.message : 'Failed cancelling appointment');
+            toast.error(err instanceof Error ? err.message : 'Failed cancelling appointment');
         }
     };
 
@@ -674,8 +680,8 @@ export default function LeadDetailPage({ leadId }) {
                 submitting: true,
                 error: '',
             }));
-            setRequestError('');
             await deleteLead(lead.id, deleteLeadState.passwordConfirmation);
+            toast.success('Lead berhasil dihapus.');
             router.push('/leads');
         } catch (err) {
             setDeleteLeadState((prev) => ({
@@ -746,52 +752,55 @@ export default function LeadDetailPage({ leadId }) {
                     <UserAvatar name={lead.name} size="md" shape="circle" />
                     <div className="ldp-profile-identity">
                         {editName ? (
-                            <div className="ldp-edit-name-wrap" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <input
-                                    autoFocus
-                                    type="text"
-                                    className="input-field ldp-name-edit-input"
-                                    style={{ width: '100%', maxWidth: '240px', padding: '6px 12px', fontSize: '1rem', fontWeight: 600, height: '38px' }}
-                                    value={tempName}
-                                    onChange={(e) => setTempName(e.target.value)}
-                                    placeholder="Nama Leads"
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div className="ldp-edit-name-wrap" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        className="input-field ldp-name-edit-input"
+                                        style={{ width: '100%', maxWidth: '240px', padding: '6px 12px', fontSize: '1rem', fontWeight: 600, height: '38px' }}
+                                        value={tempName}
+                                        onChange={(e) => setTempName(e.target.value)}
+                                        placeholder="Nama Leads"
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                void handleSaveName();
+                                            } else if (e.key === 'Escape') {
+                                                setEditName(false);
+                                            }
+                                        }}
+                                        onBlur={(e) => {
+                                            if (e.relatedTarget && e.relatedTarget.classList.contains('ldp-cancel-name-btn')) {
+                                                return;
+                                            }
                                             void handleSaveName();
-                                        } else if (e.key === 'Escape') {
-                                            setEditName(false);
-                                        }
-                                    }}
-                                    onBlur={(e) => {
-                                        if (e.relatedTarget && e.relatedTarget.classList.contains('ldp-cancel-name-btn')) {
-                                            return;
-                                        }
-                                        void handleSaveName();
-                                    }}
-                                />
-                                <button
-                                    type="button"
-                                    className="btn btn-sm btn-primary ldp-save-name-btn"
-                                    onClick={() => void handleSaveName()}
-                                    title="Simpan"
-                                    style={{ width: '36px', height: '36px', minWidth: '36px', borderRadius: '8px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                >
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                        <polyline points="20 6 9 17 4 12" />
-                                    </svg>
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-sm btn-secondary ldp-cancel-name-btn"
-                                    onClick={() => setEditName(false)}
-                                    title="Batal"
-                                    style={{ width: '36px', height: '36px', minWidth: '36px', borderRadius: '8px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                >
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <line x1="18" y1="6" x2="6" y2="18" />
-                                        <line x1="6" y1="6" x2="18" y2="18" />
-                                    </svg>
-                                </button>
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-primary ldp-save-name-btn"
+                                        onClick={() => void handleSaveName()}
+                                        title="Simpan"
+                                        style={{ width: '36px', height: '36px', minWidth: '36px', borderRadius: '8px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="20 6 9 17 4 12" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-secondary ldp-cancel-name-btn"
+                                        onClick={() => setEditName(false)}
+                                        title="Batal"
+                                        style={{ width: '36px', height: '36px', minWidth: '36px', borderRadius: '8px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="18" y1="6" x2="6" y2="18" />
+                                            <line x1="6" y1="6" x2="18" y2="18" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                {nameError && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 500 }}>{nameError}</div>}
                             </div>
                         ) : (
                             <h1 className="ldp-name" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -928,16 +937,20 @@ export default function LeadDetailPage({ leadId }) {
                                                 disabled={availableLeadSources.length === 0}
                                                 clearable={false}
                                             />
+                                            {profileErrors.source && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{profileErrors.source}</div>}
                                         </div>
                                         {isAgentSource(tempSource) && (
-                                            <input
-                                                type="text"
-                                                className="input-field"
-                                                style={{ width: '120px', padding: '6px 10px', fontSize: '0.8125rem', height: '38px', margin: 0 }}
-                                                value={tempAgentOfficeName}
-                                                onChange={(e) => setTempAgentOfficeName(e.target.value)}
-                                                placeholder="Nama kantor agent"
-                                            />
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <input
+                                                    type="text"
+                                                    className="input-field"
+                                                    style={{ width: '120px', padding: '6px 10px', fontSize: '0.8125rem', height: '38px', margin: 0 }}
+                                                    value={tempAgentOfficeName}
+                                                    onChange={(e) => setTempAgentOfficeName(e.target.value)}
+                                                    placeholder="Nama kantor agent"
+                                                />
+                                                {profileErrors.agentOfficeName && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 500 }}>{profileErrors.agentOfficeName}</div>}
+                                            </div>
                                         )}
                                     </div>
                                 ) : (
@@ -1023,7 +1036,6 @@ export default function LeadDetailPage({ leadId }) {
                 ) : null}
 
                 {requestError ? <div className="ldp-alert ldp-alert-error">{requestError}</div> : null}
-                {requestSuccess ? <div className="ldp-alert ldp-alert-success">{requestSuccess}</div> : null}
 
                 {needsNewLeadTaskAcceptance ? (
                     <div className="ldp-alert ldp-alert-info">
@@ -1194,20 +1206,24 @@ export default function LeadDetailPage({ leadId }) {
                                         disabled={!canUpdateResult}
                                         clearable={false}
                                     />
+                                    {transactionErrors.resultStatus && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{transactionErrors.resultStatus}</div>}
                                 </div>
                                 {resultForm.resultStatus === 'akad' ? (
                                     <>
                                         <div className="input-group">
                                             <label>Nama Unit</label>
                                             <input className="input-field" value={resultForm.unitName} onChange={(event) => setResultForm({ ...resultForm, unitName: event.target.value })} disabled={!canUpdateResult} />
+                                            {transactionErrors.unitName && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{transactionErrors.unitName}</div>}
                                         </div>
                                         <div className="input-group">
                                             <label>Detail Unit</label>
                                             <textarea className="input-field" rows={3} value={resultForm.unitDetail} onChange={(event) => setResultForm({ ...resultForm, unitDetail: event.target.value })} disabled={!canUpdateResult} style={{ resize: 'vertical' }} />
+                                            {transactionErrors.unitDetail && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{transactionErrors.unitDetail}</div>}
                                         </div>
                                         <div className="input-group">
                                             <label>Cara Bayar</label>
                                             <input className="input-field" value={resultForm.paymentMethod} onChange={(event) => setResultForm({ ...resultForm, paymentMethod: event.target.value })} disabled={!canUpdateResult} />
+                                            {transactionErrors.paymentMethod && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{transactionErrors.paymentMethod}</div>}
                                         </div>
                                     </>
                                 ) : null}
@@ -1223,6 +1239,7 @@ export default function LeadDetailPage({ leadId }) {
                                                 disabled={!canUpdateResult || cancelReasonsLoading}
                                                 clearable={false}
                                             />
+                                            {transactionErrors.rejectedReason && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{transactionErrors.rejectedReason}</div>}
                                         </div>
                                         <div className="input-group">
                                             <label>Catatan Cancel</label>

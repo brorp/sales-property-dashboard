@@ -184,7 +184,7 @@ export default function TransactionRecapSection({
     const [domicileChartType, setDomicileChartType] = useState('pie');
     const teams = data?.teams || [];
     const isCompare = forceCompare;
-    const [visibleStats, setVisibleStats] = useState(['full_book', 'cancel']);
+    const [visibleStats, setVisibleStats] = useState(['reserve', 'on_process', 'akad', 'full_book', 'cancel']);
 
     const toggleStat = (key) => setVisibleStats((prev) =>
         prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
@@ -440,8 +440,8 @@ export default function TransactionRecapSection({
                         <div className="dash-drawer-body">
                             <div className="tpc-stats-toggle-list">
                                 {[
-                                    { key: 'full_book', label: 'Full Book', color: 'var(--purple)', locked: true },
-                                    { key: 'cancel', label: 'Cancel', color: 'var(--danger)', locked: true },
+                                    { key: 'full_book', label: 'Full Book', color: 'var(--purple)', locked: false },
+                                    { key: 'cancel', label: 'Cancel', color: 'var(--danger)', locked: false },
                                     { key: 'akad', label: 'Akad', color: 'var(--green)', locked: false },
                                     { key: 'on_process', label: 'On Process', color: 'var(--primary)', locked: false },
                                     { key: 'reserve', label: 'Reserve', color: 'var(--text-primary)', locked: false },
@@ -451,19 +451,14 @@ export default function TransactionRecapSection({
                                         <div key={key} className={`tpc-stats-toggle-item${locked ? ' locked' : ''}`}>
                                             <span className="tpc-stats-toggle-dot" style={{ background: color }} />
                                             <span className="tpc-stats-toggle-label">{label}</span>
-                                            {locked
-                                                ? <span className="tpc-stats-toggle-lock">Selalu tampil</span>
-                                                : (
-                                                    <button
-                                                        type="button"
-                                                        className={`tpc-stats-toggle-switch${active ? ' active' : ''}`}
-                                                        onClick={() => toggleStat(key)}
-                                                        style={active ? { '--sw-color': color } : undefined}
-                                                    >
-                                                        <span className="tpc-stats-toggle-thumb" />
-                                                    </button>
-                                                )
-                                            }
+                                            <button
+                                                type="button"
+                                                className={`tpc-stats-toggle-switch${active ? ' active' : ''}`}
+                                                onClick={() => toggleStat(key)}
+                                                style={active ? { '--sw-color': color } : undefined}
+                                            >
+                                                <span className="tpc-stats-toggle-thumb" />
+                                            </button>
                                         </div>
                                     );
                                 })}
