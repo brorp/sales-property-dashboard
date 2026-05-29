@@ -223,7 +223,20 @@ export default function DailyTaskPage() {
     const { leads } = useLeads();
     const { activeWorkspace } = useWorkspace();
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState('new_leads');
+    const [activeTab, setActiveTab] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return sessionStorage.getItem('dt_active_tab') || 'new_leads';
+        }
+        return 'new_leads';
+    });
+    const [apptSubTab, setApptSubTab] = useState('semua');
+    const [hotSubTab, setHotSubTab] = useState('semua');
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem('dt_active_tab', activeTab);
+        }
+    }, [activeTab]);
     const [tasks, setTasks] = useState({
         newLeads: [],
         followUps: [],
@@ -296,9 +309,8 @@ export default function DailyTaskPage() {
                 const day = parseInt(parts[2], 10);
                 const date = new Date(year, month, day);
                 const dateStr = date.toLocaleDateString('id-ID', {
-                    day: '2-digit',
-                    month: 'long',
-                    year: 'numeric',
+                    day: 'numeric',
+                    month: 'short',
                 });
                 return `${dateStr} · ${latestAppointment.time || '00:00'}`;
             }
@@ -551,37 +563,54 @@ export default function DailyTaskPage() {
         <div className="page-container daily-task-page">
             <Header title="Tugas Harian" mobileTitle={activeWorkspace?.name || 'Tugas Harian'} hasTabs />
 
+            <div className="dt-mobile-top">
+                <span className="dt-mobile-title">{activeWorkspace?.name || 'Tugas Harian'}</span>
+                <button
+                    className="dt-mobile-refresh"
+                    onClick={() => { void loadTasks(); void loadSideData(); }}
+                    disabled={loading}
+                    title="Refresh"
+                    style={loading ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                        style={loading ? { animation: 'dtSpin 0.7s linear infinite' } : undefined}>
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path d="M3 3v5h5" />
+                    </svg>
+                </button>
+            </div>
+
             {/* ── Tab bar ──────────────────────────────────────────── */}
             <div className="daily-task-tabs">
-                <button type="button" className={`daily-task-tab${activeTab === 'new_leads' ? ' is-active' : ''}`} onClick={() => { setActiveTab('new_leads'); setNameSearch(''); }}>
+                <button type="button" className={`daily-task-tab${activeTab === 'new_leads' ? ' is-active' : ''}`} onClick={() => { setActiveTab('new_leads'); setNameSearch(''); setApptSubTab('semua'); setHotSubTab('semua'); }}>
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
                         <span className="daily-task-tab-badge" style={tasks.counts.newLeadCount === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.newLeadCount}</span>
                     </span>
                     <span className="daily-task-tab-label">New Leads</span>
                 </button>
-                <button type="button" className={`daily-task-tab${activeTab === 'follow_ups' ? ' is-active' : ''}`} onClick={() => { setActiveTab('follow_ups'); setNameSearch(''); }}>
+                <button type="button" className={`daily-task-tab${activeTab === 'follow_ups' ? ' is-active' : ''}`} onClick={() => { setActiveTab('follow_ups'); setNameSearch(''); setApptSubTab('semua'); setHotSubTab('semua'); }}>
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
                         <span className="daily-task-tab-badge" style={tasks.counts.followUpCount === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.followUpCount}</span>
                     </span>
                     <span className="daily-task-tab-label">Follow Up</span>
                 </button>
-                <button type="button" className={`daily-task-tab${activeTab === 'deadline_leads' ? ' is-active' : ''}`} onClick={() => { setActiveTab('deadline_leads'); setNameSearch(''); }}>
+                <button type="button" className={`daily-task-tab${activeTab === 'deadline_leads' ? ' is-active' : ''}`} onClick={() => { setActiveTab('deadline_leads'); setNameSearch(''); setApptSubTab('semua'); setHotSubTab('semua'); }}>
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                         <span className="daily-task-tab-badge" style={tasks.counts.deadlineLeadCount === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.deadlineLeadCount}</span>
                     </span>
                     <span className="daily-task-tab-label">Deadline</span>
                 </button>
-                <button type="button" className={`daily-task-tab${activeTab === 'appointments' ? ' is-active' : ''}`} onClick={() => { setActiveTab('appointments'); setNameSearch(''); }}>
+                <button type="button" className={`daily-task-tab${activeTab === 'appointments' ? ' is-active' : ''}`} onClick={() => { setActiveTab('appointments'); setNameSearch(''); setApptSubTab('semua'); setHotSubTab('semua'); }}>
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01"/></svg>
                         <span className="daily-task-tab-badge" style={appointments.length === 0 ? { visibility: 'hidden' } : undefined}>{appointments.length}</span>
                     </span>
                     <span className="daily-task-tab-label">Janji Temu</span>
                 </button>
-                <button type="button" className={`daily-task-tab${activeTab === 'hot_validated' ? ' is-active' : ''}`} onClick={() => { setActiveTab('hot_validated'); setNameSearch(''); }}>
+                <button type="button" className={`daily-task-tab${activeTab === 'hot_validated' ? ' is-active' : ''}`} onClick={() => { setActiveTab('hot_validated'); setNameSearch(''); setApptSubTab('semua'); setHotSubTab('semua'); }}>
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
                         <span className="daily-task-tab-badge" style={validatedHot.length === 0 ? { visibility: 'hidden' } : undefined}>{validatedHot.length}</span>
@@ -646,6 +675,13 @@ export default function DailyTaskPage() {
                                     badges.push({
                                         label: getSalesStatusLabel(task.salesStatus),
                                         className: task.salesStatus === 'hot' ? 'badge-hot' : 'badge-warm'
+                                    });
+                                }
+                                const leadDetail = (Array.isArray(leads) ? leads : []).find((l) => l.id === task.leadId);
+                                if (leadDetail && leadDetail.customerPipelineTotalSteps > 0) {
+                                    badges.push({
+                                        label: `FU ${leadDetail.customerPipelineCompletedCount}/${leadDetail.customerPipelineTotalSteps}`,
+                                        className: 'badge-purple'
                                     });
                                 }
 
@@ -757,6 +793,13 @@ export default function DailyTaskPage() {
                                         className: task.salesStatus === 'hot' ? 'badge-hot' : 'badge-warm'
                                     });
                                 }
+                                const leadDetail = (Array.isArray(leads) ? leads : []).find((l) => l.id === task.leadId);
+                                if (leadDetail && leadDetail.customerPipelineTotalSteps > 0) {
+                                    badges.push({
+                                        label: `FU ${leadDetail.customerPipelineCompletedCount}/${leadDetail.customerPipelineTotalSteps}`,
+                                        className: 'badge-purple'
+                                    });
+                                }
 
                                 return (
                                     <div
@@ -848,6 +891,12 @@ export default function DailyTaskPage() {
                                     className: salesStatus === 'hot' ? 'badge-hot' : 'badge-warm'
                                 });
                             }
+                            if (leadDetail && leadDetail.customerPipelineTotalSteps > 0) {
+                                badges.push({
+                                    label: `FU ${leadDetail.customerPipelineCompletedCount}/${leadDetail.customerPipelineTotalSteps}`,
+                                    className: 'badge-purple'
+                                });
+                            }
 
                             return (
                                 <div
@@ -929,31 +978,63 @@ export default function DailyTaskPage() {
                             );
                         };
 
+                        const showHariIni = apptSubTab === 'semua' || apptSubTab === 'hari_ini';
+                        const showNanti = apptSubTab === 'semua' || apptSubTab === 'nanti';
+                        const showTerlewat = apptSubTab === 'semua' || apptSubTab === 'terlewat';
+
+                        const hasNoItems = (apptSubTab === 'hari_ini' && grouped.hari_ini.length === 0) ||
+                                           (apptSubTab === 'nanti' && grouped.nanti.length === 0) ||
+                                           (apptSubTab === 'terlewat' && grouped.terlewat.length === 0);
+
                         return (
                             <div className="dt-appointments-container">
-                                {grouped.hari_ini.length > 0 && (
-                                    <div className="dt-group-section">
-                                        <h3 className="dt-group-title">Hari ini</h3>
-                                        <div className="dt-task-grid">
-                                            {grouped.hari_ini.map(renderApptCard)}
-                                        </div>
+                                <div className="dt-subtabs">
+                                    <button type="button" className={`dt-subtab${apptSubTab === 'semua' ? ' is-active' : ''}`} onClick={() => setApptSubTab('semua')}>
+                                        Semua ({filtered.length})
+                                    </button>
+                                    <button type="button" className={`dt-subtab${apptSubTab === 'hari_ini' ? ' is-active' : ''}`} onClick={() => setApptSubTab('hari_ini')}>
+                                        Hari Ini ({grouped.hari_ini.length})
+                                    </button>
+                                    <button type="button" className={`dt-subtab${apptSubTab === 'nanti' ? ' is-active' : ''}`} onClick={() => setApptSubTab('nanti')}>
+                                        Nanti ({grouped.nanti.length})
+                                    </button>
+                                    <button type="button" className={`dt-subtab${apptSubTab === 'terlewat' ? ' is-active' : ''}`} onClick={() => setApptSubTab('terlewat')}>
+                                        Terlewat ({grouped.terlewat.length})
+                                    </button>
+                                </div>
+
+                                {hasNoItems ? (
+                                    <div className="dt-empty" style={{ padding: '40px 16px' }}>
+                                        <div className="dt-empty-title">Tidak ada janji temu</div>
+                                        <div className="dt-empty-desc">Tidak ada janji temu untuk kategori ini.</div>
                                     </div>
-                                )}
-                                {grouped.nanti.length > 0 && (
-                                    <div className="dt-group-section">
-                                        <h3 className="dt-group-title">Nanti</h3>
-                                        <div className="dt-task-grid">
-                                            {grouped.nanti.map(renderApptCard)}
-                                        </div>
-                                    </div>
-                                )}
-                                {grouped.terlewat.length > 0 && (
-                                    <div className="dt-group-section">
-                                        <h3 className="dt-group-title">Terlewat</h3>
-                                        <div className="dt-task-grid">
-                                            {grouped.terlewat.map(renderApptCard)}
-                                        </div>
-                                    </div>
+                                ) : (
+                                    <>
+                                        {showHariIni && grouped.hari_ini.length > 0 && (
+                                            <div className="dt-group-section">
+                                                <h3 className="dt-group-title">Hari ini</h3>
+                                                <div className="dt-task-grid">
+                                                    {grouped.hari_ini.map(renderApptCard)}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {showNanti && grouped.nanti.length > 0 && (
+                                            <div className="dt-group-section">
+                                                <h3 className="dt-group-title">Nanti</h3>
+                                                <div className="dt-task-grid">
+                                                    {grouped.nanti.map(renderApptCard)}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {showTerlewat && grouped.terlewat.length > 0 && (
+                                            <div className="dt-group-section">
+                                                <h3 className="dt-group-title">Terlewat</h3>
+                                                <div className="dt-task-grid">
+                                                    {grouped.terlewat.map(renderApptCard)}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         );
@@ -986,6 +1067,12 @@ export default function DailyTaskPage() {
                             const badges = [
                                 { label: 'HOT', className: 'badge-hot' }
                             ];
+                            if (lead && lead.customerPipelineTotalSteps > 0) {
+                                badges.push({
+                                    label: `FU ${lead.customerPipelineCompletedCount}/${lead.customerPipelineTotalSteps}`,
+                                    className: 'badge-purple'
+                                });
+                            }
 
                             return (
                                 <div
@@ -1017,23 +1104,50 @@ export default function DailyTaskPage() {
                             );
                         };
 
+                        const showLess = hotSubTab === 'semua' || hotSubTab === 'kurang_dari_1_bulan';
+                        const showMore = hotSubTab === 'semua' || hotSubTab === 'lebih_dari_1_bulan';
+
+                        const hasNoItems = (hotSubTab === 'kurang_dari_1_bulan' && groupLess.length === 0) ||
+                                           (hotSubTab === 'lebih_dari_1_bulan' && groupMore.length === 0);
+
                         return (
                             <div className="dt-hot-container">
-                                {groupLess.length > 0 && (
-                                    <div className="dt-group-section">
-                                        <h3 className="dt-group-title">&lt; 1 Bulan</h3>
-                                        <div className="dt-task-grid">
-                                            {groupLess.map(renderHotCard)}
-                                        </div>
+                                <div className="dt-subtabs">
+                                    <button type="button" className={`dt-subtab${hotSubTab === 'semua' ? ' is-active' : ''}`} onClick={() => setHotSubTab('semua')}>
+                                        Semua ({filtered.length})
+                                    </button>
+                                    <button type="button" className={`dt-subtab${hotSubTab === 'kurang_dari_1_bulan' ? ' is-active' : ''}`} onClick={() => setHotSubTab('kurang_dari_1_bulan')}>
+                                        &lt; 1 Bulan ({groupLess.length})
+                                    </button>
+                                    <button type="button" className={`dt-subtab${hotSubTab === 'lebih_dari_1_bulan' ? ' is-active' : ''}`} onClick={() => setHotSubTab('lebih_dari_1_bulan')}>
+                                        &gt; 1 Bulan ({groupMore.length})
+                                    </button>
+                                </div>
+
+                                {hasNoItems ? (
+                                    <div className="dt-empty" style={{ padding: '40px 16px' }}>
+                                        <div className="dt-empty-title">Tidak ada lead HOT</div>
+                                        <div className="dt-empty-desc">Tidak ada lead HOT untuk kategori ini.</div>
                                     </div>
-                                )}
-                                {groupMore.length > 0 && (
-                                    <div className="dt-group-section">
-                                        <h3 className="dt-group-title">&gt; 1 Bulan</h3>
-                                        <div className="dt-task-grid">
-                                            {groupMore.map(renderHotCard)}
-                                        </div>
-                                    </div>
+                                ) : (
+                                    <>
+                                        {showLess && groupLess.length > 0 && (
+                                            <div className="dt-group-section">
+                                                <h3 className="dt-group-title">&lt; 1 Bulan</h3>
+                                                <div className="dt-task-grid">
+                                                    {groupLess.map(renderHotCard)}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {showMore && groupMore.length > 0 && (
+                                            <div className="dt-group-section">
+                                                <h3 className="dt-group-title">&gt; 1 Bulan</h3>
+                                                <div className="dt-task-grid">
+                                                    {groupMore.map(renderHotCard)}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         );

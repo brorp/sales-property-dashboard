@@ -1231,3 +1231,15 @@ html[data-theme="light"] .tt-sun {
 html[data-theme="light"] .tt-moon {
     color: var(--text-muted);
 }
+
+/* ── Prevent iOS zoom on input focus ─────────────────────────────── */
+@media (max-width: 1023px) {
+    input,
+    textarea,
+    select,
+    .input-field,
+    .dt-search-input,
+    .sf-search {
+        font-size: 16px !important;
+    }
+}

@@ -10,9 +10,10 @@ import './BottomNav.css';
 
 const ADMIN_TABS = [
     { key: '/overview', icon: 'overview', label: 'Ringkasan' },
+    { key: '/appointments', icon: 'appointment', label: 'Janji Temu' },
     { key: '/', icon: 'analytics', label: 'Analitik' },
-    { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/team', icon: 'team', label: 'Tim' },
+    { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/settings', icon: 'settings', label: 'Pengaturan' },
 ];
 
@@ -27,8 +28,8 @@ const SUPERVISOR_TABS = [
 
 const SALES_TABS = [
     { key: '/daily-tasks', icon: 'tasks', label: 'Tugas' },
-    { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/appointments', icon: 'appointment', label: 'Janji Temu' },
+    { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/settings', icon: 'settings', label: 'Pengaturan' },
 ];
 
@@ -119,7 +120,6 @@ export default function BottomNav() {
                             <span className="bottom-nav-icon">
                                 <Icon name={tab.icon} />
                                 {tab.key === '/leads' && hasUnreadLeads && !isActive(tab.key) ? <span className="bottom-nav-unread-dot" /> : null}
-                                {tab.key === '/settings' && hasUnreadLogs ? <span className="bottom-nav-unread-dot" /> : null}
                                 {tab.key === '/daily-tasks' && taskCounts.totalCount > 0 ? (
                                     <span className="bottom-nav-count-badge">{taskCounts.totalCount}</span>
                                 ) : null}

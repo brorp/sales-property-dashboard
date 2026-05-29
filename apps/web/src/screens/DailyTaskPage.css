@@ -299,8 +299,13 @@ html[data-theme="light"] .daily-task-page .btn-secondary:hover:not(:disabled) {
 }
 
 @keyframes dtSpin {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .dt-spin {
@@ -315,8 +320,17 @@ html[data-theme="light"] .daily-task-page .btn-secondary:hover:not(:disabled) {
     gap: 14px;
 }
 
-@media (min-width: 768px)  { .dt-task-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (min-width: 1280px) { .dt-task-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 768px) {
+    .dt-task-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 1280px) {
+    .dt-task-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
 
 /* ── Task Card ────────────────────────────────────────────────────── */
 
@@ -342,7 +356,9 @@ html[data-theme="light"] .daily-task-page .btn-secondary:hover:not(:disabled) {
 .dt-card-followup,
 .dt-card-deadline,
 .dt-card-appt,
-.dt-card-hot       { border-left-color: var(--primary); }
+.dt-card-hot {
+    border-left-color: var(--primary);
+}
 
 .dt-card-header {
     display: flex;
@@ -378,9 +394,11 @@ html[data-theme="light"] .daily-task-page .btn-secondary:hover:not(:disabled) {
 
 .dt-card-phone {
     font-size: 0.8125rem;
-    color: var(--text-secondary);
+    color: var(--primary);
+    font-weight: 500;
     margin-top: 2px;
 }
+
 
 .lc-verified-badge {
     display: inline-flex;
@@ -431,6 +449,7 @@ html[data-theme="light"] .daily-task-page .btn-secondary:hover:not(:disabled) {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
 
 /* urgency banner */
 .dt-urgency {
@@ -670,5 +689,129 @@ html[data-theme="dark"] .daily-task-page .badge-purple {
     gap: 8px;
 }
 
+/* ── Mobile Top Header ────────────────────────────────────────────── */
 
+.dt-mobile-top {
+    display: none;
+}
 
+@media (max-width: 1023px) {
+    .daily-task-page .app-header {
+        display: none;
+    }
+
+    .dt-mobile-top {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 58px;
+        padding: 0 16px;
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        background: var(--bg-dark);
+        border-bottom: 1px solid var(--border-color);
+        margin: -12px -12px 0;
+    }
+
+    .dt-mobile-title {
+        flex: 1;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        letter-spacing: -0.02em;
+        text-align: left;
+    }
+
+    .dt-mobile-refresh {
+        width: 34px;
+        height: 34px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
+    }
+
+    html[data-theme="light"] .dt-mobile-refresh {
+        color: #1E3A5F;
+        background: #F0F5FB;
+        border: 1px solid #DCE8F5;
+    }
+
+    html[data-theme="light"] .dt-mobile-refresh:hover {
+        background: #E0EBF8;
+        border-color: #BFCFE8;
+    }
+
+    html[data-theme="dark"] .dt-mobile-refresh {
+        color: #94A3B8;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+    }
+
+    html[data-theme="dark"] .dt-mobile-refresh:hover {
+        background: rgba(255, 255, 255, 0.10);
+        border-color: rgba(255, 255, 255, 0.16);
+    }
+}
+
+/* ── Appointments Sub Tabs ────────────────────────────────────────── */
+
+.dt-subtabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 2px 0;
+}
+
+.dt-subtabs::-webkit-scrollbar {
+    display: none;
+}
+
+.dt-subtab {
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 150ms ease;
+    border: 1px solid var(--border-color);
+}
+
+html[data-theme="light"] .dt-subtab {
+    background: #F8FAFC;
+    color: #475569;
+}
+
+html[data-theme="light"] .dt-subtab:hover {
+    background: #F1F5F9;
+    color: #1E3A5F;
+}
+
+html[data-theme="light"] .dt-subtab.is-active {
+    background: #1E3A5F;
+    color: #FFFFFF;
+    border-color: #1E3A5F;
+}
+
+html[data-theme="dark"] .dt-subtab {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .dt-subtab:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+}
+
+html[data-theme="dark"] .dt-subtab.is-active {
+    background: var(--primary);
+    color: #FFFFFF;
+    border-color: var(--primary);
+}
