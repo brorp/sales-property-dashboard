@@ -27,30 +27,30 @@ const IconMoon = () => (
 
 const ADMIN_TABS = [
     { key: '/overview', icon: 'overview', label: 'Ringkasan' },
-    { key: '/', icon: 'analytics', label: 'Analitik' },
-    { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/appointments', icon: 'appointment', label: 'Janji Temu' },
+    { key: '/', icon: 'analytics', label: 'Analitik' },
+    { key: '/team', icon: 'team', label: 'Tim' },
+    { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/activity-logs', icon: 'logs', label: 'Log' },
     { key: '/penalties', icon: 'warning', label: 'Penalti' },
-    { key: '/team', icon: 'team', label: 'Tim' },
     { key: '/settings', icon: 'settings', label: 'Pengaturan' },
 ];
 
 const SUPERVISOR_TABS = [
     { key: '/supervisor-tasks', icon: 'tasks', label: 'Tugas' },
-    { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/appointments', icon: 'appointment', label: 'Janji Temu' },
     { key: '/', icon: 'analytics', label: 'Analitik' },
     { key: '/team', icon: 'team', label: 'Tim' },
+    { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/penalties', icon: 'warning', label: 'Penalti' },
     { key: '/settings', icon: 'settings', label: 'Pengaturan' },
 ];
 
 const SALES_TABS = [
     { key: '/daily-tasks', icon: 'tasks', label: 'Tugas' },
-    { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/appointments', icon: 'appointment', label: 'Janji Temu' },
     { key: '/', icon: 'analytics', label: 'Analitik' },
+    { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/penalties', icon: 'warning', label: 'Penalti' },
     { key: '/settings', icon: 'settings', label: 'Pengaturan' },
 ];

@@ -349,13 +349,14 @@ html[data-theme="light"] .ap-page {
 }
 
 .ap-meta-link {
-    color: var(--cold);
+    color: var(--primary);
     text-decoration: none;
     font-weight: 500;
 }
 
 .ap-meta-link:hover { text-decoration: underline; }
-.ap-meta-link svg   { color: var(--cold); }
+.ap-meta-link svg   { color: var(--primary); }
+
 
 .ap-card-sales {
     color: var(--text-muted);
