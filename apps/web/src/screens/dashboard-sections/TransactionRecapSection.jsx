@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatCount, getPillButtonStyle, getTeamDisplayLabel } from './utils';
 import PieChartCard from '../../components/PieChartCard';
@@ -192,7 +192,13 @@ export default function TransactionRecapSection({
     const [analysisDrawerOpen, setAnalysisDrawerOpen] = useState(false);
     const [statsDrawerOpen, setStatsDrawerOpen] = useState(false);
     const [domicileChartType, setDomicileChartType] = useState('pie');
-    const teams = data?.teams || [];
+    const activeData = useMemo(() => {
+        if (!data) return null;
+        if (!unitType || unitType === 'all') return data;
+        return data.unitScopes?.[unitType] || data;
+    }, [data, unitType]);
+
+    const teams = activeData?.teams || [];
     const isCompare = forceCompare;
     const [visibleStats, setVisibleStats] = useState(['reserve', 'on_process', 'akad', 'full_book', 'cancel']);
 
@@ -208,7 +214,7 @@ export default function TransactionRecapSection({
         if (!teams.some((t) => t.teamId === selectedTeam2)) setSelectedTeam2(teams[1]?.teamId || teams[0]?.teamId || '');
     }, [teams, selectedTeam1, selectedTeam2]);
 
-    if (!data) return null;
+    if (!data || !activeData) return null;
 
     const effectiveCompare = allowTeamFiltering && isCompare;
     const isScopedSupervisor = !allowTeamFiltering && viewerRole === 'supervisor';
@@ -223,17 +229,17 @@ export default function TransactionRecapSection({
         : null;
     const summaryScope = !effectiveCompare && selectedTeamData
         ? { totalAkad: selectedTeamData.akad || 0, totalReserve: selectedTeamData.reserve || 0, totalOnProcess: selectedTeamData.onProcess || 0, totalFullBook: selectedTeamData.fullBook || 0, totalCancel: selectedTeamData.cancel || 0 }
-        : { totalAkad: data.totalAkad || 0, totalReserve: data.totalReserve || 0, totalOnProcess: data.totalOnProcess || 0, totalFullBook: data.totalFullBook || 0, totalCancel: data.totalCancel || 0 };
-    const picAgentComparison = data.picAgentComparison?.[picAgentStatus] || { agent: 0, others: 0, total: 0 };
+        : { totalAkad: activeData.totalAkad || 0, totalReserve: activeData.totalReserve || 0, totalOnProcess: activeData.totalOnProcess || 0, totalFullBook: activeData.totalFullBook || 0, totalCancel: activeData.totalCancel || 0 };
+    const picAgentComparison = activeData.picAgentComparison?.[picAgentStatus] || { agent: 0, others: 0, total: 0 };
     const picAgentTotal = Number(picAgentComparison.total || 0);
     const picAgentPct = picAgentTotal > 0 ? Math.round(((picAgentComparison.agent || 0) / picAgentTotal) * 10000) / 100 : 0;
     const allSupPct = picAgentTotal > 0 ? Math.round(((picAgentComparison.others || 0) / picAgentTotal) * 10000) / 100 : 0;
-    const sourceLeadItems = (data.transactionSourceBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
-    const unitTypeItems = (data.unitTypeBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
-    const cancelReasonItems = (data.cancelReasonBreakdown || []).map((item, i) => ({ label: item.label || item.key || 'Lainnya', count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
-    const domicileItems = (data.transactionDomicileBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
+    const sourceLeadItems = (activeData.transactionSourceBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
+    const unitTypeItems = (activeData.unitTypeBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
+    const cancelReasonItems = (activeData.cancelReasonBreakdown || []).map((item, i) => ({ label: item.label || item.key || 'Lainnya', count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
+    const domicileItems = (activeData.transactionDomicileBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
 
-    const domicileNonCancelItems = (data.transactionDomicileBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ ...item, color: PIE_COLORS[i % PIE_COLORS.length] }));
+    const domicileNonCancelItems = (activeData.transactionDomicileBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ ...item, color: PIE_COLORS[i % PIE_COLORS.length] }));
     const domicileNonCancelTotal = domicileNonCancelItems.reduce((s, i) => s + i.count, 0);
     const selectedPicAgentStatusMeta = PIC_AGENT_STATUS_OPTIONS.find((s) => s.key === picAgentStatus) || PIC_AGENT_STATUS_OPTIONS[0];
 
