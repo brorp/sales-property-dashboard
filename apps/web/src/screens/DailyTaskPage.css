@@ -757,3 +757,61 @@ html[data-theme="dark"] .daily-task-page .badge-purple {
         border-color: rgba(255, 255, 255, 0.16);
     }
 }
+
+/* ── Appointments Sub Tabs ────────────────────────────────────────── */
+
+.dt-subtabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 2px 0;
+}
+
+.dt-subtabs::-webkit-scrollbar {
+    display: none;
+}
+
+.dt-subtab {
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 150ms ease;
+    border: 1px solid var(--border-color);
+}
+
+html[data-theme="light"] .dt-subtab {
+    background: #F8FAFC;
+    color: #475569;
+}
+
+html[data-theme="light"] .dt-subtab:hover {
+    background: #F1F5F9;
+    color: #1E3A5F;
+}
+
+html[data-theme="light"] .dt-subtab.is-active {
+    background: #1E3A5F;
+    color: #FFFFFF;
+    border-color: #1E3A5F;
+}
+
+html[data-theme="dark"] .dt-subtab {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .dt-subtab:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+}
+
+html[data-theme="dark"] .dt-subtab.is-active {
+    background: var(--primary);
+    color: #FFFFFF;
+    border-color: var(--primary);
+}

@@ -141,6 +141,7 @@ export default function SupervisorTasksPage() {
     const [managedSales, setManagedSales] = useState([]);
     const [submittedSalesFilter, setSubmittedSalesFilter] = useState('all');
     const [deadlineSalesFilter, setDeadlineSalesFilter] = useState('all');
+    const [hotSalesFilter, setHotSalesFilter] = useState('all');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [actionLoading, setActionLoading] = useState('');
@@ -149,10 +150,11 @@ export default function SupervisorTasksPage() {
     const [rejectNotes, setRejectNotes] = useState({});
     const [showRejectNote, setShowRejectNote] = useState({});
     const [lightboxImage, setLightboxImage] = useState(null);
-    const [filterSheet, setFilterSheet] = useState(null); // 'submitted' | 'cold' | null
+    const [filterSheet, setFilterSheet] = useState(null); // 'submitted' | 'cold' | 'hot' | null
     const [filterSearch, setFilterSearch] = useState('');
     const [submittedNameSearch, setSubmittedNameSearch] = useState('');
     const [coldNameSearch, setColdNameSearch] = useState('');
+    const [hotNameSearch, setHotNameSearch] = useState('');
 
     // Hot Validated leads from context (already loaded)
     const allLeads = getLeadsForUser(user?.id, user?.role);
@@ -245,6 +247,61 @@ export default function SupervisorTasksPage() {
         deadlineTaskGroups.reduce((total, group) => total + (group.taskCount || 0), 0)
     ), [deadlineTaskGroups]);
 
+    const hotSalesOptions = useMemo(() => {
+        const activeLeadsList = hotSubTab === 'pending' ? leads : validatedLeads;
+        const countMap = new Map();
+        for (const lead of activeLeadsList) {
+            const sid = lead.assignedTo;
+            if (sid) {
+                countMap.set(sid, (countMap.get(sid) || 0) + 1);
+            }
+        }
+        return managedSales.map((item) => ({
+            salesId: item.id,
+            salesName: item.name || 'Sales',
+            taskCount: countMap.get(item.id) || 0,
+        })).filter((item) => item.salesId);
+    }, [managedSales, hotSubTab, leads, validatedLeads]);
+
+    const filteredPendingLeads = useMemo(() => {
+        return leads.filter((lead) => {
+            if (hotSalesFilter !== 'all' && lead.assignedTo !== hotSalesFilter) {
+                return false;
+            }
+            if (hotNameSearch.trim()) {
+                const query = hotNameSearch.toLowerCase();
+                const nameMatches = lead.name?.toLowerCase().includes(query);
+                const phoneMatches = lead.phone?.toLowerCase().includes(query);
+                if (!nameMatches && !phoneMatches) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }, [leads, hotSalesFilter, hotNameSearch]);
+
+    const filteredValidatedLeads = useMemo(() => {
+        return validatedLeads.filter((lead) => {
+            if (hotSalesFilter !== 'all' && lead.assignedTo !== hotSalesFilter) {
+                return false;
+            }
+            if (hotNameSearch.trim()) {
+                const query = hotNameSearch.toLowerCase();
+                const nameMatches = lead.name?.toLowerCase().includes(query);
+                const phoneMatches = lead.phone?.toLowerCase().includes(query);
+                if (!nameMatches && !phoneMatches) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }, [validatedLeads, hotSalesFilter, hotNameSearch]);
+
+    const hotTotalCount = useMemo(() => {
+        const activeLeadsList = hotSubTab === 'pending' ? leads : validatedLeads;
+        return activeLeadsList.length;
+    }, [hotSubTab, leads, validatedLeads]);
+
     useEffect(() => {
         if (
             submittedSalesFilter !== 'all' &&
@@ -262,6 +319,15 @@ export default function SupervisorTasksPage() {
             setDeadlineSalesFilter('all');
         }
     }, [deadlineSalesFilter, deadlineSalesOptions]);
+
+    useEffect(() => {
+        if (
+            hotSalesFilter !== 'all' &&
+            !hotSalesOptions.some((option) => option.salesId === hotSalesFilter)
+        ) {
+            setHotSalesFilter('all');
+        }
+    }, [hotSalesFilter, hotSalesOptions]);
 
     usePagePolling({
         enabled: Boolean(user),
@@ -444,7 +510,7 @@ export default function SupervisorTasksPage() {
                 <button
                     type="button"
                     className={`daily-task-tab ${activeSection === 'hot_leads' ? 'is-active' : ''}`}
-                    onClick={() => setActiveSection('hot_leads')}
+                    onClick={() => { setActiveSection('hot_leads'); setHotSalesFilter('all'); setHotNameSearch(''); }}
                 >
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -457,7 +523,7 @@ export default function SupervisorTasksPage() {
                 <button
                     type="button"
                     className={`daily-task-tab ${activeSection === 'submitted_tasks' ? 'is-active' : ''}`}
-                    onClick={() => setActiveSection('submitted_tasks')}
+                    onClick={() => { setActiveSection('submitted_tasks'); setSubmittedSalesFilter('all'); setSubmittedNameSearch(''); }}
                 >
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -470,7 +536,7 @@ export default function SupervisorTasksPage() {
                 <button
                     type="button"
                     className={`daily-task-tab ${activeSection === 'cold_leads' ? 'is-active' : ''}`}
-                    onClick={() => setActiveSection('cold_leads')}
+                    onClick={() => { setActiveSection('cold_leads'); setDeadlineSalesFilter('all'); setColdNameSearch(''); }}
                 >
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -488,12 +554,22 @@ export default function SupervisorTasksPage() {
                     {actionError && <div className="alert alert-danger" style={{ marginBottom: 12 }}>{actionError}</div>}
                     {actionSuccess && <div className="alert alert-success" style={{ marginBottom: 12 }}>{actionSuccess}</div>}
 
+                    {renderSalesFilter({
+                        options: hotSalesOptions,
+                        value: hotSalesFilter,
+                        onChange: setHotSalesFilter,
+                        totalCount: hotTotalCount,
+                        sheetKey: 'hot',
+                        nameSearch: hotNameSearch,
+                        setNameSearch: setHotNameSearch,
+                    })}
+
                     {/* Sub-tabs: Hot Pending & Hot Validated */}
-                    <div className="spv-hot-subtabs">
+                    <div className="spv-hot-subtabs" style={{ marginTop: 0 }}>
                         <button
                             type="button"
                             className={`spv-hot-subtab ${hotSubTab === 'pending' ? 'is-active' : ''}`}
-                            onClick={() => setHotSubTab('pending')}
+                            onClick={() => { setHotSubTab('pending'); setHotSalesFilter('all'); setHotNameSearch(''); }}
                         >
                             Hot Pending
                             {leads.length > 0 && <span className="spv-hot-subtab-badge">{leads.length}</span>}
@@ -501,7 +577,7 @@ export default function SupervisorTasksPage() {
                         <button
                             type="button"
                             className={`spv-hot-subtab ${hotSubTab === 'validated' ? 'is-active' : ''}`}
-                            onClick={() => setHotSubTab('validated')}
+                            onClick={() => { setHotSubTab('validated'); setHotSalesFilter('all'); setHotNameSearch(''); }}
                         >
                             Hot Validated
                             {validatedLeads.length > 0 && <span className="spv-hot-subtab-badge spv-hot-subtab-badge--validated">{validatedLeads.length}</span>}
@@ -513,9 +589,11 @@ export default function SupervisorTasksPage() {
                             <SpvEmpty variant="loading" title="Memuat data..." />
                         ) : leads.length === 0 ? (
                             <SpvEmpty variant="success" title="Semua lead tervalidasi" desc="Tidak ada lead HOT yang menunggu validasi saat ini." />
+                        ) : filteredPendingLeads.length === 0 ? (
+                            <SpvEmpty variant="search" title="Tidak ada hasil" desc="Coba ubah filter sales atau hapus pencarian nama." />
                         ) : (
                             <div className="spv-card-list spv-card-list--top">
-                                {leads.map((lead) => {
+                                {filteredPendingLeads.map((lead) => {
                                     const isBusy = actionLoading === lead.id;
                                     return (
                                         <div key={lead.id} className="spv-card spv-card-hot">
@@ -598,9 +676,11 @@ export default function SupervisorTasksPage() {
                         /* Hot Validated list */
                         validatedLeads.length === 0 ? (
                             <SpvEmpty variant="success" title="Belum ada Hot Validated" desc="Lead HOT yang sudah divalidasi SPV akan muncul di sini." />
+                        ) : filteredValidatedLeads.length === 0 ? (
+                            <SpvEmpty variant="search" title="Tidak ada hasil" desc="Coba ubah filter sales atau hapus pencarian nama." />
                         ) : (
                             <div className="spv-card-list spv-card-list--top">
-                                {validatedLeads.map((lead) => (
+                                {filteredValidatedLeads.map((lead) => (
                                     <div key={lead.id} className="spv-card spv-card-hot">
                                         <div className="spv-card-header">
                                             <span
