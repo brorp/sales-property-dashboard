@@ -296,9 +296,8 @@ export default function DailyTaskPage() {
                 const day = parseInt(parts[2], 10);
                 const date = new Date(year, month, day);
                 const dateStr = date.toLocaleDateString('id-ID', {
-                    day: '2-digit',
-                    month: 'long',
-                    year: 'numeric',
+                    day: 'numeric',
+                    month: 'short',
                 });
                 return `${dateStr} · ${latestAppointment.time || '00:00'}`;
             }
@@ -550,6 +549,23 @@ export default function DailyTaskPage() {
     return (
         <div className="page-container daily-task-page">
             <Header title="Tugas Harian" mobileTitle={activeWorkspace?.name || 'Tugas Harian'} hasTabs />
+
+            <div className="dt-mobile-top">
+                <span className="dt-mobile-title">{activeWorkspace?.name || 'Tugas Harian'}</span>
+                <button
+                    className="dt-mobile-refresh"
+                    onClick={() => { void loadTasks(); void loadSideData(); }}
+                    disabled={loading}
+                    title="Refresh"
+                    style={loading ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                        style={loading ? { animation: 'dtSpin 0.7s linear infinite' } : undefined}>
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path d="M3 3v5h5" />
+                    </svg>
+                </button>
+            </div>
 
             {/* ── Tab bar ──────────────────────────────────────────── */}
             <div className="daily-task-tabs">

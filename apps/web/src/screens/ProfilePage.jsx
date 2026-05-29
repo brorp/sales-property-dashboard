@@ -244,7 +244,7 @@ export default function ProfilePage() {
                 <MenuItem icon={<IconLogOut />} label="Keluar" onClick={handleLogout} danger />
             </div>
 
-            <p className="pf-version">Property Lounge Dashboard v1.0</p>
+            <p className="pf-version">PLCRM v2.0</p>
         </div>
     );
 }
