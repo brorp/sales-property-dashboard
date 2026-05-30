@@ -5,7 +5,7 @@ import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { apiRequest } from '../lib/api';
-import SelectFilter from '../components/SelectFilter';
+import Select from '../components/Select';
 import './PenaltiesPage.css';
 
 function formatDateTime(value) {
@@ -152,14 +152,14 @@ export default function PenaltiesPage() {
                     />
                 </div>
                 <div className="pen-selects-row">
-                    <SelectFilter
+                    <Select
                         placeholder="Semua Status"
                         options={STATUS_OPTIONS}
                         value={statusFilter}
                         onChange={setStatusFilter}
                     />
                     {user?.role !== 'sales' ? (
-                        <SelectFilter
+                        <Select
                             placeholder="Semua Sales"
                             options={salesSelectOptions}
                             value={salesFilter}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatCount, getPillButtonStyle, getTeamDisplayLabel } from './utils';
 import PieChartCard from '../../components/PieChartCard';
@@ -111,6 +111,16 @@ function FilterIcon() {
     );
 }
 
+function ThreeLinesIcon() {
+    return (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="4" y1="6" x2="20" y2="6" />
+            <line x1="4" y1="12" x2="20" y2="12" />
+            <line x1="4" y1="18" x2="20" y2="18" />
+        </svg>
+    );
+}
+
 function CheckIcon() {
     return (
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -182,9 +192,15 @@ export default function TransactionRecapSection({
     const [analysisDrawerOpen, setAnalysisDrawerOpen] = useState(false);
     const [statsDrawerOpen, setStatsDrawerOpen] = useState(false);
     const [domicileChartType, setDomicileChartType] = useState('pie');
-    const teams = data?.teams || [];
+    const activeData = useMemo(() => {
+        if (!data) return null;
+        if (!unitType || unitType === 'all') return data;
+        return data.unitScopes?.[unitType] || data;
+    }, [data, unitType]);
+
+    const teams = activeData?.teams || [];
     const isCompare = forceCompare;
-    const [visibleStats, setVisibleStats] = useState(['full_book', 'cancel']);
+    const [visibleStats, setVisibleStats] = useState(['reserve', 'on_process', 'akad', 'full_book', 'cancel']);
 
     const toggleStat = (key) => setVisibleStats((prev) =>
         prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
@@ -198,7 +214,7 @@ export default function TransactionRecapSection({
         if (!teams.some((t) => t.teamId === selectedTeam2)) setSelectedTeam2(teams[1]?.teamId || teams[0]?.teamId || '');
     }, [teams, selectedTeam1, selectedTeam2]);
 
-    if (!data) return null;
+    if (!data || !activeData) return null;
 
     const effectiveCompare = allowTeamFiltering && isCompare;
     const isScopedSupervisor = !allowTeamFiltering && viewerRole === 'supervisor';
@@ -213,17 +229,17 @@ export default function TransactionRecapSection({
         : null;
     const summaryScope = !effectiveCompare && selectedTeamData
         ? { totalAkad: selectedTeamData.akad || 0, totalReserve: selectedTeamData.reserve || 0, totalOnProcess: selectedTeamData.onProcess || 0, totalFullBook: selectedTeamData.fullBook || 0, totalCancel: selectedTeamData.cancel || 0 }
-        : { totalAkad: data.totalAkad || 0, totalReserve: data.totalReserve || 0, totalOnProcess: data.totalOnProcess || 0, totalFullBook: data.totalFullBook || 0, totalCancel: data.totalCancel || 0 };
-    const picAgentComparison = data.picAgentComparison?.[picAgentStatus] || { agent: 0, others: 0, total: 0 };
+        : { totalAkad: activeData.totalAkad || 0, totalReserve: activeData.totalReserve || 0, totalOnProcess: activeData.totalOnProcess || 0, totalFullBook: activeData.totalFullBook || 0, totalCancel: activeData.totalCancel || 0 };
+    const picAgentComparison = activeData.picAgentComparison?.[picAgentStatus] || { agent: 0, others: 0, total: 0 };
     const picAgentTotal = Number(picAgentComparison.total || 0);
     const picAgentPct = picAgentTotal > 0 ? Math.round(((picAgentComparison.agent || 0) / picAgentTotal) * 10000) / 100 : 0;
     const allSupPct = picAgentTotal > 0 ? Math.round(((picAgentComparison.others || 0) / picAgentTotal) * 10000) / 100 : 0;
-    const sourceLeadItems = (data.transactionSourceBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
-    const unitTypeItems = (data.unitTypeBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
-    const cancelReasonItems = (data.cancelReasonBreakdown || []).map((item, i) => ({ label: item.label || item.key || 'Lainnya', count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
-    const domicileItems = (data.transactionDomicileBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
+    const sourceLeadItems = (activeData.transactionSourceBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
+    const unitTypeItems = (activeData.unitTypeBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
+    const cancelReasonItems = (activeData.cancelReasonBreakdown || []).map((item, i) => ({ label: item.label || item.key || 'Lainnya', count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
+    const domicileItems = (activeData.transactionDomicileBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ label: item.label, count: item.count, color: PIE_COLORS[i % PIE_COLORS.length] }));
 
-    const domicileNonCancelItems = (data.transactionDomicileBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ ...item, color: PIE_COLORS[i % PIE_COLORS.length] }));
+    const domicileNonCancelItems = (activeData.transactionDomicileBreakdown?.[transactionChartStatus] || []).map((item, i) => ({ ...item, color: PIE_COLORS[i % PIE_COLORS.length] }));
     const domicileNonCancelTotal = domicileNonCancelItems.reduce((s, i) => s + i.count, 0);
     const selectedPicAgentStatusMeta = PIC_AGENT_STATUS_OPTIONS.find((s) => s.key === picAgentStatus) || PIC_AGENT_STATUS_OPTIONS[0];
 
@@ -304,7 +320,7 @@ export default function TransactionRecapSection({
                             onClick={() => setStatsDrawerOpen(true)}
                             title="Pilih statistik"
                         >
-                            <FilterIcon />
+                            <ThreeLinesIcon />
                             {visibleStats.length > 2 ? <span className="ds-section-filter-dot" /> : null}
                         </button>
                     ) : null}
@@ -440,8 +456,8 @@ export default function TransactionRecapSection({
                         <div className="dash-drawer-body">
                             <div className="tpc-stats-toggle-list">
                                 {[
-                                    { key: 'full_book', label: 'Full Book', color: 'var(--purple)', locked: true },
-                                    { key: 'cancel', label: 'Cancel', color: 'var(--danger)', locked: true },
+                                    { key: 'full_book', label: 'Full Book', color: 'var(--purple)', locked: false },
+                                    { key: 'cancel', label: 'Cancel', color: 'var(--danger)', locked: false },
                                     { key: 'akad', label: 'Akad', color: 'var(--green)', locked: false },
                                     { key: 'on_process', label: 'On Process', color: 'var(--primary)', locked: false },
                                     { key: 'reserve', label: 'Reserve', color: 'var(--text-primary)', locked: false },
@@ -451,19 +467,14 @@ export default function TransactionRecapSection({
                                         <div key={key} className={`tpc-stats-toggle-item${locked ? ' locked' : ''}`}>
                                             <span className="tpc-stats-toggle-dot" style={{ background: color }} />
                                             <span className="tpc-stats-toggle-label">{label}</span>
-                                            {locked
-                                                ? <span className="tpc-stats-toggle-lock">Selalu tampil</span>
-                                                : (
-                                                    <button
-                                                        type="button"
-                                                        className={`tpc-stats-toggle-switch${active ? ' active' : ''}`}
-                                                        onClick={() => toggleStat(key)}
-                                                        style={active ? { '--sw-color': color } : undefined}
-                                                    >
-                                                        <span className="tpc-stats-toggle-thumb" />
-                                                    </button>
-                                                )
-                                            }
+                                            <button
+                                                type="button"
+                                                className={`tpc-stats-toggle-switch${active ? ' active' : ''}`}
+                                                onClick={() => toggleStat(key)}
+                                                style={active ? { '--sw-color': color } : undefined}
+                                            >
+                                                <span className="tpc-stats-toggle-thumb" />
+                                            </button>
                                         </div>
                                     );
                                 })}

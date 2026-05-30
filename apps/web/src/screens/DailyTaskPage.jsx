@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Header from '../components/Header';
 import Button from '../components/Button';
 import DatePicker from '../components/DatePicker';
-import SelectFilter from '../components/SelectFilter';
+import Select from '../components/Select';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
 import VerifiedIcon from '../components/VerifiedIcon';
@@ -703,7 +703,7 @@ export default function DailyTaskPage() {
                                             <div className="dt-status-wrap">
                                                 <span className="dt-status-label">Status Prospek</span>
                                                 <div onClick={(e) => e.stopPropagation()}>
-                                                    <SelectFilter
+                                                    <Select
                                                         options={visibleStatuses.map((item) => ({ value: item.key, label: getSalesStatusLabel(item.key) }))}
                                                         value={draft.salesStatus || ''}
                                                         onChange={(val) => { if (val) mergeDraft(task.id, { salesStatus: val }); }}

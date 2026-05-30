@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatCount as fmt } from './utils';
+import Select from '../../components/Select';
 import './DashboardSections.css';
 
 const LINE_COLORS = ['#7C3AED', '#22C55E', '#0EA5E9', '#F59E0B', '#EF4444', '#06B6D4', '#8B5CF6'];
@@ -44,10 +45,8 @@ export default function LineChartSection({ data, granularity = 'month', onGranul
     }, [visibleSeriesKeys]);
 
     const chartGeometry = useMemo(() => {
-        const width = 800;
         const height = 300;
-        const denseXAxis = granularity === 'day' && periods.length >= 20;
-        const padding = { top: 20, right: 20, bottom: denseXAxis ? 64 : 44, left: 44 };
+        const padding = { top: 20, right: 20, bottom: 44, left: 44 };
         const maxValue = Math.max(
             1,
             ...periods.flatMap((p) =>
@@ -56,11 +55,15 @@ export default function LineChartSection({ data, granularity = 'month', onGranul
                     : Object.values(p.values || {}).map((v) => Number(v || 0))
             )
         );
-        const chartWidth = width - padding.left - padding.right;
+        const minXStep = granularity === 'day' ? 60 : 32;
+        const baseChartWidth = 800 - padding.left - padding.right;
+        const requiredChartWidth = periods.length > 1 ? (periods.length - 1) * minXStep : baseChartWidth;
+        const chartWidth = Math.max(baseChartWidth, requiredChartWidth);
+        const width = chartWidth + padding.left + padding.right;
         const chartHeight = height - padding.top - padding.bottom;
         const xStep = periods.length > 1 ? chartWidth / (periods.length - 1) : chartWidth / 2;
         return {
-            width, height, padding, maxValue, chartHeight, chartWidth, xStep, denseXAxis,
+            width, height, padding, maxValue, chartHeight, chartWidth, xStep,
             chartBottom: height - padding.bottom,
             xLabelEvery: periods.length > 60 ? 7 : periods.length > 31 ? 4 : periods.length > 20 ? 2 : 1,
         };
@@ -103,6 +106,11 @@ export default function LineChartSection({ data, granularity = 'month', onGranul
         ? chartGeometry.padding.left + (periods.length > 1 ? chartGeometry.xStep * hoverIndex : chartGeometry.chartWidth / 2)
         : null;
 
+    const granularityOptions = useMemo(
+        () => (data?.granularityOptions || []).map((o) => ({ value: o.key, label: o.label })),
+        [data]
+    );
+
     if (!data) return null;
 
     const hasData = seriesWithColor.length > 0 && periods.length > 0;
@@ -114,6 +122,16 @@ export default function LineChartSection({ data, granularity = 'month', onGranul
                     <span className="lc-eyebrow">Tren Data</span>
                     <h2 className="lc-title">Line Chart</h2>
                 </div>
+                {granularityOptions.length > 0 && (
+                    <div className="lc-controls" style={{ minWidth: '150px' }}>
+                        <Select
+                            options={granularityOptions}
+                            value={granularity}
+                            onChange={(v) => onGranularityChange?.(v || 'month')}
+                            clearable={false}
+                        />
+                    </div>
+                )}
             </div>
 
             {seriesWithColor.length > 0 && (
@@ -145,123 +163,160 @@ export default function LineChartSection({ data, granularity = 'month', onGranul
                 <div className="lc-empty">Semua garis disembunyikan. Klik legend untuk menampilkan.</div>
             ) : (
                 <div className="lc-chart-wrap">
-                    <svg
-                        ref={svgRef}
-                        className="lc-svg"
-                        viewBox={`0 0 ${chartGeometry.width} ${chartGeometry.height}`}
-                        onMouseMove={handleMouseMove}
-                        onMouseLeave={() => setHoverIndex(null)}
+                    {/* Sticky Y-Axis Overlay */}
+                    <div
+                        className="lc-y-axis-sticky"
+                        style={{
+                            width: `${chartGeometry.padding.left}px`,
+                            height: `${chartGeometry.height}px`,
+                        }}
                     >
-                        <defs>
-                            {seriesWithPoints.map((s) => (
-                                <linearGradient key={s.key} id={`lc-grad-${s.key}`} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor={s.color} stopOpacity="0.15" />
-                                    <stop offset="100%" stopColor={s.color} stopOpacity="0" />
-                                </linearGradient>
-                            ))}
-                        </defs>
-
-                        {/* Grid lines */}
-                        {gridTicks.map((tick) => (
-                            <g key={tick.y}>
-                                <line
-                                    x1={chartGeometry.padding.left} x2={chartGeometry.width - chartGeometry.padding.right}
-                                    y1={tick.y} y2={tick.y}
-                                    stroke="rgba(30,58,95,0.07)" strokeDasharray="4 4"
-                                />
-                                <text x={chartGeometry.padding.left - 8} y={tick.y + 4} textAnchor="end" fontSize="10" fill="#94A3B8">
+                        <svg
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                display: 'block',
+                                overflow: 'visible',
+                            }}
+                        >
+                            {gridTicks.map((tick) => (
+                                <text
+                                    key={`y-label-${tick.value}-${tick.y}`}
+                                    x={chartGeometry.padding.left - 8}
+                                    y={tick.y + 4}
+                                    textAnchor="end"
+                                    fontSize="10"
+                                    fill="#94A3B8"
+                                >
                                     {tick.value}
                                 </text>
-                            </g>
-                        ))}
+                            ))}
+                        </svg>
+                    </div>
 
-                        {/* Hover crosshair */}
-                        {hoverX !== null && (
-                            <line
-                                x1={hoverX} x2={hoverX}
-                                y1={chartGeometry.padding.top} y2={chartGeometry.chartBottom}
-                                stroke="rgba(30,58,95,0.18)" strokeWidth="1" strokeDasharray="4 3"
-                            />
-                        )}
+                    {/* Horizontally scrollable chart content */}
+                    <div className="lc-chart-scroll">
+                        <svg
+                            ref={svgRef}
+                            className="lc-svg"
+                            style={{
+                                width: `${chartGeometry.width}px`,
+                                minWidth: `${chartGeometry.width}px`,
+                                height: `${chartGeometry.height}px`,
+                            }}
+                            viewBox={`0 0 ${chartGeometry.width} ${chartGeometry.height}`}
+                            onMouseMove={handleMouseMove}
+                            onMouseLeave={() => setHoverIndex(null)}
+                        >
+                            <defs>
+                                {seriesWithPoints.map((s) => (
+                                    <linearGradient key={s.key} id={`lc-grad-${s.key}`} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor={s.color} stopOpacity="0.15" />
+                                        <stop offset="100%" stopColor={s.color} stopOpacity="0" />
+                                    </linearGradient>
+                                ))}
+                            </defs>
 
-                        {/* Area fills */}
-                        {seriesWithPoints.map((s) => (
-                            <path key={`area-${s.key}`} d={s.areaPath} fill={`url(#lc-grad-${s.key})`} />
-                        ))}
+                            {/* Grid lines (horizontal only, without text) */}
+                            {gridTicks.map((tick) => (
+                                <line
+                                    key={`grid-line-${tick.y}`}
+                                    x1={chartGeometry.padding.left}
+                                    x2={chartGeometry.width - chartGeometry.padding.right}
+                                    y1={tick.y}
+                                    y2={tick.y}
+                                    stroke="rgba(30,58,95,0.07)"
+                                    strokeDasharray="4 4"
+                                />
+                            ))}
 
-                        {/* Lines */}
-                        {seriesWithPoints.map((s) => (
-                            <path
-                                key={`line-${s.key}`} d={s.path}
-                                fill="none" stroke={s.color} strokeWidth="2.5"
-                                strokeLinecap="round" strokeLinejoin="round"
-                            />
-                        ))}
+                            {/* Hover crosshair */}
+                            {hoverX !== null && (
+                                <line
+                                    x1={hoverX} x2={hoverX}
+                                    y1={chartGeometry.padding.top} y2={chartGeometry.chartBottom}
+                                    stroke="rgba(30,58,95,0.18)" strokeWidth="1" strokeDasharray="4 3"
+                                />
+                            )}
 
-                        {/* Dots */}
-                        {seriesWithPoints.map((s) =>
-                            s.points.map((pt, i) => {
-                                const isHover = i === hoverIndex;
-                                const isEndpoint = periods.length <= 8 || i === 0 || i === s.points.length - 1;
-                                if (!isHover && !isEndpoint) return null;
+                            {/* Area fills */}
+                            {seriesWithPoints.map((s) => (
+                                <path key={`area-${s.key}`} d={s.areaPath} fill={`url(#lc-grad-${s.key})`} />
+                            ))}
+
+                            {/* Lines */}
+                            {seriesWithPoints.map((s) => (
+                                <path
+                                    key={`line-${s.key}`} d={s.path}
+                                    fill="none" stroke={s.color} strokeWidth="2.5"
+                                    strokeLinecap="round" strokeLinejoin="round"
+                                />
+                            ))}
+
+                            {/* Dots */}
+                            {seriesWithPoints.map((s) =>
+                                s.points.map((pt, i) => {
+                                    const isHover = i === hoverIndex;
+                                    const isEndpoint = periods.length <= 8 || i === 0 || i === s.points.length - 1;
+                                    if (!isHover && !isEndpoint) return null;
+                                    return (
+                                        <circle
+                                            key={`dot-${s.key}-${i}`}
+                                            cx={pt.x} cy={pt.y}
+                                            r={isHover ? 5 : 3}
+                                            fill={s.color} stroke="#FFFFFF" strokeWidth={isHover ? 2 : 1.5}
+                                        />
+                                    );
+                                })
+                            )}
+
+                            {/* X-axis labels */}
+                            {periods.map((period, i) => {
+                                const show = i === 0 || i === periods.length - 1 || i % chartGeometry.xLabelEvery === 0;
+                                if (!show) return null;
+                                const x = chartGeometry.padding.left + (periods.length > 1 ? chartGeometry.xStep * i : chartGeometry.chartWidth / 2);
                                 return (
-                                    <circle
-                                        key={`dot-${s.key}-${i}`}
-                                        cx={pt.x} cy={pt.y}
-                                        r={isHover ? 5 : 3}
-                                        fill={s.color} stroke="#FFFFFF" strokeWidth={isHover ? 2 : 1.5}
-                                    />
-                                );
-                            })
-                        )}
-
-                        {/* X-axis labels */}
-                        {periods.map((period, i) => {
-                            const show = i === 0 || i === periods.length - 1 || i % chartGeometry.xLabelEvery === 0;
-                            if (!show) return null;
-                            const x = chartGeometry.padding.left + (periods.length > 1 ? chartGeometry.xStep * i : chartGeometry.chartWidth / 2);
-                            return (
-                                <text
-                                    key={period.key} x={x}
-                                    y={chartGeometry.height - (chartGeometry.denseXAxis ? 14 : 8)}
-                                    textAnchor={chartGeometry.denseXAxis ? 'end' : 'middle'}
-                                    fontSize={chartGeometry.denseXAxis ? '8' : '10'} fill="#94A3B8"
-                                    transform={chartGeometry.denseXAxis ? `rotate(-45 ${x} ${chartGeometry.height - 14})` : undefined}
-                                >
-                                    {period.label}
-                                </text>
-                            );
-                        })}
-
-                        {/* Hover tooltip */}
-                        {hoverIndex !== null && hoverX !== null && periods[hoverIndex] && (() => {
-                            const tooltipItems = seriesWithPoints.map((s) => ({
-                                color: s.color, label: s.label,
-                                value: fmt(s.points[hoverIndex]?.value || 0),
-                            }));
-                            const bw = 148;
-                            const lineH = 18;
-                            const bh = 26 + tooltipItems.length * lineH;
-                            const bx = hoverX + 12 + bw > chartGeometry.width - chartGeometry.padding.right
-                                ? hoverX - bw - 12 : hoverX + 12;
-                            const by = chartGeometry.padding.top + 4;
-                            return (
-                                <g style={{ filter: 'drop-shadow(0 2px 8px rgba(30,58,95,0.12))' }}>
-                                    <rect x={bx} y={by} width={bw} height={bh} rx="7" fill="white" stroke="rgba(30,58,95,0.1)" strokeWidth="1" />
-                                    <text x={bx + 10} y={by + 16} fontSize="10" fontWeight="700" fill="#1E3A5F">
-                                        {periods[hoverIndex].label}
+                                    <text
+                                        key={period.key} x={x}
+                                        y={chartGeometry.height - 8}
+                                        textAnchor="middle"
+                                        fontSize="10" fill="#94A3B8"
+                                    >
+                                        {period.label}
                                     </text>
-                                    {tooltipItems.map((item, ti) => (
-                                        <g key={item.label}>
-                                            <circle cx={bx + 16} cy={by + 26 + ti * lineH} r="4" fill={item.color} />
-                                            <text x={bx + 27} y={by + 30 + ti * lineH} fontSize="10" fill="#64748B">{item.label}</text>
-                                            <text x={bx + bw - 8} y={by + 30 + ti * lineH} fontSize="10" fontWeight="700" fill="#1E3A5F" textAnchor="end">{item.value}</text>
-                                        </g>
-                                    ))}
-                                </g>
-                            );
-                        })()}
-                    </svg>
+                                );
+                            })}
+
+                            {/* Hover tooltip */}
+                            {hoverIndex !== null && hoverX !== null && periods[hoverIndex] && (() => {
+                                const tooltipItems = seriesWithPoints.map((s) => ({
+                                    color: s.color, label: s.label,
+                                    value: fmt(s.points[hoverIndex]?.value || 0),
+                                }));
+                                const bw = 148;
+                                const lineH = 18;
+                                const bh = 26 + tooltipItems.length * lineH;
+                                const bx = hoverX + 12 + bw > chartGeometry.width - chartGeometry.padding.right
+                                    ? hoverX - bw - 12 : hoverX + 12;
+                                const by = chartGeometry.padding.top + 4;
+                                return (
+                                    <g style={{ filter: 'drop-shadow(0 2px 8px rgba(30,58,95,0.12))' }}>
+                                        <rect x={bx} y={by} width={bw} height={bh} rx="7" fill="white" stroke="rgba(30,58,95,0.1)" strokeWidth="1" />
+                                        <text x={bx + 10} y={by + 16} fontSize="10" fontWeight="700" fill="#1E3A5F">
+                                            {periods[hoverIndex].label}
+                                        </text>
+                                        {tooltipItems.map((item, ti) => (
+                                            <g key={item.label}>
+                                                <circle cx={bx + 16} cy={by + 26 + ti * lineH} r="4" fill={item.color} />
+                                                <text x={bx + 27} y={by + 30 + ti * lineH} fontSize="10" fill="#64748B">{item.label}</text>
+                                                <text x={bx + bw - 8} y={by + 30 + ti * lineH} fontSize="10" fontWeight="700" fill="#1E3A5F" textAnchor="end">{item.value}</text>
+                                            </g>
+                                        ))}
+                                    </g>
+                                );
+                            })()}
+                        </svg>
+                    </div>
                 </div>
             )}
         </div>

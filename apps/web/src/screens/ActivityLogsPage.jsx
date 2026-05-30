@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Header from '../components/Header';
-import SelectFilter from '../components/SelectFilter';
+import Select from '../components/Select';
 import { useAuth } from '../context/AuthContext';
 import { apiRequest } from '../lib/api';
 import './ActivityLogsPage.css';
@@ -101,7 +101,7 @@ export default function ActivityLogsPage() {
                 </div>
                 {sourceOptions.length > 0 ? (
                     <div className="al-selects-row">
-                        <SelectFilter
+                        <Select
                             placeholder="Sumber"
                             value={sourceFilter}
                             onChange={setSourceFilter}

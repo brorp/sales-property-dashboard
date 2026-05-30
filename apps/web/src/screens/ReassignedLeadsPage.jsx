@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Header from '../components/Header';
-import SelectFilter from '../components/SelectFilter';
+import Select from '../components/Select';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
 import { getFlowStatusLabel, getSalesStatusLabel, getStatusBadgeClass } from '../constants/crm';
@@ -196,7 +196,7 @@ export default function ReassignedLeadsPage() {
 
                     <div className="input-group">
                         <label>Sales tujuan</label>
-                        <SelectFilter
+                        <Select
                             options={availableSales.map((s) => ({
                                 value: s.id,
                                 label: s.name + (s.isSuspended ? ' (suspended)' : ''),

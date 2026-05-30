@@ -27,10 +27,10 @@ const IconMoon = () => (
 
 const ADMIN_TABS = [
     { key: '/overview', icon: 'overview', label: 'Ringkasan' },
-    { key: '/appointments', icon: 'appointment', label: 'Janji Temu' },
     { key: '/', icon: 'analytics', label: 'Analitik' },
-    { key: '/team', icon: 'team', label: 'Tim' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
+    { key: '/team', icon: 'team', label: 'Tim' },
+    { key: '/appointments', icon: 'appointment', label: 'Janji Temu' },
     { key: '/activity-logs', icon: 'logs', label: 'Log' },
     { key: '/penalties', icon: 'warning', label: 'Penalti' },
     { key: '/settings', icon: 'settings', label: 'Pengaturan' },

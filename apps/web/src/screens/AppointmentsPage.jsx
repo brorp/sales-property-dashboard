@@ -8,7 +8,7 @@ import { useLeads } from '../context/LeadsContext';
 import { useAuth } from '../context/AuthContext';
 import { getAppointmentTagLabel, getStatusBadgeClass, toWaLink } from '../constants/crm';
 import { usePagePolling } from '../hooks/usePagePolling';
-import SelectFilter from '../components/SelectFilter';
+import Select from '../components/Select';
 import './AppointmentsPage.css';
 
 const TAG_OPTIONS = [
@@ -141,14 +141,14 @@ export default function AppointmentsPage() {
                     ) : null}
                 </div>
                 <div className="ap-selects-row">
-                    <SelectFilter
+                    <Select
                         placeholder="Status Janji Temu"
                         options={TAG_OPTIONS}
                         value={tagFilter}
                         onChange={setTagFilter}
                     />
                     {canFilterBySales ? (
-                        <SelectFilter
+                        <Select
                             placeholder="Semua Sales"
                             options={salesUsers.map((s) => ({ value: s.id, label: s.name }))}
                             value={salesFilter}
@@ -249,14 +249,14 @@ export default function AppointmentsPage() {
                         <div className="sheet-handle" />
                         <h2>Filter Janji Temu</h2>
                         <div className="ap-filter-sheet-body">
-                            <SelectFilter
+                            <Select
                                 placeholder="Status Janji Temu"
                                 options={TAG_OPTIONS}
                                 value={tagFilter}
                                 onChange={setTagFilter}
                             />
                             {canFilterBySales ? (
-                                <SelectFilter
+                                <Select
                                     placeholder="Semua Sales"
                                     options={salesUsers.map((s) => ({ value: s.id, label: s.name }))}
                                     value={salesFilter}

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import DatePicker from '../components/DatePicker';
 import Header from '../components/Header';
-import SelectFilter from '../components/SelectFilter';
+import Select from '../components/Select';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { apiRequest } from '../lib/api';
@@ -254,7 +254,7 @@ export default function BroadcastPage() {
 
                 <div className="input-group">
                     <label>Status Janji Temu (Opsional)</label>
-                    <SelectFilter
+                    <Select
                         options={[
                             { value: 'all', label: 'Semua' },
                             { value: 'mau_survey', label: 'Mau Survey' },

@@ -105,7 +105,7 @@
 .pcc-donut-total {
     font-size: 1.35rem;
     font-weight: 800;
-    color: var(--text-primary, #111827);
+    color: var(--primary);
     line-height: 1.1;
 }
 

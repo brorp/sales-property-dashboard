@@ -689,18 +689,49 @@
 }
 
 .lc-chart-wrap {
-    overflow-x: auto;
-    scrollbar-width: none;
+    position: relative;
     border-radius: 12px;
     border: 1px solid var(--border-color);
     background: var(--bg-input);
     padding: 6px;
+    overflow: hidden;
+}
+
+.lc-chart-scroll {
+    overflow-x: auto;
+    width: 100%;
+    scrollbar-width: thin;
+}
+
+.lc-chart-scroll::-webkit-scrollbar {
+    height: 6px;
+}
+
+.lc-chart-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.lc-chart-scroll::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 3px;
+}
+
+.lc-chart-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+.lc-y-axis-sticky {
+    position: absolute;
+    left: 6px;
+    top: 6px;
+    background: var(--bg-input);
+    z-index: 10;
+    pointer-events: none;
+    box-sizing: border-box;
+    border-right: 1px solid var(--border-color);
 }
 
 .lc-svg {
-    width: 100%;
-    min-width: 640px;
-    height: auto;
     display: block;
     cursor: crosshair;
 }
@@ -765,8 +796,9 @@
 }
 
 .ds-card-summary {
-    font-size: 0.78rem;
-    color: var(--text-muted);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--primary);
     margin-top: 2px;
     display: block;
 }

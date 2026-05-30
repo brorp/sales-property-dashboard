@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Header from '../components/Header';
-import SelectFilter from '../components/SelectFilter';
+import Select from '../components/Select';
 import TimePicker from '../components/TimePicker';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
@@ -360,7 +360,7 @@ export default function SettingsPage() {
                 <div className="set-section-label">Distribution Timeout</div>
                 <div className="input-group">
                     <label>Batas waktu claim OK (menit)</label>
-                    <SelectFilter
+                    <Select
                         options={[
                             { value: '5', label: '5 menit' },
                             { value: '10', label: '10 menit' },
@@ -391,7 +391,7 @@ export default function SettingsPage() {
                 </div>
                 <div className="input-group">
                     <label>Timezone</label>
-                    <SelectFilter
+                    <Select
                         options={[
                             { value: 'Asia/Jakarta', label: 'Asia/Jakarta — WIB (UTC+7)' },
                             { value: 'Asia/Makassar', label: 'Asia/Makassar — WITA (UTC+8)' },
