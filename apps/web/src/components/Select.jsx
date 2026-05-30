@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import './SelectFilter.css';
+import './Select.css';
 
 function ChevronIcon() {
     return (
@@ -30,20 +30,54 @@ function ClearIcon() {
 /**
  * @param {{
  *   options: { value: string; label: string }[];
- *   value: string;
- *   onChange: (value: string) => void;
+ *   value: string | string[];
+ *   onChange: (value: any) => void;
  *   placeholder?: string;
  *   className?: string;
+ *   disabled?: boolean;
+ *   clearable?: boolean;
+ *   variant?: string;
+ *   searchable?: boolean;
+ *   multiple?: boolean;
  * }} props
  */
-export default function SelectFilter({ options, value, onChange, placeholder = 'Pilih...', className = '', disabled = false, clearable = true, variant = 'default', searchable = false }) {
+export default function Select({
+    options,
+    value,
+    onChange,
+    placeholder = 'Pilih...',
+    className = '',
+    disabled = false,
+    clearable = true,
+    variant = 'default',
+    searchable = false,
+    multiple = false,
+}) {
     const [open, setOpen] = useState(false);
     const [dropdownStyle, setDropdownStyle] = useState({});
     const [searchQuery, setSearchQuery] = useState('');
     const wrapRef = useRef(null);
     const searchRef = useRef(null);
 
-    const selected = options.find((opt) => opt.value === value) || null;
+    // Normalize value for single vs multiple select
+    const selectedValues = multiple ? (Array.isArray(value) ? value : []) : (value ? [value] : []);
+    const isSelected = (val) => selectedValues.includes(val);
+
+    // Build the trigger label
+    let triggerLabel = placeholder;
+    if (multiple) {
+        if (selectedValues.length > 0) {
+            const selectedLabels = options
+                .filter((opt) => selectedValues.includes(opt.value))
+                .map((opt) => opt.label);
+            triggerLabel = selectedLabels.join(', ');
+        }
+    } else {
+        const selectedOpt = options.find((opt) => opt.value === value);
+        if (selectedOpt) {
+            triggerLabel = selectedOpt.label;
+        }
+    }
 
     const filteredOptions = searchable && searchQuery.trim()
         ? options.filter((opt) => opt.label.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -103,20 +137,29 @@ export default function SelectFilter({ options, value, onChange, placeholder = '
     };
 
     const handleSelect = (optValue) => {
-        onChange(optValue);
-        setOpen(false);
+        if (multiple) {
+            const nextValues = isSelected(optValue)
+                ? selectedValues.filter((v) => v !== optValue)
+                : [...selectedValues, optValue];
+            onChange(nextValues);
+        } else {
+            onChange(optValue);
+            setOpen(false);
+        }
     };
 
     const handleClear = (e) => {
         e.stopPropagation();
-        onChange('');
+        onChange(multiple ? [] : '');
         setOpen(false);
     };
+
+    const hasValue = multiple ? selectedValues.length > 0 : Boolean(value);
 
     const wrapClass = [
         'sf-wrap',
         variant === 'white' ? 'sf-wrap--white' : '',
-        selected ? 'is-active' : '',
+        hasValue ? 'is-active' : '',
         open ? 'is-open' : '',
         disabled ? 'is-disabled' : '',
         className,
@@ -132,9 +175,9 @@ export default function SelectFilter({ options, value, onChange, placeholder = '
                 aria-haspopup="listbox"
                 aria-expanded={open}
             >
-                <span className="sf-label">{selected ? selected.label : placeholder}</span>
+                <span className="sf-label">{triggerLabel}</span>
                 <span className="sf-icons">
-                    {selected && clearable ? (
+                    {hasValue && clearable ? (
                         <button type="button" className="sf-clear" onClick={handleClear} aria-label="Hapus filter">
                             <ClearIcon />
                         </button>
@@ -164,12 +207,12 @@ export default function SelectFilter({ options, value, onChange, placeholder = '
                                 key={opt.value}
                                 type="button"
                                 role="option"
-                                aria-selected={opt.value === value}
-                                className={`sf-option${opt.value === value ? ' is-selected' : ''}`}
+                                aria-selected={isSelected(opt.value)}
+                                className={`sf-option${isSelected(opt.value) ? ' is-selected' : ''}`}
                                 onClick={() => handleSelect(opt.value)}
                             >
                                 <span className="sf-option-label">{opt.label}</span>
-                                {opt.value === value ? (
+                                {isSelected(opt.value) ? (
                                     <span className="sf-option-check"><CheckIcon /></span>
                                 ) : null}
                             </button>

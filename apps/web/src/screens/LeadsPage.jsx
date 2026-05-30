@@ -21,7 +21,7 @@ import CustomerPipelineProgress from '../components/CustomerPipelineProgress';
 import DatePicker from '../components/DatePicker';
 import FileDropZone from '../components/FileDropZone';
 import DateRangePicker from '../components/DateRangePicker';
-import SelectFilter from '../components/SelectFilter';
+import Select from '../components/Select';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { apiRequest } from '../lib/api';
 import { readLeadTransferWorkbook } from '../lib/lead-transfer-workbook';
@@ -163,13 +163,35 @@ function isHotValidatedLead(lead) {
 }
 
 function matchesLeadFilters(lead, filters) {
-    if (filters.flowStatus !== 'all' && lead.flowStatus !== filters.flowStatus) return false;
-    if (filters.salesStatus === 'hot_validated') {
-        if (!isHotValidatedLead(lead)) return false;
-    } else if (filters.salesStatus !== 'all' && lead.salesStatus !== filters.salesStatus) return false;
-    if (!matchesResultStatusFilter(lead.resultStatus, filters.resultStatus)) return false;
-    if (filters.appointmentTag !== 'all' && (lead.appointmentTag || 'none') !== filters.appointmentTag) return false;
-    if (filters.salesId !== 'all' && lead.assignedTo !== filters.salesId) return false;
+    if (filters.flowStatus && filters.flowStatus.length > 0 && !filters.flowStatus.includes(lead.flowStatus)) {
+        return false;
+    }
+    if (filters.salesStatus && filters.salesStatus.length > 0) {
+        const matchSales = filters.salesStatus.some((status) => {
+            if (status === 'hot_validated') {
+                return isHotValidatedLead(lead);
+            }
+            return lead.salesStatus === status;
+        });
+        if (!matchSales) return false;
+    }
+    if (filters.resultStatus && filters.resultStatus.length > 0) {
+        if (!matchesResultStatusMultiFilter(filters.resultStatus, lead.resultStatus, 'unfilled')) {
+            return false;
+        }
+    }
+    if (filters.appointmentTag && filters.appointmentTag.length > 0) {
+        const actualTag = lead.appointmentTag || 'none';
+        if (!filters.appointmentTag.includes(actualTag)) {
+            return false;
+        }
+    }
+    if (filters.salesId && filters.salesId.length > 0) {
+        const actualSalesId = lead.assignedTo || 'unassigned';
+        if (!filters.salesId.includes(actualSalesId)) {
+            return false;
+        }
+    }
     return true;
 }
 
@@ -204,12 +226,13 @@ export default function LeadsPage() {
 
     const [refreshing, setRefreshing] = useState(false);
     const [search, setSearch] = useState('');
-    const [flowFilter, setFlowFilter] = useState('all');
-    const [salesStatusFilter, setSalesStatusFilter] = useState('all');
-    const [resultFilter, setResultFilter] = useState(searchParams?.get('resultFilter') || 'all');
-    const [appointmentFilter, setAppointmentFilter] = useState('all');
-    const [salesFilter, setSalesFilter] = useState('all');
-    const [sourceFilter, setSourceFilter] = useState('all');
+    const [flowFilter, setFlowFilter] = useState([]);
+    const [salesStatusFilter, setSalesStatusFilter] = useState([]);
+    const initialResultParam = searchParams?.get('resultFilter');
+    const [resultFilter, setResultFilter] = useState(initialResultParam ? [initialResultParam] : []);
+    const [appointmentFilter, setAppointmentFilter] = useState([]);
+    const [salesFilter, setSalesFilter] = useState([]);
+    const [sourceFilter, setSourceFilter] = useState([]);
     const [incompleteDataFilter, setIncompleteDataFilter] = useState(false);
     const [appliedDateRange, setAppliedDateRange] = useState(EMPTY_DATE_RANGE);
     const [showMobileFilter, setShowMobileFilter] = useState(false);
@@ -277,31 +300,31 @@ export default function LeadsPage() {
 
     const hasAnyFilter = Boolean(
         search || hasActiveDateFilter ||
-        flowFilter !== 'all' || salesStatusFilter !== 'all' ||
-        resultFilter !== 'all' || appointmentFilter !== 'all' ||
-        salesFilter !== 'all' || sourceFilter !== 'all' || incompleteDataFilter
+        flowFilter.length > 0 || salesStatusFilter.length > 0 ||
+        resultFilter.length > 0 || appointmentFilter.length > 0 ||
+        salesFilter.length > 0 || sourceFilter.length > 0 || incompleteDataFilter
     );
 
     const activeFilterCount = [
         hasActiveDateFilter,
-        flowFilter !== 'all',
-        salesStatusFilter !== 'all',
-        resultFilter !== 'all',
-        appointmentFilter !== 'all',
-        salesFilter !== 'all',
-        sourceFilter !== 'all',
+        flowFilter.length > 0,
+        salesStatusFilter.length > 0,
+        resultFilter.length > 0,
+        appointmentFilter.length > 0,
+        salesFilter.length > 0,
+        sourceFilter.length > 0,
         incompleteDataFilter,
     ].filter(Boolean).length;
 
     const resetAllFilters = () => {
         setSearch('');
         setAppliedDateRange(EMPTY_DATE_RANGE);
-        setFlowFilter('all');
-        setSalesStatusFilter('all');
-        setResultFilter('all');
-        setAppointmentFilter('all');
-        setSalesFilter('all');
-        setSourceFilter('all');
+        setFlowFilter([]);
+        setSalesStatusFilter([]);
+        setResultFilter([]);
+        setAppointmentFilter([]);
+        setSalesFilter([]);
+        setSourceFilter([]);
         setIncompleteDataFilter(false);
     };
 
@@ -325,7 +348,7 @@ export default function LeadsPage() {
                 const q = search.toLowerCase();
                 if (!lead.name.toLowerCase().includes(q) && !lead.phone.includes(q)) return false;
             }
-            if (sourceFilter !== 'all' && lead.source !== sourceFilter) return false;
+            if (sourceFilter && sourceFilter.length > 0 && !sourceFilter.includes(lead.source)) return false;
             if (!isLeadInDateRange(lead, appliedDateRange.dateFrom, appliedDateRange.dateTo)) return false;
             if (incompleteDataFilter) {
                 const hasDomisili = Boolean(lead.domicileCity);
@@ -450,12 +473,14 @@ export default function LeadsPage() {
         setExportError(''); setExportAccessCode('');
         setExportFilters({
             dateFrom: '', dateTo: '',
-            flowStatuses: toInitialExportSelection(flowFilter),
-            salesStatuses: salesStatusFilter === 'hot_validated' ? ['hot'] : toInitialExportSelection(salesStatusFilter),
-            hotValidatedOnly: salesStatusFilter === 'hot_validated',
-            appointmentTags: toInitialExportSelection(appointmentFilter),
-            resultStatuses: toInitialExportSelection(resultFilter),
-            salesIds: toInitialExportSelection(salesFilter),
+            flowStatuses: [...flowFilter],
+            salesStatuses: salesStatusFilter.includes('hot_validated')
+                ? ['hot', ...salesStatusFilter.filter((item) => item !== 'hot_validated')]
+                : [...salesStatusFilter],
+            hotValidatedOnly: salesStatusFilter.includes('hot_validated'),
+            appointmentTags: [...appointmentFilter],
+            resultStatuses: [...resultFilter],
+            salesIds: [...salesFilter],
         });
         setShowExportModal(true);
     };
@@ -709,53 +734,59 @@ export default function LeadsPage() {
 
                 {/* Filters */}
                 <div className="leads-selects-row">
-                    <SelectFilter
+                    <Select
                         placeholder="Tanggal"
                         value={currentDateSelectValue}
                         onChange={handleDateSelectChange}
                         options={dateSelectOptions}
                     />
                     {availableLeadSources.length > 0 ? (
-                        <SelectFilter
+                        <Select
                             placeholder="Sumber"
-                            value={sourceFilter === 'all' ? '' : sourceFilter}
-                            onChange={(v) => setSourceFilter(v || 'all')}
+                            value={sourceFilter}
+                            onChange={setSourceFilter}
                             options={availableLeadSources.map((s) => ({ value: s, label: s }))}
+                            multiple
                         />
                     ) : null}
-                    <SelectFilter
+                    <Select
                         placeholder="Status Prospek"
-                        value={salesStatusFilter === 'all' ? '' : salesStatusFilter}
-                        onChange={(v) => setSalesStatusFilter(v || 'all')}
+                        value={salesStatusFilter}
+                        onChange={setSalesStatusFilter}
                         options={[...SPECIAL_SALES_STATUS_FILTERS, ...SALES_STATUSES].map((item) => ({ value: item.key, label: item.label }))}
+                        multiple
                     />
-                    <SelectFilter
+                    <Select
                         placeholder="Hasil"
-                        value={resultFilter === 'all' ? '' : resultFilter}
-                        onChange={(v) => setResultFilter(v || 'all')}
+                        value={resultFilter}
+                        onChange={setResultFilter}
                         options={RESULT_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
+                        multiple
                     />
-                    <SelectFilter
+                    <Select
                         placeholder="Janji Temu"
-                        value={appointmentFilter === 'all' ? '' : appointmentFilter}
-                        onChange={(v) => setAppointmentFilter(v || 'all')}
+                        value={appointmentFilter}
+                        onChange={setAppointmentFilter}
                         options={APPOINTMENT_TAGS.map((item) => ({ value: item.key, label: item.label }))}
+                        multiple
                     />
-                    <SelectFilter
+                    <Select
                         placeholder="Distribusi"
-                        value={flowFilter === 'all' ? '' : flowFilter}
-                        onChange={(v) => setFlowFilter(v || 'all')}
+                        value={flowFilter}
+                        onChange={setFlowFilter}
                         options={FLOW_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
+                        multiple
                     />
                     {isAdmin ? (
-                        <SelectFilter
+                        <Select
                             placeholder="Sales"
-                            value={salesFilter === 'all' ? '' : salesFilter}
-                            onChange={(v) => setSalesFilter(v || 'all')}
+                            value={salesFilter}
+                            onChange={setSalesFilter}
                             options={salesUsers.map((s) => ({ value: s.id, label: s.name }))}
+                            multiple
                         />
                     ) : null}
-                    <SelectFilter
+                    <Select
                         placeholder="Kelengkapan Data"
                         value={incompleteDataFilter ? 'incomplete' : ''}
                         onChange={(v) => setIncompleteDataFilter(v === 'incomplete')}
@@ -915,7 +946,7 @@ export default function LeadsPage() {
                                 </div>
                                 <div className="input-group">
                                     <label>Sumber</label>
-                                    <SelectFilter
+                                    <Select
                                         placeholder="Pilih source lead"
                                         value={newLead.source}
                                         onChange={(v) => setNewLead({ ...newLead, source: v, agentOfficeName: isAgentSource(v) ? newLead.agentOfficeName : '' })}
@@ -936,7 +967,7 @@ export default function LeadsPage() {
                                 {isAdmin ? (
                                     <div className="input-group">
                                         <label>Assign ke Sales <span style={{ fontWeight: 400, opacity: 0.6 }}>(opsional)</span></label>
-                                        <SelectFilter
+                                        <Select
                                             placeholder="Biarkan Open"
                                             value={newLead.assignedTo}
                                             onChange={(v) => setNewLead({ ...newLead, assignedTo: v })}
@@ -979,7 +1010,7 @@ export default function LeadsPage() {
                                 </div>
                                 <div className="input-group">
                                     <label>Target Sales Baru</label>
-                                    <SelectFilter
+                                    <Select
                                         placeholder="Pilih sales target"
                                         value={importTargetSalesId}
                                         onChange={(v) => setImportTargetSalesId(v)}
@@ -1038,53 +1069,59 @@ export default function LeadsPage() {
                         <div className="sheet-handle" />
                         <h2>Filter Leads</h2>
                         <div className="leads-filter-sheet-body">
-                            <SelectFilter
+                            <Select
                                 placeholder="Tanggal"
                                 value={currentDateSelectValue}
                                 onChange={handleDateSelectChange}
                                 options={dateSelectOptions}
                             />
                             {availableLeadSources.length > 0 ? (
-                                <SelectFilter
+                                <Select
                                     placeholder="Sumber"
-                                    value={sourceFilter === 'all' ? '' : sourceFilter}
-                                    onChange={(v) => setSourceFilter(v || 'all')}
+                                    value={sourceFilter}
+                                    onChange={setSourceFilter}
                                     options={availableLeadSources.map((s) => ({ value: s, label: s }))}
+                                    multiple
                                 />
                             ) : null}
-                            <SelectFilter
+                            <Select
                                 placeholder="Status Prospek"
-                                value={salesStatusFilter === 'all' ? '' : salesStatusFilter}
-                                onChange={(v) => setSalesStatusFilter(v || 'all')}
+                                value={salesStatusFilter}
+                                onChange={setSalesStatusFilter}
                                 options={[...SPECIAL_SALES_STATUS_FILTERS, ...SALES_STATUSES].map((item) => ({ value: item.key, label: item.label }))}
+                                multiple
                             />
-                            <SelectFilter
+                            <Select
                                 placeholder="Hasil"
-                                value={resultFilter === 'all' ? '' : resultFilter}
-                                onChange={(v) => setResultFilter(v || 'all')}
+                                value={resultFilter}
+                                onChange={setResultFilter}
                                 options={RESULT_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
+                                multiple
                             />
-                            <SelectFilter
+                            <Select
                                 placeholder="Janji Temu"
-                                value={appointmentFilter === 'all' ? '' : appointmentFilter}
-                                onChange={(v) => setAppointmentFilter(v || 'all')}
+                                value={appointmentFilter}
+                                onChange={setAppointmentFilter}
                                 options={APPOINTMENT_TAGS.map((item) => ({ value: item.key, label: item.label }))}
+                                multiple
                             />
-                            <SelectFilter
+                            <Select
                                 placeholder="Distribusi"
-                                value={flowFilter === 'all' ? '' : flowFilter}
-                                onChange={(v) => setFlowFilter(v || 'all')}
+                                value={flowFilter}
+                                onChange={setFlowFilter}
                                 options={FLOW_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
+                                multiple
                             />
                             {isAdmin ? (
-                                <SelectFilter
+                                <Select
                                     placeholder="Sales"
-                                    value={salesFilter === 'all' ? '' : salesFilter}
-                                    onChange={(v) => setSalesFilter(v || 'all')}
+                                    value={salesFilter}
+                                    onChange={setSalesFilter}
                                     options={salesUsers.map((s) => ({ value: s.id, label: s.name }))}
+                                    multiple
                                 />
                             ) : null}
-                            <SelectFilter
+                            <Select
                                 placeholder="Kelengkapan Data"
                                 value={incompleteDataFilter ? 'incomplete' : ''}
                                 onChange={(v) => setIncompleteDataFilter(v === 'incomplete')}
@@ -1109,7 +1146,7 @@ export default function LeadsPage() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div className="input-group">
                                 <label>Sumber Leads</label>
-                                <SelectFilter
+                                <Select
                                     placeholder="Biarkan tidak berubah"
                                     value={bulkEditForm.source}
                                     onChange={(v) => setBulkEditForm((prev) => ({ ...prev, source: v }))}
@@ -1119,7 +1156,7 @@ export default function LeadsPage() {
                             </div>
                             <div className="input-group">
                                 <label>Status L2</label>
-                                <SelectFilter
+                                <Select
                                     placeholder="Biarkan tidak berubah"
                                     value={bulkEditForm.salesStatus}
                                     onChange={(v) => setBulkEditForm((prev) => ({ ...prev, salesStatus: v }))}
@@ -1129,7 +1166,7 @@ export default function LeadsPage() {
                             </div>
                             <div className="input-group">
                                 <label>Tipe Unit</label>
-                                <SelectFilter
+                                <Select
                                     placeholder={bulkUnitsLoading ? 'Memuat unit...' : 'Biarkan tidak berubah'}
                                     value={bulkEditForm.interestUnitId}
                                     onChange={(v) => setBulkEditForm((prev) => ({ ...prev, interestUnitId: v }))}
