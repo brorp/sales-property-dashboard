@@ -277,6 +277,30 @@ button:disabled {
     transform: translateY(0);
 }
 
+/* PLCRM navy blue — used for Update Status, Submit, etc. */
+.btn-plcrm.btn-primary {
+    background: #1E3A5F !important;
+    border-color: #1E3A5F !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 4px 14px rgba(30, 58, 95, 0.22) !important;
+}
+
+.btn-plcrm.btn-primary:hover:not(:disabled) {
+    background: #244B7B !important;
+    border-color: #244B7B !important;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(30, 58, 95, 0.28) !important;
+}
+
+.btn-plcrm.btn-primary:disabled {
+    opacity: 0.56;
+    background: #1E3A5F !important;
+    border-color: #1E3A5F !important;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
 .btn-secondary {
     background: rgba(39, 32, 60, 0.92);
     color: var(--text-primary);
@@ -310,12 +334,14 @@ button:disabled {
 }
 
 .btn-whatsapp {
-    background: #25D366;
-    color: #fff;
+    background: var(--success-bg);
+    color: var(--success);
+    border: 1.5px solid var(--success);
 }
 
 .btn-whatsapp:hover {
-    background: #20BD5A;
+    background: rgba(52, 211, 153, 0.20);
+    border-color: var(--success);
 }
 
 .btn-full {

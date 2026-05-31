@@ -9,6 +9,7 @@ import * as leadsService from "../services/leads.service";
 import * as leadTransferService from "../services/lead-transfer.service";
 import * as adminPasswordService from "../services/admin-password.service";
 import { getWorkspaceClientId, resolveClientIdFromWorkspace } from "../utils/request-client";
+import { normalizeResultStatus } from "../utils/lead-workflow";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -38,10 +39,10 @@ function canEditLeadByUser(
         return false;
     }
     if (reqUser.role === "root_admin") {
-        return !lead.assignedTo;
+        return true;
     }
     if (reqUser.role === "client_admin") {
-        return !lead.assignedTo;
+        return true;
     }
     if (reqUser.role === "supervisor") {
         if (scope?.managedSalesIds?.includes(lead.assignedTo || "")) return true;
@@ -375,8 +376,10 @@ router.patch("/:id", async (req, res: Response, next: NextFunction) => {
             return;
         }
 
-        if (currentLead.resultStatus === "akad" && (salesStatus || resultStatus || name || source || agentOfficeName || domicileCity || interestUnitId || unitName || paymentMethod || rejectedReason)) {
-            res.status(400).json({ error: "LOCKED_LEAD", message: "Lead yang sudah Akad telah dikunci secara permanen dan tidak dapat diubah datanya." });
+        const isAdminRole = user.role === "root_admin" || user.role === "client_admin";
+        const currentResultStatus = normalizeResultStatus(currentLead.resultStatus);
+        if (!isAdminRole && currentResultStatus === "lunas" && (salesStatus || resultStatus || name || source || agentOfficeName || domicileCity || interestUnitId || unitName || paymentMethod || rejectedReason)) {
+            res.status(400).json({ error: "LOCKED_LEAD", message: "Lead yang sudah Lunas telah dikunci secara permanen dan tidak dapat diubah datanya." });
             return;
         }
 

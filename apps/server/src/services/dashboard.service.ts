@@ -65,19 +65,20 @@ const SALES_STATUS_META = [
 
 const RESULT_STATUS_META = [
     { key: "reserve", label: "Reserve" },
-    { key: "on_process", label: "On Process" },
     { key: "full_book", label: "Full Book" },
-    { key: "akad", label: "Akad" },
-    { key: "cancel_transaksi", label: "Cancel Transaksi" },
+    { key: "lunas", label: "Lunas" },
+    { key: "cancel_reserve", label: "Cancel Reserve" },
+    { key: "cancel_full_book", label: "Cancel Full Book" },
     { key: "cancel_minat", label: "Cancel Minat" },
 ] as const;
 
 const TRANSACTION_STATUS_META = [
     { key: "all", label: "Semua" },
-    { key: "akad", label: "Akad" },
+    { key: "lunas", label: "Lunas" },
     { key: "full_book", label: "Full Book" },
-    { key: "on_process", label: "On Process" },
     { key: "reserve", label: "Reserve" },
+    { key: "cancel_full_book", label: "Cancel Full Book" },
+    { key: "cancel_reserve", label: "Cancel Reserve" },
 ] as const;
 
 const DATABASE_STATUS_LAYER_META = {
@@ -104,11 +105,11 @@ const DATABASE_STATUS_LAYER_META = {
         { key: "none", label: "Belum Ada Appointment" },
     ],
     l4: [
-        { key: "akad", label: "Akad" },
+        { key: "lunas", label: "Lunas" },
         { key: "full_book", label: "Full Book" },
-        { key: "on_process", label: "On Process" },
         { key: "reserve", label: "Reserve" },
-        { key: "cancel_transaksi", label: "Cancel Transaksi" },
+        { key: "cancel_reserve", label: "Cancel Reserve" },
+        { key: "cancel_full_book", label: "Cancel Full Book" },
         { key: "cancel_minat", label: "Cancel Minat" },
         { key: "none", label: "Belum Masuk Transaksi" },
     ],
@@ -141,11 +142,11 @@ const LINE_CHART_L3_SERIES = [
     { key: "mau_survey", label: "Mau Survey" },
 ] as const;
 const LINE_CHART_L4_SERIES = [
-    { key: "akad", label: "Akad" },
+    { key: "lunas", label: "Lunas" },
     { key: "full_book", label: "Full Book" },
     { key: "reserve", label: "Reserve" },
-    { key: "on_process", label: "Process" },
-    { key: "cancel_transaksi", label: "Cancel Transaksi" },
+    { key: "cancel_reserve", label: "Cancel Reserve" },
+    { key: "cancel_full_book", label: "Cancel Full Book" },
     { key: "cancel_minat", label: "Cancel Minat" },
 ] as const;
 const DAILY_REPORT_TIMEZONE = "Asia/Jakarta";
@@ -209,14 +210,22 @@ function humanizeKey(value: string | null | undefined) {
 
 function resolveTransactionStatusKey(resultStatus: string | null | undefined) {
     const normalized = toLowerTrimmed(resultStatus);
-    if (isCancelTransaksiResultStatus(normalized)) {
-        return "cancel_transaksi";
+    if (normalized === "cancel" || normalized === "cancel_transaksi") {
+        return "cancel_full_book";
+    }
+    if (normalized === "on_process") {
+        return "reserve";
+    }
+    if (normalized === "akad") {
+        return "lunas";
     }
     if (
-        normalized === "akad" ||
+        normalized === "lunas" ||
         normalized === "full_book" ||
-        normalized === "on_process" ||
-        normalized === "reserve"
+        normalized === "reserve" ||
+        normalized === "cancel_full_book" ||
+        normalized === "cancel_reserve" ||
+        normalized === "cancel_minat"
     ) {
         return normalized;
     }
@@ -225,10 +234,15 @@ function resolveTransactionStatusKey(resultStatus: string | null | undefined) {
 
 function resolveNonCancelTransactionStatusKey(resultStatus: string | null | undefined) {
     const normalized = toLowerTrimmed(resultStatus);
+    if (normalized === "on_process") {
+        return "reserve";
+    }
+    if (normalized === "akad") {
+        return "lunas";
+    }
     if (
-        normalized === "akad" ||
+        normalized === "lunas" ||
         normalized === "full_book" ||
-        normalized === "on_process" ||
         normalized === "reserve"
     ) {
         return normalized;
@@ -237,21 +251,26 @@ function resolveNonCancelTransactionStatusKey(resultStatus: string | null | unde
 }
 
 function isCancelTransaksiResultStatus(resultStatus: string | null | undefined) {
-    const normalized = toLowerTrimmed(resultStatus);
-    return normalized === "cancel_transaksi" || normalized === "cancel";
+    return resolveTransactionStatusKey(resultStatus) === "cancel_full_book";
 }
 
 function resolveDatabaseResultStatusKey(resultStatus: string | null | undefined) {
     const normalized = toLowerTrimmed(resultStatus);
-    if (normalized === "cancel") {
-        return "cancel_transaksi";
+    if (normalized === "cancel" || normalized === "cancel_transaksi") {
+        return "cancel_full_book";
+    }
+    if (normalized === "on_process") {
+        return "reserve";
+    }
+    if (normalized === "akad") {
+        return "lunas";
     }
     if (
-        normalized === "akad" ||
+        normalized === "lunas" ||
         normalized === "full_book" ||
-        normalized === "on_process" ||
         normalized === "reserve" ||
-        normalized === "cancel_transaksi" ||
+        normalized === "cancel_full_book" ||
+        normalized === "cancel_reserve" ||
         normalized === "cancel_minat"
     ) {
         return normalized;
@@ -1096,13 +1115,12 @@ async function buildDailySalesReport(
     })).sort((a, b) => b.total - a.total || a.salesName.localeCompare(b.salesName));
 
     const soldRows = rows.filter(
-        (item) => item.resultStatus === "akad" && isCurrentMonthStatus(item)
+        (item) => resolveTransactionStatusKey(item.resultStatus) === "lunas" && isCurrentMonthStatus(item)
     );
     const reservedRows = rows.filter(
         (item) =>
-            (item.resultStatus === "full_book" ||
-                item.resultStatus === "reserve" ||
-                item.resultStatus === "on_process") &&
+            (resolveTransactionStatusKey(item.resultStatus) === "full_book" ||
+                resolveTransactionStatusKey(item.resultStatus) === "reserve") &&
             isCurrentMonthStatus(item)
     );
 
@@ -1657,13 +1675,13 @@ export async function getHomeAnalytics(
         const isMauSurvey = item.appointmentTag === "mau_survey";
         const isHot = item.salesStatus === "hot";
         const isPotensi = item.salesStatus === "hot" || item.salesStatus === "warm";
-        const resultStatus = toLowerTrimmed(item.resultStatus);
+        const resultStatus = resolveTransactionStatusKey(item.resultStatus);
         const isReserve = resultStatus === "reserve";
-        const isOnProcess = resultStatus === "on_process";
+        const isOnProcess = false;
         const isFullBook = resultStatus === "full_book";
-        const isAkad = resultStatus === "akad";
-        const isCancel = isCancelResultStatus(resultStatus);
-        const isCancelTransaksi = isCancelTransaksiResultStatus(resultStatus);
+        const isAkad = resultStatus === "lunas";
+        const isCancel = isCancelResultStatus(item.resultStatus);
+        const isCancelTransaksi = resultStatus === "cancel_full_book";
 
         if (isAkad) {
             stats.akad += 1;
@@ -1938,7 +1956,7 @@ export async function getHomeAnalytics(
         domicileCityBreakdownMaps.set(item.key, new Map<string, number>());
         transactionDomicileBreakdownMaps.set(item.key, new Map<string, number>());
     }
-    picAgentComparisonMaps.set("cancel_transaksi", { agent: 0, others: 0 });
+    picAgentComparisonMaps.set("cancel_full_book", { agent: 0, others: 0 });
 
     for (const item of decoratedLeads) {
         const supervisorId = item.supervisorId || 'unassigned_sup';
@@ -2081,14 +2099,14 @@ export async function getHomeAnalytics(
             const isHot = item.salesStatus === "hot";
             const isPotensi = item.salesStatus === "hot" || item.salesStatus === "warm";
 
-            const rStatus = String(item.resultStatus || '').toLowerCase();
+            const rStatus = resolveTransactionStatusKey(item.resultStatus);
 
             const isReserve = rStatus === 'reserve';
-            const isOnProcess = rStatus === 'on_process';
+            const isOnProcess = false;
             const isFullBook = rStatus === 'full_book';
-            const isAkad = rStatus === 'akad';
-            const isCancel = isCancelResultStatus(rStatus);
-            const isCancelTransaksi = isCancelTransaksiResultStatus(rStatus);
+            const isAkad = rStatus === 'lunas';
+            const isCancel = isCancelResultStatus(item.resultStatus);
+            const isCancelTransaksi = rStatus === 'cancel_full_book';
 
             if (isAkad) {
                 stats.akad += 1; sStats.akad += 1;
@@ -2228,11 +2246,11 @@ export async function getHomeAnalytics(
 
         const buildGroupComparisonForItems = (items: Array<LeadRow & { appointmentTag: string }>) => {
             const comparisonKeys = [
-                "akad",
+                "lunas",
                 "full_book",
-                "on_process",
                 "reserve",
-                "cancel_transaksi",
+                "cancel_full_book",
+                "cancel_reserve",
             ];
             const totals = new Map(comparisonKeys.map((key) => [key, 0]));
             const groupCountMaps = new Map(

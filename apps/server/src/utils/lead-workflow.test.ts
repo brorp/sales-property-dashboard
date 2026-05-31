@@ -22,11 +22,16 @@ test("normalize helpers map known statuses and fall back safely", () => {
     assert.equal(normalizeSalesStatus("Warm"), "warm");
     assert.equal(normalizeSalesStatus("unknown"), null);
     assert.equal(normalizeResultStatus("FULL_BOOK"), "full_book");
-    assert.equal(normalizeResultStatus("cancel"), "cancel_transaksi");
+    assert.equal(normalizeResultStatus("Akad"), "lunas");
+    assert.equal(normalizeResultStatus("on_process"), "reserve");
+    assert.equal(normalizeResultStatus("cancel"), "cancel_full_book");
+    assert.equal(normalizeResultStatus("cancel_transaksi"), "cancel_full_book");
+    assert.equal(normalizeResultStatus("cancel_reserve"), "cancel_reserve");
     assert.equal(normalizeResultStatus("cancel_minat"), "cancel_minat");
     assert.equal(normalizeResultStatus("invalid"), null);
     assert.equal(isCancelResultStatus("cancel"), true);
     assert.equal(isCancelResultStatus("cancel_transaksi"), true);
+    assert.equal(isCancelResultStatus("cancel_reserve"), true);
     assert.equal(isCancelResultStatus("cancel_minat"), true);
     assert.equal(isCancelResultStatus("akad"), false);
 });

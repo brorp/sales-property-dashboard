@@ -104,6 +104,39 @@ function mapAppointmentTagFilter(value: string | undefined) {
     return value;
 }
 
+function getResultStatusFilterCondition(value: string) {
+    const normalized = normalizeResultStatus(value);
+    if (!normalized) {
+        return eq(lead.resultStatus, value);
+    }
+
+    if (normalized === "cancel_full_book") {
+        return or(
+            eq(lead.resultStatus, "cancel_full_book"),
+            eq(lead.resultStatus, "cancel_transaksi"),
+            eq(lead.resultStatus, "cancel")
+        );
+    }
+
+    if (normalized === "cancel_reserve") {
+        return eq(lead.resultStatus, "cancel_reserve");
+    }
+
+    if (normalized === "cancel_minat") {
+        return eq(lead.resultStatus, "cancel_minat");
+    }
+
+    if (normalized === "lunas") {
+        return or(eq(lead.resultStatus, "lunas"), eq(lead.resultStatus, "akad"));
+    }
+
+    if (normalized === "reserve") {
+        return or(eq(lead.resultStatus, "reserve"), eq(lead.resultStatus, "on_process"));
+    }
+
+    return eq(lead.resultStatus, normalized);
+}
+
 function pickLatestAppointment<T extends { date: string; time: string }>(items: T[]) {
     if (items.length === 0) {
         return null;
@@ -249,15 +282,15 @@ export async function findAll(
         if (filters.resultStatus === "cancel") {
             conditions.push(
                 or(
+                    eq(lead.resultStatus, "cancel_full_book"),
+                    eq(lead.resultStatus, "cancel_reserve"),
                     eq(lead.resultStatus, "cancel_transaksi"),
                     eq(lead.resultStatus, "cancel_minat"),
                     eq(lead.resultStatus, "cancel")
                 )
             );
-        } else if (filters.resultStatus === "cancel_transaksi") {
-            conditions.push(or(eq(lead.resultStatus, "cancel_transaksi"), eq(lead.resultStatus, "cancel")));
         } else {
-            conditions.push(eq(lead.resultStatus, filters.resultStatus));
+            conditions.push(getResultStatusFilterCondition(filters.resultStatus));
         }
     }
 
@@ -886,10 +919,6 @@ export async function patchLead(input: LeadPatchInput) {
         throw new Error("FORBIDDEN_LEAD_EDIT");
     }
 
-    if (isAdminRole && currentLead.assignedTo) {
-        throw new Error("ADMIN_ASSIGNED_LEAD_READ_ONLY");
-    }
-
     if (!isAdminRole && input.actorRole !== "supervisor" && currentLead.assignedTo !== input.actorId) {
         throw new Error("FORBIDDEN_LEAD_EDIT");
     }
@@ -1144,7 +1173,7 @@ export async function patchLead(input: LeadPatchInput) {
             ? sanitizeNullableText(input.rejectedNote)
             : currentLead.rejectedNote;
 
-    if ((isResultStatusUpdated || isAkadFieldUpdated) && nextResultStatusRaw === "akad") {
+    if ((isResultStatusUpdated || isAkadFieldUpdated) && nextResultStatusRaw === "lunas") {
         if (!nextUnitName || !nextUnitDetail || !nextPaymentMethod) {
             throw new Error("CLOSING_FIELDS_REQUIRED");
         }
@@ -1153,8 +1182,8 @@ export async function patchLead(input: LeadPatchInput) {
         updates.paymentMethod = nextPaymentMethod;
         updates.rejectedReason = null;
         updates.rejectedNote = null;
-    } else if (isAkadFieldUpdated && nextResultStatusRaw !== "akad") {
-        throw new Error("CLOSING_FIELDS_REQUIRE_AKAD_STATUS");
+    } else if (isAkadFieldUpdated && nextResultStatusRaw !== "lunas") {
+        throw new Error("CLOSING_FIELDS_REQUIRE_LUNAS_STATUS");
     }
 
     if ((isResultStatusUpdated || isCancelFieldUpdated) && isCancelResultStatus(nextResultStatusRaw)) {
@@ -1192,12 +1221,12 @@ export async function patchLead(input: LeadPatchInput) {
             updates.resultStatusUpdatedAt = now;
         }
 
-        if (!isCancelResultStatus(nextResultStatusRaw) && nextResultStatusRaw !== "akad") {
+        if (!isCancelResultStatus(nextResultStatusRaw) && nextResultStatusRaw !== "lunas") {
             updates.rejectedReason = null;
             updates.rejectedNote = null;
         }
 
-        if (nextResultStatusRaw !== "akad" && !isCancelResultStatus(nextResultStatusRaw) && !isAkadFieldUpdated) {
+        if (nextResultStatusRaw !== "lunas" && !isCancelResultStatus(nextResultStatusRaw) && !isAkadFieldUpdated) {
             updates.unitName = currentLead.unitName;
             updates.unitDetail = currentLead.unitDetail;
             updates.paymentMethod = currentLead.paymentMethod;

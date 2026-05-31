@@ -15,6 +15,7 @@ import {
     getSalesStatusLabel,
     getStatusBadgeClass,
     getTimeAgo,
+    normalizeResultStatusKey,
 } from '../constants/crm';
 import Header from '../components/Header';
 import CustomerPipelineProgress from '../components/CustomerPipelineProgress';
@@ -133,24 +134,23 @@ function isAgentSource(value) {
 function matchesResultStatusFilter(actualValue, selectedValue) {
     const selected = String(selectedValue || 'all').trim().toLowerCase();
     const actual = String(actualValue || '').trim().toLowerCase();
+    const normalizedSelected = normalizeResultStatusKey(selected);
+    const normalizedActual = normalizeResultStatusKey(actual);
 
     if (selected === 'all') return true;
     if (selected === 'cancel') {
-        return actual === 'cancel_transaksi' || actual === 'cancel' || actual === 'cancel_minat';
+        return ['cancel_full_book', 'cancel_reserve', 'cancel_minat'].includes(normalizedActual);
     }
-    if (selected === 'cancel_transaksi') {
-        return actual === 'cancel_transaksi' || actual === 'cancel';
-    }
-    return actual === selected;
+    return normalizedActual === normalizedSelected;
 }
 
 function matchesResultStatusMultiFilter(selectedValues, actualValue, fallbackValue = 'unfilled') {
     if (!Array.isArray(selectedValues) || selectedValues.length === 0) return true;
     const normalizedValues = selectedValues.map((value) => String(value || '').trim().toLowerCase());
     const actual = String(actualValue ?? fallbackValue).trim().toLowerCase();
-    if (normalizedValues.includes('cancel') && (actual === 'cancel' || actual === 'cancel_transaksi' || actual === 'cancel_minat')) return true;
-    if (normalizedValues.includes('cancel_transaksi') && (actual === 'cancel' || actual === 'cancel_transaksi')) return true;
-    return normalizedValues.includes(actual);
+    const normalizedActual = normalizeResultStatusKey(actual);
+    if (normalizedValues.includes('cancel') && ['cancel_full_book', 'cancel_reserve', 'cancel_minat'].includes(normalizedActual)) return true;
+    return normalizedValues.map(normalizeResultStatusKey).includes(normalizedActual);
 }
 
 function matchesMultiValueFilter(selectedValues, actualValue, fallbackValue = '') {

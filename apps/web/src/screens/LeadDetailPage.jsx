@@ -24,6 +24,7 @@ import {
     formatDate,
     toWaLink,
     isCancelResultStatus,
+    normalizeResultStatusKey,
 } from '../constants/crm';
 import { INDONESIA_CITIES } from '../constants/indonesiaCities';
 import Header from '../components/Header';
@@ -81,7 +82,7 @@ function isAgentSource(value) {
 }
 
 function normalizeResultStatusForForm(value) {
-    return value === 'cancel' ? 'cancel_transaksi' : value || '';
+    return value ? normalizeResultStatusKey(value) : '';
 }
 
 function buildCustomerPipelineRows(lead) {
@@ -135,7 +136,7 @@ const transactionSchema = z.object({
     rejectedReason: z.string().optional(),
     rejectedNote: z.string().optional(),
 }).superRefine((data, ctx) => {
-    if (data.resultStatus === 'akad') {
+    if (data.resultStatus === 'lunas') {
         if (!data.unitName || !data.unitName.trim()) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
@@ -423,15 +424,16 @@ export default function LeadDetailPage({ leadId }) {
         return Boolean(isAdmin && !lead?.assignedTo);
     }, [isAdmin, lead?.assignedTo]);
     const canDeleteLead = user?.role === 'client_admin' || user?.role === 'root_admin';
+    const canEditLeadFull = canEditLead || isAdmin;
 
     const isAcceptedLead = effectiveFlowStatus === 'accepted';
     const needsNewLeadTaskAcceptance = canEditLead && effectiveFlowStatus === 'assigned';
-    const isLockedByAkad = lead?.resultStatus === 'akad';
+    const isLockedByLunas = normalizeResultStatusKey(lead?.resultStatus) === 'lunas';
     const appointmentTag = lead?.appointmentTag || 'none';
-    const canUpdateLayer2 = isAcceptedLead && !isLockedByAkad;
-    const canEditProspectStatus = (isAdmin || (canEditLead && isAcceptedLead)) && !isLockedByAkad;
-    const canEditInterestUnit = (isAdmin || (canEditLead && isAcceptedLead)) && !isLockedByAkad;
-    const canUpdateResult = canEditLead && !isLockedByAkad;
+    const canUpdateLayer2 = isAcceptedLead && (isAdmin || !isLockedByLunas);
+    const canEditProspectStatus = (isAdmin || (canEditLead && isAcceptedLead)) && (isAdmin || !isLockedByLunas);
+    const canEditInterestUnit = (isAdmin || (canEditLead && isAcceptedLead)) && (isAdmin || !isLockedByLunas);
+    const canUpdateResult = (isAdmin || canEditLead) && (isAdmin || !isLockedByLunas);
     const leadAllowsDelayedStatuses = isOlderThanDays(lead?.createdAt, SALES_STATUS_COLD_OPEN_DAYS);
     const visibleSalesStatuses = SALES_STATUSES.filter((item) => (
         leadAllowsDelayedStatuses ||
@@ -580,17 +582,17 @@ export default function LeadDetailPage({ leadId }) {
     };
 
     const handleSaveResult = async (data) => {
-        if (!canEditLead) {
+        if (!canUpdateResult) {
             return;
         }
 
-        if (data.resultStatus === 'akad') {
+        if (data.resultStatus === 'lunas') {
             await runLeadUpdate({
-                resultStatus: 'akad',
+                resultStatus: 'lunas',
                 unitName: data.unitName,
                 unitDetail: data.unitDetail,
                 paymentMethod: data.paymentMethod,
-            }, 'Result status berhasil diubah ke Akad.');
+            }, 'Result status berhasil diubah ke Lunas.');
             return;
         }
 
@@ -1098,7 +1100,8 @@ export default function LeadDetailPage({ leadId }) {
                 ) : null}
 
                 <div className="ldp-card-actions">
-                    <a href={toWaLink(lead.phone)} target="_blank" rel="noopener noreferrer" className="btn btn-whatsapp">
+                    <a href={toWaLink(lead.phone)} target="_blank" rel="noopener noreferrer" className="btn btn-whatsapp" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%' }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                         Chat WhatsApp
                     </a>
                     <button
@@ -1157,7 +1160,7 @@ export default function LeadDetailPage({ leadId }) {
                                         setEditingAppointment(null);
                                         setAppt({ date: nowDate, time: nowTime, location: '', notes: '', status: 'mau_survey' });
                                     }}
-                                    disabled={!canEditLead}
+                                    disabled={!canEditLeadFull}
                                 >
                                     {showInlineAppt ? 'Batal' : 'Buat'}
                                 </button>
@@ -1201,7 +1204,7 @@ export default function LeadDetailPage({ leadId }) {
                                                 <div className="ldp-appt-datetime">{formatApptDate(item.date)} · {item.time}</div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                     <span className={`badge ${getStatusBadgeClass('appointment', item.status)}`}>{getAppointmentTagLabel(item.status || 'mau_survey')}</span>
-                                                    {canEditLead ? (
+                                                    {canEditLeadFull ? (
                                                         <button type="button" className="ldp-appt-edit-btn" onClick={() => openEditAppointment(item)} title="Edit appointment">
                                                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                                         </button>
@@ -1210,7 +1213,7 @@ export default function LeadDetailPage({ leadId }) {
                                             </div>
                                             <div className="ldp-appt-location">{item.location}</div>
                                             {item.notes ? <div className="ldp-appt-notes">{item.notes}</div> : null}
-                                            {canEditLead && item.status !== 'dibatalkan' && item.status !== 'sudah_survey' ? (
+                                            {canEditLeadFull && item.status !== 'dibatalkan' && item.status !== 'sudah_survey' ? (
                                                 <div className="ldp-appt-actions-wrap">
                                                     <button
                                                         type="button"
@@ -1249,8 +1252,8 @@ export default function LeadDetailPage({ leadId }) {
                         {/* Transaction / Result */}
                         <div className="ldp-action-card">
                             <h4 className="ldp-action-card-title">Transaction</h4>
-                            {isLockedByAkad ? (
-                                <div className="ldp-alert ldp-alert-error" style={{ marginBottom: 12 }}>Lead terkunci — sudah mencapai status Akad.</div>
+                            {isLockedByLunas && !isAdmin ? (
+                                <div className="ldp-alert ldp-alert-error" style={{ marginBottom: 12 }}>Lead terkunci - sudah mencapai status Lunas.</div>
                             ) : null}
                             <form onSubmit={handleSubmitResult(handleSaveResult)} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 <div className="input-group">
@@ -1270,7 +1273,7 @@ export default function LeadDetailPage({ leadId }) {
                                     />
                                     {resultErrors.resultStatus && <div className="ldp-field-error" style={{ color: 'var(--danger)', fontSize: '0.75rem', marginTop: '4px', fontWeight: 500 }}>{resultErrors.resultStatus.message}</div>}
                                 </div>
-                                {watchedResultStatus === 'akad' ? (
+                                {watchedResultStatus === 'lunas' ? (
                                     <>
                                         <div className="input-group">
                                             <label>Nama Unit</label>

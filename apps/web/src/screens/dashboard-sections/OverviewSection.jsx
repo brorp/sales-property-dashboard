@@ -51,7 +51,7 @@ export default function OverviewSection({
     const totalFullBook = transactionRecap?.totalFullBook || 0;
     const totalAkad = transactionRecap?.totalAkad || 0;
     const totalCancel = transactionRecap?.totalCancel || 0;
-    const activePipeline = totalReserve + totalOnProcess + totalFullBook;
+    const activePipeline = totalReserve + totalFullBook;
     const totalClosing = totalFullBook + totalAkad;
     const closingPct = totalLeads > 0 ? (totalClosing / totalLeads) * 100 : 0;
 
@@ -77,7 +77,7 @@ export default function OverviewSection({
         { key: 'hot', label: 'Hot', count: hotCount, pct: totalLeads > 0 ? (hotCount / totalLeads) * 100 : 0 },
         { key: 'survey', label: 'Survey', count: surveyedLeads, pct: totalLeads > 0 ? (surveyedLeads / totalLeads) * 100 : 0 },
         { key: 'transaksi', label: 'Transaksi', count: activePipeline, pct: totalLeads > 0 ? (activePipeline / totalLeads) * 100 : 0 },
-        { key: 'akad', label: 'Akad', count: totalAkad, pct: totalLeads > 0 ? (totalAkad / totalLeads) * 100 : 0 },
+        { key: 'lunas', label: 'Lunas', count: totalAkad, pct: totalLeads > 0 ? (totalAkad / totalLeads) * 100 : 0 },
     ];
 
     const teams = useMemo(() => {
@@ -105,7 +105,7 @@ export default function OverviewSection({
                 <KpiCard label="Total Leads" value={fmt(totalLeads)} sub="Semua lead masuk" accent="blue" />
                 <KpiCard label="Hot Leads" value={fmt(hotCount)} sub={`${pctStr(hotPct)} dari total`} accent="red" />
                 <KpiCard label="Sudah Survey" value={fmt(surveyedLeads)} sub={`${pctStr(surveyRatioPercent)} tingkat survey`} accent="teal" />
-                <KpiCard label="Pipeline Aktif" value={fmt(activePipeline)} sub="Reserve + OP + FB" accent="purple" />
+                <KpiCard label="Pipeline Aktif" value={fmt(activePipeline)} sub="Reserve + FB" accent="purple" />
                 <KpiCard label="Closing" value={fmt(totalClosing)} sub={`${pctStr(closingPct)} konversi`} accent="green" />
             </div>
 
@@ -114,7 +114,7 @@ export default function OverviewSection({
                 <div className="ov-card-head">
                     <div>
                         <span className="ov-eyebrow">Funnel Konversi</span>
-                        <h3 className="ov-card-title">Lead → Akad</h3>
+                        <h3 className="ov-card-title">Lead to Lunas</h3>
                     </div>
                 </div>
                 <div className="ov-funnel">
@@ -183,9 +183,8 @@ export default function OverviewSection({
                     </div>
                     <div className="ov-pipeline-grid">
                         <PipelineCard label="Reserve" value={fmt(totalReserve)} color="var(--text-secondary)" />
-                        <PipelineCard label="On Process" value={fmt(totalOnProcess)} color="#2563EB" />
                         <PipelineCard label="Full Book" value={fmt(totalFullBook)} color="#7C3AED" />
-                        <PipelineCard label="Akad" value={fmt(totalAkad)} color="#16A34A" />
+                        <PipelineCard label="Lunas" value={fmt(totalAkad)} color="#16A34A" />
                     </div>
                     <div className="ov-pipeline-footer">
                         <span className="ov-pipeline-footer-label">Batal</span>

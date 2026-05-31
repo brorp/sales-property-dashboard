@@ -8,6 +8,7 @@ import {
     getResultStatusLabel,
     getSalesStatusLabel,
     getTimeAgo,
+    normalizeResultStatusKey,
 } from '../constants/crm';
 
 function flowBadgeClass(status) {
@@ -25,10 +26,10 @@ function salesBadgeClass(status) {
 }
 
 function resultBadgeClass(status) {
-    if (status === 'full_book' || status === 'akad') return 'lc2-badge lc2-badge-green';
-    if (status === 'reserve') return 'lc2-badge lc2-badge-navy';
-    if (status === 'on_process') return 'lc2-badge lc2-badge-amber';
-    if (status?.startsWith('cancel')) return 'lc2-badge lc2-badge-red';
+    const normalized = normalizeResultStatusKey(status);
+    if (normalized === 'full_book' || normalized === 'lunas') return 'lc2-badge lc2-badge-green';
+    if (normalized === 'reserve') return 'lc2-badge lc2-badge-navy';
+    if (normalized?.startsWith('cancel')) return 'lc2-badge lc2-badge-red';
     return 'lc2-badge lc2-badge-muted';
 }
 
