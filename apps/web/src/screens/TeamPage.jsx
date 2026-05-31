@@ -714,7 +714,7 @@ export default function TeamPage() {
                 title={`Kelola Tim ${getRoleLabel(user?.role)}`}
                 rightAction={(
                     <button className="btn btn-sm btn-secondary btn-icon-refresh" onClick={() => void handleRefresh()} disabled={refreshing} title="Refresh">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
                     </button>
                 )}
             />
@@ -727,18 +727,6 @@ export default function TeamPage() {
 
             {submitSuccess ? <p className="settings-success">{submitSuccess}</p> : null}
             {submitError ? <p className="settings-error">{submitError}</p> : null}
-
-            <section className="team-overview-grid" data-count={overviewCards.length}>
-                {overviewCards.map((item) => (
-                    <TeamSummaryCard
-                        key={item.key}
-                        label={item.label}
-                        value={item.value}
-                        tone={item.tone}
-                        helper={item.helper}
-                    />
-                ))}
-            </section>
 
             <div className="team-list">
                 {groups.length === 0 ? (
