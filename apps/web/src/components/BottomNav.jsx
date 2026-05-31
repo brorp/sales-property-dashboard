@@ -9,7 +9,6 @@ import { useTheme } from '../context/ThemeContext';
 import './BottomNav.css';
 
 const ADMIN_TABS = [
-    { key: '/overview', icon: 'overview', label: 'Ringkasan' },
     { key: '/', icon: 'analytics', label: 'Analitik' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/team', icon: 'team', label: 'Tim' },
