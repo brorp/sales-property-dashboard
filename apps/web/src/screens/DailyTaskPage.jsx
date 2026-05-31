@@ -13,7 +13,16 @@ import { useWorkspace } from '../context/WorkspaceContext';
 import { usePagePolling } from '../hooks/usePagePolling';
 import { apiRequest } from '../lib/api';
 import { uploadTaskProofImage } from '../lib/image-upload';
-import { SALES_STATUSES, getSalesStatusLabel, getTimeAgo, toWaLink } from '../constants/crm';
+import {
+    RESULT_STATUSES,
+    SALES_STATUSES,
+    getResultStatusLabel,
+    getSalesStatusLabel,
+    getTimeAgo,
+    isCancelResultStatus,
+    normalizeResultStatusKey,
+    toWaLink,
+} from '../constants/crm';
 
 function formatDateTime(value) {
     if (!value) return '-';
@@ -216,23 +225,46 @@ function isOlderThan30Days(val) {
     return Date.now() - date.getTime() > thirtyDaysMs;
 }
 
+const HOT_TRANSACTION_STATUS_OPTIONS = RESULT_STATUSES.filter((item) => (
+    ['reserve', 'full_book', 'lunas', 'cancel_reserve', 'cancel_full_book', 'cancel_minat'].includes(item.key)
+));
+const RESERVE_TRANSACTION_STATUS_OPTIONS = RESULT_STATUSES.filter((item) => ['full_book', 'cancel_reserve'].includes(item.key));
+const FULL_BOOK_TRANSACTION_STATUS_OPTIONS = RESULT_STATUSES.filter((item) => ['lunas', 'cancel_full_book'].includes(item.key));
+
+function getLeadResultStatus(lead) {
+    return normalizeResultStatusKey(lead?.resultStatus);
+}
+
+function hasFilledResultStatus(lead) {
+    return Boolean(getLeadResultStatus(lead));
+}
+
 /* ── Main component ────────────────────────────────────────────────── */
 
 export default function DailyTaskPage() {
     const { user } = useAuth();
-    const { leads } = useLeads();
+    const { leads, updateLead, refreshLeads } = useLeads();
     const { activeWorkspace } = useWorkspace();
     const router = useRouter();
     const [activeTab, setActiveTab] = useState(() => {
         if (typeof window !== 'undefined') {
-            return sessionStorage.getItem('dt_active_tab') || 'new_leads';
+            const saved = sessionStorage.getItem('dt_active_tab') || 'new_leads';
+            if (saved === 'deadline_leads' || saved === 'follow_ups') return 'follow_up';
+            if (saved === 'appointments') return 'new_leads';
+            return saved;
         }
         return 'new_leads';
     });
     const [apptSubTab, setApptSubTab] = useState('semua');
     const [hotSubTab, setHotSubTab] = useState('semua');
+    const [followUpSubTab, setFollowUpSubTab] = useState('pipeline');
+    const [transactionSubTab, setTransactionSubTab] = useState('reserve');
 
     useEffect(() => {
+        if (!['new_leads', 'follow_up', 'hot_validated', 'transactions'].includes(activeTab)) {
+            setActiveTab('new_leads');
+            return;
+        }
         if (typeof window !== 'undefined') {
             sessionStorage.setItem('dt_active_tab', activeTab);
         }
@@ -249,6 +281,8 @@ export default function DailyTaskPage() {
     const [success, setSuccess] = useState('');
     const [appointments, setAppointments] = useState([]);
     const [validatedHot, setValidatedHot] = useState([]);
+    const [cancelReasons, setCancelReasons] = useState([]);
+    const [transactionDrafts, setTransactionDrafts] = useState({});
     const [sideLoading, setSideLoading] = useState(false);
     const [nameSearch, setNameSearch] = useState('');
     const [reschedulingApptId, setReschedulingApptId] = useState(null);
@@ -406,15 +440,13 @@ export default function DailyTaskPage() {
         if (!user) return;
         if (!silent) setSideLoading(true);
         try {
-            const [apptData, hotData] = await Promise.all([
-                apiRequest('/api/appointments', { user }),
+            const [hotData, cancelReasonData] = await Promise.all([
                 apiRequest('/api/supervisor-tasks/validated-hot', { user }),
+                apiRequest('/api/cancel-reasons?onlyActive=true', { user }),
             ]);
-            const activeAppts = Array.isArray(apptData)
-                ? apptData.filter((a) => a.status === 'mau_survey' && a.salesId === user.id)
-                : [];
-            setAppointments(activeAppts);
+            setAppointments([]);
             setValidatedHot(Array.isArray(hotData) ? hotData : []);
+            setCancelReasons(Array.isArray(cancelReasonData) ? cancelReasonData : []);
         } catch {
             // non-critical
         } finally {
@@ -439,13 +471,14 @@ export default function DailyTaskPage() {
     });
 
     const rawTasks = activeTab === 'new_leads' ? tasks.newLeads
-        : activeTab === 'follow_ups' ? tasks.followUps
-        : tasks.deadlineLeads;
+        : activeTab === 'follow_up'
+            ? followUpSubTab === 'deadlines' ? tasks.deadlineLeads : tasks.followUps
+            : [];
 
     const visibleTasks = sortByUrgency(
         nameSearch.trim()
-            ? rawTasks.filter((t) => t.leadName?.toLowerCase().includes(nameSearch.toLowerCase()))
-            : rawTasks
+            ? rawTasks.filter((t) => t.salesStatus !== 'skip' && t.leadName?.toLowerCase().includes(nameSearch.toLowerCase()))
+            : rawTasks.filter((t) => t.salesStatus !== 'skip')
     );
 
     const handleUploadProof = async (task, file) => {
@@ -559,6 +592,150 @@ export default function DailyTaskPage() {
         }
     };
 
+    const mergeTransactionDraft = useCallback((leadId, partial) => {
+        setTransactionDrafts((prev) => ({
+            ...prev,
+            [leadId]: { ...(prev[leadId] || {}), ...partial },
+        }));
+    }, []);
+
+    const buildTransactionPayload = (status, draft) => {
+        const payload = { resultStatus: status };
+        if (status === 'lunas') {
+            if (!draft?.unitName?.trim() || !draft?.unitDetail?.trim() || !draft?.paymentMethod?.trim()) {
+                throw new Error('Nama unit, detail unit, dan cara bayar wajib diisi untuk Lunas.');
+            }
+            payload.unitName = draft.unitName.trim();
+            payload.unitDetail = draft.unitDetail.trim();
+            payload.paymentMethod = draft.paymentMethod.trim();
+        }
+        if (isCancelResultStatus(status)) {
+            if (!draft?.rejectedReason) {
+                throw new Error('Alasan cancel wajib dipilih.');
+            }
+            payload.rejectedReason = draft.rejectedReason;
+            payload.rejectedNote = draft.rejectedNote?.trim() || '-';
+        }
+        return payload;
+    };
+
+    const handleUpdateLeadResultStatus = async (lead, status) => {
+        if (!lead?.id || !status) return;
+        const draft = transactionDrafts[lead.id] || {};
+        mergeTransactionDraft(lead.id, { submitting: true, error: '' });
+        setError('');
+        setSuccess('');
+        try {
+            await updateLead(lead.id, buildTransactionPayload(status, draft));
+            setTransactionDrafts((prev) => {
+                const next = { ...prev };
+                delete next[lead.id];
+                return next;
+            });
+            setSuccess(`${lead.name} berhasil diubah ke ${getResultStatusLabel(status)}.`);
+            await Promise.all([
+                loadSideData({ silent: true }),
+                refreshLeads?.(),
+            ]);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Gagal update status transaksi';
+            mergeTransactionDraft(lead.id, { submitting: false, error: message });
+            setError(message);
+        }
+    };
+
+    const ownLeads = Array.isArray(leads) ? leads.filter((lead) => lead.assignedTo === user?.id) : [];
+    const transactionLeads = ownLeads.filter((lead) => ['reserve', 'full_book'].includes(getLeadResultStatus(lead)));
+    const visibleTransactionLeads = transactionLeads.filter((lead) => {
+        if (transactionSubTab !== getLeadResultStatus(lead)) return false;
+        if (!nameSearch.trim()) return true;
+        return lead.name?.toLowerCase().includes(nameSearch.toLowerCase());
+    });
+    const reserveCount = transactionLeads.filter((lead) => getLeadResultStatus(lead) === 'reserve').length;
+    const fullBookCount = transactionLeads.filter((lead) => getLeadResultStatus(lead) === 'full_book').length;
+
+    const renderTransactionStatusControls = (lead, options, placeholder = 'Update status transaksi') => {
+        const draft = transactionDrafts[lead.id] || {};
+        const selectedStatus = draft.resultStatus || '';
+        return (
+            <div className="dt-transaction-update" onClick={(e) => e.stopPropagation()}>
+                <div className="dt-transaction-update-head">
+                    <span>Aksi Transaksi</span>
+                    <small>{placeholder}</small>
+                </div>
+                <Select
+                    className="dt-transaction-select"
+                    options={options.map((item) => ({ value: item.key, label: item.label }))}
+                    value={selectedStatus}
+                    onChange={(val) => mergeTransactionDraft(lead.id, { resultStatus: val, error: '' })}
+                    placeholder="Pilih aksi transaksi..."
+                    clearable={false}
+                    disabled={draft.submitting}
+                />
+                {isCancelResultStatus(selectedStatus) ? (
+                    <>
+                        <Select
+                            options={cancelReasons.map((item) => ({ value: item.code, label: item.label }))}
+                            value={draft.rejectedReason || ''}
+                            onChange={(val) => mergeTransactionDraft(lead.id, { rejectedReason: val, error: '' })}
+                            placeholder="Pilih alasan cancel"
+                            clearable={false}
+                            disabled={draft.submitting}
+                        />
+                        <textarea
+                            className="input-field"
+                            rows={2}
+                            value={draft.rejectedNote || ''}
+                            onChange={(event) => mergeTransactionDraft(lead.id, { rejectedNote: event.target.value })}
+                            placeholder="Catatan cancel (opsional)"
+                            disabled={draft.submitting}
+                            style={{ resize: 'vertical' }}
+                        />
+                    </>
+                ) : null}
+                {selectedStatus === 'lunas' ? (
+                    <>
+                        <input
+                            className="input-field"
+                            value={draft.unitName || ''}
+                            onChange={(event) => mergeTransactionDraft(lead.id, { unitName: event.target.value })}
+                            placeholder="Nama unit"
+                            disabled={draft.submitting}
+                        />
+                        <textarea
+                            className="input-field"
+                            rows={2}
+                            value={draft.unitDetail || ''}
+                            onChange={(event) => mergeTransactionDraft(lead.id, { unitDetail: event.target.value })}
+                            placeholder="Detail unit"
+                            disabled={draft.submitting}
+                            style={{ resize: 'vertical' }}
+                        />
+                        <input
+                            className="input-field"
+                            value={draft.paymentMethod || ''}
+                            onChange={(event) => mergeTransactionDraft(lead.id, { paymentMethod: event.target.value })}
+                            placeholder="Cara bayar"
+                            disabled={draft.submitting}
+                        />
+                    </>
+                ) : null}
+                {draft.error ? <div className="settings-error" style={{ marginBottom: 0 }}>{draft.error}</div> : null}
+                <Button
+                    variant="primary"
+                    className="dt-update-status-btn btn-plcrm"
+                    loading={draft.submitting}
+                    loadingText="Menyimpan..."
+                    disabled={!selectedStatus}
+                    onClick={() => void handleUpdateLeadResultStatus(lead, selectedStatus)}
+                    style={{ width: '100%', height: '40px', padding: '0 12px', fontSize: '0.875rem' }}
+                >
+                    Update Status
+                </Button>
+            </div>
+        );
+    };
+
     return (
         <div className="page-container daily-task-page">
             <Header title="Tugas Harian" mobileTitle={activeWorkspace?.name || 'Tugas Harian'} hasTabs />
@@ -582,40 +759,33 @@ export default function DailyTaskPage() {
 
             {/* ── Tab bar ──────────────────────────────────────────── */}
             <div className="daily-task-tabs">
-                <button type="button" className={`daily-task-tab${activeTab === 'new_leads' ? ' is-active' : ''}`} onClick={() => { setActiveTab('new_leads'); setNameSearch(''); setApptSubTab('semua'); setHotSubTab('semua'); }}>
+                <button type="button" className={`daily-task-tab${activeTab === 'new_leads' ? ' is-active' : ''}`} onClick={() => { setActiveTab('new_leads'); setNameSearch(''); setHotSubTab('semua'); }}>
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
                         <span className="daily-task-tab-badge" style={tasks.counts.newLeadCount === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.newLeadCount}</span>
                     </span>
                     <span className="daily-task-tab-label">New Leads</span>
                 </button>
-                <button type="button" className={`daily-task-tab${activeTab === 'follow_ups' ? ' is-active' : ''}`} onClick={() => { setActiveTab('follow_ups'); setNameSearch(''); setApptSubTab('semua'); setHotSubTab('semua'); }}>
+                <button type="button" className={`daily-task-tab${activeTab === 'follow_up' ? ' is-active' : ''}`} onClick={() => { setActiveTab('follow_up'); setNameSearch(''); setHotSubTab('semua'); }}>
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-                        <span className="daily-task-tab-badge" style={tasks.counts.followUpCount === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.followUpCount}</span>
+                        <span className="daily-task-tab-badge" style={(tasks.counts.followUpCount + tasks.counts.deadlineLeadCount) === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.followUpCount + tasks.counts.deadlineLeadCount}</span>
                     </span>
                     <span className="daily-task-tab-label">Follow Up</span>
                 </button>
-                <button type="button" className={`daily-task-tab${activeTab === 'deadline_leads' ? ' is-active' : ''}`} onClick={() => { setActiveTab('deadline_leads'); setNameSearch(''); setApptSubTab('semua'); setHotSubTab('semua'); }}>
-                    <span className="daily-task-tab-icon-wrap">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                        <span className="daily-task-tab-badge" style={tasks.counts.deadlineLeadCount === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.deadlineLeadCount}</span>
-                    </span>
-                    <span className="daily-task-tab-label">Deadline</span>
-                </button>
-                <button type="button" className={`daily-task-tab${activeTab === 'appointments' ? ' is-active' : ''}`} onClick={() => { setActiveTab('appointments'); setNameSearch(''); setApptSubTab('semua'); setHotSubTab('semua'); }}>
-                    <span className="daily-task-tab-icon-wrap">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01"/></svg>
-                        <span className="daily-task-tab-badge" style={appointments.length === 0 ? { visibility: 'hidden' } : undefined}>{appointments.length}</span>
-                    </span>
-                    <span className="daily-task-tab-label">Janji Temu</span>
-                </button>
-                <button type="button" className={`daily-task-tab${activeTab === 'hot_validated' ? ' is-active' : ''}`} onClick={() => { setActiveTab('hot_validated'); setNameSearch(''); setApptSubTab('semua'); setHotSubTab('semua'); }}>
+                <button type="button" className={`daily-task-tab${activeTab === 'hot_validated' ? ' is-active' : ''}`} onClick={() => { setActiveTab('hot_validated'); setNameSearch(''); setHotSubTab('semua'); }}>
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
                         <span className="daily-task-tab-badge" style={validatedHot.length === 0 ? { visibility: 'hidden' } : undefined}>{validatedHot.length}</span>
                     </span>
-                    <span className="daily-task-tab-label">HOT</span>
+                    <span className="daily-task-tab-label">Hot Leads</span>
+                </button>
+                <button type="button" className={`daily-task-tab${activeTab === 'transactions' ? ' is-active' : ''}`} onClick={() => { setActiveTab('transactions'); setNameSearch(''); setHotSubTab('semua'); }}>
+                    <span className="daily-task-tab-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        <span className="daily-task-tab-badge" style={transactionLeads.length === 0 ? { visibility: 'hidden' } : undefined}>{transactionLeads.length}</span>
+                    </span>
+                    <span className="daily-task-tab-label">Transaksi</span>
                 </button>
             </div>
 
@@ -625,7 +795,7 @@ export default function DailyTaskPage() {
             {success ? <div className="settings-success">{success}</div> : null}
 
             {/* ── Search bar ───────────────────────────────────────── */}
-            {(activeTab === 'new_leads' || activeTab === 'follow_ups' || activeTab === 'deadline_leads' || activeTab === 'appointments' || activeTab === 'hot_validated') ? (
+            {(['new_leads', 'follow_up', 'hot_validated', 'transactions'].includes(activeTab)) ? (
                 <div className="dt-search-wrap">
                     <svg className="dt-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -646,12 +816,23 @@ export default function DailyTaskPage() {
             ) : null}
 
             {/* ── New Leads / Follow Up ─────────────────────────────── */}
-            {(activeTab === 'new_leads' || activeTab === 'follow_ups') ? (
+            {(activeTab === 'new_leads' || activeTab === 'follow_up') ? (
                 <>
+                    {activeTab === 'follow_up' ? (
+                        <div className="dt-subtabs">
+                            <button type="button" className={`dt-subtab${followUpSubTab === 'pipeline' ? ' is-active' : ''}`} onClick={() => setFollowUpSubTab('pipeline')}>
+                                Pipeline ({tasks.counts.followUpCount})
+                            </button>
+                            <button type="button" className={`dt-subtab${followUpSubTab === 'deadlines' ? ' is-active' : ''}`} onClick={() => setFollowUpSubTab('deadlines')}>
+                                Deadlines ({tasks.counts.deadlineLeadCount})
+                            </button>
+                        </div>
+                    ) : null}
+
                     {loading ? <DtEmpty variant="loading" /> : null}
 
                     {!loading && visibleTasks.length === 0 ? (
-                        <DtEmpty variant={nameSearch ? 'no_search' : activeTab === 'new_leads' ? 'all_done' : 'no_followup'} />
+                        <DtEmpty variant={nameSearch ? 'no_search' : activeTab === 'new_leads' ? 'all_done' : followUpSubTab === 'deadlines' ? 'no_deadline' : 'no_followup'} />
                     ) : null}
 
                     {!loading && visibleTasks.length > 0 ? (
@@ -659,13 +840,14 @@ export default function DailyTaskPage() {
                             {visibleTasks.map((task) => {
                                 const draft = drafts[task.id] || buildDefaultDraft(task);
                                 const visibleStatuses = getVisibleSalesStatuses(task);
+                                const isDeadlineTask = task.taskType === 'deadline_lead';
                                 const cardClass = task.status === 'overdue'
                                     ? 'dt-card-overdue'
-                                    : task.taskType === 'follow_up' ? 'dt-card-followup' : 'dt-card-new';
+                                    : isDeadlineTask ? 'dt-card-deadline' : task.taskType === 'follow_up' ? 'dt-card-followup' : 'dt-card-new';
                                 const badges = [
                                     {
-                                        label: task.status === 'overdue' ? 'Overdue' : task.label,
-                                        className: task.status === 'overdue' ? 'badge-danger' : task.taskType === 'follow_up' ? 'badge-purple' : 'badge-info'
+                                        label: task.status === 'overdue' ? 'Overdue' : isDeadlineTask ? 'Deadline' : task.label,
+                                        className: task.status === 'overdue' || isDeadlineTask ? 'badge-danger' : task.taskType === 'follow_up' ? 'badge-purple' : 'badge-info'
                                     }
                                 ];
                                 if (task.taskType === 'follow_up') {
@@ -698,49 +880,54 @@ export default function DailyTaskPage() {
                                         {/* meta */}
                                         {renderDisplayLeadCardInfo(normalizeLeadCardData(task, 'task'))}
 
-                                        {/* status select or followup hint */}
-                                        {task.taskType === 'new_lead' ? (
-                                            <div className="dt-status-wrap">
-                                                <span className="dt-status-label">Status Prospek</span>
-                                                <div onClick={(e) => e.stopPropagation()}>
-                                                    <Select
-                                                        options={visibleStatuses.map((item) => ({ value: item.key, label: getSalesStatusLabel(item.key) }))}
-                                                        value={draft.salesStatus || ''}
-                                                        onChange={(val) => { if (val) mergeDraft(task.id, { salesStatus: val }); }}
-                                                        placeholder="Pilih Status..."
-                                                        clearable={false}
-                                                        disabled={draft.submitting}
-                                                    />
-                                                </div>
+                                        {isDeadlineTask ? (
+                                            <div className="dt-followup-hint" onClick={(e) => e.stopPropagation()}>
+                                                Tentukan apakah lead ini perlu diubah ke Cold atau tetap dipertahankan.
                                             </div>
                                         ) : (
-                                            <div className="dt-followup-hint" onClick={(e) => e.stopPropagation()}>
-                                                Submit screenshot proof untuk milestone <strong>{task.followupStage}/3</strong>
-                                            </div>
+                                            <>
+                                                {task.taskType === 'new_lead' ? (
+                                                    <div className="dt-status-wrap">
+                                                        <span className="dt-status-label">Status Prospek</span>
+                                                        <div onClick={(e) => e.stopPropagation()}>
+                                                            <Select
+                                                                options={visibleStatuses.map((item) => ({ value: item.key, label: getSalesStatusLabel(item.key) }))}
+                                                                value={draft.salesStatus || ''}
+                                                                onChange={(val) => { if (val) mergeDraft(task.id, { salesStatus: val }); }}
+                                                                placeholder="Pilih Status..."
+                                                                clearable={false}
+                                                                disabled={draft.submitting}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="dt-followup-hint" onClick={(e) => e.stopPropagation()}>
+                                                        Submit screenshot proof untuk milestone <strong>{task.followupStage}/3</strong>
+                                                    </div>
+                                                )}
+
+                                                <div className="dt-upload-section" onClick={(e) => e.stopPropagation()}>
+                                                    <label className={`dt-upload-btn${draft.screenshotUrl ? ' has-file' : ''}`}>
+                                                        <input
+                                                            type="file"
+                                                            accept="image/png,image/jpeg,image/webp,image/gif"
+                                                            hidden
+                                                            onChange={(e) => void handleUploadProof(task, e.target.files?.[0] || null)}
+                                                        />
+                                                        <IcUpload />
+                                                        {draft.uploading ? 'Uploading...' : draft.screenshotUrl ? 'Ganti Screenshot' : 'Upload Screenshot'}
+                                                    </label>
+                                                    {draft.previewUrl
+                                                        ? <img src={draft.previewUrl} alt="Preview proof" className="dt-preview-img" onClick={(e) => e.stopPropagation()} />
+                                                        : null}
+                                                </div>
+
+                                                {draft.uploadError
+                                                    ? <div className="settings-error" style={{ marginBottom: 0 }} onClick={(e) => e.stopPropagation()}>{draft.uploadError}</div>
+                                                    : null}
+                                            </>
                                         )}
 
-                                        {/* upload */}
-                                        <div className="dt-upload-section" onClick={(e) => e.stopPropagation()}>
-                                            <label className={`dt-upload-btn${draft.screenshotUrl ? ' has-file' : ''}`}>
-                                                <input
-                                                    type="file"
-                                                    accept="image/png,image/jpeg,image/webp,image/gif"
-                                                    hidden
-                                                    onChange={(e) => void handleUploadProof(task, e.target.files?.[0] || null)}
-                                                />
-                                                <IcUpload />
-                                                {draft.uploading ? 'Uploading...' : draft.screenshotUrl ? 'Ganti Screenshot' : 'Upload Screenshot'}
-                                            </label>
-                                            {draft.previewUrl
-                                                ? <img src={draft.previewUrl} alt="Preview proof" className="dt-preview-img" onClick={(e) => e.stopPropagation()} />
-                                                : null}
-                                        </div>
-
-                                        {draft.uploadError
-                                            ? <div className="settings-error" style={{ marginBottom: 0 }} onClick={(e) => e.stopPropagation()}>{draft.uploadError}</div>
-                                            : null}
-
-                                        {/* submit */}
                                         <div className="dt-actions" onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', marginTop: '12px' }}>
                                             <a
                                                 href={toWaLink(task.leadPhone)}
@@ -752,16 +939,39 @@ export default function DailyTaskPage() {
                                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                                                 Chat WhatsApp
                                             </a>
-                                            <Button
-                                                variant="primary"
-                                                loading={draft.submitting}
-                                                loadingText="Submitting..."
-                                                disabled={draft.uploading}
-                                                onClick={() => void (task.taskType === 'new_lead' ? handleSubmitNewLead(task) : handleSubmitFollowUp(task))}
-                                                style={{ width: '100%', height: '40px', padding: '0 12px', fontSize: '0.875rem' }}
-                                            >
-                                                Submit Task
-                                            </Button>
+                                            {isDeadlineTask ? (
+                                                <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+                                                    <Button
+                                                        variant="danger"
+                                                        style={{ flex: 1, height: '40px', padding: '0 12px', fontSize: '0.875rem' }}
+                                                        loading={draft.submitting}
+                                                        loadingText="Submitting..."
+                                                        onClick={() => void handleDeadlineLeadAction(task, 'change_to_cold')}
+                                                    >
+                                                        Change to Cold
+                                                    </Button>
+                                                    <Button
+                                                        variant="secondary"
+                                                        style={{ flex: 1, height: '40px', padding: '0 12px', fontSize: '0.875rem' }}
+                                                        loading={draft.submitting}
+                                                        loadingText="Submitting..."
+                                                        onClick={() => void handleDeadlineLeadAction(task, 'stay')}
+                                                    >
+                                                        Stay Warm
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <Button
+                                                    variant="primary"
+                                                    loading={draft.submitting}
+                                                    loadingText="Submitting..."
+                                                    disabled={draft.uploading}
+                                                    onClick={() => void (task.taskType === 'new_lead' ? handleSubmitNewLead(task) : handleSubmitFollowUp(task))}
+                                                    style={{ width: '100%', height: '40px', padding: '0 12px', fontSize: '0.875rem' }}
+                                                >
+                                                    Submit Task
+                                                </Button>
+                                            )}
                                         </div>
                                     </div>
                                 );
@@ -867,7 +1077,7 @@ export default function DailyTaskPage() {
                         const filtered = nameSearch.trim()
                             ? appointments.filter((a) => a.leadName?.toLowerCase().includes(nameSearch.toLowerCase()))
                             : appointments;
-                        if (filtered.length === 0) return <DtEmpty variant="no_search" />;
+                        if (filtered.length === 0) return <DtEmpty variant={nameSearch ? 'no_search' : 'no_hot'} />;
 
                         const grouped = {
                             terlewat: [],
@@ -1049,8 +1259,8 @@ export default function DailyTaskPage() {
                     {!sideLoading && validatedHot.length === 0 ? <DtEmpty variant="no_hot" /> : null}
                     {!sideLoading && validatedHot.length > 0 ? (() => {
                         const filtered = nameSearch.trim()
-                            ? validatedHot.filter((l) => l.name?.toLowerCase().includes(nameSearch.toLowerCase()))
-                            : validatedHot;
+                            ? validatedHot.filter((l) => !hasFilledResultStatus(l) && l.name?.toLowerCase().includes(nameSearch.toLowerCase()))
+                            : validatedHot.filter((l) => !hasFilledResultStatus(l));
                         if (filtered.length === 0) return <DtEmpty variant="no_search" />;
 
                         const groupLess = [];
@@ -1099,6 +1309,7 @@ export default function DailyTaskPage() {
                                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                                             Chat WhatsApp
                                         </a>
+                                        {renderTransactionStatusControls(lead, HOT_TRANSACTION_STATUS_OPTIONS)}
                                     </div>
                                 </div>
                             );
@@ -1152,6 +1363,75 @@ export default function DailyTaskPage() {
                             </div>
                         );
                     })() : null}
+                </>
+            ) : null}
+
+            {activeTab === 'transactions' ? (
+                <>
+                    <div className="dt-subtabs">
+                        <button type="button" className={`dt-subtab${transactionSubTab === 'reserve' ? ' is-active' : ''}`} onClick={() => setTransactionSubTab('reserve')}>
+                            Reserve ({reserveCount})
+                        </button>
+                        <button type="button" className={`dt-subtab${transactionSubTab === 'full_book' ? ' is-active' : ''}`} onClick={() => setTransactionSubTab('full_book')}>
+                            Full Book ({fullBookCount})
+                        </button>
+                    </div>
+
+                    {visibleTransactionLeads.length === 0 ? (
+                        <DtEmpty variant={nameSearch ? 'no_search' : 'all_done'} />
+                    ) : (
+                        <div className="dt-task-grid">
+                            {visibleTransactionLeads.map((lead) => {
+                                const status = getLeadResultStatus(lead);
+                                const options = status === 'reserve'
+                                    ? RESERVE_TRANSACTION_STATUS_OPTIONS
+                                    : FULL_BOOK_TRANSACTION_STATUS_OPTIONS;
+                                const badges = [
+                                    {
+                                        label: getResultStatusLabel(status),
+                                        className: status === 'reserve' ? 'badge-warm' : 'badge-success',
+                                    },
+                                ];
+                                if (lead.salesStatus) {
+                                    badges.push({
+                                        label: getSalesStatusLabel(lead.salesStatus),
+                                        className: lead.salesStatus === 'hot' ? 'badge-hot' : 'badge-warm',
+                                    });
+                                }
+
+                                return (
+                                    <div
+                                        key={lead.id}
+                                        className={`dt-card ${status === 'reserve' ? 'dt-card-followup' : 'dt-card-hot'}`}
+                                        style={{ cursor: 'pointer' }}
+                                        onClick={() => router.push(`/leads/${lead.id}`)}
+                                    >
+                                        {renderCardHeader(lead.name, lead.phone, badges, Boolean(lead.validated))}
+                                        {renderDisplayLeadCardInfo({
+                                            leadSource: lead.source,
+                                            createdAt: lead.createdAt,
+                                            assignedAt: lead.resultStatusUpdatedAt || lead.updatedAt,
+                                            latestAppointment: lead.latestAppointment,
+                                            manualNote: lead.manualNote,
+                                        })}
+                                        <div className="dt-hot-actions" onClick={(e) => e.stopPropagation()} style={{ marginTop: '12px' }}>
+                                            <a
+                                                href={toWaLink(lead.phone)}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="btn btn-whatsapp"
+                                                style={{ width: '100%', height: '40px', padding: '0 12px', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                                            >
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                                                Chat WhatsApp
+                                            </a>
+                                            {renderTransactionStatusControls(lead, options, status === 'reserve' ? 'Naikkan / Cancel Reserve' : 'Naikkan / Cancel Full Book')}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </>
             ) : null}
         </div>

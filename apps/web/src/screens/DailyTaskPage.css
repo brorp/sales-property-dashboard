@@ -564,6 +564,73 @@ html[data-theme="light"] .daily-task-page .btn-secondary:hover:not(:disabled) {
     width: 100%;
 }
 
+.dt-transaction-update {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    padding: 10px;
+    border: 1px solid rgba(30, 58, 95, 0.10);
+    border-radius: 12px;
+    background: rgba(30, 58, 95, 0.04);
+    margin-top: 6px;
+}
+
+.dt-transaction-update-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 2px;
+}
+
+.dt-transaction-update-head span {
+    color: var(--primary);
+    font-size: 0.8125rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+}
+
+.dt-transaction-update-head small {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1.4;
+    text-align: right;
+}
+
+.dt-transaction-select .sf-trigger {
+    height: 42px;
+    border-color: rgba(30, 58, 95, 0.18);
+    background: #FFFFFF;
+}
+
+.dt-transaction-select.is-active .sf-trigger,
+.dt-transaction-select.is-open .sf-trigger {
+    border-color: #1E3A5F;
+}
+
+.daily-task-page .dt-update-status-btn.btn-primary {
+    background: #1E3A5F !important;
+    border-color: #1E3A5F !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 8px 18px rgba(30, 58, 95, 0.16) !important;
+}
+
+.daily-task-page .dt-update-status-btn.btn-primary:hover:not(:disabled) {
+    background: #244B7B !important;
+    border-color: #244B7B !important;
+    transform: translateY(-1px);
+}
+
+.daily-task-page .dt-update-status-btn.btn-primary:disabled {
+    opacity: 0.56;
+    background: #1E3A5F !important;
+    border-color: #1E3A5F !important;
+    cursor: not-allowed;
+    box-shadow: none !important;
+}
+
 .dt-deadline-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;

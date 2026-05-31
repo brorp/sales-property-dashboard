@@ -109,14 +109,16 @@ html[data-theme="light"] .leads-page .btn-primary:hover:not(:disabled) {
 }
 
 .leads-page .btn-whatsapp {
-    background: linear-gradient(135deg, #25D366, #1DB954);
-    color: #FFFFFF;
-    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.28);
+    background: var(--success-bg);
+    color: var(--success);
+    border: 1.5px solid var(--success);
+    box-shadow: none;
 }
 
 .leads-page .btn-whatsapp:hover {
-    background: linear-gradient(135deg, #1DB954, #17A34A);
-    transform: translateY(-1px);
+    background: rgba(52, 211, 153, 0.20);
+    border-color: var(--success);
+    transform: none;
 }
 
 /* ── Profile card ───────────────────────────────────────────────────── */

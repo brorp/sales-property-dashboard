@@ -22,14 +22,14 @@ export const APPOINTMENT_TAGS = [
 
 export const RESULT_STATUSES = [
     { key: 'reserve', label: 'Reserve' },
-    { key: 'on_process', label: 'On process' },
     { key: 'full_book', label: 'Full Book' },
-    { key: 'akad', label: 'Akad' },
-    { key: 'cancel_transaksi', label: 'Cancel Transaksi' },
+    { key: 'lunas', label: 'Lunas' },
+    { key: 'cancel_reserve', label: 'Cancel Reserve' },
+    { key: 'cancel_full_book', label: 'Cancel Full Book' },
     { key: 'cancel_minat', label: 'Cancel Minat' },
 ];
 
-export const CANCEL_RESULT_STATUSES = ['cancel', 'cancel_transaksi', 'cancel_minat'];
+export const CANCEL_RESULT_STATUSES = ['cancel', 'cancel_transaksi', 'cancel_full_book', 'cancel_reserve', 'cancel_minat'];
 
 export const DAILY_TASK_FOLLOWUP_MILESTONE_DAYS = [4, 8, 12];
 
@@ -50,6 +50,14 @@ function humanizeUnknownKey(key) {
         .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+export function normalizeResultStatusKey(key) {
+    const normalized = normalizeKey(key);
+    if (normalized === 'on_process') return 'reserve';
+    if (normalized === 'akad') return 'lunas';
+    if (normalized === 'cancel' || normalized === 'cancel_transaksi') return 'cancel_full_book';
+    return normalized;
+}
+
 export function getSalesStatusLabel(key) {
     if (key === 'unfilled') {
         return 'Belum Diisi';
@@ -59,15 +67,14 @@ export function getSalesStatusLabel(key) {
 }
 
 export function getResultStatusLabel(key) {
-    if (key === 'cancel') {
-        return 'Cancel Transaksi';
-    }
-    const found = RESULT_STATUSES.find((item) => item.key === key);
+    const normalized = normalizeResultStatusKey(key);
+    const found = RESULT_STATUSES.find((item) => item.key === normalized);
     return found ? found.label : key || '-';
 }
 
 export function isCancelResultStatus(key) {
-    return CANCEL_RESULT_STATUSES.includes(normalizeKey(key));
+    return CANCEL_RESULT_STATUSES.includes(normalizeKey(key)) ||
+        CANCEL_RESULT_STATUSES.includes(normalizeResultStatusKey(key));
 }
 
 export function getFlowStatusLabel(key) {
@@ -125,13 +132,14 @@ export function getStatusBadgeClass(kind, value) {
     }
 
     if (normalizedKind === 'result') {
-        if (normalizedValue === 'akad' || normalizedValue === 'full_book') {
+        const resultValue = normalizeResultStatusKey(normalizedValue);
+        if (resultValue === 'lunas' || resultValue === 'full_book') {
             return 'badge-success';
         }
-        if (normalizedValue === 'reserve' || normalizedValue === 'on_process') {
+        if (resultValue === 'reserve') {
             return 'badge-warm';
         }
-        if (isCancelResultStatus(normalizedValue)) {
+        if (isCancelResultStatus(resultValue)) {
             return 'badge-danger';
         }
         return 'badge-neutral';

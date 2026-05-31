@@ -16,10 +16,10 @@ const SALES_STATUS_LABELS: Record<string, string> = {
 
 const RESULT_STATUS_LABELS: Record<string, string> = {
     reserve: "Reserve",
-    on_process: "On Process",
     full_book: "Full Book",
-    akad: "Akad",
-    cancel_transaksi: "Cancel Transaksi",
+    lunas: "Lunas",
+    cancel_reserve: "Cancel Reserve",
+    cancel_full_book: "Cancel Full Book",
     cancel_minat: "Cancel Minat",
 };
 
@@ -73,17 +73,23 @@ export function normalizeSalesStatus(value: string | null | undefined) {
 
 export function normalizeResultStatus(value: string | null | undefined) {
     const normalized = String(value || "").trim().toLowerCase();
-    if (normalized === "cancel") {
-        return "cancel_transaksi";
+    if (normalized === "on_process") {
+        return "reserve";
+    }
+    if (normalized === "akad") {
+        return "lunas";
+    }
+    if (normalized === "cancel" || normalized === "cancel_transaksi") {
+        return "cancel_full_book";
     }
     return RESULT_STATUS_SET.has(normalized) ? normalized : null;
 }
 
 export function isCancelResultStatus(value: string | null | undefined) {
-    const normalized = String(value || "").trim().toLowerCase();
+    const normalized = normalizeResultStatus(value);
     return (
-        normalized === "cancel" ||
-        normalized === "cancel_transaksi" ||
+        normalized === "cancel_full_book" ||
+        normalized === "cancel_reserve" ||
         normalized === "cancel_minat"
     );
 }
@@ -97,10 +103,7 @@ export function getSalesStatusLabel(value: string | null | undefined) {
 }
 
 export function getResultStatusLabel(value: string | null | undefined) {
-    const normalized = String(value || "").trim().toLowerCase();
-    if (normalized === "cancel") {
-        return RESULT_STATUS_LABELS.cancel_transaksi;
-    }
+    const normalized = normalizeResultStatus(value) || String(value || "").trim().toLowerCase();
     return RESULT_STATUS_LABELS[normalized] || value || "-";
 }
 

@@ -4,6 +4,7 @@ import { client, lead, session, teamGroup, teamGroupMember, user } from "../db/s
 import type { QueryScope } from "../middleware/rbac";
 import { countAppointmentsForSalesIds } from "./appointments.service";
 import { getActiveSalesSuspensionMap } from "./sales-suspension.service";
+import { normalizeResultStatus } from "../utils/lead-workflow";
 
 function createEmptyStats() {
     return {
@@ -33,14 +34,16 @@ function buildStatsFromLeads(items: Array<{
     const totalLeads = items.length;
     const accepted = items.filter((item) => item.flowStatus === "accepted").length;
     const closed = items.filter(
-        (item) => item.resultStatus === "akad" || item.resultStatus === "full_book"
+        (item) => {
+            const resultStatus = normalizeResultStatus(item.resultStatus);
+            return resultStatus === "lunas" || resultStatus === "full_book";
+        }
     ).length;
     const hot = items.filter((item) => item.salesStatus === "hot").length;
     const pending = items.filter(
         (item) =>
             item.flowStatus === "open" ||
-            item.resultStatus === "reserve" ||
-            item.resultStatus === "on_process" ||
+            normalizeResultStatus(item.resultStatus) === "reserve" ||
             !item.resultStatus
     ).length;
 

@@ -290,3 +290,592 @@ html[data-theme="dark"] .pen-page {
     padding-top: 4px;
     border-top: 1px solid var(--border-color);
 }
+
+/* ── Top tabs ───────────────────────────────────────────────────────── */
+
+.pen-tab-bar {
+    display: flex;
+    gap: 8px;
+    padding: 6px;
+    margin-bottom: 14px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 16px;
+    background: var(--bg-card);
+    box-shadow: var(--shadow-sm);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.pen-tab-bar::-webkit-scrollbar {
+    display: none;
+}
+
+.pen-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex: 1;
+    min-width: max-content;
+    min-height: 42px;
+    padding: 0 14px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 800;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 150ms ease, color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.pen-tab-btn:hover {
+    background: rgba(30, 58, 95, 0.06);
+    color: var(--primary);
+}
+
+.pen-tab-btn.is-active {
+    background: #1E3A5F;
+    border-color: #1E3A5F;
+    color: #FFFFFF;
+    box-shadow: 0 10px 24px rgba(30, 58, 95, 0.16);
+}
+
+.pen-tab-btn svg {
+    flex-shrink: 0;
+}
+
+.pen-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(239, 68, 68, 0.14);
+    color: #DC2626;
+    font-size: 0.7rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.pen-tab-btn.is-active .pen-tab-badge {
+    background: rgba(255, 255, 255, 0.18);
+    color: #FFFFFF;
+}
+
+.pen-tab-badge--immune {
+    background: rgba(30, 58, 95, 0.12);
+    color: #1E3A5F;
+}
+
+/* ── Immunity ───────────────────────────────────────────────────────── */
+
+.pen-immunity {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.pen-immunity-intro {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+    padding: 18px;
+    border: 1.5px solid rgba(30, 58, 95, 0.12);
+    border-radius: 20px;
+    background:
+        radial-gradient(circle at 12% 0%, rgba(37, 99, 235, 0.13), transparent 32%),
+        linear-gradient(135deg, #FFFFFF 0%, #F4F8FD 54%, #EEF3F9 100%);
+    box-shadow: 0 16px 40px rgba(30, 58, 95, 0.08);
+}
+
+.pen-immunity-intro::after {
+    content: '';
+    position: absolute;
+    right: -44px;
+    top: -54px;
+    width: 160px;
+    height: 160px;
+    border-radius: 999px;
+    background: rgba(30, 58, 95, 0.07);
+    pointer-events: none;
+}
+
+.pen-immunity-intro-main {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    min-width: 0;
+}
+
+.pen-immunity-intro-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: #1E3A5F;
+    color: #FFFFFF;
+    box-shadow: 0 14px 28px rgba(30, 58, 95, 0.18);
+}
+
+.pen-immunity-kicker {
+    color: #2563EB;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+}
+
+.pen-immunity-intro-title {
+    color: #1E3A5F;
+    font-size: 1.18rem;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+}
+
+.pen-immunity-intro-desc {
+    max-width: 620px;
+    margin-top: 6px;
+    color: #64748B;
+    font-size: 0.875rem;
+    line-height: 1.55;
+    font-weight: 600;
+}
+
+.pen-immunity-stats {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.pen-immunity-stat {
+    padding: 12px;
+    border: 1px solid rgba(30, 58, 95, 0.10);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(10px);
+}
+
+.pen-immunity-stat-value {
+    display: block;
+    color: #1E3A5F;
+    font-size: 1.35rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.pen-immunity-stat-label {
+    display: block;
+    margin-top: 4px;
+    color: #64748B;
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.pen-immunity-alert {
+    margin-bottom: 0;
+}
+
+.pen-immunity-add-card {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+    padding: 16px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 18px;
+    background: var(--bg-card);
+    box-shadow: var(--shadow-sm);
+}
+
+.pen-immunity-add-title {
+    color: var(--text-primary);
+    font-size: 0.96rem;
+    font-weight: 900;
+    letter-spacing: -0.015em;
+}
+
+.pen-immunity-add-desc {
+    margin-top: 4px;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.pen-immunity-add-body {
+    min-width: 0;
+}
+
+.pen-immunity-add-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.pen-immunity-add-select {
+    min-width: 0;
+}
+
+.pen-immunity-add-select .sf-trigger {
+    height: 44px;
+    border-radius: 12px;
+    background: #FFFFFF;
+}
+
+.pen-immunity-add-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    border-radius: 12px;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.pen-page .pen-immunity-add-btn.btn-primary,
+.pen-page .btn-plcrm {
+    background: #1E3A5F !important;
+    border-color: #1E3A5F !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 10px 22px rgba(30, 58, 95, 0.14);
+}
+
+.pen-page .pen-immunity-add-btn.btn-primary:hover:not(:disabled),
+.pen-page .btn-plcrm:hover:not(:disabled) {
+    background: #244B7B !important;
+    border-color: #244B7B !important;
+}
+
+.pen-immunity-selected {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--bg-input);
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.45;
+}
+
+.pen-immunity-selected.is-active {
+    border-color: rgba(30, 58, 95, 0.18);
+    background: rgba(30, 58, 95, 0.06);
+    color: var(--primary);
+}
+
+.pen-immunity-selected-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: currentColor;
+    opacity: 0.75;
+    flex-shrink: 0;
+}
+
+.pen-immunity-empty {
+    min-height: 240px;
+}
+
+.pen-immunity-empty-icon {
+    width: 70px;
+    height: 70px;
+    border-radius: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #1E3A5F;
+    background: rgba(30, 58, 95, 0.08);
+    border: 1.5px solid rgba(30, 58, 95, 0.16);
+    margin-bottom: 6px;
+}
+
+.pen-immune-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.pen-immune-list-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 2px;
+}
+
+.pen-immune-list-title {
+    color: var(--text-primary);
+    font-size: 0.96rem;
+    font-weight: 900;
+    letter-spacing: -0.015em;
+}
+
+.pen-immune-list-desc {
+    margin-top: 2px;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.pen-immune-list-count {
+    min-width: 34px;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #FFFFFF;
+    background: #1E3A5F;
+    font-size: 0.875rem;
+    font-weight: 900;
+    box-shadow: 0 10px 20px rgba(30, 58, 95, 0.14);
+}
+
+.pen-immune-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.pen-immune-card {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 14px;
+    border: 1.5px solid var(--border-color);
+    border-left: 4px solid #1E3A5F;
+    border-radius: 16px;
+    background: var(--bg-card);
+    box-shadow: var(--shadow-sm);
+    transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.pen-immune-card::after {
+    content: '';
+    position: absolute;
+    right: -32px;
+    top: -38px;
+    width: 96px;
+    height: 96px;
+    border-radius: 999px;
+    background: rgba(30, 58, 95, 0.05);
+    pointer-events: none;
+}
+
+.pen-immune-card:hover {
+    border-color: rgba(30, 58, 95, 0.35);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.pen-immune-card-info {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.pen-immune-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #FFFFFF;
+    background: linear-gradient(135deg, #1E3A5F, #2563EB);
+    font-size: 1rem;
+    font-weight: 900;
+    box-shadow: 0 10px 20px rgba(30, 58, 95, 0.16);
+}
+
+.pen-immune-copy {
+    min-width: 0;
+}
+
+.pen-immune-name {
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-weight: 900;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pen-immune-since {
+    margin-top: 3px;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 650;
+    line-height: 1.35;
+}
+
+.pen-immune-card-bottom {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+}
+
+.pen-immune-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(22, 163, 74, 0.10);
+    color: #15803D;
+    font-size: 0.74rem;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.pen-immune-status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #16A34A;
+    box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.12);
+}
+
+.pen-immune-remove-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1.5px solid rgba(220, 38, 38, 0.18);
+    background: rgba(220, 38, 38, 0.07);
+    color: #DC2626;
+    font-size: 0.78rem;
+    font-weight: 900;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.pen-immune-remove-btn:hover:not(:disabled) {
+    background: rgba(220, 38, 38, 0.11);
+    border-color: rgba(220, 38, 38, 0.34);
+}
+
+.pen-immune-remove-btn:disabled {
+    opacity: 0.58;
+    cursor: not-allowed;
+}
+
+@media (min-width: 768px) {
+    .pen-immunity-intro {
+        grid-template-columns: minmax(0, 1fr) minmax(300px, 0.58fr);
+        align-items: center;
+        padding: 22px;
+    }
+
+    .pen-immunity-add-card {
+        grid-template-columns: minmax(220px, 0.42fr) minmax(0, 1fr);
+        align-items: center;
+        padding: 18px;
+    }
+
+    .pen-immunity-add-row {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+    }
+
+    .pen-immune-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1280px) {
+    .pen-immune-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 480px) {
+    .pen-immunity-intro {
+        padding: 16px;
+    }
+
+    .pen-immunity-intro-main {
+        flex-direction: column;
+    }
+
+    .pen-immunity-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .pen-immune-card-bottom {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .pen-immune-remove-btn {
+        width: 100%;
+    }
+}
+
+html[data-theme="dark"] .pen-immunity-intro {
+    border-color: rgba(74, 144, 217, 0.18);
+    background:
+        radial-gradient(circle at 12% 0%, rgba(74, 144, 217, 0.16), transparent 34%),
+        linear-gradient(135deg, #1E293B 0%, #172338 100%);
+}
+
+html[data-theme="dark"] .pen-immunity-intro-title,
+html[data-theme="dark"] .pen-immunity-stat-value {
+    color: #F1F5F9;
+}
+
+html[data-theme="dark"] .pen-immunity-intro-desc,
+html[data-theme="dark"] .pen-immunity-stat-label {
+    color: #94A3B8;
+}
+
+html[data-theme="dark"] .pen-immunity-stat {
+    background: rgba(15, 23, 42, 0.44);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .pen-immunity-add-select .sf-trigger {
+    background: var(--bg-input);
+}
+
+html[data-theme="dark"] .pen-immunity-empty-icon {
+    color: #6BAEE8;
+    background: rgba(74, 144, 217, 0.12);
+    border-color: rgba(74, 144, 217, 0.22);
+}

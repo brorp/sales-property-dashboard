@@ -14,15 +14,14 @@ function TransactionSalesCard({ sales }) {
                 <span className="tpc-sales-card-total">{formatCount(sales.prospek || 0)} leads</span>
             </div>
             <div className="tpc-sales-stat" style={{ borderBottom: '1px solid var(--border-color)', alignItems: 'center' }}>
-                <span className="tpc-sales-stat-label">Akad</span>
+                <span className="tpc-sales-stat-label">Lunas</span>
                 <strong className="tpc-sales-stat-value" style={{ color: 'var(--green)', fontSize: '1.2rem' }}>{formatCount(sales.akad || 0)}</strong>
             </div>
             <div className="tpc-sales-card-stats">
                 {[
                     ['Reserve', sales.reserve || 0, 'var(--text-primary)'],
-                    ['On Process', sales.onProcess || 0, 'var(--primary)'],
                     ['Full Book', sales.fullBook || 0, 'var(--purple)'],
-                    ['Cancel', sales.cancel || 0, 'var(--danger)'],
+                    ['Cancel Full Book', sales.cancel || 0, 'var(--danger)'],
                 ].map(([label, val, color]) => (
                     <div key={label} className="tpc-sales-stat">
                         <span className="tpc-sales-stat-label">{label}</span>
@@ -44,21 +43,21 @@ function TransactionSalesGrid({ sales, maxCols = 5 }) {
 }
 
 const PIC_AGENT_STATUS_OPTIONS = [
-    { key: 'akad', label: 'Akad' },
+    { key: 'lunas', label: 'Lunas' },
     { key: 'full_book', label: 'Full Book' },
-    { key: 'on_process', label: 'On Process' },
     { key: 'reserve', label: 'Reserve' },
-    { key: 'cancel_transaksi', label: 'Cancel Transaksi' },
+    { key: 'cancel_full_book', label: 'Cancel Full Book' },
+    { key: 'cancel_reserve', label: 'Cancel Reserve' },
 ];
 
 
 const TRANSACTION_STATUS_OPTIONS = [
     { value: 'all', label: 'Semua' },
-    { value: 'akad', label: 'Akad' },
+    { value: 'lunas', label: 'Lunas' },
     { value: 'full_book', label: 'Full Book' },
-    { value: 'on_process', label: 'On Process' },
     { value: 'reserve', label: 'Reserve' },
-    { value: 'cancel_transaksi', label: 'Cancel Transaksi' },
+    { value: 'cancel_full_book', label: 'Cancel Full Book' },
+    { value: 'cancel_reserve', label: 'Cancel Reserve' },
 ];
 
 const PIC_AGENT_SF_OPTIONS = PIC_AGENT_STATUS_OPTIONS.map((o) => ({ value: o.key, label: o.label }));
@@ -186,7 +185,7 @@ export default function TransactionRecapSection({
     rangeSummary = '',
 }) {
     const router = useRouter();
-    const [picAgentStatus, setPicAgentStatus] = useState('akad');
+    const [picAgentStatus, setPicAgentStatus] = useState('lunas');
     const [transactionChartStatus, setTransactionChartStatus] = useState('all');
     const [picAgentDrawerOpen, setPicAgentDrawerOpen] = useState(false);
     const [analysisDrawerOpen, setAnalysisDrawerOpen] = useState(false);
@@ -200,7 +199,7 @@ export default function TransactionRecapSection({
 
     const teams = activeData?.teams || [];
     const isCompare = forceCompare;
-    const [visibleStats, setVisibleStats] = useState(['reserve', 'on_process', 'akad', 'full_book', 'cancel']);
+    const [visibleStats, setVisibleStats] = useState(['full_book', 'cancel']);
 
     const toggleStat = (key) => setVisibleStats((prev) =>
         prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
@@ -259,11 +258,11 @@ export default function TransactionRecapSection({
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                 <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem' }}>{getTeamDisplayLabel(team)}</h3>
                 <div style={{ background: 'var(--bg-input)', padding: '14px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', border: '1px solid var(--green)' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Akad</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Lunas</span>
                     <strong style={{ fontSize: '1.8rem', color: 'var(--green)', marginTop: '4px' }}>{team.akad || 0}</strong>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    {[['Reserve', team.reserve || 0, 'var(--text-primary)'], ['On Process', team.onProcess || 0, 'var(--primary)'], ['Full Book', team.fullBook || 0, 'var(--purple)'], ['Cancel', team.cancel || 0, 'var(--danger)']].map(([label, value, color]) => (
+                    {[['Reserve', team.reserve || 0, 'var(--text-primary)'], ['Full Book', team.fullBook || 0, 'var(--purple)'], ['Cancel Full Book', team.cancel || 0, 'var(--danger)']].map(([label, value, color]) => (
                         <div key={label} style={{ background: 'var(--bg-input)', padding: '10px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{label}</span>
                             <strong style={{ fontSize: '1.3rem', color, marginTop: '4px' }}>{value}</strong>
@@ -286,11 +285,11 @@ export default function TransactionRecapSection({
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
                 <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem' }}>{viewerName || sales.salesName || scopeLabel}</h3>
                 <div style={{ background: 'var(--bg-input)', padding: '14px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', border: '1px solid var(--green)' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Akad</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Lunas</span>
                     <strong style={{ fontSize: '1.8rem', color: 'var(--green)', marginTop: '4px' }}>{sales.akad || 0}</strong>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    {[['Reserve', sales.reserve || 0, 'var(--text-primary)'], ['On Process', sales.onProcess || 0, 'var(--primary)'], ['Full Book', sales.fullBook || 0, 'var(--purple)'], ['Cancel', sales.cancel || 0, 'var(--danger)']].map(([label, value, color]) => (
+                    {[['Reserve', sales.reserve || 0, 'var(--text-primary)'], ['Full Book', sales.fullBook || 0, 'var(--purple)'], ['Cancel Full Book', sales.cancel || 0, 'var(--danger)']].map(([label, value, color]) => (
                         <div key={label} style={{ background: 'var(--bg-input)', padding: '10px', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{label}</span>
                             <strong style={{ fontSize: '1.3rem', color }}>{value}</strong>
@@ -331,13 +330,12 @@ export default function TransactionRecapSection({
                 {/* Filter Semua: summary numbers */}
                 {allowTeamFiltering && !selectedTeamData && !effectiveCompare ? (() => {
                     const ALL_STAT_DEFS = [
-                        { key: 'akad', label: 'Total Akad', color: 'var(--green)', value: summaryScope.totalAkad, filter: 'akad' },
+                        { key: 'lunas', label: 'Total Lunas', color: 'var(--green)', value: summaryScope.totalAkad, filter: 'lunas' },
                         { key: 'full_book', label: 'Total Full Book', color: 'var(--purple)', value: summaryScope.totalFullBook, filter: 'full_book' },
-                        { key: 'on_process', label: 'Total On Process', color: 'var(--primary)', value: summaryScope.totalOnProcess, filter: 'on_process' },
                         { key: 'reserve', label: 'Total Reserve', color: 'var(--text-primary)', value: summaryScope.totalReserve, filter: 'reserve' },
-                        { key: 'cancel', label: 'Total Batal', color: 'var(--danger)', value: summaryScope.totalCancel, filter: 'cancel_transaksi' },
+                        { key: 'cancel', label: 'Total Batal', color: 'var(--danger)', value: summaryScope.totalCancel, filter: 'cancel_full_book' },
                     ];
-                    const OPTIONAL_KEYS = ['akad', 'on_process', 'reserve'];
+                    const OPTIONAL_KEYS = ['lunas', 'reserve'];
                     const visibleItems = ALL_STAT_DEFS.filter((s) => visibleStats.includes(s.key));
                     const n = visibleItems.length;
                     const desktopRem = n % 3;
@@ -456,10 +454,9 @@ export default function TransactionRecapSection({
                         <div className="dash-drawer-body">
                             <div className="tpc-stats-toggle-list">
                                 {[
-                                    { key: 'full_book', label: 'Full Book', color: 'var(--purple)', locked: false },
-                                    { key: 'cancel', label: 'Cancel', color: 'var(--danger)', locked: false },
-                                    { key: 'akad', label: 'Akad', color: 'var(--green)', locked: false },
-                                    { key: 'on_process', label: 'On Process', color: 'var(--primary)', locked: false },
+                                    { key: 'full_book', label: 'Full Book', color: 'var(--purple)', locked: true },
+                                    { key: 'cancel', label: 'Cancel Full Book', color: 'var(--danger)', locked: true },
+                                    { key: 'lunas', label: 'Lunas', color: 'var(--green)', locked: false },
                                     { key: 'reserve', label: 'Reserve', color: 'var(--text-primary)', locked: false },
                                 ].map(({ key, label, color, locked }) => {
                                     const active = visibleStats.includes(key);

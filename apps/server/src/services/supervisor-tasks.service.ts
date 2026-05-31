@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "../db/index";
 import { activity, lead, user } from "../db/schema";
 import { generateId } from "../utils/id";
@@ -151,6 +151,7 @@ export async function listValidatedHotLeads(params: {
             phone: lead.phone,
             source: lead.source,
             salesStatus: lead.salesStatus,
+            resultStatus: lead.resultStatus,
             validated: lead.validated,
             updatedAt: lead.updatedAt,
             createdAt: lead.createdAt,
@@ -160,7 +161,8 @@ export async function listValidatedHotLeads(params: {
             and(
                 eq(lead.assignedTo, params.salesId),
                 eq(lead.salesStatus, "hot"),
-                eq(lead.validated, true)
+                eq(lead.validated, true),
+                or(isNull(lead.resultStatus), eq(lead.resultStatus, ""))
             )
         )
         .orderBy(desc(lead.updatedAt));
