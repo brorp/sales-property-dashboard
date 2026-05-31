@@ -52,12 +52,24 @@ export default function Select({
     variant = 'default',
     searchable = false,
     multiple = false,
+    maxDisplayed,
+    allowEmpty = true,
 }) {
     const [open, setOpen] = useState(false);
     const [dropdownStyle, setDropdownStyle] = useState({});
     const [searchQuery, setSearchQuery] = useState('');
+    const [isMobile, setIsMobile] = useState(false);
     const wrapRef = useRef(null);
     const searchRef = useRef(null);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 640);
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // Normalize value for single vs multiple select
     const selectedValues = multiple ? (Array.isArray(value) ? value : []) : (value ? [value] : []);
@@ -70,7 +82,14 @@ export default function Select({
             const selectedLabels = options
                 .filter((opt) => selectedValues.includes(opt.value))
                 .map((opt) => opt.label);
-            triggerLabel = selectedLabels.join(', ');
+            
+            const effectiveMax = isMobile ? 1 : maxDisplayed;
+            if (effectiveMax && selectedLabels.length > effectiveMax) {
+                const visibleLabels = selectedLabels.slice(0, effectiveMax);
+                triggerLabel = `${visibleLabels.join(', ')}, ++`;
+            } else {
+                triggerLabel = selectedLabels.join(', ');
+            }
         }
     } else {
         const selectedOpt = options.find((opt) => opt.value === value);
@@ -138,11 +157,18 @@ export default function Select({
 
     const handleSelect = (optValue) => {
         if (multiple) {
-            const nextValues = isSelected(optValue)
+            const isAlreadySelected = isSelected(optValue);
+            const nextValues = isAlreadySelected
                 ? selectedValues.filter((v) => v !== optValue)
                 : [...selectedValues, optValue];
+            if (!allowEmpty && nextValues.length === 0) {
+                return;
+            }
             onChange(nextValues);
         } else {
+            if (!allowEmpty && value === optValue) {
+                return;
+            }
             onChange(optValue);
             setOpen(false);
         }
@@ -150,7 +176,11 @@ export default function Select({
 
     const handleClear = (e) => {
         e.stopPropagation();
-        onChange(multiple ? [] : '');
+        if (!allowEmpty && options.length > 0) {
+            onChange(multiple ? [options[0].value] : options[0].value);
+        } else {
+            onChange(multiple ? [] : '');
+        }
         setOpen(false);
     };
 
