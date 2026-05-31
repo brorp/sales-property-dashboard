@@ -1700,3 +1700,486 @@
     .ov-tc-hide-sm { display: none; }
     .ov-team-row { grid-template-columns: 2fr 1fr 1fr 1fr; }
 }
+
+/* ───────────────────────────── Analytics Section (Analitik subtab) ───────────────────────────── */
+.an-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.an-head {
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.an-head-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.an-body {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.an-grid {
+    display: grid;
+    grid-template-columns: minmax(180px, 240px) 1fr;
+    gap: 16px;
+    align-items: stretch;
+}
+
+@media (max-width: 900px) {
+    .an-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Sales pane (left column) */
+.an-sales-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    min-height: 100%;
+}
+.an-sales-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 360px;
+    overflow-y: auto;
+}
+.an-sales-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg-input);
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+    text-align: left;
+    transition: border-color 150ms ease, background 150ms ease;
+}
+.an-sales-row:hover {
+    border-color: var(--primary);
+}
+.an-sales-row.is-active {
+    background: var(--primary-glow);
+    border-color: var(--primary);
+}
+.an-sales-row--total {
+    background: var(--bg-input);
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 14px 12px;
+    margin-bottom: 4px;
+}
+.an-sales-row--total .an-sales-row-label {
+    font-weight: 700;
+    font-size: 0.95rem;
+}
+.an-sales-row--total .an-sales-row-count {
+    font-size: 1.4rem;
+    color: var(--primary);
+}
+.an-sales-row-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+}
+.an-sales-row-count {
+    flex-shrink: 0;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.an-sales-empty {
+    padding: 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+/* 3 columns: Transaction / Visit / Prospek */
+.an-cols {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+@media (max-width: 720px) {
+    .an-cols {
+        grid-template-columns: 1fr;
+    }
+}
+
+.an-col-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    height: 100%;
+}
+
+.an-col-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+}
+.an-col-card-title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.an-col-card-total {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0;
+}
+.an-col-card-total-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1;
+}
+.an-col-card-total-value {
+    font-size: 1.2rem;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+.an-col-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1 1 auto;
+}
+.an-col-card-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+    margin-top: auto;
+}
+.an-col-card-foot-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+.an-col-card-foot-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+
+/* Status row (clickable filter) */
+.an-status-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 4px 8px;
+    padding: 8px 10px;
+    background: var(--bg-input);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--text-primary);
+    font-family: inherit;
+    text-align: left;
+    transition: border-color 150ms ease, transform 150ms ease;
+}
+.an-status-row:hover {
+    border-color: var(--an-status-color, var(--primary));
+}
+.an-status-row.is-active {
+    border-color: var(--an-status-color, var(--primary));
+    background: color-mix(in srgb, var(--an-status-color, var(--primary)) 12%, transparent);
+}
+.an-status-row.is-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.an-status-row-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+.an-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.an-status-row-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-self: end;
+    font-size: 0.78rem;
+}
+.an-status-count {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-weight: 700;
+}
+.an-status-pct {
+    color: var(--text-muted);
+    font-size: 0.74rem;
+    min-width: 36px;
+    text-align: right;
+}
+.an-status-track {
+    grid-column: 1 / -1;
+    position: relative;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(148, 163, 184, 0.16);
+    overflow: hidden;
+}
+.an-status-fill {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+    transition: width 200ms ease;
+}
+
+/* Bottom: charts head + grid */
+.an-charts-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 16px;
+}
+.an-charts-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+.an-charts-sub {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+.an-charts-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.an-charts-clear {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 150ms ease, color 150ms ease;
+}
+.an-charts-clear:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+.an-charts-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+@media (max-width: 640px) {
+    .an-charts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ───────────────────────────── Line Chart v2 ───────────────────────────── */
+.lc-section .lc-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.lc-gran-pills {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    align-self: flex-start;
+    flex-wrap: wrap;
+}
+.lc-gran-pill {
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 150ms ease, color 150ms ease;
+}
+.lc-gran-pill:hover {
+    color: var(--text-primary);
+}
+.lc-gran-pill.active {
+    background: var(--primary);
+    color: var(--text-on-primary);
+}
+
+.lc-chart-wrap-v2 {
+    width: 100%;
+    overflow: hidden;
+    border-radius: 8px;
+    background: var(--bg-input);
+    padding: 8px;
+}
+.lc-svg-v2 {
+    width: 100%;
+    height: 320px;
+    display: block;
+}
+
+.lc-y-options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.lc-y-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 150ms ease, background 150ms ease;
+}
+.lc-y-option:hover {
+    border-color: var(--primary);
+}
+.lc-y-option.active {
+    border-color: var(--primary);
+    background: var(--primary-glow);
+}
+.lc-y-option-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--primary);
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+    background: var(--bg-card);
+}
+.lc-y-option.active .lc-y-option-check {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--text-on-primary);
+}
+.lc-y-hint {
+    margin: 6px 0 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
+/* Line Chart top controls row (granularity left, Y axis chips right) */
+.lc-controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.lc-y-chips {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.lc-y-chips-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+    margin-right: 2px;
+}
+.lc-y-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    color: var(--text-secondary);
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+.lc-y-chip:hover {
+    border-color: var(--primary);
+    color: var(--text-primary);
+}
+.lc-y-chip.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--text-on-primary);
+}
+.lc-y-chip-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    color: inherit;
+    font-size: 10px;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+.lc-y-chip:not(.active) .lc-y-chip-check {
+    background: var(--bg-card);
+    color: var(--text-muted);
+}

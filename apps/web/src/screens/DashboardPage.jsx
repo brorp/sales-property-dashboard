@@ -19,6 +19,7 @@ import DatabaseControlCenterSection from './dashboard-sections/DatabaseControlCe
 import LineChartSection from './dashboard-sections/LineChartSection';
 import DailySalesReportSection from './dashboard-sections/DailySalesReportSection';
 import OverviewSection from './dashboard-sections/OverviewSection';
+import AnalyticsSection from './dashboard-sections/AnalyticsSection';
 
 const EMPTY_DATE_RANGE = { dateFrom: '', dateTo: '' };
 
@@ -131,10 +132,10 @@ function formatClientNameFromSlug(slug) {
 
 export default function DashboardPage() {
     const { user, isAdmin, getRoleLabel } = useAuth();
-    const { dashboardAnalytics, refreshAll } = useLeads();
+    const { dashboardAnalytics, refreshAll, leads, salesUsers } = useLeads();
     const router = useRouter();
 
-    const [activeSectionTab, setActiveSectionTab] = useState('transaction');
+    const [activeSectionTab, setActiveSectionTab] = useState('analytics');
     const [globalTeamFilter, setGlobalTeamFilter] = useState('all');
     const [selectedSourceFilter, setSelectedSourceFilter] = useState('all');
     const [transactionUnitType, setTransactionUnitType] = useState('');
@@ -146,6 +147,8 @@ export default function DashboardPage() {
     const [pageAnalytics, setPageAnalytics] = useState(null);
     const [dashboardError, setDashboardError] = useState('');
     const [appliedDateRange, setAppliedDateRange] = useState(() => getPresetRange('thisMonth'));
+    const [projectUnits, setProjectUnits] = useState([]);
+    const [cancelReasons, setCancelReasons] = useState([]);
 
     const showDateFilter = Boolean(user);
     const showHierarchyOverview = user?.role === 'root_admin';
@@ -254,7 +257,25 @@ export default function DashboardPage() {
         if (!user) {
             setPageAnalytics(null);
             setAppliedDateRange(getPresetRange('thisMonth'));
+            setProjectUnits([]);
+            setCancelReasons([]);
+            return;
         }
+        let cancelled = false;
+        (async () => {
+            try {
+                const [units, reasons] = await Promise.all([
+                    apiRequest('/api/units', { user }).catch(() => []),
+                    apiRequest('/api/cancel-reasons', { user }).catch(() => []),
+                ]);
+                if (cancelled) return;
+                setProjectUnits(Array.isArray(units) ? units : []);
+                setCancelReasons(Array.isArray(reasons) ? reasons : []);
+            } catch {
+                // ignore
+            }
+        })();
+        return () => { cancelled = true; };
     }, [user]);
 
     const handleRefresh = async () => {
@@ -485,51 +506,32 @@ export default function DashboardPage() {
                                 <span className="dash-tab-label-short">Harian</span>
                             </button>
                         ) : null}
-                        <button type="button" className={`dash-section-tab${activeSectionTab === 'transaction' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('transaction')}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>
-                            <span className="dash-tab-label-full">Rekap Transaksi</span>
-                            <span className="dash-tab-label-short">Transaksi</span>
+                        <button type="button" className={`dash-section-tab${activeSectionTab === 'overview' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('overview')}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
+                            <span className="dash-tab-label-full">Ringkasan</span>
+                            <span className="dash-tab-label-short">Ringkasan</span>
                         </button>
-                        <button type="button" className={`dash-section-tab${activeSectionTab === 'team' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('team')}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-                            <span className="dash-tab-label-full">Performa Tim</span>
-                            <span className="dash-tab-label-short">Tim</span>
+                        <button type="button" className={`dash-section-tab${activeSectionTab === 'analytics' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('analytics')}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><path d="M7 16l4-5 4 4 4-6" /></svg>
+                            <span className="dash-tab-label-full">Analitik</span>
+                            <span className="dash-tab-label-short">Analitik</span>
                         </button>
-                        <button type="button" className={`dash-section-tab${activeSectionTab === 'database' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('database')}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5" /><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3" /></svg>
-                            <span className="dash-tab-label-full">Basis Data</span>
-                            <span className="dash-tab-label-short">Data</span>
+                        <button type="button" className={`dash-section-tab${activeSectionTab === 'line-chart' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('line-chart')}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
+                            <span className="dash-tab-label-full">Line Chart</span>
+                            <span className="dash-tab-label-short">Tren</span>
                         </button>
-                        {canUseTeamFilters ? (
-                            <button type="button" className={`dash-section-tab${activeSectionTab === 'compare' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('compare')}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="18" rx="1" /><rect x="14" y="3" width="7" height="18" rx="1" /></svg>
-                                <span className="dash-tab-label-full">Compare View</span>
-                                <span className="dash-tab-label-short">Compare</span>
-                            </button>
-                        ) : null}
                     </div>
 
-                    {showDateFilter ? (
-                        <button
-                            type="button"
-                            className={`dash-filter-toggle${isCustomActive || globalTeamFilter !== 'all' || selectedSourceFilter !== 'all' || transactionUnitType !== '' ? ' has-filter' : ''}`}
-                            onClick={() => setShowFilterDrawer(true)}
-                        >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="4" y1="6" x2="20" y2="6" /><line x1="8" y1="12" x2="16" y2="12" /><line x1="11" y1="18" x2="13" y2="18" />
-                            </svg>
-                            {globalTeamFilter !== 'all' ? <span className="dash-filter-toggle-dot" /> : null}
-                        </button>
-                    ) : null}
                 </div>
             </div>
 
-            {/* ── Filter drawer ── */}
+            {/* ── Date range drawer ── */}
             {showFilterDrawer ? (
                 <div className="dash-drawer-overlay" onClick={() => setShowFilterDrawer(false)}>
                     <div className="dash-drawer" onClick={(e) => e.stopPropagation()}>
                         <div className="dash-drawer-header">
-                            <span className="dash-drawer-title">Filter</span>
+                            <span className="dash-drawer-title">Rentang Tanggal</span>
                             <button type="button" className="dash-drawer-close" onClick={() => setShowFilterDrawer(false)}>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                                     <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -559,52 +561,6 @@ export default function DashboardPage() {
                                     {filterLoading ? 'Memuat data...' : formatRangeSummary(appliedDateRange)}
                                 </p>
                             </div>
-
-                            {canUseTeamFilters && globalTeamList.length > 0 ? (
-                                <div className="dash-drawer-section">
-                                    <span className="dash-drawer-section-label">Tim (SPV)</span>
-                                    <Select
-                                        options={globalTeamList.map((team) => ({
-                                            value: team.teamId,
-                                            label: team.teamId === 'unassigned_sup' || team.teamName === 'Unassigned Supervisor' ? 'PIC Agent' : team.teamName,
-                                        }))}
-                                        value={globalTeamFilter === 'all' ? '' : globalTeamFilter}
-                                        onChange={(v) => setGlobalTeamFilter(v || 'all')}
-                                        placeholder="Semua Tim"
-                                    />
-                                </div>
-                            ) : null}
-
-                            {teamSourceOptions.length > 1 ? (
-                                <div className="dash-drawer-section">
-                                    <span className="dash-drawer-section-label">Sumber Leads</span>
-                                    <Select
-                                        options={teamSourceOptions.filter((o) => o.key !== 'all').map((o) => ({
-                                            value: o.key,
-                                            label: o.count !== undefined ? `${o.label} (${o.count})` : o.label,
-                                        }))}
-                                        value={selectedSourceFilter === 'all' ? '' : selectedSourceFilter}
-                                        onChange={(v) => setSelectedSourceFilter(v || 'all')}
-                                        placeholder="Semua Source"
-                                    />
-                                </div>
-                            ) : null}
-
-
-                            {activeSectionTab === 'transaction' && transactionUnitOptions.length > 0 ? (
-                                <div className="dash-drawer-section">
-                                    <span className="dash-drawer-section-label">Tipe Unit</span>
-                                    <Select
-                                        options={transactionUnitOptions}
-                                        value={transactionUnitType}
-                                        onChange={setTransactionUnitType}
-                                        placeholder="Semua Tipe"
-                                    />
-                                </div>
-                            ) : null}
-
-
-
                         </div>
                     </div>
                 </div>
@@ -615,78 +571,40 @@ export default function DashboardPage() {
                 <DailySalesReportSection data={analytics.dailySalesReport} />
             ) : null}
 
-            {activeSectionTab === 'transaction' ? (
-                <TransactionRecapSection
-                    data={analytics.transactionRecap}
-                    allowTeamFiltering={canUseTeamFilters}
-                    showCrossTeamInsights={canUseTeamFilters}
-                    scopeLabel={scopedDashboardLabel}
+            {activeSectionTab === 'overview' ? (
+                <OverviewSection
+                    surveyRatio={analytics.surveyRatio}
+                    statusPie={analytics.statusPie}
+                    transactionRecap={analytics.transactionRecap}
+                    resultRecap={analytics.resultRecap}
+                    dailySalesReport={analytics.dailySalesReport}
+                    ongoingAppointments={analytics.ongoingAppointments}
+                    perAgentSurveyRatio={analytics.perAgentSurveyRatio}
+                />
+            ) : null}
+
+            {activeSectionTab === 'analytics' ? (
+                <AnalyticsSection
+                    leads={leads}
+                    transactionRecap={analytics.transactionRecap}
+                    projectUnits={projectUnits}
+                    cancelReasons={cancelReasons}
+                    appliedDateRange={appliedDateRange}
+                    rangeSummary={formatRangeSummary(appliedDateRange)}
+                    periodLabel={transactionPeriodLabel}
+                    onOpenFilter={() => setShowFilterDrawer(true)}
                     viewerRole={user?.role}
                     viewerId={user?.id}
-                    viewerName={user?.name}
-                    selectedTeam={globalTeamFilter}
-                    unitType={transactionUnitType}
-                    periodLabel={transactionPeriodLabel}
-                    rangeSummary={formatRangeSummary(appliedDateRange)}
                 />
             ) : null}
 
-            {activeSectionTab === 'team' ? (
-                <TeamPerformanceSection
-                    data={analytics.teamPerformance}
-                    sourceBreakdown={analytics.databaseControl?.sourceBreakdown || []}
-                    allowTeamFiltering={canUseTeamFilters}
-                    autoShowScopedDetails={!canUseTeamFilters}
-                    scopeLabel={scopedDashboardLabel}
-                    selectedTeam={globalTeamFilter}
-                    selectedSourceFilter={selectedSourceFilter}
-                    onSourceFilterChange={setSelectedSourceFilter}
+            {activeSectionTab === 'line-chart' ? (
+                <LineChartSection
+                    leads={leads}
+                    transactionRecap={analytics.transactionRecap}
+                    viewerRole={user?.role}
+                    viewerId={user?.id}
                 />
-            ) : null}
-
-            {activeSectionTab === 'compare' && canUseTeamFilters ? (
-                <>
-                    <TransactionCompareSection
-                        data={analytics.transactionRecap}
-                        allowTeamFiltering
-                        showCrossTeamInsights
-                        scopeLabel={scopedDashboardLabel}
-                        viewerRole={user?.role}
-                        viewerId={user?.id}
-                        viewerName={user?.name}
-                        selectedTeam="all"
-                        unitType={transactionUnitType}
-                    />
-                    <TeamCompareSection
-                        data={analytics.teamPerformance}
-                        sourceBreakdown={analytics.databaseControl?.sourceBreakdown || []}
-                        allowTeamFiltering
-                        autoShowScopedDetails={false}
-                        scopeLabel={scopedDashboardLabel}
-                        selectedTeam="all"
-                        selectedSourceFilter={selectedSourceFilter}
-                        onSourceFilterChange={setSelectedSourceFilter}
-                    />
-                </>
-            ) : null}
-
-            {activeSectionTab === 'database' ? (
-                <>
-                    <DatabaseControlCenterSection
-                        data={analytics.databaseControl}
-                        allowScopeFiltering={canUseTeamFilters}
-                        scopeLabel={scopedDashboardLabel}
-                        selectedTeam={globalTeamFilter}
-                        selectedLayer={dbSelectedLayer}
-                        onLayerChange={setDbSelectedLayer}
-                    />
-                    <LineChartSection
-                        data={analytics.lineChart}
-                        granularity={lineChartGranularity}
-                        onGranularityChange={setLineChartGranularity}
-                        dataset={dbSelectedLayer}
-                    />
-                </>
             ) : null}
         </div>
     );
