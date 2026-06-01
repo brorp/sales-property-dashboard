@@ -377,22 +377,44 @@ export default function DailyTaskPage() {
         );
     };
 
-    const renderCardHeader = (name, phone, badges, isVerified = false) => {
+    const renderCardHeader = (name, phone, topBadges = [], bottomBadges = [], isVerified = false) => {
+        let actualTopBadges = topBadges;
+        let actualBottomBadges = bottomBadges;
+        let actualIsVerified = isVerified;
+
+        if (typeof bottomBadges === 'boolean') {
+            actualIsVerified = bottomBadges;
+            actualBottomBadges = [];
+        }
+
         return (
             <div className="dt-card-header">
-                <div className="dt-card-name-wrap">
+                <div className="dt-card-row">
                     <div className="dt-card-name-row">
                         <span className="dt-card-name">{name}</span>
-                        {isVerified && <VerifiedIcon size={14} className="lc-verified-badge" />}
+                        {actualIsVerified && <VerifiedIcon size={14} className="lc-verified-badge" />}
                     </div>
-                    <div className="dt-card-phone">{phone}</div>
+                    {actualTopBadges && actualTopBadges.length > 0 && (
+                        <div className="dt-card-badges">
+                            {actualTopBadges.map((b, idx) => (
+                                <span key={idx} className={`badge ${b.className || 'badge-neutral'}`}>
+                                    {b.label}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
-                <div className="dt-card-badges">
-                    {badges.map((b, idx) => (
-                        <span key={idx} className={`badge ${b.className || 'badge-neutral'}`}>
-                            {b.label}
-                        </span>
-                    ))}
+                <div className="dt-card-row" style={{ marginTop: '2px' }}>
+                    <div className="dt-card-phone">{phone}</div>
+                    {actualBottomBadges && actualBottomBadges.length > 0 && (
+                        <div className="dt-card-badges">
+                            {actualBottomBadges.map((b, idx) => (
+                                <span key={idx} className={`badge ${b.className || 'badge-neutral'}`}>
+                                    {b.label}
+                                </span>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -761,28 +783,28 @@ export default function DailyTaskPage() {
             <div className="daily-task-tabs">
                 <button type="button" className={`daily-task-tab${activeTab === 'new_leads' ? ' is-active' : ''}`} onClick={() => { setActiveTab('new_leads'); setNameSearch(''); setHotSubTab('semua'); }}>
                     <span className="daily-task-tab-icon-wrap">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" /></svg>
                         <span className="daily-task-tab-badge" style={tasks.counts.newLeadCount === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.newLeadCount}</span>
                     </span>
                     <span className="daily-task-tab-label">New Leads</span>
                 </button>
                 <button type="button" className={`daily-task-tab${activeTab === 'follow_up' ? ' is-active' : ''}`} onClick={() => { setActiveTab('follow_up'); setNameSearch(''); setHotSubTab('semua'); }}>
                     <span className="daily-task-tab-icon-wrap">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></svg>
                         <span className="daily-task-tab-badge" style={(tasks.counts.followUpCount + tasks.counts.deadlineLeadCount) === 0 ? { visibility: 'hidden' } : undefined}>{tasks.counts.followUpCount + tasks.counts.deadlineLeadCount}</span>
                     </span>
                     <span className="daily-task-tab-label">Follow Up</span>
                 </button>
                 <button type="button" className={`daily-task-tab${activeTab === 'hot_validated' ? ' is-active' : ''}`} onClick={() => { setActiveTab('hot_validated'); setNameSearch(''); setHotSubTab('semua'); }}>
                     <span className="daily-task-tab-icon-wrap">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" /></svg>
                         <span className="daily-task-tab-badge" style={validatedHot.length === 0 ? { visibility: 'hidden' } : undefined}>{validatedHot.length}</span>
                     </span>
                     <span className="daily-task-tab-label">Hot Leads</span>
                 </button>
                 <button type="button" className={`daily-task-tab${activeTab === 'transactions' ? ' is-active' : ''}`} onClick={() => { setActiveTab('transactions'); setNameSearch(''); setHotSubTab('semua'); }}>
                     <span className="daily-task-tab-icon-wrap">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6" /></svg>
                         <span className="daily-task-tab-badge" style={transactionLeads.length === 0 ? { visibility: 'hidden' } : undefined}>{transactionLeads.length}</span>
                     </span>
                     <span className="daily-task-tab-label">Transaksi</span>
@@ -844,29 +866,28 @@ export default function DailyTaskPage() {
                                 const cardClass = task.status === 'overdue'
                                     ? 'dt-card-overdue'
                                     : isDeadlineTask ? 'dt-card-deadline' : task.taskType === 'follow_up' ? 'dt-card-followup' : 'dt-card-new';
-                                const badges = [
-                                    {
-                                        label: task.status === 'overdue' ? 'Overdue' : isDeadlineTask ? 'Deadline' : task.label,
-                                        className: task.status === 'overdue' || isDeadlineTask ? 'badge-danger' : task.taskType === 'follow_up' ? 'badge-purple' : 'badge-info'
-                                    }
-                                ];
-                                if (task.taskType === 'follow_up') {
-                                    badges.push({ label: `${task.followupStage}/3`, className: 'badge-neutral' });
-                                }
+
+                                const topBadges = [];
+                                const bottomBadges = [];
+
+                                bottomBadges.push({
+                                    label: task.status === 'overdue' ? 'Overdue' : isDeadlineTask ? 'Deadline' : task.label,
+                                    className: task.status === 'overdue' || isDeadlineTask ? 'badge-danger' : task.taskType === 'follow_up' ? 'badge-purple' : 'badge-info'
+                                });
+
                                 if (task.salesStatus) {
-                                    badges.push({
+                                    topBadges.push({
                                         label: getSalesStatusLabel(task.salesStatus),
                                         className: task.salesStatus === 'hot' ? 'badge-hot' : 'badge-warm'
                                     });
                                 }
                                 const leadDetail = (Array.isArray(leads) ? leads : []).find((l) => l.id === task.leadId);
                                 if (leadDetail && leadDetail.customerPipelineTotalSteps > 0) {
-                                    badges.push({
+                                    topBadges.push({
                                         label: `FU ${leadDetail.customerPipelineCompletedCount}/${leadDetail.customerPipelineTotalSteps}`,
                                         className: 'badge-purple'
                                     });
                                 }
-
                                 return (
                                     <div
                                         key={task.id}
@@ -875,7 +896,7 @@ export default function DailyTaskPage() {
                                         onClick={() => router.push(`/leads/${task.leadId}`)}
                                     >
                                         {/* header */}
-                                        {renderCardHeader(task.leadName, task.leadPhone, badges, false)}
+                                        {renderCardHeader(task.leadName, task.leadPhone, topBadges, bottomBadges, false)}
 
                                         {/* meta */}
                                         {renderDisplayLeadCardInfo(normalizeLeadCardData(task, 'task'))}
@@ -936,7 +957,7 @@ export default function DailyTaskPage() {
                                                 className="btn btn-whatsapp"
                                                 style={{ width: '100%', height: '40px', padding: '0 12px', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                                             >
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
                                                 Chat WhatsApp
                                             </a>
                                             {isDeadlineTask ? (
@@ -994,18 +1015,19 @@ export default function DailyTaskPage() {
                         <div className="dt-task-grid">
                             {visibleTasks.map((task) => {
                                 const draft = drafts[task.id] || buildDefaultDraft(task);
-                                const badges = [
+                                const topBadges = [];
+                                const bottomBadges = [
                                     { label: 'Deadline', className: 'badge-danger' }
                                 ];
                                 if (task.salesStatus) {
-                                    badges.push({
+                                    topBadges.push({
                                         label: getSalesStatusLabel(task.salesStatus),
                                         className: task.salesStatus === 'hot' ? 'badge-hot' : 'badge-warm'
                                     });
                                 }
                                 const leadDetail = (Array.isArray(leads) ? leads : []).find((l) => l.id === task.leadId);
                                 if (leadDetail && leadDetail.customerPipelineTotalSteps > 0) {
-                                    badges.push({
+                                    topBadges.push({
                                         label: `FU ${leadDetail.customerPipelineCompletedCount}/${leadDetail.customerPipelineTotalSteps}`,
                                         className: 'badge-purple'
                                     });
@@ -1019,7 +1041,7 @@ export default function DailyTaskPage() {
                                         onClick={() => router.push(`/leads/${task.leadId}`)}
                                     >
                                         {/* header */}
-                                        {renderCardHeader(task.leadName, task.leadPhone, badges, false)}
+                                        {renderCardHeader(task.leadName, task.leadPhone, topBadges, bottomBadges, false)}
 
                                         {/* meta */}
                                         {renderDisplayLeadCardInfo(normalizeLeadCardData(task, 'task'))}
@@ -1036,7 +1058,7 @@ export default function DailyTaskPage() {
                                                 className="btn btn-whatsapp"
                                                 style={{ width: '100%', height: '40px', padding: '0 12px', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                                             >
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
                                                 Chat WhatsApp
                                             </a>
                                             <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
@@ -1090,19 +1112,20 @@ export default function DailyTaskPage() {
                         });
 
                         const renderApptCard = (appt) => {
-                            const badges = [
+                            const topBadges = [];
+                            const bottomBadges = [
                                 { label: 'Mau Survey', className: 'badge-hot' }
                             ];
                             const leadDetail = (Array.isArray(leads) ? leads : []).find((l) => l.id === appt.leadId);
                             const salesStatus = leadDetail?.salesStatus || appt.leadSalesStatus;
                             if (salesStatus) {
-                                badges.push({
+                                topBadges.push({
                                     label: getSalesStatusLabel(salesStatus),
                                     className: salesStatus === 'hot' ? 'badge-hot' : 'badge-warm'
                                 });
                             }
                             if (leadDetail && leadDetail.customerPipelineTotalSteps > 0) {
-                                badges.push({
+                                topBadges.push({
                                     label: `FU ${leadDetail.customerPipelineCompletedCount}/${leadDetail.customerPipelineTotalSteps}`,
                                     className: 'badge-purple'
                                 });
@@ -1116,11 +1139,11 @@ export default function DailyTaskPage() {
                                     onClick={() => router.push(`/leads/${appt.leadId}`)}
                                 >
                                     {/* header */}
-                                    {renderCardHeader(appt.leadName, appt.leadPhone, badges, false)}
+                                    {renderCardHeader(appt.leadName, appt.leadPhone, topBadges, bottomBadges, false)}
 
                                     {/* meta */}
                                     {renderDisplayLeadCardInfo(normalizeLeadCardData(appt, 'appt'))}
-                                
+
                                     {reschedulingApptId === appt.id ? (
                                         <div className="dt-reschedule-form" onClick={(e) => e.stopPropagation()}>
                                             <DatePicker
@@ -1154,7 +1177,7 @@ export default function DailyTaskPage() {
                                                 className="btn btn-whatsapp"
                                                 style={{ width: '100%', height: '40px', padding: '0 12px', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                                             >
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
                                                 Chat WhatsApp
                                             </a>
                                             <div className="dt-appt-actions">
@@ -1178,10 +1201,10 @@ export default function DailyTaskPage() {
                                                         className="dt-btn-action btn-batal-survey"
                                                         onClick={(e) => { e.stopPropagation(); void handleUpdateAppointmentStatus(appt, 'dibatalkan'); }}
                                                     >
-                                                         Batal Survey
-                                                     </button>
+                                                        Batal Survey
+                                                    </button>
                                                 </div>
-                                             </div>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -1193,8 +1216,8 @@ export default function DailyTaskPage() {
                         const showTerlewat = apptSubTab === 'semua' || apptSubTab === 'terlewat';
 
                         const hasNoItems = (apptSubTab === 'hari_ini' && grouped.hari_ini.length === 0) ||
-                                           (apptSubTab === 'nanti' && grouped.nanti.length === 0) ||
-                                           (apptSubTab === 'terlewat' && grouped.terlewat.length === 0);
+                            (apptSubTab === 'nanti' && grouped.nanti.length === 0) ||
+                            (apptSubTab === 'terlewat' && grouped.terlewat.length === 0);
 
                         return (
                             <div className="dt-appointments-container">
@@ -1274,11 +1297,12 @@ export default function DailyTaskPage() {
                         });
 
                         const renderHotCard = (lead) => {
-                            const badges = [
+                            const topBadges = [
                                 { label: 'HOT', className: 'badge-hot' }
                             ];
+                            const bottomBadges = [];
                             if (lead && lead.customerPipelineTotalSteps > 0) {
-                                badges.push({
+                                topBadges.push({
                                     label: `FU ${lead.customerPipelineCompletedCount}/${lead.customerPipelineTotalSteps}`,
                                     className: 'badge-purple'
                                 });
@@ -1292,7 +1316,7 @@ export default function DailyTaskPage() {
                                     onClick={() => router.push(`/leads/${lead.id}`)}
                                 >
                                     {/* header */}
-                                    {renderCardHeader(lead.name, lead.phone, badges, true)}
+                                    {renderCardHeader(lead.name, lead.phone, topBadges, bottomBadges, true)}
 
                                     {/* meta */}
                                     {renderDisplayLeadCardInfo(normalizeLeadCardData(lead, 'hot'))}
@@ -1306,7 +1330,7 @@ export default function DailyTaskPage() {
                                             className="btn btn-whatsapp"
                                             style={{ width: '100%', height: '40px', padding: '0 12px', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                                         >
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
                                             Chat WhatsApp
                                         </a>
                                         {renderTransactionStatusControls(lead, HOT_TRANSACTION_STATUS_OPTIONS)}
@@ -1319,7 +1343,7 @@ export default function DailyTaskPage() {
                         const showMore = hotSubTab === 'semua' || hotSubTab === 'lebih_dari_1_bulan';
 
                         const hasNoItems = (hotSubTab === 'kurang_dari_1_bulan' && groupLess.length === 0) ||
-                                           (hotSubTab === 'lebih_dari_1_bulan' && groupMore.length === 0);
+                            (hotSubTab === 'lebih_dari_1_bulan' && groupMore.length === 0);
 
                         return (
                             <div className="dt-hot-container">
@@ -1386,14 +1410,15 @@ export default function DailyTaskPage() {
                                 const options = status === 'reserve'
                                     ? RESERVE_TRANSACTION_STATUS_OPTIONS
                                     : FULL_BOOK_TRANSACTION_STATUS_OPTIONS;
-                                const badges = [
+                                const topBadges = [];
+                                const bottomBadges = [
                                     {
                                         label: getResultStatusLabel(status),
                                         className: status === 'reserve' ? 'badge-warm' : 'badge-success',
                                     },
                                 ];
                                 if (lead.salesStatus) {
-                                    badges.push({
+                                    topBadges.push({
                                         label: getSalesStatusLabel(lead.salesStatus),
                                         className: lead.salesStatus === 'hot' ? 'badge-hot' : 'badge-warm',
                                     });
@@ -1406,7 +1431,7 @@ export default function DailyTaskPage() {
                                         style={{ cursor: 'pointer' }}
                                         onClick={() => router.push(`/leads/${lead.id}`)}
                                     >
-                                        {renderCardHeader(lead.name, lead.phone, badges, Boolean(lead.validated))}
+                                        {renderCardHeader(lead.name, lead.phone, topBadges, bottomBadges, Boolean(lead.validated))}
                                         {renderDisplayLeadCardInfo({
                                             leadSource: lead.source,
                                             createdAt: lead.createdAt,
@@ -1422,7 +1447,7 @@ export default function DailyTaskPage() {
                                                 className="btn btn-whatsapp"
                                                 style={{ width: '100%', height: '40px', padding: '0 12px', fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                                             >
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
                                                 Chat WhatsApp
                                             </a>
                                             {renderTransactionStatusControls(lead, options, status === 'reserve' ? 'Naikkan / Cancel Reserve' : 'Naikkan / Cancel Full Book')}
