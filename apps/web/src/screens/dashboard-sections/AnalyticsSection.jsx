@@ -204,7 +204,7 @@ function StatusRow({ status, count, total, active, onClick, disabled }) {
     );
 }
 
-function ColumnCard({ title, total, rateLabel, rateValue, children }) {
+function ColumnCard({ title, total, rateLabel, rateValue, rateFormula, children }) {
     return (
         <div className="an-col-card">
             <div className="an-col-card-head">
@@ -216,9 +216,12 @@ function ColumnCard({ title, total, rateLabel, rateValue, children }) {
             </div>
             <div className="an-col-card-body">{children}</div>
             {rateLabel ? (
-                <div className="an-col-card-foot">
-                    <span className="an-col-card-foot-label">{rateLabel}</span>
-                    <strong className="an-col-card-foot-value">{rateValue}%</strong>
+                <div className="an-col-card-foot" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '2px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <span className="an-col-card-foot-label">{rateLabel} : {rateFormula ? `(${rateFormula})` : ''}</span>
+                        <strong className="an-col-card-foot-value">{rateValue}%</strong>
+                    </div>
+
                 </div>
             ) : null}
         </div>
@@ -327,6 +330,7 @@ export default function AnalyticsSection({
     const [selectedSalesId, setSelectedSalesId] = useState('all');
     const [statusFilter, setStatusFilter] = useState(null);
     const [chartType, setChartType] = useState('pie');
+    const [isSalesListOpen, setIsSalesListOpen] = useState(false);
 
     const dateStart = useMemo(() => parseInputDate(appliedDateRange?.dateFrom), [appliedDateRange?.dateFrom]);
     const dateEnd = useMemo(() => parseInputDateEnd(appliedDateRange?.dateTo), [appliedDateRange?.dateTo]);
@@ -516,13 +520,35 @@ export default function AnalyticsSection({
                     <div className="an-sales-pane">
                         <button
                             type="button"
-                            className={`an-sales-row an-sales-row--total${isAllSales ? ' is-active' : ''}`}
-                            onClick={() => setSelectedSalesId('all')}
+                            className="an-sales-row an-sales-row--total"
+                            onClick={() => {
+                                setIsSalesListOpen(!isSalesListOpen);
+                                setSelectedSalesId('all');
+                            }}
                         >
-                            <span className="an-sales-row-label">Semua</span>
-                            <strong className="an-sales-row-count">{formatCount(totalData)}</strong>
+                            <span className="an-sales-row-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>Semua</span>
+                                <svg
+                                    width="12"
+                                    height="12"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    style={{
+                                        transition: 'transform 200ms ease',
+                                        transform: isSalesListOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                                        color: 'var(--text-muted)'
+                                    }}
+                                >
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </span>
+                            <strong className="an-sales-row-count">{formatCount(createdAtFilteredLeads.length)}</strong>
                         </button>
-                        <div className="an-sales-list">
+                        <div className={`an-sales-list${isSalesListOpen ? ' is-open' : ''}`}>
                             {visibleSales.length === 0 ? (
                                 <div className="an-sales-empty">Tidak ada sales</div>
                             ) : visibleSales.map((s) => {
@@ -551,6 +577,7 @@ export default function AnalyticsSection({
                             total={l4Reached.length}
                             rateLabel="Closing Rate"
                             rateValue={closingRate}
+                            rateFormula="Full Book / Total Transaksi"
                         >
                             {L4_STATUSES.map((status) => (
                                 <StatusRow
@@ -569,6 +596,7 @@ export default function AnalyticsSection({
                             total={l3Reached.length}
                             rateLabel="Survey Rate"
                             rateValue={surveyRate}
+                            rateFormula="Sudah Survey / Total Leads"
                         >
                             {L3_STATUSES.map((status) => (
                                 <StatusRow
@@ -587,6 +615,7 @@ export default function AnalyticsSection({
                             total={l2Reached.length}
                             rateLabel="Prospect Rate"
                             rateValue={prospectRate}
+                            rateFormula="(Hot + Hot Validated) / Total Leads"
                         >
                             {L2_STATUSES.map((status) => (
                                 <StatusRow
