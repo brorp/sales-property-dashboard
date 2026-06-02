@@ -378,7 +378,21 @@ router.patch("/:id", async (req, res: Response, next: NextFunction) => {
 
         const isAdminRole = user.role === "root_admin" || user.role === "client_admin";
         const currentResultStatus = normalizeResultStatus(currentLead.resultStatus);
-        if (!isAdminRole && currentResultStatus === "lunas" && (salesStatus || resultStatus || name || source || agentOfficeName || domicileCity || interestUnitId || unitName || paymentMethod || rejectedReason)) {
+        const touchesLockedLeadFields = [
+            salesStatus,
+            resultStatus,
+            name,
+            source,
+            agentOfficeName,
+            domicileCity,
+            interestUnitId,
+            unitName,
+            unitDetail,
+            paymentMethod,
+            rejectedReason,
+            rejectedNote,
+        ].some((value) => value !== undefined);
+        if (!isAdminRole && currentResultStatus === "lunas" && touchesLockedLeadFields) {
             res.status(400).json({ error: "LOCKED_LEAD", message: "Lead yang sudah Lunas telah dikunci secara permanen dan tidak dapat diubah datanya." });
             return;
         }

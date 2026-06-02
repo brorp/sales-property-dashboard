@@ -85,6 +85,8 @@ function normalizeResultStatusForForm(value) {
     return value ? normalizeResultStatusKey(value) : '';
 }
 
+const NO_TRANSACTION_VALUE = '__no_transaction__';
+
 function buildCustomerPipelineRows(lead) {
     const sourceRows = Array.isArray(lead?.customerPipeline) ? lead.customerPipeline : [];
     const mapped = new Map(sourceRows.map((item) => [Number(item.stepNo), item]));
@@ -583,6 +585,18 @@ export default function LeadDetailPage({ leadId }) {
 
     const handleSaveResult = async (data) => {
         if (!canUpdateResult) {
+            return;
+        }
+
+        if (data.resultStatus === NO_TRANSACTION_VALUE) {
+            await runLeadUpdate({
+                resultStatus: null,
+                unitName: null,
+                unitDetail: null,
+                paymentMethod: null,
+                rejectedReason: null,
+                rejectedNote: null,
+            }, 'Status transaksi berhasil dikosongkan.');
             return;
         }
 
@@ -1092,7 +1106,7 @@ export default function LeadDetailPage({ leadId }) {
 
                 {needsNewLeadTaskAcceptance ? (
                     <div className="ldp-alert ldp-alert-info">
-                        Lead ini harus diterima lewat <strong>Tasks › New Leads</strong>. Submit screenshot proof dan status L2 di sana untuk mengubah status lead menjadi Accepted.
+                        Lead ini harus diterima lewat <strong>Tugas › Leads Baru</strong>. Submit screenshot proof dan status L2 di sana untuk mengubah status lead menjadi Accepted.
                         <button className="btn btn-primary btn-full" style={{ marginTop: 10 }} onClick={() => router.push('/daily-tasks')}>
                             Buka Daily Task
                         </button>
@@ -1262,7 +1276,10 @@ export default function LeadDetailPage({ leadId }) {
                                         control={controlResult}
                                         render={({ field }) => (
                                             <Select
-                                                options={RESULT_STATUSES.map((item) => ({ value: item.key, label: item.label }))}
+                                                options={[
+                                                    { value: NO_TRANSACTION_VALUE, label: 'Tidak Ada Transaksi' },
+                                                    ...RESULT_STATUSES.map((item) => ({ value: item.key, label: item.label })),
+                                                ]}
                                                 value={field.value}
                                                 onChange={field.onChange}
                                                 placeholder="Pilih status transaksi"
