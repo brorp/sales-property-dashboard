@@ -55,7 +55,6 @@ const L4_META = [
     { key: 'reserve', label: 'Reserve' },
     { key: 'cancel_full_book', label: 'Cancel Full Book' },
     { key: 'cancel_reserve', label: 'Cancel Reserve' },
-    { key: 'cancel_minat', label: 'Cancel Minat' },
 ];
 
 const TOP_SOURCE_LIMIT = 6;
@@ -71,7 +70,6 @@ function getResultStatusKey(resultStatus) {
     if (v === 'akad') return 'lunas';
     if (v === 'cancel' || v === 'cancel_transaksi' || v === 'cancel_full_book') return 'cancel_full_book';
     if (v === 'cancel_reserve') return 'cancel_reserve';
-    if (v === 'cancel_minat') return 'cancel_minat';
     if (v === 'lunas' || v === 'full_book' || v === 'reserve') return v;
     return null;
 }
