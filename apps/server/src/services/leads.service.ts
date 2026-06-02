@@ -1182,7 +1182,7 @@ export async function patchLead(input: LeadPatchInput) {
         updates.paymentMethod = nextPaymentMethod;
         updates.rejectedReason = null;
         updates.rejectedNote = null;
-    } else if (isAkadFieldUpdated && nextResultStatusRaw !== "lunas") {
+    } else if (isAkadFieldUpdated && nextResultStatusRaw && nextResultStatusRaw !== "lunas") {
         throw new Error("CLOSING_FIELDS_REQUIRE_LUNAS_STATUS");
     }
 
@@ -1211,22 +1211,29 @@ export async function patchLead(input: LeadPatchInput) {
                 note: `Status L2 berubah dari ${getSalesStatusLabel(currentLead.salesStatus)} ke ${getSalesStatusLabel("skip")} otomatis karena result status ${getResultStatusLabel(nextResultStatusRaw)}`,
             });
         }
-    } else if (isCancelFieldUpdated && !isCancelResultStatus(nextResultStatusRaw)) {
+    } else if (isCancelFieldUpdated && nextResultStatusRaw && !isCancelResultStatus(nextResultStatusRaw)) {
         throw new Error("CANCEL_REASON_REQUIRES_CANCEL_STATUS");
     }
 
     if (isResultStatusUpdated) {
         updates.resultStatus = nextResultStatusRaw;
-        if (nextResultStatusRaw !== currentLead.resultStatus) {
+        if (!nextResultStatusRaw) {
+            updates.resultStatusUpdatedAt = null;
+            updates.rejectedReason = null;
+            updates.rejectedNote = null;
+            updates.unitName = null;
+            updates.unitDetail = null;
+            updates.paymentMethod = null;
+        } else if (nextResultStatusRaw !== currentLead.resultStatus) {
             updates.resultStatusUpdatedAt = now;
         }
 
-        if (!isCancelResultStatus(nextResultStatusRaw) && nextResultStatusRaw !== "lunas") {
+        if (nextResultStatusRaw && !isCancelResultStatus(nextResultStatusRaw) && nextResultStatusRaw !== "lunas") {
             updates.rejectedReason = null;
             updates.rejectedNote = null;
         }
 
-        if (nextResultStatusRaw !== "lunas" && !isCancelResultStatus(nextResultStatusRaw) && !isAkadFieldUpdated) {
+        if (nextResultStatusRaw && nextResultStatusRaw !== "lunas" && !isCancelResultStatus(nextResultStatusRaw) && !isAkadFieldUpdated) {
             updates.unitName = currentLead.unitName;
             updates.unitDetail = currentLead.unitDetail;
             updates.paymentMethod = currentLead.paymentMethod;

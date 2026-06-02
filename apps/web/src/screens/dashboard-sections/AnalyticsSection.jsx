@@ -577,7 +577,7 @@ export default function AnalyticsSection({
                             total={l4Reached.length}
                             rateLabel="Closing Rate"
                             rateValue={closingRate}
-                            rateFormula="Full Book / Total Transaksi"
+                            rateFormula="Full Book + Lunas / Total Leads"
                         >
                             {L4_STATUSES.map((status) => (
                                 <StatusRow
