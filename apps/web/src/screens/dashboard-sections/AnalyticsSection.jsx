@@ -20,7 +20,6 @@ const L4_STATUSES = [
     { key: 'reserve', label: 'Reserve', color: 'var(--info)' },
     { key: 'cancel_full_book', label: 'Cancel Full Book', color: 'var(--danger)' },
     { key: 'cancel_reserve', label: 'Cancel Reserve', color: '#F97316' },
-    { key: 'cancel_minat', label: 'Cancel Minat', color: '#EC4899' },
 ];
 
 const L3_STATUSES = [
@@ -34,9 +33,9 @@ const L2_STATUSES = [
     { key: 'hot', label: 'Hot', color: 'var(--hot)' },
     { key: 'warm', label: 'Warm', color: 'var(--warm)' },
     { key: 'cold', label: 'Cold', color: 'var(--cold)' },
-    { key: 'no_response', label: 'No Response', color: '#64748B' },
-    { key: 'error', label: 'Error', color: '#BE123C' },
+    { key: 'no_response_error', label: 'No Response / Error', color: '#64748B' },
     { key: 'skip', label: 'Skip', color: '#0F766E' },
+    { key: 'cancel_minat', label: 'Cancel Minat', color: '#EC4899' },
 ];
 
 function toLowerTrimmed(value) {
@@ -50,7 +49,6 @@ function getResultStatusKey(resultStatus) {
     if (v === 'akad') return 'lunas';
     if (v === 'cancel' || v === 'cancel_transaksi' || v === 'cancel_full_book') return 'cancel_full_book';
     if (v === 'cancel_reserve') return 'cancel_reserve';
-    if (v === 'cancel_minat') return 'cancel_minat';
     if (v === 'lunas' || v === 'full_book' || v === 'reserve') return v;
     return null;
 }
@@ -71,7 +69,7 @@ function isL2Reached(lead) {
 function getL4BucketKey(resultStatus) {
     const k = getResultStatusKey(resultStatus);
     if (k === 'lunas' || k === 'full_book' || k === 'reserve') return k;
-    if (k === 'cancel_full_book' || k === 'cancel_reserve' || k === 'cancel_minat') return k;
+    if (k === 'cancel_full_book' || k === 'cancel_reserve') return k;
     return null;
 }
 
@@ -82,9 +80,11 @@ function getL3BucketKey(appointmentTag) {
 }
 
 function getL2BucketKey(lead) {
+    if (toLowerTrimmed(lead.resultStatus) === 'cancel_minat') return 'cancel_minat';
     const s = toLowerTrimmed(lead.salesStatus);
     if (s === 'hot' && lead.validated) return 'hot_validated';
-    if (s === 'hot' || s === 'warm' || s === 'cold' || s === 'no_response' || s === 'error' || s === 'skip') return s;
+    if (s === 'no_response' || s === 'error') return 'no_response_error';
+    if (s === 'hot' || s === 'warm' || s === 'cold' || s === 'skip') return s;
     return null;
 }
 
@@ -395,8 +395,6 @@ export default function AnalyticsSection({
         [l4FilteredLeads, selectedSalesId]
     );
 
-    const totalData = scopedCreatedAtLeads.length;
-
     const l2Reached = useMemo(() => scopedCreatedAtLeads.filter(isL2Reached), [scopedCreatedAtLeads]);
     const l2Counts = useMemo(() => {
         const m = Object.fromEntries(L2_STATUSES.map((s) => [s.key, 0]));
@@ -406,6 +404,7 @@ export default function AnalyticsSection({
         }
         return m;
     }, [scopedCreatedAtLeads]);
+
 
     const l3Reached = useMemo(() => scopedCreatedAtLeads.filter(isL3Reached), [scopedCreatedAtLeads]);
     const l3Counts = useMemo(() => {
@@ -516,18 +515,21 @@ export default function AnalyticsSection({
 
             <div className="ds-tab-body an-body">
                 <div className="an-grid">
-                    {/* Left column: Total Data + sales picker */}
+                    {/* Collapsible Sales Pane (Full Width) */}
                     <div className="an-sales-pane">
                         <button
                             type="button"
-                            className="an-sales-row an-sales-row--total"
+                            className={`an-sales-row an-sales-row--total ${selectedSalesId !== 'all' ? 'is-active' : ''}`}
                             onClick={() => {
                                 setIsSalesListOpen(!isSalesListOpen);
-                                setSelectedSalesId('all');
                             }}
                         >
-                            <span className="an-sales-row-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span>Semua</span>
+                            <span className="an-sales-row-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>
+                                    {selectedSalesId === 'all'
+                                        ? 'Semua Sales'
+                                        : visibleSales.find((s) => s.id === selectedSalesId)?.name || 'Semua Sales'}
+                                </span>
                                 <svg
                                     width="12"
                                     height="12"
@@ -546,27 +548,49 @@ export default function AnalyticsSection({
                                     <polyline points="6 9 12 15 18 9" />
                                 </svg>
                             </span>
-                            <strong className="an-sales-row-count">{formatCount(createdAtFilteredLeads.length)}</strong>
+                            <strong className="an-sales-row-count">
+                                {formatCount(
+                                    selectedSalesId === 'all'
+                                        ? createdAtFilteredLeads.length
+                                        : salesLeadCounts.get(selectedSalesId) || 0
+                                )}
+                            </strong>
                         </button>
                         <div className={`an-sales-list${isSalesListOpen ? ' is-open' : ''}`}>
+                            <button
+                                type="button"
+                                className={`an-sales-row${selectedSalesId === 'all' ? ' is-active' : ''}`}
+                                onClick={() => {
+                                    setSelectedSalesId('all');
+                                    setIsSalesListOpen(false);
+                                }}
+                            >
+                                <span className="an-sales-row-label">Semua Sales</span>
+                                <strong className="an-sales-row-count">{formatCount(createdAtFilteredLeads.length)}</strong>
+                            </button>
                             {visibleSales.length === 0 ? (
                                 <div className="an-sales-empty">Tidak ada sales</div>
-                            ) : visibleSales.map((s) => {
-                                const count = salesLeadCounts.get(s.id) || 0;
-                                const active = selectedSalesId === s.id;
-                                return (
-                                    <button
-                                        key={s.id}
-                                        type="button"
-                                        className={`an-sales-row${active ? ' is-active' : ''}`}
-                                        onClick={() => setSelectedSalesId(active ? 'all' : s.id)}
-                                        title={s.name}
-                                    >
-                                        <span className="an-sales-row-label">{s.name}</span>
-                                        <strong className="an-sales-row-count">{formatCount(count)}</strong>
-                                    </button>
-                                );
-                            })}
+                            ) : (
+                                visibleSales.map((s) => {
+                                    const count = salesLeadCounts.get(s.id) || 0;
+                                    const active = selectedSalesId === s.id;
+                                    return (
+                                        <button
+                                            key={s.id}
+                                            type="button"
+                                            className={`an-sales-row${active ? ' is-active' : ''}`}
+                                            onClick={() => {
+                                                setSelectedSalesId(s.id);
+                                                setIsSalesListOpen(false);
+                                            }}
+                                            title={s.name}
+                                        >
+                                            <span className="an-sales-row-label">{s.name}</span>
+                                            <strong className="an-sales-row-count">{formatCount(count)}</strong>
+                                        </button>
+                                    );
+                                })
+                            )}
                         </div>
                     </div>
 
@@ -615,7 +639,7 @@ export default function AnalyticsSection({
                             total={l2Reached.length}
                             rateLabel="Prospect Rate"
                             rateValue={prospectRate}
-                            rateFormula="(Hot + Hot Validated) / Total Leads"
+                            rateFormula="Hot / Total Leads"
                         >
                             {L2_STATUSES.map((status) => (
                                 <StatusRow
