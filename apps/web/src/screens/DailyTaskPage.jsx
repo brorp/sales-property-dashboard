@@ -794,19 +794,19 @@ export default function DailyTaskPage() {
                     </span>
                     <span className="daily-task-tab-label">Leads Baru</span>
                 </button>
-                <button type="button" className={`daily-task-tab${activeTab === 'appointments' ? ' is-active' : ''}`} onClick={() => { setActiveTab('appointments'); setNameSearch(''); setHotSubTab('semua'); }}>
-                    <span className="daily-task-tab-icon-wrap">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-                        <span className="daily-task-tab-badge" style={activeAppointments.length === 0 ? { visibility: 'hidden' } : undefined}>{activeAppointments.length}</span>
-                    </span>
-                    <span className="daily-task-tab-label">Janji Temu</span>
-                </button>
                 <button type="button" className={`daily-task-tab${activeTab === 'follow_up' ? ' is-active' : ''}`} onClick={() => { setActiveTab('follow_up'); setNameSearch(''); setHotSubTab('semua'); }}>
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></svg>
                         <span className="daily-task-tab-badge" style={(followUpCount + deadlineLeadCount) === 0 ? { visibility: 'hidden' } : undefined}>{followUpCount + deadlineLeadCount}</span>
                     </span>
                     <span className="daily-task-tab-label">Follow Up</span>
+                </button>
+                <button type="button" className={`daily-task-tab${activeTab === 'appointments' ? ' is-active' : ''}`} onClick={() => { setActiveTab('appointments'); setNameSearch(''); setHotSubTab('semua'); }}>
+                    <span className="daily-task-tab-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                        <span className="daily-task-tab-badge" style={activeAppointments.length === 0 ? { visibility: 'hidden' } : undefined}>{activeAppointments.length}</span>
+                    </span>
+                    <span className="daily-task-tab-label">Janji Temu</span>
                 </button>
                 <button type="button" className={`daily-task-tab${activeTab === 'hot_validated' ? ' is-active' : ''}`} onClick={() => { setActiveTab('hot_validated'); setNameSearch(''); setHotSubTab('semua'); }}>
                     <span className="daily-task-tab-icon-wrap">
