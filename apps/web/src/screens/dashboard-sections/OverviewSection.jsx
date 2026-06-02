@@ -158,35 +158,7 @@ export default function OverviewSection({
 
     return (
         <div className="ov-wrap">
-            {/* 2 — Conversion Funnel */}
-            <div className="ov-card">
-                <div className="ov-card-head">
-                    <div>
-                        <span className="ov-eyebrow">Funnel Konversi</span>
-                        <h3 className="ov-card-title">Lead to Lunas</h3>
-                    </div>
-                </div>
-                <div className="ov-funnel">
-                    {funnelSteps.map((step, i) => (
-                        <div key={step.key} className="ov-funnel-item">
-                            <div className="ov-funnel-step">
-                                <span className="ov-funnel-count">{fmt(step.count)}</span>
-                                <span className="ov-funnel-label">{step.label}</span>
-                                <span className="ov-funnel-pct">{step.pct.toFixed(1)}%</span>
-                            </div>
-                            {i < funnelSteps.length - 1 ? (
-                                <div className="ov-funnel-arrow">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                        <polyline points="9 18 15 12 9 6" />
-                                    </svg>
-                                </div>
-                            ) : null}
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* 3 — Daily Pulse + Pipeline Aktif */}
+            {/* 1 — Daily Pulse + Pipeline Aktif */}
             <div className="ov-two-col">
                 {dailySalesReport ? (
                     <div className="ov-card">
@@ -255,7 +227,7 @@ export default function OverviewSection({
                 </div>
             </div>
 
-            {/* 4 — Team Snapshot */}
+            {/* 2 — Team Snapshot */}
             {teams.length > 0 ? (
                 <div className="ov-card">
                     <div className="ov-card-head">
@@ -290,7 +262,7 @@ export default function OverviewSection({
                 </div>
             ) : null}
 
-            {/* 5 — Concern Area */}
+            {/* 3 — Concern Area */}
             <div className="ov-two-col">
                 {cancelReasons.length > 0 ? (
                     <div className="ov-card">
@@ -467,13 +439,33 @@ export default function OverviewSection({
                     </div>
                 ) : null}
             </div>
-            {/* 1 — Hero KPI Strip */}
-            <div className="ov-kpi-strip">
-                <KpiCard label="Total Leads" value={fmt(totalLeads)} sub="Semua lead masuk" accent="blue" />
-                <KpiCard label="Hot Leads" value={fmt(hotCount)} sub={`${pctStr(hotPct)} dari total`} accent="red" />
-                <KpiCard label="Sudah Survey" value={fmt(surveyedLeads)} sub={`${pctStr(surveyRatioPercent)} tingkat survey`} accent="teal" />
-                <KpiCard label="Pipeline Aktif" value={fmt(activePipeline)} sub="Reserve + FB" accent="purple" />
-                <KpiCard label="Closing" value={fmt(totalClosing)} sub={`${pctStr(closingPct)} konversi`} accent="green" />
+
+            {/* 4 — Conversion Funnel */}
+            <div className="ov-card">
+                <div className="ov-card-head">
+                    <div>
+                        <span className="ov-eyebrow">Funnel Konversi</span>
+                        <h3 className="ov-card-title">Lead to Lunas</h3>
+                    </div>
+                </div>
+                <div className="ov-funnel">
+                    {funnelSteps.map((step, i) => (
+                        <div key={step.key} className="ov-funnel-item">
+                            <div className="ov-funnel-step">
+                                <span className="ov-funnel-count">{fmt(step.count)}</span>
+                                <span className="ov-funnel-label">{step.label}</span>
+                                <span className="ov-funnel-pct">{step.pct.toFixed(1)}%</span>
+                            </div>
+                            {i < funnelSteps.length - 1 ? (
+                                <div className="ov-funnel-arrow">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="9 18 15 12 9 6" />
+                                    </svg>
+                                </div>
+                            ) : null}
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );

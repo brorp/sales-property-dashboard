@@ -499,22 +499,15 @@ export default function DashboardPage() {
             <div className="dash-sticky-bar">
                 <div className="dash-sticky-bar-row">
                     <div className="dash-section-tabs">
-                        {showDailyReport ? (
-                            <button type="button" className={`dash-section-tab${activeSectionTab === 'daily-report' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('daily-report')}>
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
-                                <span className="dash-tab-label-full">Laporan Harian</span>
-                                <span className="dash-tab-label-short">Harian</span>
-                            </button>
-                        ) : null}
                         <button type="button" className={`dash-section-tab${activeSectionTab === 'overview' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('overview')}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
-                            <span className="dash-tab-label-full">Ringkasan</span>
-                            <span className="dash-tab-label-short">Ringkasan</span>
+                            <span className="dash-tab-label-full">Daily Report</span>
+                            <span className="dash-tab-label-short">Daily Report</span>
                         </button>
                         <button type="button" className={`dash-section-tab${activeSectionTab === 'analytics' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('analytics')}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><path d="M7 16l4-5 4 4 4-6" /></svg>
-                            <span className="dash-tab-label-full">Analitik</span>
-                            <span className="dash-tab-label-short">Analitik</span>
+                            <span className="dash-tab-label-full">Overview</span>
+                            <span className="dash-tab-label-short">Overview</span>
                         </button>
                         <button type="button" className={`dash-section-tab${activeSectionTab === 'line-chart' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('line-chart')}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
