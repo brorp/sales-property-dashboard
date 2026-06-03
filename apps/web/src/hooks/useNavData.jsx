@@ -34,12 +34,57 @@ export function NavDataProvider({ children }) {
             setTaskCounts({ totalCount: 0, newLeadCount: 0, followUpCount: 0 });
             return;
         }
-        const data = await apiRequest('/api/daily-tasks/counts', { user });
-        setTaskCounts({
-            totalCount: Number(data?.totalCount || 0),
-            newLeadCount: Number(data?.newLeadCount || 0),
-            followUpCount: Number(data?.followUpCount || 0),
-        });
+        try {
+            const [data, appointmentsData, validatedHotData, leadsData] = await Promise.all([
+                apiRequest('/api/daily-tasks/counts', { user }).catch(() => null),
+                apiRequest('/api/appointments', { user }).catch(() => []),
+                apiRequest('/api/supervisor-tasks/validated-hot', { user }).catch(() => []),
+                apiRequest('/api/leads', { user }).catch(() => [])
+            ]);
+
+            const newLeadCount = Number(data?.newLeadCount || 0);
+            const followUpCount = Number(data?.followUpCount || 0);
+            const deadlineLeadCount = Number(data?.deadlineLeadCount || 0);
+
+            const activeAppointmentsCount = Array.isArray(appointmentsData)
+                ? appointmentsData.filter((item) => item.status === 'mau_survey').length
+                : 0;
+
+            const getLeadResultStatus = (lead) => {
+                const rs = lead?.resultStatus || '';
+                const v = String(rs).trim().toLowerCase();
+                if (!v) return null;
+                if (v === 'on_process') return 'reserve';
+                if (v === 'akad') return 'lunas';
+                if (v === 'cancel' || v === 'cancel_transaksi' || v === 'cancel_full_book') return 'cancel_full_book';
+                if (v === 'cancel_reserve') return 'cancel_reserve';
+                if (v === 'lunas' || v === 'full_book' || v === 'reserve') return v;
+                return null;
+            };
+
+            const hasFilledResultStatus = (lead) => Boolean(getLeadResultStatus(lead));
+
+            const visibleValidatedHotCount = Array.isArray(validatedHotData)
+                ? validatedHotData.filter((lead) => !hasFilledResultStatus(lead)).length
+                : 0;
+
+            const transactionLeadsCount = Array.isArray(leadsData)
+                ? leadsData.filter((lead) => 
+                    lead.assignedTo === user.id && 
+                    ['reserve', 'full_book'].includes(getLeadResultStatus(lead))
+                  ).length
+                : 0;
+
+            const totalCount = newLeadCount + followUpCount + deadlineLeadCount + activeAppointmentsCount + visibleValidatedHotCount + transactionLeadsCount;
+
+            setTaskCounts({
+                totalCount,
+                newLeadCount,
+                followUpCount
+            });
+        } catch (err) {
+            setTaskCounts({ totalCount: 0, newLeadCount: 0, followUpCount: 0 });
+        }
     }, [user]);
 
     const loadSupervisorTaskCount = useCallback(async () => {

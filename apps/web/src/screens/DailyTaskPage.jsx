@@ -313,6 +313,7 @@ export default function DailyTaskPage() {
                 assignedAt: raw.updatedAt,
                 latestAppointment: leadDetail?.latestAppointment || raw.latestAppointment,
                 manualNote: leadDetail?.manualNote || raw.manualNote,
+                resultStatusUpdatedAt: raw.result_status_updated_at || raw.resultStatusUpdatedAt || leadDetail?.result_status_updated_at || leadDetail?.resultStatusUpdatedAt,
             };
         }
         return {
@@ -324,13 +325,14 @@ export default function DailyTaskPage() {
         };
     };
 
-    const renderDisplayLeadCardInfo = (cardData) => {
+    const renderDisplayLeadCardInfo = (cardData, isHotOrTransaction = false) => {
         const {
             leadSource,
             createdAt,
             assignedAt,
             latestAppointment,
             manualNote,
+            resultStatusUpdatedAt,
         } = cardData;
 
         const formattedAppt = () => {
@@ -368,6 +370,12 @@ export default function DailyTaskPage() {
                     <IcClock />
                     <span>Janji Temu: {formattedAppt()}</span>
                 </div>
+                {isHotOrTransaction && (
+                    <div className="dt-meta-item" title="Tanggal Transaksi">
+                        <IcCalendar />
+                        <span>Tanggal Transaksi: {formatDateTime(resultStatusUpdatedAt)}</span>
+                    </div>
+                )}
                 <div className="dt-meta-item dt-meta-item-notes" title="Catatan Lead" style={{ gridColumn: '1 / -1' }}>
                     <IcNotes />
                     <span className="dt-meta-notes-text">{manualNote ? `Catatan: ${manualNote}` : 'Catatan: belum ada'}</span>
@@ -1332,7 +1340,7 @@ export default function DailyTaskPage() {
                                     {renderCardHeader(lead.name, lead.phone, topBadges, bottomBadges, true)}
 
                                     {/* meta */}
-                                    {renderDisplayLeadCardInfo(normalizeLeadCardData(lead, 'hot'))}
+                                    {renderDisplayLeadCardInfo(normalizeLeadCardData(lead, 'hot'), true)}
 
                                     {/* actions */}
                                     <div className="dt-hot-actions" onClick={(e) => e.stopPropagation()} style={{ marginTop: '12px' }}>
@@ -1451,7 +1459,8 @@ export default function DailyTaskPage() {
                                             assignedAt: lead.resultStatusUpdatedAt || lead.updatedAt,
                                             latestAppointment: lead.latestAppointment,
                                             manualNote: lead.manualNote,
-                                        })}
+                                            resultStatusUpdatedAt: lead.result_status_updated_at || lead.resultStatusUpdatedAt,
+                                        }, true)}
                                         <div className="dt-hot-actions" onClick={(e) => e.stopPropagation()} style={{ marginTop: '12px' }}>
                                             <a
                                                 href={toWaLink(lead.phone)}

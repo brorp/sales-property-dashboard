@@ -516,83 +516,85 @@ export default function AnalyticsSection({
             <div className="ds-tab-body an-body">
                 <div className="an-grid">
                     {/* Collapsible Sales Pane (Full Width) */}
-                    <div className="an-sales-pane">
-                        <button
-                            type="button"
-                            className={`an-sales-row an-sales-row--total ${selectedSalesId !== 'all' ? 'is-active' : ''}`}
-                            onClick={() => {
-                                setIsSalesListOpen(!isSalesListOpen);
-                            }}
-                        >
-                            <span className="an-sales-row-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span>
-                                    {selectedSalesId === 'all'
-                                        ? 'Semua Sales'
-                                        : visibleSales.find((s) => s.id === selectedSalesId)?.name || 'Semua Sales'}
-                                </span>
-                                <svg
-                                    width="12"
-                                    height="12"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="2.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    style={{
-                                        transition: 'transform 200ms ease',
-                                        transform: isSalesListOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                                        color: 'var(--text-muted)'
-                                    }}
-                                >
-                                    <polyline points="6 9 12 15 18 9" />
-                                </svg>
-                            </span>
-                            <strong className="an-sales-row-count">
-                                {formatCount(
-                                    selectedSalesId === 'all'
-                                        ? createdAtFilteredLeads.length
-                                        : salesLeadCounts.get(selectedSalesId) || 0
-                                )}
-                            </strong>
-                        </button>
-                        <div className={`an-sales-list${isSalesListOpen ? ' is-open' : ''}`}>
+                    {viewerRole !== 'sales' ? (
+                        <div className="an-sales-pane">
                             <button
                                 type="button"
-                                className={`an-sales-row${selectedSalesId === 'all' ? ' is-active' : ''}`}
+                                className={`an-sales-row an-sales-row--total ${selectedSalesId !== 'all' ? 'is-active' : ''}`}
                                 onClick={() => {
-                                    setSelectedSalesId('all');
-                                    setIsSalesListOpen(false);
+                                    setIsSalesListOpen(!isSalesListOpen);
                                 }}
                             >
-                                <span className="an-sales-row-label">Semua Sales</span>
-                                <strong className="an-sales-row-count">{formatCount(createdAtFilteredLeads.length)}</strong>
+                                <span className="an-sales-row-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span>
+                                        {selectedSalesId === 'all'
+                                            ? 'Semua Sales'
+                                            : visibleSales.find((s) => s.id === selectedSalesId)?.name || 'Semua Sales'}
+                                    </span>
+                                    <svg
+                                        width="12"
+                                        height="12"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="2.5"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        style={{
+                                            transition: 'transform 200ms ease',
+                                            transform: isSalesListOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                                            color: 'var(--text-muted)'
+                                        }}
+                                    >
+                                        <polyline points="6 9 12 15 18 9" />
+                                    </svg>
+                                </span>
+                                <strong className="an-sales-row-count">
+                                    {formatCount(
+                                        selectedSalesId === 'all'
+                                            ? createdAtFilteredLeads.length
+                                            : salesLeadCounts.get(selectedSalesId) || 0
+                                    )}
+                                </strong>
                             </button>
-                            {visibleSales.length === 0 ? (
-                                <div className="an-sales-empty">Tidak ada sales</div>
-                            ) : (
-                                visibleSales.map((s) => {
-                                    const count = salesLeadCounts.get(s.id) || 0;
-                                    const active = selectedSalesId === s.id;
-                                    return (
-                                        <button
-                                            key={s.id}
-                                            type="button"
-                                            className={`an-sales-row${active ? ' is-active' : ''}`}
-                                            onClick={() => {
-                                                setSelectedSalesId(s.id);
-                                                setIsSalesListOpen(false);
-                                            }}
-                                            title={s.name}
-                                        >
-                                            <span className="an-sales-row-label">{s.name}</span>
-                                            <strong className="an-sales-row-count">{formatCount(count)}</strong>
-                                        </button>
-                                    );
-                                })
-                            )}
+                            <div className={`an-sales-list${isSalesListOpen ? ' is-open' : ''}`}>
+                                <button
+                                    type="button"
+                                    className={`an-sales-row${selectedSalesId === 'all' ? ' is-active' : ''}`}
+                                    onClick={() => {
+                                        setSelectedSalesId('all');
+                                        setIsSalesListOpen(false);
+                                    }}
+                                >
+                                    <span className="an-sales-row-label">Semua Sales</span>
+                                    <strong className="an-sales-row-count">{formatCount(createdAtFilteredLeads.length)}</strong>
+                                </button>
+                                {visibleSales.length === 0 ? (
+                                    <div className="an-sales-empty">Tidak ada sales</div>
+                                ) : (
+                                    visibleSales.map((s) => {
+                                        const count = salesLeadCounts.get(s.id) || 0;
+                                        const active = selectedSalesId === s.id;
+                                        return (
+                                            <button
+                                                key={s.id}
+                                                type="button"
+                                                className={`an-sales-row${active ? ' is-active' : ''}`}
+                                                onClick={() => {
+                                                    setSelectedSalesId(s.id);
+                                                    setIsSalesListOpen(false);
+                                                }}
+                                                title={s.name}
+                                            >
+                                                <span className="an-sales-row-label">{s.name}</span>
+                                                <strong className="an-sales-row-count">{formatCount(count)}</strong>
+                                            </button>
+                                        );
+                                    })
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    ) : null}
 
                     {/* Right side: 3 columns */}
                     <div className="an-cols">
