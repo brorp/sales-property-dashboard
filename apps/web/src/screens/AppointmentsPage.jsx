@@ -53,16 +53,31 @@ function matchesTagFilter(item, tagFilter) {
 
 export default function AppointmentsPage() {
     const { user, isAdmin } = useAuth();
-    const { appointments, refreshAppointments, getSalesUsers } = useLeads();
+    const {
+        appointments,
+        refreshAppointments,
+        getSalesUsers,
+        appointmentsFilters,
+        updateAppointmentsFilters,
+        resetAppointmentsFilters
+    } = useLeads();
     const router = useRouter();
-    const [search, setSearch] = useState('');
-    const [tagFilter, setTagFilter] = useState('');
-    const [salesFilter, setSalesFilter] = useState('');
+
+    const {
+        search,
+        tagFilter,
+        salesFilter
+    } = appointmentsFilters;
+
+    const setSearch = (val) => updateAppointmentsFilters((prev) => ({ ...prev, search: typeof val === 'function' ? val(prev.search) : val }));
+    const setTagFilter = (val) => updateAppointmentsFilters((prev) => ({ ...prev, tagFilter: typeof val === 'function' ? val(prev.tagFilter) : val }));
+    const setSalesFilter = (val) => updateAppointmentsFilters((prev) => ({ ...prev, salesFilter: typeof val === 'function' ? val(prev.salesFilter) : val }));
+
     const [showMobileFilter, setShowMobileFilter] = useState(false);
     const salesUsers = getSalesUsers();
     const canFilterBySales = user?.role === 'root_admin' || user?.role === 'client_admin' || user?.role === 'supervisor';
     const hasAnyFilter = Boolean(search || tagFilter !== '' || salesFilter);
-    const resetAllFilters = () => { setSearch(''); setTagFilter(''); setSalesFilter(''); };
+    const resetAllFilters = () => { resetAppointmentsFilters(); };
     const activeFilterCount = [tagFilter !== '', Boolean(salesFilter)].filter(Boolean).length;
 
     usePagePolling({

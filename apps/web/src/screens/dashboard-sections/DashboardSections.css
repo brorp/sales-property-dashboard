@@ -1903,6 +1903,12 @@
     }
 }
 
+@media (min-width: 768px) {
+    .ov-card--sales-performance {
+        grid-column: span 2;
+    }
+}
+
 .ov-card-head--sales {
     display: flex;
     align-items: center;

@@ -220,22 +220,62 @@ function toInitialExportSelection(value) {
 
 export default function LeadsPage() {
     const { user, isAdmin } = useAuth();
-    const { getLeadsForUser, addLead, getSalesUsers, getLeadSources, refreshLeads, refreshSalesUsers, refreshLeadSources, refreshTeamStats, refreshDashboardAnalytics } = useLeads();
+    const {
+        getLeadsForUser,
+        addLead,
+        getSalesUsers,
+        getLeadSources,
+        refreshLeads,
+        refreshSalesUsers,
+        refreshLeadSources,
+        refreshTeamStats,
+        refreshDashboardAnalytics,
+        leadsFilters,
+        updateLeadsFilters,
+        resetLeadsFilters
+    } = useLeads();
     const router = useRouter();
     const searchParams = useSearchParams();
 
     const [refreshing, setRefreshing] = useState(false);
-    const [search, setSearch] = useState('');
-    const [flowFilter, setFlowFilter] = useState([]);
-    const [salesStatusFilter, setSalesStatusFilter] = useState([]);
-    const initialResultParam = searchParams?.get('resultFilter');
-    const [resultFilter, setResultFilter] = useState(initialResultParam ? [initialResultParam] : []);
-    const [appointmentFilter, setAppointmentFilter] = useState([]);
-    const [salesFilter, setSalesFilter] = useState([]);
-    const [sourceFilter, setSourceFilter] = useState([]);
-    const [incompleteDataFilter, setIncompleteDataFilter] = useState(false);
-    const [appliedDateRange, setAppliedDateRange] = useState(EMPTY_DATE_RANGE);
     const [showMobileFilter, setShowMobileFilter] = useState(false);
+
+    const {
+        search,
+        flowFilter,
+        salesStatusFilter,
+        resultFilter,
+        appointmentFilter,
+        salesFilter,
+        sourceFilter,
+        incompleteDataFilter,
+        appliedDateRange
+    } = leadsFilters;
+
+    const setSearch = (val) => updateLeadsFilters((prev) => ({ ...prev, search: typeof val === 'function' ? val(prev.search) : val }));
+    const setFlowFilter = (val) => updateLeadsFilters((prev) => ({ ...prev, flowFilter: typeof val === 'function' ? val(prev.flowFilter) : val }));
+    const setSalesStatusFilter = (val) => updateLeadsFilters((prev) => ({ ...prev, salesStatusFilter: typeof val === 'function' ? val(prev.salesStatusFilter) : val }));
+    const setResultFilter = (val) => updateLeadsFilters((prev) => ({ ...prev, resultFilter: typeof val === 'function' ? val(prev.resultFilter) : val }));
+    const setAppointmentFilter = (val) => updateLeadsFilters((prev) => ({ ...prev, appointmentFilter: typeof val === 'function' ? val(prev.appointmentFilter) : val }));
+    const setSalesFilter = (val) => updateLeadsFilters((prev) => ({ ...prev, salesFilter: typeof val === 'function' ? val(prev.salesFilter) : val }));
+    const setSourceFilter = (val) => updateLeadsFilters((prev) => ({ ...prev, sourceFilter: typeof val === 'function' ? val(prev.sourceFilter) : val }));
+    const setIncompleteDataFilter = (val) => updateLeadsFilters((prev) => ({ ...prev, incompleteDataFilter: typeof val === 'function' ? val(prev.incompleteDataFilter) : val }));
+    const setAppliedDateRange = (val) => updateLeadsFilters((prev) => ({ ...prev, appliedDateRange: typeof val === 'function' ? val(prev.appliedDateRange) : val }));
+
+    useEffect(() => {
+        const initialResultParam = searchParams?.get('resultFilter');
+        if (initialResultParam) {
+            updateLeadsFilters((prev) => {
+                if (prev.resultFilter.length === 1 && prev.resultFilter[0] === initialResultParam) {
+                    return prev;
+                }
+                return {
+                    ...prev,
+                    resultFilter: [initialResultParam]
+                };
+            });
+        }
+    }, [searchParams, updateLeadsFilters]);
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [showExportModal, setShowExportModal] = useState(false);
@@ -317,15 +357,7 @@ export default function LeadsPage() {
     ].filter(Boolean).length;
 
     const resetAllFilters = () => {
-        setSearch('');
-        setAppliedDateRange(EMPTY_DATE_RANGE);
-        setFlowFilter([]);
-        setSalesStatusFilter([]);
-        setResultFilter([]);
-        setAppointmentFilter([]);
-        setSalesFilter([]);
-        setSourceFilter([]);
-        setIncompleteDataFilter(false);
+        resetLeadsFilters();
     };
 
     const availableLeadSources = useMemo(() => {
