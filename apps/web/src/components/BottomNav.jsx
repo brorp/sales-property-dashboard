@@ -26,6 +26,7 @@ const SUPERVISOR_TABS = [
 
 const SALES_TABS = [
     { key: '/daily-tasks', icon: 'tasks', label: 'Tugas' },
+    { key: '/', icon: 'analytics', label: 'Analitik' },
     { key: '/leads', icon: 'leads', label: 'Leads' },
     { key: '/settings', icon: 'settings', label: 'Pengaturan' },
 ];

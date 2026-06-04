@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { AUTH_STORAGE_KEY, WORKSPACE_STORAGE_KEY } from '../lib/api';
+import { useAuth } from './AuthContext';
 
 const WorkspaceContext = createContext(null);
 
@@ -117,5 +118,35 @@ export function useWorkspace() {
     if (!ctx) {
         throw new Error('useWorkspace must be used within WorkspaceProvider');
     }
+
+    // Safely retrieve the authenticated user from AuthContext
+    let user = null;
+    try {
+        const auth = useAuth();
+        user = auth?.user;
+    } catch (e) {
+        // ignore if useWorkspace is called outside AuthProvider subtree
+    }
+
+    const cleanUserName = (name) => {
+        if (!name) return '';
+        return name.replace(/^(spv\s+|supervisor\s+|admin\s+)/i, '').trim();
+    };
+
+    if (ctx.activeWorkspace && user?.name) {
+        const cleanedName = cleanUserName(user.name);
+        const suffix = ` - ${cleanedName}`;
+        const baseName = ctx.activeWorkspace.name || '';
+        if (baseName && !baseName.endsWith(suffix)) {
+            return {
+                ...ctx,
+                activeWorkspace: {
+                    ...ctx.activeWorkspace,
+                    name: `${baseName}${suffix}`
+                }
+            };
+        }
+    }
+
     return ctx;
 }

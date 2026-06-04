@@ -1,9 +1,57 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { apiRequest } from '../lib/api';
 import { useAuth } from './AuthContext';
 import { isCancelResultStatus, normalizeResultStatusKey } from '../constants/crm';
+
+const DEFAULT_LEADS_FILTERS = {
+    search: '',
+    flowFilter: [],
+    salesStatusFilter: [],
+    resultFilter: [],
+    appointmentFilter: [],
+    salesFilter: [],
+    sourceFilter: [],
+    incompleteDataFilter: false,
+    appliedDateRange: { dateFrom: '', dateTo: '' }
+};
+
+const DEFAULT_APPOINTMENTS_FILTERS = {
+    search: '',
+    tagFilter: '',
+    salesFilter: ''
+};
+
+const DEFAULT_SPV_TASKS_FILTERS = {
+    activeSection: 'hot_leads',
+    hotSubTab: 'pending',
+    hotValidatedSubTab: 'semua',
+    followUpSubTab: 'new_leads',
+    transactionSubTab: 'reserve',
+    submittedSalesFilter: 'all',
+    deadlineSalesFilter: 'all',
+    hotSalesFilter: 'all',
+    appointmentSalesFilter: 'all',
+    transactionSalesFilter: 'all',
+    submittedNameSearch: '',
+    coldNameSearch: '',
+    hotNameSearch: '',
+    appointmentNameSearch: '',
+    transactionNameSearch: '',
+};
+
+const DEFAULT_SALES_TASKS_FILTERS = {
+    activeTab: 'new_leads',
+    apptSubTab: 'semua',
+    hotSubTab: 'semua',
+    followUpSubTab: 'pipeline',
+    transactionSubTab: 'reserve',
+    nameSearch: '',
+};
+
+
 
 const LeadsContext = createContext(null);
 const TEAM_ACCESS_ROLES = new Set(['admin', 'root_admin', 'client_admin', 'supervisor']);
@@ -89,6 +137,175 @@ function mergeLeadSummary(base, incoming) {
 
 export function LeadsProvider({ children }) {
     const { user, loading: authLoading } = useAuth();
+    const pathname = usePathname();
+    const [leadsFilters, setLeadsFilters] = useState(DEFAULT_LEADS_FILTERS);
+
+    // Load from sessionStorage on client-side mount
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const saved = sessionStorage.getItem('leads_page_filters');
+            if (saved) {
+                try {
+                    setLeadsFilters(JSON.parse(saved));
+                } catch (e) {
+                    console.error('Failed to parse leads_page_filters', e);
+                }
+            }
+        }
+    }, []);
+
+    const updateLeadsFilters = useCallback((updater) => {
+        setLeadsFilters((prev) => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            if (typeof window !== 'undefined') {
+                sessionStorage.setItem('leads_page_filters', JSON.stringify(next));
+            }
+            return next;
+        });
+    }, []);
+
+    const resetLeadsFilters = useCallback(() => {
+        setLeadsFilters(DEFAULT_LEADS_FILTERS);
+        if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('leads_page_filters');
+        }
+    }, []);
+
+    // Watch pathname and clear filters if we navigate away from leads pages
+    useEffect(() => {
+        if (pathname && !pathname.startsWith('/leads')) {
+            resetLeadsFilters();
+        }
+    }, [pathname, resetLeadsFilters]);
+
+    const [appointmentsFilters, setAppointmentsFilters] = useState(DEFAULT_APPOINTMENTS_FILTERS);
+
+    // Load appointments filters from sessionStorage on client-side mount
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const saved = sessionStorage.getItem('appointments_page_filters');
+            if (saved) {
+                try {
+                    setAppointmentsFilters(JSON.parse(saved));
+                } catch (e) {
+                    console.error('Failed to parse appointments_page_filters', e);
+                }
+            }
+        }
+    }, []);
+
+    const updateAppointmentsFilters = useCallback((updater) => {
+        setAppointmentsFilters((prev) => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            if (typeof window !== 'undefined') {
+                sessionStorage.setItem('appointments_page_filters', JSON.stringify(next));
+            }
+            return next;
+        });
+    }, []);
+
+    const resetAppointmentsFilters = useCallback(() => {
+        setAppointmentsFilters(DEFAULT_APPOINTMENTS_FILTERS);
+        if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('appointments_page_filters');
+        }
+    }, []);
+
+    // Watch pathname and clear appointments filters if navigating away from Appointments OR Lead Detail
+    useEffect(() => {
+        if (pathname) {
+            const isAppointmentsOrDetail = pathname.startsWith('/appointments') || (pathname.startsWith('/leads/') && pathname.length > 7);
+            if (!isAppointmentsOrDetail) {
+                resetAppointmentsFilters();
+            }
+        }
+    }, [pathname, resetAppointmentsFilters]);
+
+    const [spvTasksFilters, setSpvTasksFilters] = useState(DEFAULT_SPV_TASKS_FILTERS);
+
+    // Load supervisor tasks filters from sessionStorage on client-side mount
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const saved = sessionStorage.getItem('supervisor_tasks_filters');
+            if (saved) {
+                try {
+                    setSpvTasksFilters(JSON.parse(saved));
+                } catch (e) {
+                    console.error('Failed to parse supervisor_tasks_filters', e);
+                }
+            }
+        }
+    }, []);
+
+    const updateSpvTasksFilters = useCallback((updater) => {
+        setSpvTasksFilters((prev) => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            if (typeof window !== 'undefined') {
+                sessionStorage.setItem('supervisor_tasks_filters', JSON.stringify(next));
+            }
+            return next;
+        });
+    }, []);
+
+    const resetSpvTasksFilters = useCallback(() => {
+        setSpvTasksFilters(DEFAULT_SPV_TASKS_FILTERS);
+        if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('supervisor_tasks_filters');
+        }
+    }, []);
+
+    // Watch pathname and clear supervisor tasks filters if navigating away from Supervisor Tasks OR Lead Detail
+    useEffect(() => {
+        if (pathname) {
+            const isSpvTasksOrDetail = pathname.startsWith('/supervisor-tasks') || (pathname.startsWith('/leads/') && pathname.length > 7);
+            if (!isSpvTasksOrDetail) {
+                resetSpvTasksFilters();
+            }
+        }
+    }, [pathname, resetSpvTasksFilters]);
+
+    const [salesTasksFilters, setSalesTasksFilters] = useState(DEFAULT_SALES_TASKS_FILTERS);
+
+    // Load sales tasks filters from sessionStorage on client-side mount
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const saved = sessionStorage.getItem('sales_tasks_filters');
+            if (saved) {
+                try {
+                    setSalesTasksFilters(JSON.parse(saved));
+                } catch (e) {
+                    console.error('Failed to parse sales_tasks_filters', e);
+                }
+            }
+        }
+    }, []);
+
+    const updateSalesTasksFilters = useCallback((updater) => {
+        setSalesTasksFilters((prev) => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            if (typeof window !== 'undefined') {
+                sessionStorage.setItem('sales_tasks_filters', JSON.stringify(next));
+            }
+            return next;
+        });
+    }, []);
+
+    const resetSalesTasksFilters = useCallback(() => {
+        setSalesTasksFilters(DEFAULT_SALES_TASKS_FILTERS);
+        if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('sales_tasks_filters');
+        }
+    }, []);
+
+    // Watch pathname and clear sales tasks filters if navigating away from Daily Tasks OR Lead Detail
+    useEffect(() => {
+        if (pathname) {
+            const isDailyTasksOrDetail = pathname.startsWith('/daily-tasks') || (pathname.startsWith('/leads/') && pathname.length > 7);
+            if (!isDailyTasksOrDetail) {
+                resetSalesTasksFilters();
+            }
+        }
+    }, [pathname, resetSalesTasksFilters]);
 
     const [leads, setLeads] = useState([]);
     const [leadDetails, setLeadDetails] = useState({});
@@ -512,6 +729,18 @@ export function LeadsProvider({ children }) {
         teamStats,
         refreshTeamStats,
         createSalesUser,
+        leadsFilters,
+        updateLeadsFilters,
+        resetLeadsFilters,
+        appointmentsFilters,
+        updateAppointmentsFilters,
+        resetAppointmentsFilters,
+        spvTasksFilters,
+        updateSpvTasksFilters,
+        resetSpvTasksFilters,
+        salesTasksFilters,
+        updateSalesTasksFilters,
+        resetSalesTasksFilters,
     }), [
         addAppointment,
         addLead,
@@ -544,6 +773,18 @@ export function LeadsProvider({ children }) {
         teamStats,
         updateAppointment,
         updateLead,
+        leadsFilters,
+        updateLeadsFilters,
+        resetLeadsFilters,
+        appointmentsFilters,
+        updateAppointmentsFilters,
+        resetAppointmentsFilters,
+        spvTasksFilters,
+        updateSpvTasksFilters,
+        resetSpvTasksFilters,
+        salesTasksFilters,
+        updateSalesTasksFilters,
+        resetSalesTasksFilters,
     ]);
 
     return (

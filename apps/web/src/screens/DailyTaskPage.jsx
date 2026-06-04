@@ -243,31 +243,32 @@ function hasFilledResultStatus(lead) {
 
 export default function DailyTaskPage() {
     const { user } = useAuth();
-    const { leads, updateLead, refreshLeads } = useLeads();
+    const {
+        leads,
+        updateLead,
+        refreshLeads,
+        salesTasksFilters,
+        updateSalesTasksFilters,
+    } = useLeads();
     const { activeWorkspace } = useWorkspace();
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState(() => {
-        if (typeof window !== 'undefined') {
-            const saved = sessionStorage.getItem('dt_active_tab') || 'new_leads';
-            if (saved === 'deadline_leads' || saved === 'follow_ups') return 'follow_up';
-            return saved;
-        }
-        return 'new_leads';
-    });
-    const [apptSubTab, setApptSubTab] = useState('semua');
-    const [hotSubTab, setHotSubTab] = useState('semua');
-    const [followUpSubTab, setFollowUpSubTab] = useState('pipeline');
-    const [transactionSubTab, setTransactionSubTab] = useState('reserve');
 
-    useEffect(() => {
-        if (!['new_leads', 'appointments', 'follow_up', 'hot_validated', 'transactions'].includes(activeTab)) {
-            setActiveTab('new_leads');
-            return;
-        }
-        if (typeof window !== 'undefined') {
-            sessionStorage.setItem('dt_active_tab', activeTab);
-        }
-    }, [activeTab]);
+    const {
+        activeTab,
+        apptSubTab,
+        hotSubTab,
+        followUpSubTab,
+        transactionSubTab,
+        nameSearch,
+    } = salesTasksFilters;
+
+    const setActiveTab = (val) => updateSalesTasksFilters((prev) => ({ ...prev, activeTab: typeof val === 'function' ? val(prev.activeTab) : val }));
+    const setApptSubTab = (val) => updateSalesTasksFilters((prev) => ({ ...prev, apptSubTab: typeof val === 'function' ? val(prev.apptSubTab) : val }));
+    const setHotSubTab = (val) => updateSalesTasksFilters((prev) => ({ ...prev, hotSubTab: typeof val === 'function' ? val(prev.hotSubTab) : val }));
+    const setFollowUpSubTab = (val) => updateSalesTasksFilters((prev) => ({ ...prev, followUpSubTab: typeof val === 'function' ? val(prev.followUpSubTab) : val }));
+    const setTransactionSubTab = (val) => updateSalesTasksFilters((prev) => ({ ...prev, transactionSubTab: typeof val === 'function' ? val(prev.transactionSubTab) : val }));
+    const setNameSearch = (val) => updateSalesTasksFilters((prev) => ({ ...prev, nameSearch: typeof val === 'function' ? val(prev.nameSearch) : val }));
+
     const [tasks, setTasks] = useState({
         newLeads: [],
         followUps: [],
@@ -283,7 +284,6 @@ export default function DailyTaskPage() {
     const [cancelReasons, setCancelReasons] = useState([]);
     const [transactionDrafts, setTransactionDrafts] = useState({});
     const [sideLoading, setSideLoading] = useState(false);
-    const [nameSearch, setNameSearch] = useState('');
     const [reschedulingApptId, setReschedulingApptId] = useState(null);
     const [rescheduleValue, setRescheduleValue] = useState('');
 
@@ -313,6 +313,7 @@ export default function DailyTaskPage() {
                 assignedAt: raw.updatedAt,
                 latestAppointment: leadDetail?.latestAppointment || raw.latestAppointment,
                 manualNote: leadDetail?.manualNote || raw.manualNote,
+                resultStatusUpdatedAt: raw.result_status_updated_at || raw.resultStatusUpdatedAt || leadDetail?.result_status_updated_at || leadDetail?.resultStatusUpdatedAt,
             };
         }
         return {
@@ -324,13 +325,14 @@ export default function DailyTaskPage() {
         };
     };
 
-    const renderDisplayLeadCardInfo = (cardData) => {
+    const renderDisplayLeadCardInfo = (cardData, isHotOrTransaction = false) => {
         const {
             leadSource,
             createdAt,
             assignedAt,
             latestAppointment,
             manualNote,
+            resultStatusUpdatedAt,
         } = cardData;
 
         const formattedAppt = () => {
@@ -368,6 +370,12 @@ export default function DailyTaskPage() {
                     <IcClock />
                     <span>Janji Temu: {formattedAppt()}</span>
                 </div>
+                {isHotOrTransaction && (
+                    <div className="dt-meta-item" title="Tanggal Transaksi">
+                        <IcCalendar />
+                        <span>Tanggal Transaksi: {formatDateTime(resultStatusUpdatedAt)}</span>
+                    </div>
+                )}
                 <div className="dt-meta-item dt-meta-item-notes" title="Catatan Lead" style={{ gridColumn: '1 / -1' }}>
                     <IcNotes />
                     <span className="dt-meta-notes-text">{manualNote ? `Catatan: ${manualNote}` : 'Catatan: belum ada'}</span>
@@ -1332,7 +1340,7 @@ export default function DailyTaskPage() {
                                     {renderCardHeader(lead.name, lead.phone, topBadges, bottomBadges, true)}
 
                                     {/* meta */}
-                                    {renderDisplayLeadCardInfo(normalizeLeadCardData(lead, 'hot'))}
+                                    {renderDisplayLeadCardInfo(normalizeLeadCardData(lead, 'hot'), true)}
 
                                     {/* actions */}
                                     <div className="dt-hot-actions" onClick={(e) => e.stopPropagation()} style={{ marginTop: '12px' }}>
@@ -1451,7 +1459,8 @@ export default function DailyTaskPage() {
                                             assignedAt: lead.resultStatusUpdatedAt || lead.updatedAt,
                                             latestAppointment: lead.latestAppointment,
                                             manualNote: lead.manualNote,
-                                        })}
+                                            resultStatusUpdatedAt: lead.result_status_updated_at || lead.resultStatusUpdatedAt,
+                                        }, true)}
                                         <div className="dt-hot-actions" onClick={(e) => e.stopPropagation()} style={{ marginTop: '12px' }}>
                                             <a
                                                 href={toWaLink(lead.phone)}

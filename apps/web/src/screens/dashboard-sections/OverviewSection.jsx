@@ -291,7 +291,7 @@ export default function OverviewSection({
                 ) : null}
 
                 {sortedSales.length > 0 ? (
-                    <div className="ov-card">
+                    <div className="ov-card ov-card--sales-performance">
                         <div className="ov-card-head ov-card-head--sales">
                             <div className="ov-card-title-group">
                                 <span className="ov-eyebrow">Performa Sales</span>

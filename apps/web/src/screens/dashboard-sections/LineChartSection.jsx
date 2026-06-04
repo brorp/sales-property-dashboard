@@ -766,15 +766,17 @@ export default function LineChartSection({
                                 />
                             </div>
 
-                            <div className="dash-drawer-section">
-                                <span className="dash-drawer-section-label">Sales</span>
-                                <Select
-                                    options={[{ value: 'all', label: 'Semua Sales' }, ...visibleSales.map((s) => ({ value: s.id, label: s.name }))]}
-                                    value={selectedSalesId}
-                                    onChange={(v) => setSelectedSalesId(v || 'all')}
-                                    placeholder="Semua Sales"
-                                />
-                            </div>
+                            {viewerRole !== 'sales' ? (
+                                <div className="dash-drawer-section">
+                                    <span className="dash-drawer-section-label">Sales</span>
+                                    <Select
+                                        options={[{ value: 'all', label: 'Semua Sales' }, ...visibleSales.map((s) => ({ value: s.id, label: s.name }))]}
+                                        value={selectedSalesId}
+                                        onChange={(v) => setSelectedSalesId(v || 'all')}
+                                        placeholder="Semua Sales"
+                                    />
+                                </div>
+                            ) : null}
                         </div>
                     </div>
                 </div>
