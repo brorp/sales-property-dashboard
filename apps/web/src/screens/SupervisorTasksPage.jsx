@@ -157,24 +157,56 @@ function SpvEmpty({ variant = 'default', title, desc }) {
 
 export default function SupervisorTasksPage() {
     const { user } = useAuth();
-    const { getLeadsForUser, updateLead, refreshLeads } = useLeads();
+    const {
+        getLeadsForUser,
+        updateLead,
+        refreshLeads,
+        spvTasksFilters,
+        updateSpvTasksFilters,
+        resetSpvTasksFilters
+    } = useLeads();
     const router = useRouter();
-    const [activeSection, setActiveSection] = useState('hot_leads');
-    const [hotSubTab, setHotSubTab] = useState('pending');
-    const [hotValidatedSubTab, setHotValidatedSubTab] = useState('semua');
-    const [followUpSubTab, setFollowUpSubTab] = useState('new_leads');
-    const [transactionSubTab, setTransactionSubTab] = useState('reserve');
+
+    const {
+        activeSection,
+        hotSubTab,
+        hotValidatedSubTab,
+        followUpSubTab,
+        transactionSubTab,
+        submittedSalesFilter,
+        deadlineSalesFilter,
+        hotSalesFilter,
+        appointmentSalesFilter,
+        transactionSalesFilter,
+        submittedNameSearch,
+        coldNameSearch,
+        hotNameSearch,
+        appointmentNameSearch,
+        transactionNameSearch,
+    } = spvTasksFilters;
+
+    const setActiveSection = (val) => updateSpvTasksFilters((prev) => ({ ...prev, activeSection: typeof val === 'function' ? val(prev.activeSection) : val }));
+    const setHotSubTab = (val) => updateSpvTasksFilters((prev) => ({ ...prev, hotSubTab: typeof val === 'function' ? val(prev.hotSubTab) : val }));
+    const setHotValidatedSubTab = (val) => updateSpvTasksFilters((prev) => ({ ...prev, hotValidatedSubTab: typeof val === 'function' ? val(prev.hotValidatedSubTab) : val }));
+    const setFollowUpSubTab = (val) => updateSpvTasksFilters((prev) => ({ ...prev, followUpSubTab: typeof val === 'function' ? val(prev.followUpSubTab) : val }));
+    const setTransactionSubTab = (val) => updateSpvTasksFilters((prev) => ({ ...prev, transactionSubTab: typeof val === 'function' ? val(prev.transactionSubTab) : val }));
+    const setSubmittedSalesFilter = (val) => updateSpvTasksFilters((prev) => ({ ...prev, submittedSalesFilter: typeof val === 'function' ? val(prev.submittedSalesFilter) : val }));
+    const setDeadlineSalesFilter = (val) => updateSpvTasksFilters((prev) => ({ ...prev, deadlineSalesFilter: typeof val === 'function' ? val(prev.deadlineSalesFilter) : val }));
+    const setHotSalesFilter = (val) => updateSpvTasksFilters((prev) => ({ ...prev, hotSalesFilter: typeof val === 'function' ? val(prev.hotSalesFilter) : val }));
+    const setAppointmentSalesFilter = (val) => updateSpvTasksFilters((prev) => ({ ...prev, appointmentSalesFilter: typeof val === 'function' ? val(prev.appointmentSalesFilter) : val }));
+    const setTransactionSalesFilter = (val) => updateSpvTasksFilters((prev) => ({ ...prev, transactionSalesFilter: typeof val === 'function' ? val(prev.transactionSalesFilter) : val }));
+    const setSubmittedNameSearch = (val) => updateSpvTasksFilters((prev) => ({ ...prev, submittedNameSearch: typeof val === 'function' ? val(prev.submittedNameSearch) : val }));
+    const setColdNameSearch = (val) => updateSpvTasksFilters((prev) => ({ ...prev, coldNameSearch: typeof val === 'function' ? val(prev.coldNameSearch) : val }));
+    const setHotNameSearch = (val) => updateSpvTasksFilters((prev) => ({ ...prev, hotNameSearch: typeof val === 'function' ? val(prev.hotNameSearch) : val }));
+    const setAppointmentNameSearch = (val) => updateSpvTasksFilters((prev) => ({ ...prev, appointmentNameSearch: typeof val === 'function' ? val(prev.appointmentNameSearch) : val }));
+    const setTransactionNameSearch = (val) => updateSpvTasksFilters((prev) => ({ ...prev, transactionNameSearch: typeof val === 'function' ? val(prev.transactionNameSearch) : val }));
+
     const [leads, setLeads] = useState([]);
     const [submittedTaskGroups, setSubmittedTaskGroups] = useState([]);
     const [deadlineTaskGroups, setDeadlineTaskGroups] = useState([]);
     const [appointments, setAppointments] = useState([]);
     const [cancelReasons, setCancelReasons] = useState([]);
     const [managedSales, setManagedSales] = useState([]);
-    const [submittedSalesFilter, setSubmittedSalesFilter] = useState('all');
-    const [deadlineSalesFilter, setDeadlineSalesFilter] = useState('all');
-    const [hotSalesFilter, setHotSalesFilter] = useState('all');
-    const [appointmentSalesFilter, setAppointmentSalesFilter] = useState('all');
-    const [transactionSalesFilter, setTransactionSalesFilter] = useState('all');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [actionLoading, setActionLoading] = useState('');
@@ -185,11 +217,6 @@ export default function SupervisorTasksPage() {
     const [lightboxImage, setLightboxImage] = useState(null);
     const [filterSheet, setFilterSheet] = useState(null); // 'submitted' | 'cold' | 'hot' | null
     const [filterSearch, setFilterSearch] = useState('');
-    const [submittedNameSearch, setSubmittedNameSearch] = useState('');
-    const [coldNameSearch, setColdNameSearch] = useState('');
-    const [hotNameSearch, setHotNameSearch] = useState('');
-    const [appointmentNameSearch, setAppointmentNameSearch] = useState('');
-    const [transactionNameSearch, setTransactionNameSearch] = useState('');
     const [transactionDrafts, setTransactionDrafts] = useState({});
 
     // Hot Validated leads from context (already loaded)
@@ -312,17 +339,45 @@ export default function SupervisorTasksPage() {
         })).filter((group) => group.tasks.length > 0);
     }, [followUpSubTab, followUpTaskMatchesSubTab, submittedNameSearch, visibleDeadlineTaskGroups, visibleSubmittedTaskGroups]);
     const followUpTabCounts = useMemo(() => {
-        const counts = { new_leads: 0, follow_up_1: 0, follow_up_2: 0, follow_up_3: 0, deadlines: deadlineTotalCount };
-        for (const group of submittedTaskGroups) {
+        const counts = { new_leads: 0, follow_up_1: 0, follow_up_2: 0, follow_up_3: 0, deadlines: 0 };
+        const matchedSubmittedGroups = submittedSalesFilter === 'all'
+            ? submittedTaskGroups
+            : submittedTaskGroups.filter((group) => group.salesId === submittedSalesFilter);
+
+        for (const group of matchedSubmittedGroups) {
             for (const task of group.tasks || []) {
-                if (task.taskType === 'new_lead') counts.new_leads += 1;
-                if (task.taskType === 'follow_up' && Number(task.followupStage) === 1) counts.follow_up_1 += 1;
-                if (task.taskType === 'follow_up' && Number(task.followupStage) === 2) counts.follow_up_2 += 1;
-                if (task.taskType === 'follow_up' && Number(task.followupStage) === 3) counts.follow_up_3 += 1;
+                const nameMatches = !submittedNameSearch || task.leadName?.toLowerCase().includes(submittedNameSearch.toLowerCase());
+                if (nameMatches) {
+                    if (task.taskType === 'new_lead') counts.new_leads += 1;
+                    if (task.taskType === 'follow_up' && Number(task.followupStage) === 1) counts.follow_up_1 += 1;
+                    if (task.taskType === 'follow_up' && Number(task.followupStage) === 2) counts.follow_up_2 += 1;
+                    if (task.taskType === 'follow_up' && Number(task.followupStage) === 3) counts.follow_up_3 += 1;
+                }
             }
         }
+
+        const matchedDeadlineGroups = deadlineSalesFilter === 'all'
+            ? deadlineTaskGroups
+            : deadlineTaskGroups.filter((group) => group.salesId === deadlineSalesFilter);
+
+        for (const group of matchedDeadlineGroups) {
+            for (const task of group.tasks || []) {
+                const nameMatches = !submittedNameSearch || task.leadName?.toLowerCase().includes(submittedNameSearch.toLowerCase());
+                if (nameMatches) {
+                    counts.deadlines += 1;
+                }
+            }
+        }
+
         return counts;
-    }, [deadlineTotalCount, submittedTaskGroups]);
+    }, [submittedTaskGroups, deadlineTaskGroups, submittedSalesFilter, deadlineSalesFilter, submittedNameSearch]);
+    const totalFollowUpCount = useMemo(() => (
+        followUpTabCounts.new_leads +
+        followUpTabCounts.follow_up_1 +
+        followUpTabCounts.follow_up_2 +
+        followUpTabCounts.follow_up_3 +
+        followUpTabCounts.deadlines
+    ), [followUpTabCounts]);
     const activeAppointments = useMemo(() => (
         appointments.filter((appointment) => appointment.status === 'mau_survey')
     ), [appointments]);
@@ -368,8 +423,25 @@ export default function SupervisorTasksPage() {
             return lead.name?.toLowerCase().includes(query) || lead.phone?.toLowerCase().includes(query);
         })
     ), [transactionLeads, transactionNameSearch, transactionSalesFilter, transactionSubTab]);
-    const reserveCount = transactionLeads.filter((lead) => getLeadResultStatus(lead) === 'reserve').length;
-    const fullBookCount = transactionLeads.filter((lead) => getLeadResultStatus(lead) === 'full_book').length;
+    const reserveCount = useMemo(() => {
+        return transactionLeads.filter((lead) => {
+            if (getLeadResultStatus(lead) !== 'reserve') return false;
+            if (transactionSalesFilter !== 'all' && lead.assignedTo !== transactionSalesFilter) return false;
+            if (!transactionNameSearch.trim()) return true;
+            const query = transactionNameSearch.toLowerCase();
+            return lead.name?.toLowerCase().includes(query) || lead.phone?.toLowerCase().includes(query);
+        }).length;
+    }, [transactionLeads, transactionSalesFilter, transactionNameSearch]);
+
+    const fullBookCount = useMemo(() => {
+        return transactionLeads.filter((lead) => {
+            if (getLeadResultStatus(lead) !== 'full_book') return false;
+            if (transactionSalesFilter !== 'all' && lead.assignedTo !== transactionSalesFilter) return false;
+            if (!transactionNameSearch.trim()) return true;
+            const query = transactionNameSearch.toLowerCase();
+            return lead.name?.toLowerCase().includes(query) || lead.phone?.toLowerCase().includes(query);
+        }).length;
+    }, [transactionLeads, transactionSalesFilter, transactionNameSearch]);
 
     const hotSalesOptions = useMemo(() => {
         const activeLeadsList = hotSubTab === 'pending' ? leads : validatedLeads;
@@ -423,6 +495,9 @@ export default function SupervisorTasksPage() {
 
     const validatedGroupLess = useMemo(() => filteredValidatedLeads.filter((l) => !isOlderThan30Days(l.updatedAt)), [filteredValidatedLeads]);
     const validatedGroupMore = useMemo(() => filteredValidatedLeads.filter((l) => isOlderThan30Days(l.updatedAt)), [filteredValidatedLeads]);
+    const totalHotCount = useMemo(() => (
+        filteredPendingLeads.length + filteredValidatedLeads.length
+    ), [filteredPendingLeads, filteredValidatedLeads]);
 
     const hotTotalCount = useMemo(() => {
         const activeLeadsList = hotSubTab === 'pending' ? leads : validatedLeads;
@@ -430,31 +505,34 @@ export default function SupervisorTasksPage() {
     }, [hotSubTab, leads, validatedLeads]);
 
     useEffect(() => {
+        if (loading) return;
         if (
             submittedSalesFilter !== 'all' &&
             !submittedSalesOptions.some((option) => option.salesId === submittedSalesFilter)
         ) {
             setSubmittedSalesFilter('all');
         }
-    }, [submittedSalesFilter, submittedSalesOptions]);
+    }, [submittedSalesFilter, submittedSalesOptions, loading]);
 
     useEffect(() => {
+        if (loading) return;
         if (
             deadlineSalesFilter !== 'all' &&
             !deadlineSalesOptions.some((option) => option.salesId === deadlineSalesFilter)
         ) {
             setDeadlineSalesFilter('all');
         }
-    }, [deadlineSalesFilter, deadlineSalesOptions]);
+    }, [deadlineSalesFilter, deadlineSalesOptions, loading]);
 
     useEffect(() => {
+        if (loading) return;
         if (
             hotSalesFilter !== 'all' &&
             !hotSalesOptions.some((option) => option.salesId === hotSalesFilter)
         ) {
             setHotSalesFilter('all');
         }
-    }, [hotSalesFilter, hotSalesOptions]);
+    }, [hotSalesFilter, hotSalesOptions, loading]);
 
     usePagePolling({
         enabled: Boolean(user),
@@ -769,7 +847,7 @@ export default function SupervisorTasksPage() {
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
                         </svg>
-                        <span className="daily-task-tab-badge" style={leads.length === 0 ? { visibility: 'hidden' } : undefined}>{leads.length}</span>
+                        <span className="daily-task-tab-badge" style={totalHotCount === 0 ? { visibility: 'hidden' } : undefined}>{totalHotCount}</span>
                     </span>
                     <span className="daily-task-tab-label">Hot Leads</span>
                 </button>
@@ -782,7 +860,7 @@ export default function SupervisorTasksPage() {
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
                         </svg>
-                        <span className="daily-task-tab-badge" style={(submittedTotalCount + deadlineTotalCount) === 0 ? { visibility: 'hidden' } : undefined}>{submittedTotalCount + deadlineTotalCount}</span>
+                        <span className="daily-task-tab-badge" style={totalFollowUpCount === 0 ? { visibility: 'hidden' } : undefined}>{totalFollowUpCount}</span>
                     </span>
                     <span className="daily-task-tab-label">Follow Up</span>
                 </button>
@@ -793,7 +871,7 @@ export default function SupervisorTasksPage() {
                 >
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01"/></svg>
-                        <span className="daily-task-tab-badge" style={activeAppointments.length === 0 ? { visibility: 'hidden' } : undefined}>{activeAppointments.length}</span>
+                        <span className="daily-task-tab-badge" style={visibleAppointments.length === 0 ? { visibility: 'hidden' } : undefined}>{visibleAppointments.length}</span>
                     </span>
                     <span className="daily-task-tab-label">Janji Temu</span>
                 </button>
@@ -804,7 +882,7 @@ export default function SupervisorTasksPage() {
                 >
                     <span className="daily-task-tab-icon-wrap">
                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"/></svg>
-                        <span className="daily-task-tab-badge" style={transactionLeads.length === 0 ? { visibility: 'hidden' } : undefined}>{transactionLeads.length}</span>
+                        <span className="daily-task-tab-badge" style={(reserveCount + fullBookCount) === 0 ? { visibility: 'hidden' } : undefined}>{reserveCount + fullBookCount}</span>
                     </span>
                     <span className="daily-task-tab-label">Transaksi</span>
                 </button>
@@ -833,18 +911,18 @@ export default function SupervisorTasksPage() {
                         <button
                             type="button"
                             className={`spv-hot-subtab ${hotSubTab === 'pending' ? 'is-active' : ''}`}
-                            onClick={() => { setHotSubTab('pending'); setHotSalesFilter('all'); setHotNameSearch(''); }}
+                            onClick={() => { setHotSubTab('pending'); }}
                         >
                             Hot Pending
-                            {leads.length > 0 && <span className="spv-hot-subtab-badge">{leads.length}</span>}
+                            {filteredPendingLeads.length > 0 && <span className="spv-hot-subtab-badge">{filteredPendingLeads.length}</span>}
                         </button>
                         <button
                             type="button"
                             className={`spv-hot-subtab ${hotSubTab === 'validated' ? 'is-active' : ''}`}
-                            onClick={() => { setHotSubTab('validated'); setHotSalesFilter('all'); setHotNameSearch(''); }}
+                            onClick={() => { setHotSubTab('validated'); }}
                         >
                             Hot Validated
-                            {validatedLeads.length > 0 && <span className="spv-hot-subtab-badge spv-hot-subtab-badge--validated">{validatedLeads.length}</span>}
+                            {filteredValidatedLeads.length > 0 && <span className="spv-hot-subtab-badge spv-hot-subtab-badge--validated">{filteredValidatedLeads.length}</span>}
                         </button>
                     </div>
 
@@ -1047,9 +1125,6 @@ export default function SupervisorTasksPage() {
                                 className={`spv-hot-subtab ${followUpSubTab === key ? 'is-active' : ''}`}
                                 onClick={() => {
                                     setFollowUpSubTab(key);
-                                    setSubmittedSalesFilter('all');
-                                    setDeadlineSalesFilter('all');
-                                    setSubmittedNameSearch('');
                                 }}
                             >
                                 {label}
@@ -1184,7 +1259,7 @@ export default function SupervisorTasksPage() {
                         <button
                             type="button"
                             className={`spv-hot-subtab ${transactionSubTab === 'reserve' ? 'is-active' : ''}`}
-                            onClick={() => { setTransactionSubTab('reserve'); setTransactionNameSearch(''); }}
+                            onClick={() => { setTransactionSubTab('reserve'); }}
                         >
                             Reserve
                             {reserveCount > 0 && <span className="spv-hot-subtab-badge">{reserveCount}</span>}
@@ -1192,7 +1267,7 @@ export default function SupervisorTasksPage() {
                         <button
                             type="button"
                             className={`spv-hot-subtab ${transactionSubTab === 'full_book' ? 'is-active' : ''}`}
-                            onClick={() => { setTransactionSubTab('full_book'); setTransactionNameSearch(''); }}
+                            onClick={() => { setTransactionSubTab('full_book'); }}
                         >
                             Full Book
                             {fullBookCount > 0 && <span className="spv-hot-subtab-badge">{fullBookCount}</span>}

@@ -24,6 +24,25 @@ const DEFAULT_APPOINTMENTS_FILTERS = {
     salesFilter: ''
 };
 
+const DEFAULT_SPV_TASKS_FILTERS = {
+    activeSection: 'hot_leads',
+    hotSubTab: 'pending',
+    hotValidatedSubTab: 'semua',
+    followUpSubTab: 'new_leads',
+    transactionSubTab: 'reserve',
+    submittedSalesFilter: 'all',
+    deadlineSalesFilter: 'all',
+    hotSalesFilter: 'all',
+    appointmentSalesFilter: 'all',
+    transactionSalesFilter: 'all',
+    submittedNameSearch: '',
+    coldNameSearch: '',
+    hotNameSearch: '',
+    appointmentNameSearch: '',
+    transactionNameSearch: '',
+};
+
+
 
 const LeadsContext = createContext(null);
 const TEAM_ACCESS_ROLES = new Set(['admin', 'root_admin', 'client_admin', 'supervisor']);
@@ -192,6 +211,49 @@ export function LeadsProvider({ children }) {
             }
         }
     }, [pathname, resetAppointmentsFilters]);
+
+    const [spvTasksFilters, setSpvTasksFilters] = useState(DEFAULT_SPV_TASKS_FILTERS);
+
+    // Load supervisor tasks filters from sessionStorage on client-side mount
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const saved = sessionStorage.getItem('supervisor_tasks_filters');
+            if (saved) {
+                try {
+                    setSpvTasksFilters(JSON.parse(saved));
+                } catch (e) {
+                    console.error('Failed to parse supervisor_tasks_filters', e);
+                }
+            }
+        }
+    }, []);
+
+    const updateSpvTasksFilters = useCallback((updater) => {
+        setSpvTasksFilters((prev) => {
+            const next = typeof updater === 'function' ? updater(prev) : updater;
+            if (typeof window !== 'undefined') {
+                sessionStorage.setItem('supervisor_tasks_filters', JSON.stringify(next));
+            }
+            return next;
+        });
+    }, []);
+
+    const resetSpvTasksFilters = useCallback(() => {
+        setSpvTasksFilters(DEFAULT_SPV_TASKS_FILTERS);
+        if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('supervisor_tasks_filters');
+        }
+    }, []);
+
+    // Watch pathname and clear supervisor tasks filters if navigating away from Supervisor Tasks OR Lead Detail
+    useEffect(() => {
+        if (pathname) {
+            const isSpvTasksOrDetail = pathname.startsWith('/supervisor-tasks') || (pathname.startsWith('/leads/') && pathname.length > 7);
+            if (!isSpvTasksOrDetail) {
+                resetSpvTasksFilters();
+            }
+        }
+    }, [pathname, resetSpvTasksFilters]);
 
     const [leads, setLeads] = useState([]);
     const [leadDetails, setLeadDetails] = useState({});
@@ -621,6 +683,9 @@ export function LeadsProvider({ children }) {
         appointmentsFilters,
         updateAppointmentsFilters,
         resetAppointmentsFilters,
+        spvTasksFilters,
+        updateSpvTasksFilters,
+        resetSpvTasksFilters,
     }), [
         addAppointment,
         addLead,
@@ -659,6 +724,9 @@ export function LeadsProvider({ children }) {
         appointmentsFilters,
         updateAppointmentsFilters,
         resetAppointmentsFilters,
+        spvTasksFilters,
+        updateSpvTasksFilters,
+        resetSpvTasksFilters,
     ]);
 
     return (
