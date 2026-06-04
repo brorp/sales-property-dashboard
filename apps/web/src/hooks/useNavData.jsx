@@ -29,7 +29,7 @@ export function NavDataProvider({ children }) {
     const { leads: allLeads } = useLeads();
     const [summary, setSummary] = useState({ latestLeadAt: null, latestLogAt: null });
     const [seenState, setSeenState] = useState({ leads: null, logs: null });
-    const [taskCounts, setTaskCounts] = useState({ totalCount: 0, newLeadCount: 0, followUpCount: 0 });
+    const [dailyApiCounts, setDailyApiCounts] = useState({ newLeadCount: 0, followUpCount: 0, deadlineLeadCount: 0, activeAppointmentsCount: 0, visibleValidatedHotCount: 0 });
     const [spvApiCounts, setSpvApiCounts] = useState({ pendingCount: 0, submittedCount: 0, deadlineCount: 0, appointmentCount: 0 });
 
     const loadNotificationSummary = useCallback(async () => {
@@ -40,20 +40,27 @@ export function NavDataProvider({ children }) {
 
     const loadDailyTaskCounts = useCallback(async () => {
         if (!user || user.role !== 'sales') {
-            setTaskCounts({ totalCount: 0, newLeadCount: 0, followUpCount: 0 });
+            setDailyApiCounts({ newLeadCount: 0, followUpCount: 0, deadlineLeadCount: 0, activeAppointmentsCount: 0, visibleValidatedHotCount: 0 });
             return;
         }
         try {
-            const [data, appointmentsData, validatedHotData, leadsData] = await Promise.all([
-                apiRequest('/api/daily-tasks/counts', { user }).catch(() => null),
+            const [data, appointmentsData, validatedHotData] = await Promise.all([
+                apiRequest('/api/daily-tasks', { user }).catch(() => null),
                 apiRequest('/api/appointments', { user }).catch(() => []),
                 apiRequest('/api/supervisor-tasks/validated-hot', { user }).catch(() => []),
-                apiRequest('/api/leads', { user }).catch(() => [])
             ]);
 
-            const newLeadCount = Number(data?.newLeadCount || 0);
-            const followUpCount = Number(data?.followUpCount || 0);
-            const deadlineLeadCount = Number(data?.deadlineLeadCount || 0);
+            const newLeadCount = Array.isArray(data?.newLeads)
+                ? data.newLeads.filter((item) => item.salesStatus !== 'skip').length
+                : 0;
+
+            const followUpCount = Array.isArray(data?.followUps)
+                ? data.followUps.filter((item) => item.salesStatus !== 'skip').length
+                : 0;
+
+            const deadlineLeadCount = Array.isArray(data?.deadlineLeads)
+                ? data.deadlineLeads.filter((item) => item.salesStatus !== 'skip').length
+                : 0;
 
             const activeAppointmentsCount = Array.isArray(appointmentsData)
                 ? appointmentsData.filter((item) => item.status === 'mau_survey').length
@@ -63,24 +70,44 @@ export function NavDataProvider({ children }) {
                 ? validatedHotData.filter((lead) => !hasFilledResultStatus(lead)).length
                 : 0;
 
-            const transactionLeadsCount = Array.isArray(leadsData)
-                ? leadsData.filter((lead) => 
-                    lead.assignedTo === user.id && 
-                    ['reserve', 'full_book'].includes(getLeadResultStatus(lead))
-                  ).length
-                : 0;
-
-            const totalCount = newLeadCount + followUpCount + deadlineLeadCount + activeAppointmentsCount + visibleValidatedHotCount + transactionLeadsCount;
-
-            setTaskCounts({
-                totalCount,
+            setDailyApiCounts({
                 newLeadCount,
-                followUpCount
+                followUpCount,
+                deadlineLeadCount,
+                activeAppointmentsCount,
+                visibleValidatedHotCount
             });
         } catch (err) {
-            setTaskCounts({ totalCount: 0, newLeadCount: 0, followUpCount: 0 });
+            setDailyApiCounts({ newLeadCount: 0, followUpCount: 0, deadlineLeadCount: 0, activeAppointmentsCount: 0, visibleValidatedHotCount: 0 });
         }
     }, [user]);
+
+    const taskCounts = useMemo(() => {
+        if (!user || user.role !== 'sales') {
+            return { totalCount: 0, newLeadCount: 0, followUpCount: 0 };
+        }
+
+        const transactionLeadsCount = Array.isArray(allLeads)
+            ? allLeads.filter((lead) => 
+                lead.assignedTo === user.id && 
+                ['reserve', 'full_book'].includes(getLeadResultStatus(lead))
+              ).length
+            : 0;
+
+        const totalCount =
+            dailyApiCounts.newLeadCount +
+            dailyApiCounts.followUpCount +
+            dailyApiCounts.deadlineLeadCount +
+            dailyApiCounts.activeAppointmentsCount +
+            dailyApiCounts.visibleValidatedHotCount +
+            transactionLeadsCount;
+
+        return {
+            totalCount,
+            newLeadCount: dailyApiCounts.newLeadCount,
+            followUpCount: dailyApiCounts.followUpCount
+        };
+    }, [user, allLeads, dailyApiCounts]);
 
     const loadSupervisorTaskCount = useCallback(async () => {
         if (!user || user.role !== 'supervisor') return;

@@ -243,31 +243,32 @@ function hasFilledResultStatus(lead) {
 
 export default function DailyTaskPage() {
     const { user } = useAuth();
-    const { leads, updateLead, refreshLeads } = useLeads();
+    const {
+        leads,
+        updateLead,
+        refreshLeads,
+        salesTasksFilters,
+        updateSalesTasksFilters,
+    } = useLeads();
     const { activeWorkspace } = useWorkspace();
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState(() => {
-        if (typeof window !== 'undefined') {
-            const saved = sessionStorage.getItem('dt_active_tab') || 'new_leads';
-            if (saved === 'deadline_leads' || saved === 'follow_ups') return 'follow_up';
-            return saved;
-        }
-        return 'new_leads';
-    });
-    const [apptSubTab, setApptSubTab] = useState('semua');
-    const [hotSubTab, setHotSubTab] = useState('semua');
-    const [followUpSubTab, setFollowUpSubTab] = useState('pipeline');
-    const [transactionSubTab, setTransactionSubTab] = useState('reserve');
 
-    useEffect(() => {
-        if (!['new_leads', 'appointments', 'follow_up', 'hot_validated', 'transactions'].includes(activeTab)) {
-            setActiveTab('new_leads');
-            return;
-        }
-        if (typeof window !== 'undefined') {
-            sessionStorage.setItem('dt_active_tab', activeTab);
-        }
-    }, [activeTab]);
+    const {
+        activeTab,
+        apptSubTab,
+        hotSubTab,
+        followUpSubTab,
+        transactionSubTab,
+        nameSearch,
+    } = salesTasksFilters;
+
+    const setActiveTab = (val) => updateSalesTasksFilters((prev) => ({ ...prev, activeTab: typeof val === 'function' ? val(prev.activeTab) : val }));
+    const setApptSubTab = (val) => updateSalesTasksFilters((prev) => ({ ...prev, apptSubTab: typeof val === 'function' ? val(prev.apptSubTab) : val }));
+    const setHotSubTab = (val) => updateSalesTasksFilters((prev) => ({ ...prev, hotSubTab: typeof val === 'function' ? val(prev.hotSubTab) : val }));
+    const setFollowUpSubTab = (val) => updateSalesTasksFilters((prev) => ({ ...prev, followUpSubTab: typeof val === 'function' ? val(prev.followUpSubTab) : val }));
+    const setTransactionSubTab = (val) => updateSalesTasksFilters((prev) => ({ ...prev, transactionSubTab: typeof val === 'function' ? val(prev.transactionSubTab) : val }));
+    const setNameSearch = (val) => updateSalesTasksFilters((prev) => ({ ...prev, nameSearch: typeof val === 'function' ? val(prev.nameSearch) : val }));
+
     const [tasks, setTasks] = useState({
         newLeads: [],
         followUps: [],
@@ -283,7 +284,6 @@ export default function DailyTaskPage() {
     const [cancelReasons, setCancelReasons] = useState([]);
     const [transactionDrafts, setTransactionDrafts] = useState({});
     const [sideLoading, setSideLoading] = useState(false);
-    const [nameSearch, setNameSearch] = useState('');
     const [reschedulingApptId, setReschedulingApptId] = useState(null);
     const [rescheduleValue, setRescheduleValue] = useState('');
 
