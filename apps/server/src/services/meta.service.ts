@@ -1,6 +1,7 @@
-import { and, asc, eq, or } from "drizzle-orm";
+import { and, asc, eq, inArray, or } from "drizzle-orm";
 import { db } from "../db/index";
-import { activity, lead } from "../db/schema";
+import { activity, lead, user } from "../db/schema";
+import { sendToUsers } from "./push-notification.service";
 import { generateId } from "../utils/id";
 import { normalizePhone } from "../utils/phone";
 import { getOperationalWindowState } from "./system-settings.service";
@@ -107,6 +108,27 @@ export async function ingestMetaLead(payload: MetaLeadPayload) {
         note: `Lead masuk dari Meta Ads${payload.metaLeadId ? ` (${payload.metaLeadId})` : ""}.`,
         timestamp: now,
     });
+
+    // Notif admin saat lead masuk hold (di luar jam operasional)
+    if (flowStatus === "hold" && payload.clientId) {
+        const admins = await db
+            .select({ id: user.id })
+            .from(user)
+            .where(
+                and(
+                    inArray(user.role, ["client_admin", "root_admin"]),
+                    eq(user.clientId, payload.clientId),
+                    eq(user.isActive, true)
+                )
+            );
+        if (admins.length) {
+            void sendToUsers(admins.map((a) => a.id), {
+                title: "Lead Baru Masuk (Hold)",
+                body: `${newLead.name} masuk di luar jam operasional dan perlu distribusi manual.`,
+                data: { leadId: newLead.id, type: "hold_lead" },
+            });
+        }
+    }
 
     return { lead: newLead, created: true };
 }

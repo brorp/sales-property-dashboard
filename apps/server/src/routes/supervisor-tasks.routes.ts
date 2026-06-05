@@ -3,6 +3,7 @@ import type { NextFunction, Response } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireMinRole } from "../middleware/rbac";
 import * as supervisorTasksService from "../services/supervisor-tasks.service";
+import { sendToUser } from "../services/push-notification.service";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -92,6 +93,16 @@ router.post(
                 managedSalesIds,
                 clientId: scope?.clientId || null,
             });
+
+            // Notif ke sales bahwa lead HOT-nya sudah divalidasi
+            const lead = await (await import("../services/leads.service")).findById(leadId);
+            if (lead?.assignedTo) {
+                void sendToUser(lead.assignedTo, {
+                    title: "Lead HOT Divalidasi",
+                    body: `Lead ${lead.name} telah divalidasi oleh supervisor.`,
+                    data: { leadId, type: "hot_validated" },
+                });
+            }
 
             res.json(result);
         } catch (error) {

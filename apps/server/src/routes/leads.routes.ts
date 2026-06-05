@@ -10,6 +10,7 @@ import * as leadTransferService from "../services/lead-transfer.service";
 import * as adminPasswordService from "../services/admin-password.service";
 import { getWorkspaceClientId, resolveClientIdFromWorkspace } from "../utils/request-client";
 import { normalizeResultStatus } from "../utils/lead-workflow";
+import { sendToUser } from "../services/push-notification.service";
 
 const router: ReturnType<typeof Router> = Router();
 const JAKARTA_OFFSET = "+07:00";
@@ -269,10 +270,16 @@ router.post("/:id/reassign", requireRole("root_admin", "client_admin") as any, a
         });
 
         const fullLead = await leadsService.findById(req.params.id);
-        res.json({
-            ...result,
-            lead: fullLead,
-        });
+
+        if (targetSalesId && fullLead) {
+            void sendToUser(targetSalesId, {
+                title: "Lead Dialihkan ke Kamu",
+                body: `${fullLead.name} (${fullLead.phone}) telah dialihkan ke kamu.`,
+                data: { leadId: req.params.id, type: "reassigned_lead" },
+            });
+        }
+
+        res.json({ ...result, lead: fullLead });
     } catch (error) {
         next(error);
     }
@@ -364,21 +371,33 @@ router.post("/", async (req, res: Response, next: NextFunction) => {
         }
 
         const parsedCreatedAt = parseJakartaDateInput(createdAtRaw);
+
+        const resolvedAssignedTo =
+            (user.role === "client_admin" || user.role === "root_admin")
+                ? assignedTo || null
+                : user.role === "sales"
+                    ? user.id
+                    : null;
+
         const created = await leadsService.create({
             name,
             phone,
             source: source || "Online",
             agentOfficeName,
-            assignedTo:
-                (user.role === "client_admin" || user.role === "root_admin")
-                    ? assignedTo || null
-                    : user.role === "sales"
-                        ? user.id
-                        : null,
+            assignedTo: resolvedAssignedTo,
             clientId: targetClientId,
             createdAt: parsedCreatedAt && !Number.isNaN(parsedCreatedAt.getTime()) ? parsedCreatedAt : null,
             createdByName: user.name,
         });
+
+        if (resolvedAssignedTo) {
+            void sendToUser(resolvedAssignedTo, {
+                title: "Lead Baru Masuk",
+                body: `${name} (${phone}) telah ditugaskan ke kamu.`,
+                data: { leadId: created.id, type: "new_lead" },
+            });
+        }
+
         res.status(201).json(created);
     } catch (error) {
         next(error);
@@ -527,6 +546,32 @@ router.patch("/:id", async (req, res: Response, next: NextFunction) => {
         }
 
         const fullLead = await leadsService.findById(req.params.id);
+        const prevSalesStatus = currentLead.salesStatus;
+        const prevResultStatus = normalizeResultStatus(currentLead.resultStatus);
+        const newSalesStatus = fullLead?.salesStatus;
+        const newResultStatus = normalizeResultStatus(fullLead?.resultStatus);
+
+        // salesStatus jadi HOT → notif supervisor
+        if (salesStatus && newSalesStatus === "hot" && prevSalesStatus !== "hot" && fullLead?.assignedTo) {
+            const [salesRow] = await db.select({ supervisorId: userTable.supervisorId }).from(userTable).where(eq(userTable.id, fullLead.assignedTo));
+            if (salesRow?.supervisorId) {
+                void sendToUser(salesRow.supervisorId, {
+                    title: "Lead HOT Menunggu Validasi",
+                    body: `${fullLead.name} ditandai HOT oleh sales. Perlu validasi kamu.`,
+                    data: { leadId: req.params.id, type: "hot_lead" },
+                });
+            }
+        }
+
+        // resultStatus jadi reserve/full_book → notif sales
+        if (resultStatus && ["reserve", "full_book"].includes(newResultStatus || "") && !["reserve", "full_book"].includes(prevResultStatus || "") && fullLead?.assignedTo) {
+            void sendToUser(fullLead.assignedTo, {
+                title: "Update Status Transaksi",
+                body: `Lead ${fullLead.name} perlu update status transaksi lanjutan.`,
+                data: { leadId: req.params.id, type: "transaction_update" },
+            });
+        }
+
         res.json(fullLead || updated);
     } catch (error) {
         next(error);

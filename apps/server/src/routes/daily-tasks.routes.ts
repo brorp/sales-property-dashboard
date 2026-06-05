@@ -4,6 +4,10 @@ import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireRole } from "../middleware/rbac";
 import * as dailyTaskService from "../services/daily-task.service";
 import { getWorkspaceClientId } from "../utils/request-client";
+import { sendToUser } from "../services/push-notification.service";
+import { db } from "../db/index";
+import { lead as leadTable, user as userTable } from "../db/schema";
+import { eq } from "drizzle-orm";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -35,6 +39,20 @@ router.get("/counts", requireRole("sales") as any, async (req, res: Response, ne
     }
 });
 
+async function notifySuperviorOfSubmit(salesId: string, leadId: string, label: string) {
+    const [[salesRow], [leadRow]] = await Promise.all([
+        db.select({ supervisorId: userTable.supervisorId, name: userTable.name }).from(userTable).where(eq(userTable.id, salesId)),
+        db.select({ name: leadTable.name }).from(leadTable).where(eq(leadTable.id, leadId)),
+    ]);
+    if (salesRow?.supervisorId) {
+        void sendToUser(salesRow.supervisorId, {
+            title: "Tugas Diajukan Sales",
+            body: `${salesRow.name || "Sales"} mengajukan ${label} untuk lead ${leadRow?.name || ""}.`,
+            data: { leadId, type: "submitted_task" },
+        });
+    }
+}
+
 router.post(
     "/:id/submit-new-lead",
     requireRole("sales") as any,
@@ -48,6 +66,7 @@ router.post(
                 screenshotUrl: String(req.body?.screenshotUrl || "").trim(),
                 salesStatus: String(req.body?.salesStatus || "").trim(),
             });
+            if (updated?.leadId) void notifySuperviorOfSubmit(user.id, updated.leadId, "New Lead");
             res.json(updated);
         } catch (error) {
             next(error);
@@ -67,6 +86,7 @@ router.post(
                 actorName: user.name,
                 screenshotUrl: String(req.body?.screenshotUrl || "").trim(),
             });
+            if (updated?.leadId) void notifySuperviorOfSubmit(user.id, updated.leadId, "Follow Up");
             res.json(updated);
         } catch (error) {
             next(error);

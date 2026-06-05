@@ -3,6 +3,7 @@ import { db } from "../db/index";
 import { appointment, lead, user, waMessage } from "../db/schema";
 import { getActiveWhatsAppNumber } from "../services/whatsapp-identity.service";
 import { sendWhatsAppText } from "../services/whatsapp-provider.service";
+import { sendToUser } from "../services/push-notification.service";
 import { generateId } from "../utils/id";
 import { logger } from "../utils/logger";
 
@@ -158,6 +159,12 @@ async function sendDailyAppointmentReminders(targetDate: string) {
                 leadPhone: item.leadPhone,
                 location: item.location,
             })),
+        });
+
+        void sendToUser(salesId, {
+            title: "Pengingat Janji Temu Besok",
+            body: `Kamu punya ${ownAppointments.length} janji temu besok (${targetDate}).`,
+            data: { type: "appointment_reminder", date: targetDate },
         });
 
         const sendResult = await sendWhatsAppText(sales.phone, message);
