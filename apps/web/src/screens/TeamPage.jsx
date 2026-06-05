@@ -153,6 +153,10 @@ function getTeamActionErrorMessage(error, fallback) {
             return 'Password admin tidak valid.';
         case 'PENALTY_COMPENSATION_REASON_REQUIRED':
             return 'Alasan kompensasi wajib diisi.';
+        case 'TEAM_GROUP_INVALID_MEMBER':
+            return 'Member tidak valid, sudah nonaktif, atau bukan sales/supervisor.';
+        case 'TEAM_GROUP_NOT_FOUND':
+            return 'Group tim tidak ditemukan pada workspace aktif.';
         default:
             return error.message;
     }
@@ -308,10 +312,7 @@ export default function TeamPage() {
         intervalMs: 3000,
         run: useCallback(async () => {
             await refreshTeamStats();
-            if (canViewTeamGroups) {
-                await loadTeamGroups();
-            }
-        }, [canViewTeamGroups, loadTeamGroups, refreshTeamStats]),
+        }, [refreshTeamStats]),
     });
     const groups = Array.isArray(teamStats?.groups) ? teamStats.groups : [];
     const availableSupervisors = useMemo(() => {

@@ -709,7 +709,6 @@ export async function addTeamGroupMember(params: {
         .select({
             id: user.id,
             role: user.role,
-            clientId: user.clientId,
             isActive: user.isActive,
         })
         .from(user)
@@ -719,8 +718,7 @@ export async function addTeamGroupMember(params: {
     if (
         !member ||
         !member.isActive ||
-        (member.role !== "supervisor" && member.role !== "sales") ||
-        member.clientId !== existing.clientId
+        (member.role !== "supervisor" && member.role !== "sales")
     ) {
         throw new Error("TEAM_GROUP_INVALID_MEMBER");
     }
