@@ -99,7 +99,7 @@ export default function Sidebar({ collapsed, onToggleCollapsed }) {
     const tenant = useTenant();
     const { activeWorkspace, workspaces } = useWorkspace();
     const { theme, setTheme } = useTheme();
-    const { hasUnreadLeads, hasUnreadLogs, taskCounts, supervisorTaskCount } = useNavData();
+    const { hasUnreadLogs, taskCounts, supervisorTaskCount, leadActionCount, teamSuspendedCount, hasWhatsappIssue } = useNavData();
     const pathname = usePathname();
     const router = useRouter();
 
@@ -160,14 +160,20 @@ export default function Sidebar({ collapsed, onToggleCollapsed }) {
                     >
                         <span className="sidebar-icon-wrap">
                             <span className="sidebar-icon"><Icon name={tab.icon} /></span>
-                            {tab.key === '/leads' && hasUnreadLeads && !isActive(tab.key) ? <span className="sidebar-unread-dot" /> : null}
+                            {tab.key === '/leads' && leadActionCount > 0 ? (
+                                <span className="sidebar-count-badge">{leadActionCount > 99 ? '99+' : leadActionCount}</span>
+                            ) : null}
                             {tab.key === '/activity-logs' && hasUnreadLogs && !isActive(tab.key) ? <span className="sidebar-unread-dot" /> : null}
                             {tab.key === '/daily-tasks' && taskCounts.totalCount > 0 ? (
-                                <span className="sidebar-count-badge">{taskCounts.totalCount}</span>
+                                <span className="sidebar-task-dot" />
                             ) : null}
                             {tab.key === '/supervisor-tasks' && supervisorTaskCount > 0 ? (
-                                <span className="sidebar-count-badge" style={{ background: '#ef4444' }}>{supervisorTaskCount}</span>
+                                <span className="sidebar-task-dot" />
                             ) : null}
+                            {tab.key === '/team' && teamSuspendedCount > 0 ? (
+                                <span className="sidebar-count-badge">{teamSuspendedCount > 99 ? '99+' : teamSuspendedCount}</span>
+                            ) : null}
+                            {tab.key === '/settings' && hasWhatsappIssue ? <span className="sidebar-alert-badge">!</span> : null}
                         </span>
                         {!collapsed ? <span className="sidebar-label">{tab.label}</span> : null}
                     </button>

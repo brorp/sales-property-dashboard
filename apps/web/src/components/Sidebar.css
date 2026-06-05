@@ -191,6 +191,37 @@ html[data-theme="dark"] .sidebar {
         border: 1.5px solid var(--sidebar-bg);
     }
 
+    .sidebar-task-dot {
+        position: absolute;
+        top: -3px;
+        right: -4px;
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--hot);
+        border: 1.5px solid var(--sidebar-bg);
+        box-shadow: 0 1px 4px rgba(239, 68, 68, 0.28);
+    }
+
+    .sidebar-alert-badge {
+        position: absolute;
+        top: -7px;
+        right: -9px;
+        width: 17px;
+        height: 17px;
+        border-radius: 999px;
+        background: var(--hot);
+        color: #fff;
+        font-size: 0.68rem;
+        font-weight: 800;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1.5px solid var(--sidebar-bg);
+        box-shadow: 0 4px 10px rgba(239, 68, 68, 0.28);
+    }
+
     /* ── Footer / Logout ── */
     .sidebar-footer {
         padding: 12px;

@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatCount } from './utils';
 import PieChartCard from '../../components/PieChartCard';
+import Select from '../../components/Select';
 import './DashboardSections.css';
 
 const PIE_COLORS = [
@@ -174,12 +175,73 @@ function buildBreakdown(leads, getLabel, limit = 8) {
     return [...top, { label: 'Lainnya', count: restTotal }];
 }
 
-function StatusRow({ status, count, total, active, onClick, disabled }) {
+function formatFormulaDetail(parts, total) {
+    const leftSide = parts.map((value) => formatCount(value)).join(' + ');
+    return `${parts.length > 1 ? `(${leftSide})` : leftSide} / ${formatCount(total)}`;
+}
+
+function getSalesNameForLead(lead, salesNameById) {
+    if (lead.assignedTo && salesNameById.has(lead.assignedTo)) {
+        return salesNameById.get(lead.assignedTo);
+    }
+    return lead.assignedUserName || (lead.assignedTo ? 'Sales Tanpa Nama' : 'Unassigned');
+}
+
+function buildStatusSalesBreakdown(items, matcher, salesNameById, limit = 6) {
+    const map = new Map();
+    for (const item of items) {
+        if (!matcher(item)) continue;
+        const salesKey = item.assignedTo || 'unassigned';
+        const current = map.get(salesKey) || {
+            salesId: salesKey,
+            salesName: getSalesNameForLead(item, salesNameById),
+            count: 0,
+        };
+        current.count += 1;
+        map.set(salesKey, current);
+    }
+
+    const sorted = Array.from(map.values())
+        .sort((a, b) => b.count - a.count || a.salesName.localeCompare(b.salesName));
+
+    return {
+        total: sorted.reduce((sum, item) => sum + item.count, 0),
+        items: sorted.slice(0, limit),
+        hiddenCount: Math.max(0, sorted.length - limit),
+    };
+}
+
+function StatusTooltip({ status, breakdown }) {
+    if (!breakdown) return null;
+    return (
+        <span className="an-status-tooltip" role="tooltip">
+            <span className="an-status-tooltip-title">{status.label}</span>
+            {breakdown.items.length > 0 ? (
+                <span className="an-status-tooltip-list">
+                    {breakdown.items.map((item) => (
+                        <span key={item.salesId} className="an-status-tooltip-row">
+                            <span className="an-status-tooltip-name">{item.salesName}</span>
+                            <strong className="an-status-tooltip-count">{formatCount(item.count)}</strong>
+                        </span>
+                    ))}
+                    {breakdown.hiddenCount > 0 ? (
+                        <span className="an-status-tooltip-more">+{breakdown.hiddenCount} sales lainnya</span>
+                    ) : null}
+                </span>
+            ) : (
+                <span className="an-status-tooltip-empty">Belum ada sales</span>
+            )}
+        </span>
+    );
+}
+
+function StatusRow({ status, count, total, active, onClick, disabled, salesBreakdown }) {
     const percent = pct(count, total);
     const className = [
         'an-status-row',
         active ? 'is-active' : '',
         disabled ? 'is-disabled' : '',
+        salesBreakdown ? 'has-tooltip' : '',
     ].filter(Boolean).join(' ');
     return (
         <button
@@ -200,11 +262,12 @@ function StatusRow({ status, count, total, active, onClick, disabled }) {
             <span className="an-status-track">
                 <span className="an-status-fill" style={{ width: `${Math.min(100, Math.max(0, percent))}%`, background: status.color }} />
             </span>
+            <StatusTooltip status={status} breakdown={salesBreakdown} />
         </button>
     );
 }
 
-function ColumnCard({ title, total, rateLabel, rateValue, rateFormula, children }) {
+function ColumnCard({ title, total, rateLabel, rateValue, rateFormula, rateFormulaDetail, children }) {
     return (
         <div className="an-col-card">
             <div className="an-col-card-head">
@@ -218,7 +281,10 @@ function ColumnCard({ title, total, rateLabel, rateValue, rateFormula, children 
             {rateLabel ? (
                 <div className="an-col-card-foot" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '2px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                        <span className="an-col-card-foot-label">{rateLabel} : {rateFormula ? `(${rateFormula})` : ''}</span>
+                        <span className="an-col-card-foot-label">
+                            {rateLabel} : {rateFormula ? `(${rateFormula})` : ''}
+                            {rateFormulaDetail ? <span className="an-col-card-foot-detail"> = {rateFormulaDetail}</span> : null}
+                        </span>
                         <strong className="an-col-card-foot-value">{rateValue}%</strong>
                     </div>
 
@@ -297,6 +363,9 @@ export default function AnalyticsSection({
     rangeSummary = '',
     periodLabel = '',
     onOpenFilter,
+    sourceOptions = [],
+    selectedSource = 'all',
+    onSourceChange,
     viewerRole = '',
     viewerId = '',
 }) {
@@ -331,10 +400,22 @@ export default function AnalyticsSection({
     const [statusFilter, setStatusFilter] = useState(null);
     const [chartType, setChartType] = useState('pie');
     const [isSalesListOpen, setIsSalesListOpen] = useState(false);
+    const salesPaneRef = useRef(null);
 
     const dateStart = useMemo(() => parseInputDate(appliedDateRange?.dateFrom), [appliedDateRange?.dateFrom]);
     const dateEnd = useMemo(() => parseInputDateEnd(appliedDateRange?.dateTo), [appliedDateRange?.dateTo]);
     const hasDateFilter = Boolean(dateStart || dateEnd);
+
+    useEffect(() => {
+        if (!isSalesListOpen) return;
+        const handlePointerDown = (event) => {
+            if (salesPaneRef.current && !salesPaneRef.current.contains(event.target)) {
+                setIsSalesListOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handlePointerDown);
+        return () => document.removeEventListener('mousedown', handlePointerDown);
+    }, [isSalesListOpen]);
 
     // Sales list flattened from analytics.transactionRecap.teams[].sales[]
     const visibleSales = useMemo(() => {
@@ -357,17 +438,32 @@ export default function AnalyticsSection({
         return out;
     }, [transactionRecap, viewerRole, viewerId]);
 
+    const salesNameById = useMemo(() => {
+        const map = new Map();
+        for (const item of visibleSales) {
+            if (item.id) map.set(item.id, item.name || 'Sales Tanpa Nama');
+        }
+        return map;
+    }, [visibleSales]);
+
+    const sourceFilteredLeads = useMemo(() => {
+        const sourceValue = String(selectedSource || 'all').trim();
+        if (!sourceValue || sourceValue === 'all') return leads;
+        const normalizedSource = sourceValue.toLowerCase();
+        return leads.filter((lead) => toLowerTrimmed(getSourceLabel(lead)) === normalizedSource);
+    }, [leads, selectedSource]);
+
     // createdAt-based filter for non-Transaction views
     const createdAtFilteredLeads = useMemo(() => {
-        if (!hasDateFilter) return leads;
-        return leads.filter((l) => withinRange(l.createdAt || l.receivedAt, dateStart, dateEnd));
-    }, [leads, hasDateFilter, dateStart, dateEnd]);
+        if (!hasDateFilter) return sourceFilteredLeads;
+        return sourceFilteredLeads.filter((l) => withinRange(l.createdAt || l.receivedAt, dateStart, dateEnd));
+    }, [sourceFilteredLeads, hasDateFilter, dateStart, dateEnd]);
 
     // resultStatusUpdatedAt-based filter for Transaction column
     const l4FilteredLeads = useMemo(() => {
-        if (!hasDateFilter) return leads;
-        return leads.filter((l) => withinRange(l.resultStatusUpdatedAt, dateStart, dateEnd));
-    }, [leads, hasDateFilter, dateStart, dateEnd]);
+        if (!hasDateFilter) return sourceFilteredLeads;
+        return sourceFilteredLeads.filter((l) => withinRange(l.resultStatusUpdatedAt, dateStart, dateEnd));
+    }, [sourceFilteredLeads, hasDateFilter, dateStart, dateEnd]);
 
     const salesLeadCounts = useMemo(() => {
         const map = new Map();
@@ -426,9 +522,54 @@ export default function AnalyticsSection({
         return m;
     }, [scopedL4Leads]);
 
-    const closingRate = pct(l4Counts.full_book, scopedL4Leads.length);
+    const closingNumerator = (l4Counts.full_book || 0) + (l4Counts.lunas || 0);
+    const prospectNumerator = (l2Counts.hot || 0) + (l2Counts.hot_validated || 0);
+    const closingRate = pct(closingNumerator, scopedL4Leads.length);
     const surveyRate = pct(l3Counts.sudah_survey, scopedCreatedAtLeads.length);
-    const prospectRate = pct((l2Counts.hot || 0) + (l2Counts.hot_validated || 0), scopedCreatedAtLeads.length);
+    const prospectRate = pct(prospectNumerator, scopedCreatedAtLeads.length);
+
+    const statusSalesBreakdown = useMemo(() => {
+        if (!isAllSales) {
+            return {
+                transaction: {},
+                visit: {},
+                prospek: {},
+            };
+        }
+
+        return {
+            transaction: Object.fromEntries(
+                L4_STATUSES.map((status) => [
+                    status.key,
+                    buildStatusSalesBreakdown(
+                        l4FilteredLeads,
+                        (lead) => getL4BucketKey(lead.resultStatus) === status.key,
+                        salesNameById
+                    ),
+                ])
+            ),
+            visit: Object.fromEntries(
+                L3_STATUSES.map((status) => [
+                    status.key,
+                    buildStatusSalesBreakdown(
+                        createdAtFilteredLeads,
+                        (lead) => getL3BucketKey(lead.appointmentTag) === status.key,
+                        salesNameById
+                    ),
+                ])
+            ),
+            prospek: Object.fromEntries(
+                L2_STATUSES.map((status) => [
+                    status.key,
+                    buildStatusSalesBreakdown(
+                        createdAtFilteredLeads,
+                        (lead) => getL2BucketKey(lead) === status.key,
+                        salesNameById
+                    ),
+                ])
+            ),
+        };
+    }, [createdAtFilteredLeads, isAllSales, l4FilteredLeads, salesNameById]);
 
     const chartLeads = useMemo(() => {
         if (!statusFilter) return scopedCreatedAtLeads;
@@ -506,18 +647,30 @@ export default function AnalyticsSection({
                     </div>
                     <span className="ds-card-summary">{rangeSummary || 'Klik status untuk memfilter grafik di bawah.'}</span>
                 </div>
-                {onOpenFilter ? (
-                    <button type="button" className="ds-section-filter-btn" onClick={onOpenFilter} aria-label="Pilih rentang tanggal">
-                        <CalendarIcon />
-                    </button>
-                ) : null}
+                <div className="an-head-actions">
+                    {sourceOptions.length > 1 ? (
+                        <Select
+                            className="an-source-select"
+                            options={sourceOptions}
+                            value={selectedSource}
+                            onChange={onSourceChange}
+                            placeholder="Sumber Data"
+                            clearable={false}
+                        />
+                    ) : null}
+                    {onOpenFilter ? (
+                        <button type="button" className="ds-section-filter-btn" onClick={onOpenFilter} aria-label="Pilih rentang tanggal">
+                            <CalendarIcon />
+                        </button>
+                    ) : null}
+                </div>
             </div>
 
             <div className="ds-tab-body an-body">
                 <div className="an-grid">
                     {/* Collapsible Sales Pane (Full Width) */}
                     {viewerRole !== 'sales' ? (
-                        <div className="an-sales-pane">
+                        <div className="an-sales-pane" ref={salesPaneRef}>
                             <button
                                 type="button"
                                 className={`an-sales-row an-sales-row--total ${selectedSalesId !== 'all' ? 'is-active' : ''}`}
@@ -528,8 +681,8 @@ export default function AnalyticsSection({
                                 <span className="an-sales-row-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <span>
                                         {selectedSalesId === 'all'
-                                            ? 'Semua Sales'
-                                            : visibleSales.find((s) => s.id === selectedSalesId)?.name || 'Semua Sales'}
+                                            ? 'Total Database'
+                                            : visibleSales.find((s) => s.id === selectedSalesId)?.name || 'Total Database'}
                                     </span>
                                     <svg
                                         width="12"
@@ -563,10 +716,9 @@ export default function AnalyticsSection({
                                     className={`an-sales-row${selectedSalesId === 'all' ? ' is-active' : ''}`}
                                     onClick={() => {
                                         setSelectedSalesId('all');
-                                        setIsSalesListOpen(false);
                                     }}
                                 >
-                                    <span className="an-sales-row-label">Semua Sales</span>
+                                    <span className="an-sales-row-label">Total Database</span>
                                     <strong className="an-sales-row-count">{formatCount(createdAtFilteredLeads.length)}</strong>
                                 </button>
                                 {visibleSales.length === 0 ? (
@@ -582,7 +734,6 @@ export default function AnalyticsSection({
                                                 className={`an-sales-row${active ? ' is-active' : ''}`}
                                                 onClick={() => {
                                                     setSelectedSalesId(s.id);
-                                                    setIsSalesListOpen(false);
                                                 }}
                                                 title={s.name}
                                             >
@@ -604,6 +755,7 @@ export default function AnalyticsSection({
                             rateLabel="Closing Rate"
                             rateValue={closingRate}
                             rateFormula="Full Book + Lunas / Total Leads"
+                            rateFormulaDetail={formatFormulaDetail([l4Counts.full_book || 0, l4Counts.lunas || 0], scopedL4Leads.length)}
                         >
                             {L4_STATUSES.map((status) => (
                                 <StatusRow
@@ -613,6 +765,7 @@ export default function AnalyticsSection({
                                     total={l4Reached.length}
                                     active={isStatusActive('transaction', status.key)}
                                     onClick={() => toggleStatusFilter('transaction', status.key)}
+                                    salesBreakdown={statusSalesBreakdown.transaction[status.key]}
                                 />
                             ))}
                         </ColumnCard>
@@ -623,6 +776,7 @@ export default function AnalyticsSection({
                             rateLabel="Survey Rate"
                             rateValue={surveyRate}
                             rateFormula="Sudah Survey / Total Leads"
+                            rateFormulaDetail={formatFormulaDetail([l3Counts.sudah_survey || 0], scopedCreatedAtLeads.length)}
                         >
                             {L3_STATUSES.map((status) => (
                                 <StatusRow
@@ -632,6 +786,7 @@ export default function AnalyticsSection({
                                     total={l3Reached.length}
                                     active={isStatusActive('visit', status.key)}
                                     onClick={() => toggleStatusFilter('visit', status.key)}
+                                    salesBreakdown={statusSalesBreakdown.visit[status.key]}
                                 />
                             ))}
                         </ColumnCard>
@@ -642,6 +797,7 @@ export default function AnalyticsSection({
                             rateLabel="Prospect Rate"
                             rateValue={prospectRate}
                             rateFormula="Hot / Total Leads"
+                            rateFormulaDetail={formatFormulaDetail([prospectNumerator], scopedCreatedAtLeads.length)}
                         >
                             {L2_STATUSES.map((status) => (
                                 <StatusRow
@@ -651,6 +807,7 @@ export default function AnalyticsSection({
                                     total={l2Reached.length}
                                     active={isStatusActive('prospek', status.key)}
                                     onClick={() => toggleStatusFilter('prospek', status.key)}
+                                    salesBreakdown={statusSalesBreakdown.prospek[status.key]}
                                 />
                             ))}
                         </ColumnCard>

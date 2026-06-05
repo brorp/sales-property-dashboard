@@ -2,10 +2,27 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLeads } from '../context/LeadsContext';
 import { apiRequest } from '../lib/api';
+import { normalizeResultStatusKey } from '../constants/crm';
+import { usePagePolling } from './usePagePolling';
+
+function hasFilledResultStatus(lead) {
+    return Boolean(normalizeResultStatusKey(lead?.resultStatus));
+}
+
+function isActionableTask(item) {
+    const status = String(item?.status || 'pending').trim().toLowerCase();
+    return item?.salesStatus !== 'skip' && !['done', 'invalid', 'completed'].includes(status);
+}
+
+function isLeadOutsideAcceptedFlow(lead) {
+    return String(lead?.flowStatus || '').trim().toLowerCase() !== 'accepted';
+}
 
 export function useNotifications() {
     const { user } = useAuth();
+    const { leads: allLeads } = useLeads();
     
     // States for Admin
     const [holdLeads, setHoldLeads] = useState([]);
@@ -50,11 +67,11 @@ export function useNotifications() {
                     fetchWithFallback('/api/supervisor-tasks/validated-hot', [])
                 ]);
 
-                setNewLeads(dailyData?.newLeads || []);
-                setFollowUps(dailyData?.followUps || []);
-                setDeadlineLeads(dailyData?.deadlineLeads || []);
+                setNewLeads((dailyData?.newLeads || []).filter(isActionableTask));
+                setFollowUps((dailyData?.followUps || []).filter(isActionableTask));
+                setDeadlineLeads((dailyData?.deadlineLeads || []).filter(isActionableTask));
                 setAppointments((apptData || []).filter((a) => (a.status === 'mau_survey' || a.appointmentTag === 'mau_survey') && a.salesId === user.id));
-                setValidatedHot(hotData || []);
+                setValidatedHot((hotData || []).filter((lead) => !hasFilledResultStatus(lead)));
             } else if (isSpv) {
                 const [pendingHot, submittedData] = await Promise.all([
                     fetchWithFallback('/api/supervisor-tasks', []),
@@ -88,23 +105,43 @@ export function useNotifications() {
         void load(true);
     }, [load]);
 
+    usePagePolling({
+        enabled: Boolean(user),
+        intervalMs: 3000,
+        run: async () => {
+            await load(true);
+        },
+    });
+
+    const adminActionLeads = isAdmin && Array.isArray(allLeads)
+        ? allLeads.filter(isLeadOutsideAcceptedFlow)
+        : holdLeads;
+
+    const transactionLeads = (isSales || isSpv) && Array.isArray(allLeads)
+        ? allLeads.filter((lead) => {
+            if (isSales && lead.assignedTo !== user?.id) return false;
+            return ['reserve', 'full_book'].includes(normalizeResultStatusKey(lead.resultStatus));
+        })
+        : [];
+
     // Calculate count based on role
     let count = 0;
     if (isAdmin) {
-        count = holdLeads.length;
+        count = adminActionLeads.length;
     } else if (isSales) {
-        count = newLeads.length + followUps.length + deadlineLeads.length + appointments.length + validatedHot.length;
+        count = newLeads.length + followUps.length + deadlineLeads.length + appointments.length + validatedHot.length + transactionLeads.length;
     } else if (isSpv) {
-        count = hotLeads.length + submittedTasks.length;
+        count = hotLeads.length + submittedTasks.length + transactionLeads.length;
     }
 
     return {
-        holdLeads,
+        holdLeads: adminActionLeads,
         newLeads,
         followUps,
         deadlineLeads,
         appointments,
         validatedHot,
+        transactionLeads,
         hotLeads,
         submittedTasks,
         count,

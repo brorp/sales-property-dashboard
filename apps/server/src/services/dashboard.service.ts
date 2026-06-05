@@ -1,6 +1,6 @@
-import { and, asc, eq, gte, inArray, lte, or } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { db } from "../db/index";
-import { appointment, cancelReason, client, lead, projectUnit, teamGroup, teamGroupMember, user } from "../db/schema";
+import { appointment, cancelReason, client, dailyTask, lead, projectUnit, teamGroup, teamGroupMember, user } from "../db/schema";
 import { resolveAppointmentTag, toAppointmentDateTime } from "../utils/appointment";
 import type { QueryScope } from "../middleware/rbac";
 import { isCancelResultStatus } from "../utils/lead-workflow";
@@ -52,6 +52,7 @@ type AppointmentRow = {
 type DashboardDateRange = {
     dateFrom?: string;
     dateTo?: string;
+    source?: string;
 };
 
 const SALES_STATUS_META = [
@@ -589,6 +590,10 @@ async function loadScopedLeadsAndAppointments(
     }
     if (normalizedDateRange.dateTo) {
         conditions.push(lte(lead.receivedAt, normalizedDateRange.dateTo));
+    }
+    const sourceFilter = String(filters?.source || "").trim();
+    if (sourceFilter) {
+        conditions.push(sql`lower(${lead.source}) = ${sourceFilter.toLowerCase()}`);
     }
 
     const leadCondition = conditions.length > 0 ? and(...conditions) : undefined;
@@ -2345,6 +2350,29 @@ export async function getHomeAnalytics(
 
             const teams = buildTeamList(statsMap);
             const totalAkad = teams.reduce((acc, t) => acc + t.akad, 0);
+
+            // Flatten sales stats across teams for per-group aggregation lookups.
+            const salesStatsById = new Map<string, { survey: number }>();
+            for (const team of teams) {
+                for (const sales of team.sales || []) {
+                    salesStatsById.set(sales.salesId, { survey: sales.survey || 0 });
+                }
+            }
+            const groupSurveyBreakdown = analyticsTeamGroups
+                .filter((group) => group.salesIds.length > 0)
+                .map((group) => {
+                    const surveyCount = group.salesIds.reduce((sum, salesId) => {
+                        const stats = salesStatsById.get(salesId);
+                        return sum + (stats?.survey || 0);
+                    }, 0);
+                    return {
+                        id: group.id,
+                        name: group.name,
+                        salesCount: group.salesIds.length,
+                        surveyCount,
+                    };
+                });
+
             return {
                 totalOngoing: ongoing,
                 totalClosing: totalAkad,
@@ -2360,6 +2388,7 @@ export async function getHomeAnalytics(
                     name: group.name,
                     salesCount: group.salesIds.length,
                 })),
+                groupSurveyBreakdown,
                 groupComparison: buildGroupComparisonForItems(items),
                 unitTypeBreakdown: Object.fromEntries(
                     Array.from(unitMaps.entries()).map(([key, map]) => [key, mapToBreakdown(map)])
@@ -2508,6 +2537,107 @@ export async function getHomeAnalytics(
             lineChart,
         };
 
+        // ── Daily Task Recap per Sales ─────────────────────────────────────
+        const scopedSalesUsersList = allScopedUsers
+            .filter((u) => u.role === "sales")
+            .map((u) => ({ id: u.id, name: u.name }));
+        const scopedSalesIdsForRecap = scopedSalesUsersList.map((u) => u.id);
+
+        type RecapBucket = {
+            salesId: string;
+            salesName: string;
+            followUp: { newLeads: number; pipeline: number; deadline: number };
+            survey: { hariIni: number; nanti: number; terlewat: number };
+            hotDatabase: { lessThanMonth: number; moreThanMonth: number };
+            transaksi: { reserve: number; fullBook: number; lunas: number };
+        };
+
+        const recapBuckets = new Map<string, RecapBucket>();
+        for (const sales of scopedSalesUsersList) {
+            recapBuckets.set(sales.id, {
+                salesId: sales.id,
+                salesName: sales.name,
+                followUp: { newLeads: 0, pipeline: 0, deadline: 0 },
+                survey: { hariIni: 0, nanti: 0, terlewat: 0 },
+                hotDatabase: { lessThanMonth: 0, moreThanMonth: 0 },
+                transaksi: { reserve: 0, fullBook: 0, lunas: 0 },
+            });
+        }
+
+        // Follow Up tasks (current pending/overdue daily_task)
+        if (scopedSalesIdsForRecap.length > 0) {
+            const taskConditions: any[] = [
+                inArray(dailyTask.salesId, scopedSalesIdsForRecap),
+                inArray(dailyTask.status, ["pending", "overdue"]),
+            ];
+            const taskRows = await db
+                .select({
+                    salesId: dailyTask.salesId,
+                    taskType: dailyTask.taskType,
+                })
+                .from(dailyTask)
+                .where(and(...taskConditions));
+
+            for (const row of taskRows) {
+                const bucket = recapBuckets.get(row.salesId);
+                if (!bucket) continue;
+                if (row.taskType === "new_lead") bucket.followUp.newLeads += 1;
+                else if (row.taskType === "follow_up") bucket.followUp.pipeline += 1;
+                else if (row.taskType === "deadline_lead") bucket.followUp.deadline += 1;
+            }
+        }
+
+        // Survey (appointments by date vs today, Jakarta)
+        const todayJakartaStr = (() => {
+            const now = new Date();
+            const jakartaOffsetMs = 7 * 60 * 60 * 1000;
+            const jakartaNow = new Date(now.getTime() + jakartaOffsetMs);
+            return jakartaNow.toISOString().slice(0, 10);
+        })();
+        for (const appt of scopedAppointments) {
+            if (!appt.salesId || appt.status !== "mau_survey") continue;
+            const bucket = recapBuckets.get(appt.salesId);
+            if (!bucket) continue;
+            const dateStr = typeof appt.date === "string"
+                ? appt.date.slice(0, 10)
+                : new Date(appt.date).toISOString().slice(0, 10);
+            if (dateStr < todayJakartaStr) bucket.survey.terlewat += 1;
+            else if (dateStr === todayJakartaStr) bucket.survey.hariIni += 1;
+            else bucket.survey.nanti += 1;
+        }
+
+        // Hot Database (validated hot leads, partitioned by receivedAt age vs 30d)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        for (const item of decoratedLeads) {
+            if (!item.assignedTo) continue;
+            if (toLowerTrimmed(item.salesStatus) !== "hot") continue;
+            if (!item.validated) continue;
+            const bucket = recapBuckets.get(item.assignedTo);
+            if (!bucket) continue;
+            const received = new Date(item.receivedAt || item.createdAt);
+            if (Number.isNaN(received.getTime())) continue;
+            if (received.getTime() >= thirtyDaysAgo.getTime()) {
+                bucket.hotDatabase.lessThanMonth += 1;
+            } else {
+                bucket.hotDatabase.moreThanMonth += 1;
+            }
+        }
+
+        // Transaksi (by resultStatus)
+        for (const item of decoratedLeads) {
+            if (!item.assignedTo) continue;
+            const bucket = recapBuckets.get(item.assignedTo);
+            if (!bucket) continue;
+            const status = toLowerTrimmed(item.resultStatus);
+            if (status === "reserve") bucket.transaksi.reserve += 1;
+            else if (status === "full_book") bucket.transaksi.fullBook += 1;
+            else if (status === "lunas" || status === "akad") bucket.transaksi.lunas += 1;
+        }
+
+        const dailyTaskRecap = Array.from(recapBuckets.values())
+            .sort((a, b) => a.salesName.localeCompare(b.salesName));
+
         return {
             scope: isManagerRole ? "overall" : "agent",
             hierarchySummary: await buildHierarchySummary(userId, role, scope),
@@ -2534,5 +2664,6 @@ export async function getHomeAnalytics(
             teamPerformance,
             databaseControl,
             lineChart,
+            dailyTaskRecap,
         };
 }

@@ -88,6 +88,34 @@ router.delete("/groups/:groupId/members/:memberId", requireRole("root_admin", "c
     }
 });
 
+router.post("/sales/:id/reset-penalties", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { scope, user } = req as unknown as AuthenticatedRequest;
+        const updated = await teamService.resetSalesPenalties({
+            salesId: req.params.id,
+            actorId: user.id,
+            scope,
+        });
+        res.json(updated);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.post("/sales/:id/reset-sp", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { scope, user } = req as unknown as AuthenticatedRequest;
+        const updated = await teamService.resetSalesSpLevel({
+            salesId: req.params.id,
+            actorId: user.id,
+            scope,
+        });
+        res.json(updated);
+    } catch (error) {
+        next(error);
+    }
+});
+
 router.get("/:id", requireMinRole("supervisor") as any, async (req, res: Response, next: NextFunction) => {
     try {
         const { scope } = req as unknown as AuthenticatedRequest;

@@ -10,7 +10,8 @@ import Header from '../components/Header';
 import DateRangePicker from '../components/DateRangePicker';
 import Select from '../components/Select';
 import { usePagePolling } from '../hooks/usePagePolling';
-import { useNotifications } from '../hooks/useNotifications';
+import { useNavData } from '../hooks/useNavData';
+import { DATE_PRESET_OPTIONS, getPresetRange, parseDateInput } from '../utils/datePresets';
 import TransactionRecapSection from './dashboard-sections/TransactionRecapSection';
 import TransactionCompareSection from './dashboard-sections/TransactionCompareSection';
 import TeamPerformanceSection from './dashboard-sections/TeamPerformanceSection';
@@ -20,18 +21,10 @@ import LineChartSection from './dashboard-sections/LineChartSection';
 import DailySalesReportSection from './dashboard-sections/DailySalesReportSection';
 import OverviewSection from './dashboard-sections/OverviewSection';
 import AnalyticsSection from './dashboard-sections/AnalyticsSection';
+import SalesPerformanceSection from './dashboard-sections/SalesPerformanceSection';
+import DailyReportHeaderSection from './dashboard-sections/DailyReportHeaderSection';
 
 const EMPTY_DATE_RANGE = { dateFrom: '', dateTo: '' };
-
-
-
-const PERIOD_SF_OPTIONS = [
-    { value: 'today', label: 'Hari Ini' },
-    { value: 'last7', label: '7 Hari Terakhir' },
-    { value: 'last30', label: '30 Hari Terakhir' },
-    { value: 'last90', label: '90 Hari Terakhir' },
-    { value: 'thisMonth', label: 'Bulan Ini' },
-];
 
 const DEFAULT_ANALYTICS = {
     hierarchySummary: null,
@@ -49,29 +42,6 @@ const DEFAULT_ANALYTICS = {
     lineChart: null,
     dailySalesReport: null,
 };
-
-const QUICK_RANGES = [
-    { key: 'today', label: 'Hari Ini' },
-    { key: 'last7', label: '7 Hari Terakhir' },
-    { key: 'last30', label: '30 Hari Terakhir' },
-    { key: 'last90', label: '90 Hari Terakhir' },
-    { key: 'thisMonth', label: 'Bulan Ini' },
-];
-
-function parseDateInput(value) {
-    if (!value) return null;
-    const [year, month, day] = String(value).split('-').map(Number);
-    if (!year || !month || !day) return null;
-    const next = new Date(year, month - 1, day);
-    return Number.isNaN(next.getTime()) ? null : next;
-}
-
-function formatDateInput(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
 
 function normalizeDateRange(range) {
     const dateFrom = range?.dateFrom || '';
@@ -106,23 +76,14 @@ function formatSuspensionUntil(value) {
     return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(parsed);
 }
 
-function buildDashboardQuery(range) {
+function buildDashboardQuery(range, sourceFilter = 'all') {
     const params = new URLSearchParams();
     if (range?.dateFrom) params.set('dateFrom', range.dateFrom);
     if (range?.dateTo) params.set('dateTo', range.dateTo);
+    const source = String(sourceFilter || '').trim();
+    if (source && source !== 'all') params.set('source', source);
     const query = params.toString();
     return query ? `?${query}` : '';
-}
-
-function getPresetRange(key) {
-    const today = new Date();
-    const end = formatDateInput(today);
-    if (key === 'today') return { dateFrom: end, dateTo: end };
-    if (key === 'last7') { const s = new Date(today); s.setDate(today.getDate() - 6); return { dateFrom: formatDateInput(s), dateTo: end }; }
-    if (key === 'last30') { const s = new Date(today); s.setDate(today.getDate() - 29); return { dateFrom: formatDateInput(s), dateTo: end }; }
-    if (key === 'last90') { const s = new Date(today); s.setDate(today.getDate() - 89); return { dateFrom: formatDateInput(s), dateTo: end }; }
-    const s = new Date(today.getFullYear(), today.getMonth(), 1);
-    return { dateFrom: formatDateInput(s), dateTo: end };
 }
 
 function formatClientNameFromSlug(slug) {
@@ -132,7 +93,7 @@ function formatClientNameFromSlug(slug) {
 
 export default function DashboardPage() {
     const { user, isAdmin, getRoleLabel } = useAuth();
-    const { dashboardAnalytics, refreshAll, leads, salesUsers } = useLeads();
+    const { dashboardAnalytics, refreshAll, leads, salesUsers, leadSources } = useLeads();
     const router = useRouter();
 
     const [activeSectionTab, setActiveSectionTab] = useState('analytics');
@@ -153,8 +114,9 @@ export default function DashboardPage() {
     const showDateFilter = Boolean(user);
     const showHierarchyOverview = user?.role === 'root_admin';
     const canUseTeamFilters = user?.role === 'client_admin' || user?.role === 'root_admin';
-    const { count: notifCount } = useNotifications();
+    const { navNotificationCount: notifCount } = useNavData();
     const showDailyReport = user?.role === 'root_admin' || user?.role === 'client_admin' || user?.role === 'supervisor';
+    const showTeamPerformance = user?.role === 'root_admin' || user?.role === 'client_admin' || user?.role === 'supervisor';
     const scopedDashboardLabel =
         user?.role === 'supervisor' ? 'Tim Anda' : user?.role === 'sales' ? 'Data Anda' : 'Semua';
 
@@ -178,6 +140,32 @@ export default function DashboardPage() {
         return sbItems.length > 0 ? [def, ...sbItems.map((item) => ({ key: `source:${item.source}`, label: item.source, count: item.count }))] : [def];
     }, [analytics.teamPerformance, analytics.databaseControl?.sourceBreakdown]);
 
+    const analyticsSourceOptions = useMemo(() => {
+        const sourceMap = new Map();
+        const addSource = (value) => {
+            const label = String(value || '').trim();
+            if (!label) return;
+            sourceMap.set(label.toLowerCase(), label);
+        };
+
+        for (const item of Array.isArray(leadSources) ? leadSources : []) {
+            addSource(item?.value || item?.name || item?.label);
+        }
+        for (const item of Array.isArray(leads) ? leads : []) {
+            addSource(item?.source);
+        }
+        for (const item of analytics.databaseControl?.sourceBreakdown || []) {
+            addSource(item?.source || item?.label);
+        }
+
+        return [
+            { value: 'all', label: 'Semua Sumber Data' },
+            ...Array.from(sourceMap.values())
+                .sort((a, b) => a.localeCompare(b))
+                .map((source) => ({ value: source, label: source })),
+        ];
+    }, [analytics.databaseControl?.sourceBreakdown, leadSources, leads]);
+
 
     const transactionUnitOptions = useMemo(
         () => (analytics.transactionRecap?.unitOptions || []).map((o) => ({ value: o.value, label: o.label })),
@@ -200,25 +188,25 @@ export default function DashboardPage() {
 
     const customPickerOpenRef = useRef(null);
 
-    const isCustomActive = !QUICK_RANGES.some((r) => {
-        const pr = getPresetRange(r.key);
+    const isCustomActive = !DATE_PRESET_OPTIONS.some((r) => {
+        const pr = getPresetRange(r.value);
         return pr.dateFrom === appliedDateRange.dateFrom && pr.dateTo === appliedDateRange.dateTo;
     });
     const activePeriodKey = isCustomActive
         ? 'custom'
-        : QUICK_RANGES.find((r) => {
-            const pr = getPresetRange(r.key);
+        : DATE_PRESET_OPTIONS.find((r) => {
+            const pr = getPresetRange(r.value);
             return pr.dateFrom === appliedDateRange.dateFrom && pr.dateTo === appliedDateRange.dateTo;
-        })?.key ?? '';
+        })?.value ?? '';
 
     const periodOptions = useMemo(() => [
-        ...PERIOD_SF_OPTIONS,
+        ...DATE_PRESET_OPTIONS.map(({ value, label }) => ({ value, label })),
         { value: 'custom', label: isCustomActive ? formatRangeButtonLabel(appliedDateRange) : 'Rentang Kustom' },
     ], [isCustomActive, appliedDateRange]);
 
     const transactionPeriodLabel = isCustomActive
         ? formatRangeButtonLabel(appliedDateRange)
-        : (PERIOD_SF_OPTIONS.find((o) => o.value === activePeriodKey)?.label ?? '');
+        : (DATE_PRESET_OPTIONS.find((o) => o.value === activePeriodKey)?.label ?? '');
 
     const handlePeriodChange = (v) => {
         if (!v) return;
@@ -234,18 +222,18 @@ export default function DashboardPage() {
         return ` Dashboard`;
     }, [analytics.hierarchySummary?.client?.name, getRoleLabel, user?.clientSlug, user?.role, user?.name]);
 
-    const loadDashboardAnalytics = useCallback(async (range = EMPTY_DATE_RANGE) => {
+    const loadDashboardAnalytics = useCallback(async (range = EMPTY_DATE_RANGE, sourceFilter = selectedSourceFilter) => {
         if (!user) { setPageAnalytics(null); return null; }
-        const data = await apiRequest(`/api/dashboard/home-analytics${buildDashboardQuery(range)}`, { user });
+        const data = await apiRequest(`/api/dashboard/home-analytics${buildDashboardQuery(range, sourceFilter)}`, { user });
         setDashboardError('');
         setPageAnalytics(data || DEFAULT_ANALYTICS);
         return data || DEFAULT_ANALYTICS;
-    }, [user]);
+    }, [selectedSourceFilter, user]);
 
     usePagePolling({
         enabled: Boolean(user),
         intervalMs: 3000,
-        run: useCallback(async () => { await loadDashboardAnalytics(appliedDateRange); }, [appliedDateRange, loadDashboardAnalytics]),
+        run: useCallback(async () => { await loadDashboardAnalytics(appliedDateRange, selectedSourceFilter); }, [appliedDateRange, loadDashboardAnalytics, selectedSourceFilter]),
     });
 
     useEffect(() => {
@@ -254,9 +242,29 @@ export default function DashboardPage() {
     }, []);
 
     useEffect(() => {
+        if (!user) return;
+        let cancelled = false;
+        (async () => {
+            try {
+                const data = await apiRequest(`/api/dashboard/home-analytics${buildDashboardQuery(appliedDateRange, selectedSourceFilter)}`, { user });
+                if (!cancelled) {
+                    setDashboardError('');
+                    setPageAnalytics(data || DEFAULT_ANALYTICS);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setDashboardError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
+                }
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [user?.id, user?.role, user?.clientSlug]);
+
+    useEffect(() => {
         if (!user) {
             setPageAnalytics(null);
             setAppliedDateRange(getPresetRange('thisMonth'));
+            setSelectedSourceFilter('all');
             setProjectUnits([]);
             setCancelReasons([]);
             return;
@@ -283,7 +291,7 @@ export default function DashboardPage() {
         setDashboardError('');
         try {
             await refreshAll();
-            await loadDashboardAnalytics(appliedDateRange);
+            await loadDashboardAnalytics(appliedDateRange, selectedSourceFilter);
         } catch (err) {
             setDashboardError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
         } finally {
@@ -297,7 +305,7 @@ export default function DashboardPage() {
         setDashboardError('');
         setShowFilterDrawer(false);
         try {
-            await loadDashboardAnalytics(nextRange);
+            await loadDashboardAnalytics(nextRange, selectedSourceFilter);
             setAppliedDateRange(nextRange);
         } catch (err) {
             setDashboardError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
@@ -312,7 +320,7 @@ export default function DashboardPage() {
         setDashboardError('');
         setShowFilterDrawer(false);
         try {
-            await loadDashboardAnalytics(nextRange);
+            await loadDashboardAnalytics(nextRange, selectedSourceFilter);
             setAppliedDateRange(nextRange);
         } catch (err) {
             setDashboardError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
@@ -321,12 +329,26 @@ export default function DashboardPage() {
         }
     };
 
-    const handleClearDateFilter = async () => {
-        const nextRange = getPresetRange('last30');
+    const handleSourceFilterChange = async (source) => {
+        const nextSource = source || 'all';
+        setSelectedSourceFilter(nextSource);
         setFilterLoading(true);
         setDashboardError('');
         try {
-            await loadDashboardAnalytics(nextRange);
+            await loadDashboardAnalytics(appliedDateRange, nextSource);
+        } catch (err) {
+            setDashboardError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
+        } finally {
+            setFilterLoading(false);
+        }
+    };
+
+    const handleClearDateFilter = async () => {
+        const nextRange = getPresetRange('thisMonth');
+        setFilterLoading(true);
+        setDashboardError('');
+        try {
+            await loadDashboardAnalytics(nextRange, selectedSourceFilter);
             setAppliedDateRange(nextRange);
         } catch (err) {
             setDashboardError(err instanceof Error ? err.message : 'Gagal memuat dashboard');
@@ -509,6 +531,13 @@ export default function DashboardPage() {
                             <span className="dash-tab-label-full">Overview</span>
                             <span className="dash-tab-label-short">Overview</span>
                         </button>
+                        {showTeamPerformance ? (
+                            <button type="button" className={`dash-section-tab${activeSectionTab === 'team-performance' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('team-performance')}>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                                <span className="dash-tab-label-full">Team Performance</span>
+                                <span className="dash-tab-label-short">Team Perf.</span>
+                            </button>
+                        ) : null}
                         <button type="button" className={`dash-section-tab${activeSectionTab === 'line-chart' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('line-chart')}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
                             <span className="dash-tab-label-full">Line Chart</span>
@@ -565,15 +594,7 @@ export default function DashboardPage() {
             ) : null}
 
             {activeSectionTab === 'overview' ? (
-                <OverviewSection
-                    surveyRatio={analytics.surveyRatio}
-                    statusPie={analytics.statusPie}
-                    transactionRecap={analytics.transactionRecap}
-                    resultRecap={analytics.resultRecap}
-                    dailySalesReport={analytics.dailySalesReport}
-                    ongoingAppointments={analytics.ongoingAppointments}
-                    perAgentSurveyRatio={analytics.perAgentSurveyRatio}
-                />
+                <DailyReportHeaderSection user={user} />
             ) : null}
 
             {activeSectionTab === 'analytics' ? (
@@ -586,9 +607,16 @@ export default function DashboardPage() {
                     rangeSummary={formatRangeSummary(appliedDateRange)}
                     periodLabel={transactionPeriodLabel}
                     onOpenFilter={() => setShowFilterDrawer(true)}
+                    sourceOptions={analyticsSourceOptions}
+                    selectedSource={selectedSourceFilter}
+                    onSourceChange={handleSourceFilterChange}
                     viewerRole={user?.role}
                     viewerId={user?.id}
                 />
+            ) : null}
+
+            {activeSectionTab === 'team-performance' && showTeamPerformance ? (
+                <SalesPerformanceSection user={user} />
             ) : null}
 
             {activeSectionTab === 'line-chart' ? (

@@ -47,7 +47,7 @@ export default function BottomNav() {
     const { user } = useAuth();
     const { theme } = useTheme();
     const { activeWorkspace, workspaces, switchWorkspace } = useWorkspace();
-    const { hasUnreadLeads, hasUnreadLogs, taskCounts, supervisorTaskCount } = useNavData();
+    const { leadActionCount, taskCounts, supervisorTaskCount, teamSuspendedCount, hasWhatsappIssue } = useNavData();
     const curveFill   = theme === 'dark' ? '#1E293B' : '#FFFFFF';
     const curveStroke = theme === 'dark' ? 'rgba(255,255,255,0.08)' : '#E5E7EB';
     const [wsSheetOpen, setWsSheetOpen] = useState(false);
@@ -117,13 +117,19 @@ export default function BottomNav() {
                         >
                             <span className="bottom-nav-icon">
                                 <Icon name={tab.icon} />
-                                {tab.key === '/leads' && hasUnreadLeads && !isActive(tab.key) ? <span className="bottom-nav-unread-dot" /> : null}
+                                {tab.key === '/leads' && leadActionCount > 0 ? (
+                                    <span className="bottom-nav-count-badge">{leadActionCount > 99 ? '99+' : leadActionCount}</span>
+                                ) : null}
                                 {tab.key === '/daily-tasks' && taskCounts.totalCount > 0 ? (
-                                    <span className="bottom-nav-count-badge">{taskCounts.totalCount}</span>
+                                    <span className="bottom-nav-task-dot" />
                                 ) : null}
                                 {tab.key === '/supervisor-tasks' && supervisorTaskCount > 0 ? (
-                                    <span className="bottom-nav-count-badge" style={{ background: '#ef4444' }}>{supervisorTaskCount}</span>
+                                    <span className="bottom-nav-task-dot" />
                                 ) : null}
+                                {tab.key === '/team' && teamSuspendedCount > 0 ? (
+                                    <span className="bottom-nav-count-badge">{teamSuspendedCount > 99 ? '99+' : teamSuspendedCount}</span>
+                                ) : null}
+                                {tab.key === '/settings' && hasWhatsappIssue ? <span className="bottom-nav-alert-badge">!</span> : null}
                             </span>
                             <span className="bottom-nav-label">{tab.label}</span>
                             {isActive(tab.key) && <span className="bottom-nav-indicator" />}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatCount as fmt } from './utils';
 import Select from '../../components/Select';
 import DateRangePicker from '../../components/DateRangePicker';
+import { DATE_PRESET_OPTIONS, getPresetRange } from '../../utils/datePresets';
 import './DashboardSections.css';
 
 const SERIES_COLORS = [
@@ -32,15 +33,6 @@ const GRANULARITY_OPTIONS = [
     { key: 'week', label: 'Minggu' },
     { key: 'month', label: 'Bulan' },
     { key: 'year', label: 'Tahun' },
-];
-
-const PERIOD_OPTIONS = [
-    { value: 'today', label: 'Hari Ini' },
-    { value: 'last7', label: '7 Hari Terakhir' },
-    { value: 'last30', label: '30 Hari Terakhir' },
-    { value: 'last90', label: '90 Hari Terakhir' },
-    { value: 'thisMonth', label: 'Bulan Ini' },
-    { value: 'thisYear', label: 'Tahun Ini' },
 ];
 
 const L3_META = [
@@ -106,37 +98,6 @@ function parseInputDateEnd(value) {
     if (!value) return null;
     const dt = new Date(`${value}T23:59:59.999`);
     return Number.isNaN(dt.getTime()) ? null : dt;
-}
-
-function formatDateInput(date) {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-}
-
-function getPresetRange(key) {
-    const today = new Date();
-    const end = formatDateInput(today);
-    if (key === 'today') return { dateFrom: end, dateTo: end };
-    if (key === 'last7') {
-        const s = new Date(today); s.setDate(today.getDate() - 6);
-        return { dateFrom: formatDateInput(s), dateTo: end };
-    }
-    if (key === 'last30') {
-        const s = new Date(today); s.setDate(today.getDate() - 29);
-        return { dateFrom: formatDateInput(s), dateTo: end };
-    }
-    if (key === 'last90') {
-        const s = new Date(today); s.setDate(today.getDate() - 89);
-        return { dateFrom: formatDateInput(s), dateTo: end };
-    }
-    if (key === 'thisYear') {
-        const s = new Date(today.getFullYear(), 0, 1);
-        return { dateFrom: formatDateInput(s), dateTo: end };
-    }
-    const s = new Date(today.getFullYear(), today.getMonth(), 1);
-    return { dateFrom: formatDateInput(s), dateTo: end };
 }
 
 function startOfDay(date) {
@@ -445,21 +406,21 @@ export default function LineChartSection({
         : null;
 
     // ── Filter helpers
-    const isCustomActive = !PERIOD_OPTIONS.some((o) => {
+    const isCustomActive = !DATE_PRESET_OPTIONS.some((o) => {
         const pr = getPresetRange(o.value);
         return pr.dateFrom === dateRange.dateFrom && pr.dateTo === dateRange.dateTo;
     });
-    const activePeriodKey = isCustomActive ? 'custom' : PERIOD_OPTIONS.find((o) => {
+    const activePeriodKey = isCustomActive ? 'custom' : DATE_PRESET_OPTIONS.find((o) => {
         const pr = getPresetRange(o.value);
         return pr.dateFrom === dateRange.dateFrom && pr.dateTo === dateRange.dateTo;
     })?.value;
 
     const periodLabel = isCustomActive
         ? `${dateRange.dateFrom} – ${dateRange.dateTo}`
-        : PERIOD_OPTIONS.find((o) => o.value === activePeriodKey)?.label;
+        : DATE_PRESET_OPTIONS.find((o) => o.value === activePeriodKey)?.label;
 
     const periodOptionsWithCustom = useMemo(() => [
-        ...PERIOD_OPTIONS,
+        ...DATE_PRESET_OPTIONS.map(({ value, label }) => ({ value, label })),
         { value: 'custom', label: isCustomActive ? `Kustom: ${dateRange.dateFrom} – ${dateRange.dateTo}` : 'Rentang Kustom' },
     ], [isCustomActive, dateRange]);
 

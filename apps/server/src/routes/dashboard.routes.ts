@@ -23,6 +23,17 @@ function normalizeDateValue(value: unknown) {
     return /^\d{4}-\d{2}-\d{2}$/.test(dateValue) ? dateValue : undefined;
 }
 
+function normalizeSourceValue(value: unknown) {
+    const raw = Array.isArray(value) ? value[0] : value;
+    const sourceValue = String(raw || "").trim();
+
+    if (!sourceValue || sourceValue.toLowerCase() === "all") {
+        return undefined;
+    }
+
+    return sourceValue.slice(0, 120);
+}
+
 function getDefaultLast30DayRange() {
     const today = new Date();
     const start = new Date(today);
@@ -39,6 +50,7 @@ router.get("/home-analytics", async (req, res: Response, next: NextFunction) => 
         const { user, scope } = req as unknown as AuthenticatedRequest;
         let dateFrom = normalizeDateValue(req.query.dateFrom);
         let dateTo = normalizeDateValue(req.query.dateTo);
+        const source = normalizeSourceValue(req.query.source);
 
         if (!dateFrom && !dateTo) {
             const fallbackRange = getDefaultLast30DayRange();
@@ -49,6 +61,7 @@ router.get("/home-analytics", async (req, res: Response, next: NextFunction) => 
         const analytics = await dashboardService.getHomeAnalytics(user.id, user.role, scope, {
             dateFrom,
             dateTo,
+            source,
         });
         res.json(analytics);
     } catch (error) {

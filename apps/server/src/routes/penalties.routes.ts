@@ -26,11 +26,12 @@ router.get("/", requireRole("sales", "supervisor", "client_admin", "root_admin")
 
 router.post("/:id/compensate", requireRole("client_admin", "root_admin") as any, async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
+        const { user, scope } = req as unknown as AuthenticatedRequest;
         const updated = await dailyTaskPenaltyService.compensatePenalty({
             penaltyId: req.params.id,
             compensatedById: user.id,
             reason: String(req.body?.reason || "").trim(),
+            scope,
         });
         res.json(updated);
     } catch (error) {

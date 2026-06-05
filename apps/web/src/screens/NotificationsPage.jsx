@@ -6,6 +6,7 @@ import Header from '../components/Header';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../hooks/useNotifications';
 import { apiRequest } from '../lib/api';
+import { getFlowStatusLabel, getResultStatusLabel } from '../constants/crm';
 import './NotificationsPage.css';
 
 function formatDateTime(dateValue, timeValue) {
@@ -48,6 +49,7 @@ export default function NotificationsPage() {
         deadlineLeads,
         appointments,
         validatedHot,
+        transactionLeads,
         hotLeads,
         submittedTasks,
         loading,
@@ -80,9 +82,9 @@ export default function NotificationsPage() {
     if (isAdmin) {
         isEmpty = holdLeads.length === 0;
     } else if (isSales) {
-        isEmpty = newLeads.length === 0 && followUps.length === 0 && deadlineLeads.length === 0 && appointments.length === 0 && validatedHot.length === 0;
+        isEmpty = newLeads.length === 0 && followUps.length === 0 && deadlineLeads.length === 0 && appointments.length === 0 && validatedHot.length === 0 && transactionLeads.length === 0;
     } else if (isSpv) {
-        isEmpty = hotLeads.length === 0 && submittedTasks.length === 0;
+        isEmpty = hotLeads.length === 0 && submittedTasks.length === 0 && transactionLeads.length === 0;
     }
 
     const refreshBtn = (
@@ -140,15 +142,15 @@ export default function NotificationsPage() {
                     {/* ── Admin Section ── */}
                     {isAdmin && holdLeads.length > 0 ? (
                         <div className="notif-section">
-                            <SectionHeader label="Perlu Aksi" title="Leads Hold" count={holdLeads.length} />
+                            <SectionHeader label="Perlu Aksi" title="Leads Belum Accepted" count={holdLeads.length} />
                             {startError ? <p className="notif-feedback notif-feedback--error">{startError}</p> : null}
                             {startSuccess ? <p className="notif-feedback notif-feedback--success">{startSuccess}</p> : null}
                             <div className="notif-list">
                                 {holdLeads.map((item) => (
-                                    <div key={item.id} className="notif-card notif-card--hold">
+                                    <div key={item.id} className="notif-card notif-card--hold" onClick={() => router.push(`/leads/${item.id}`)}>
                                         <div className="notif-card-top">
                                             <span className="notif-card-name">{item.name}</span>
-                                            <span className="notif-card-badge notif-card-badge--hold">Hold</span>
+                                            <span className="notif-card-badge notif-card-badge--hold">{item.assignedTo ? getFlowStatusLabel(item.flowStatus) : 'Unassigned'}</span>
                                         </div>
                                         <div className="notif-card-meta">
                                             {item.phone ? (
@@ -174,19 +176,21 @@ export default function NotificationsPage() {
                                                 <span>{formatCreatedAt(item.createdAt)}</span>
                                             </div>
                                         </div>
-                                        <button
-                                            type="button"
-                                            className="notif-hold-start-btn"
-                                            onClick={() => void handleStartHold(item.id)}
-                                            disabled={startingId === item.id}
-                                        >
-                                            {startingId === item.id ? 'Memulai...' : (
-                                                <>
-                                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
-                                                    Mulai Distribusi
-                                                </>
-                                            )}
-                                        </button>
+                                        {item.flowStatus === 'hold' ? (
+                                            <button
+                                                type="button"
+                                                className="notif-hold-start-btn"
+                                                onClick={(event) => { event.stopPropagation(); void handleStartHold(item.id); }}
+                                                disabled={startingId === item.id}
+                                            >
+                                                {startingId === item.id ? 'Memulai...' : (
+                                                    <>
+                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                                                        Mulai Distribusi
+                                                    </>
+                                                )}
+                                            </button>
+                                        ) : null}
                                     </div>
                                 ))}
                             </div>
@@ -311,6 +315,28 @@ export default function NotificationsPage() {
                                     </div>
                                 </div>
                             ) : null}
+
+                            {transactionLeads.length > 0 ? (
+                                <div className="notif-section">
+                                    <SectionHeader label="Tugas Sales" title="Transaksi" count={transactionLeads.length} />
+                                    <div className="notif-list">
+                                        {transactionLeads.map((item) => (
+                                            <div key={item.id} className="notif-card" onClick={() => router.push('/daily-tasks')}>
+                                                <div className="notif-card-top">
+                                                    <span className="notif-card-name">{item.name}</span>
+                                                    <span className="notif-card-badge notif-card-badge--success">{getResultStatusLabel(item.resultStatus)}</span>
+                                                </div>
+                                                <div className="notif-card-meta">
+                                                    <div className="notif-card-meta-row">
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                                        <span>Perlu update status transaksi</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
                         </>
                     ) : null}
 
@@ -360,6 +386,28 @@ export default function NotificationsPage() {
                                                             <span>Status L2: {item.submittedSalesStatus.toUpperCase()}</span>
                                                         </div>
                                                     ) : null}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            {transactionLeads.length > 0 ? (
+                                <div className="notif-section">
+                                    <SectionHeader label="Monitoring SPV" title="Transaksi Tim" count={transactionLeads.length} />
+                                    <div className="notif-list">
+                                        {transactionLeads.map((item) => (
+                                            <div key={item.id} className="notif-card" onClick={() => router.push('/supervisor-tasks')}>
+                                                <div className="notif-card-top">
+                                                    <span className="notif-card-name">{item.name}</span>
+                                                    <span className="notif-card-badge notif-card-badge--success">{getResultStatusLabel(item.resultStatus)}</span>
+                                                </div>
+                                                <div className="notif-card-meta">
+                                                    <div className="notif-card-meta-row">
+                                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                                        <span>Sales: {item.assignedUserName || item.assignedToName || '-'}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}

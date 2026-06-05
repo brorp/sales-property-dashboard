@@ -55,6 +55,23 @@ function formatExactDateTime(value) {
     });
 }
 
+function formatExactDate(value) {
+    if (!value) {
+        return '-';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return '-';
+    }
+
+    return date.toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    });
+}
+
 function isOlderThanDays(value, days) {
     if (!value) {
         return false;
@@ -431,6 +448,7 @@ export default function LeadDetailPage({ leadId }) {
     const isAcceptedLead = effectiveFlowStatus === 'accepted';
     const needsNewLeadTaskAcceptance = canEditLead && effectiveFlowStatus === 'assigned';
     const isLockedByLunas = normalizeResultStatusKey(lead?.resultStatus) === 'lunas';
+    const resultStatusUpdatedAt = lead?.resultStatusUpdatedAt || lead?.result_status_updated_at || null;
     const appointmentTag = lead?.appointmentTag || 'none';
     const canUpdateLayer2 = isAcceptedLead && (isAdmin || !isLockedByLunas);
     const canEditProspectStatus = (isAdmin || (canEditLead && isAcceptedLead)) && (isAdmin || !isLockedByLunas);
@@ -1337,6 +1355,7 @@ export default function LeadDetailPage({ leadId }) {
                                 ) : null}
                                 <div className="ldp-current-meta">
                                     <span>Saat ini: <strong>{lead.resultStatus ? getResultStatusLabel(lead.resultStatus) : '-'}</strong></span>
+                                    <span>Tanggal Transaksi: <strong>{lead.resultStatus ? formatExactDate(resultStatusUpdatedAt) : '-'}</strong></span>
                                     {isCancelResultStatus(lead.resultStatus) ? <span>Reason: <strong>{getCancelReasonLabel(lead.rejectedReason)}</strong></span> : null}
                                 </div>
                                 <button type="submit" className="btn btn-primary btn-full" disabled={!canUpdateResult}>Simpan Transaksi</button>

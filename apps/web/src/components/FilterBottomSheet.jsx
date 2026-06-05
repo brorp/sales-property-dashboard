@@ -8,6 +8,7 @@ import {
     SALES_STATUSES,
 } from '../constants/crm';
 import DateRangePicker from './DateRangePicker';
+import { DATE_PRESET_OPTIONS, getPresetRange } from '../utils/datePresets';
 
 function parseDateStr(value) {
     if (!value) return null;
@@ -23,29 +24,12 @@ function formatDateTrigger(value) {
     return d ? fmt.format(d) : '';
 }
 
-function toDateStr(date) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
-
-function getQuickRange(key) {
-    const today = new Date();
-    const end = toDateStr(today);
-    if (key === 'today') return { dateFrom: end, dateTo: end };
-    if (key === 'last7') { const s = new Date(today); s.setDate(today.getDate() - 6); return { dateFrom: toDateStr(s), dateTo: end }; }
-    if (key === 'last30') { const s = new Date(today); s.setDate(today.getDate() - 29); return { dateFrom: toDateStr(s), dateTo: end }; }
-    const s = new Date(today.getFullYear(), today.getMonth(), 1);
-    return { dateFrom: toDateStr(s), dateTo: end };
-}
-
-const DATE_QUICK_RANGES = [
-    { key: 'today', label: 'Hari Ini' },
-    { key: 'last7', label: '7 Hari' },
-    { key: 'last30', label: '30 Hari' },
-    { key: 'thisMonth', label: 'Bulan Ini' },
-];
-
 const SPECIAL_SALES_STATUS_FILTERS = [
     { key: 'hot_validated', label: 'HOT | Validated' },
+];
+const DISTRIBUTION_FILTER_OPTIONS = [
+    { key: 'unassigned', label: 'Unassigned' },
+    ...FLOW_STATUSES,
 ];
 
 export default function FilterBottomSheet({
@@ -170,12 +154,12 @@ export default function FilterBottomSheet({
                     <div className="fbs-group">
                         <span className="fbs-group-label">Tanggal Masuk</span>
                         <div className="fbs-pills" style={{ marginBottom: 8 }}>
-                            {DATE_QUICK_RANGES.map((r) => {
-                                const range = getQuickRange(r.key);
+                            {DATE_PRESET_OPTIONS.map((r) => {
+                                const range = getPresetRange(r.value);
                                 const isActive = range.dateFrom === draftDateFrom && range.dateTo === draftDateTo;
                                 return (
                                     <button
-                                        key={r.key}
+                                        key={r.value}
                                         type="button"
                                         className={`fbs-pill${isActive ? ' is-active' : ''}`}
                                         onClick={() => { setDraftDateFrom(range.dateFrom); setDraftDateTo(range.dateTo); setDatePickerOpen(false); }}
@@ -222,17 +206,6 @@ export default function FilterBottomSheet({
                                 />
                             </div>
                         ) : null}
-                    </div>
-
-                    {/* ── Status Distribusi ── */}
-                    <div className="fbs-group">
-                        <span className="fbs-group-label">Status Distribusi</span>
-                        <div className="fbs-pills">
-                            <button type="button" className={`fbs-pill${draftFlow === 'all' ? ' is-active' : ''}`} onClick={() => setDraftFlow('all')}>Semua</button>
-                            {FLOW_STATUSES.map((item) => (
-                                <button type="button" key={item.key} className={`fbs-pill${draftFlow === item.key ? ' is-active' : ''}`} onClick={() => setDraftFlow(item.key)}>{item.label}</button>
-                            ))}
-                        </div>
                     </div>
 
                     {/* ── Sales Status ── */}
@@ -294,6 +267,17 @@ export default function FilterBottomSheet({
                             </div>
                         </div>
                     ) : null}
+
+                    {/* ── Status Distribusi ── */}
+                    <div className="fbs-group">
+                        <span className="fbs-group-label">Status Distribusi</span>
+                        <div className="fbs-pills">
+                            <button type="button" className={`fbs-pill${draftFlow === 'all' ? ' is-active' : ''}`} onClick={() => setDraftFlow('all')}>Semua</button>
+                            {DISTRIBUTION_FILTER_OPTIONS.map((item) => (
+                                <button type="button" key={item.key} className={`fbs-pill${draftFlow === item.key ? ' is-active' : ''}`} onClick={() => setDraftFlow(item.key)}>{item.label}</button>
+                            ))}
+                        </div>
+                    </div>
 
                     {/* ── Data ── */}
                     <div className="fbs-group">

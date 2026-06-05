@@ -247,6 +247,7 @@ export async function compensatePenalty(params: {
     penaltyId: string;
     compensatedById: string;
     reason: string;
+    scope?: QueryScope;
 }) {
     const trimmedReason = String(params.reason || "").trim();
     if (!trimmedReason) {
@@ -258,6 +259,7 @@ export async function compensatePenalty(params: {
             .select({
                 id: dailyTaskPenalty.id,
                 salesId: dailyTaskPenalty.salesId,
+                clientId: dailyTaskPenalty.clientId,
                 taskId: dailyTaskPenalty.taskId,
                 status: dailyTaskPenalty.status,
                 taskLeadId: dailyTask.leadId,
@@ -272,6 +274,15 @@ export async function compensatePenalty(params: {
             .limit(1);
 
         if (!penaltyRow) {
+            throw new Error("PENALTY_NOT_FOUND");
+        }
+
+        if (
+            params.scope &&
+            params.scope.role !== "root_admin" &&
+            params.scope.clientId &&
+            penaltyRow.clientId !== params.scope.clientId
+        ) {
             throw new Error("PENALTY_NOT_FOUND");
         }
 

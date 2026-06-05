@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { useLeads } from '../context/LeadsContext';
-import { apiRequest } from '../lib/api';
+import { apiRequest, getApiBaseUrl } from '../lib/api';
 import {
     getSeenLeadsAt,
     getSeenLogsAt,
@@ -23,6 +23,16 @@ const hasFilledResultStatus = (lead) => Boolean(getLeadResultStatus(lead));
 
 const NavDataContext = createContext(null);
 
+const ADMIN_ROLES = new Set(['root_admin', 'client_admin', 'admin']);
+
+function isAdminRole(role) {
+    return ADMIN_ROLES.has(role);
+}
+
+function isLeadOutsideAcceptedFlow(lead) {
+    return String(lead?.flowStatus || '').trim().toLowerCase() !== 'accepted';
+}
+
 export function NavDataProvider({ children }) {
     const { user } = useAuth();
     const pathname = usePathname();
@@ -31,6 +41,8 @@ export function NavDataProvider({ children }) {
     const [seenState, setSeenState] = useState({ leads: null, logs: null });
     const [dailyApiCounts, setDailyApiCounts] = useState({ newLeadCount: 0, followUpCount: 0, deadlineLeadCount: 0, activeAppointmentsCount: 0, visibleValidatedHotCount: 0 });
     const [spvApiCounts, setSpvApiCounts] = useState({ pendingCount: 0, submittedCount: 0, deadlineCount: 0, appointmentCount: 0 });
+    const [whatsappStatus, setWhatsappStatus] = useState(null);
+    const [teamSuspendedCount, setTeamSuspendedCount] = useState(0);
 
     const loadNotificationSummary = useCallback(async () => {
         if (!user) return;
@@ -109,6 +121,11 @@ export function NavDataProvider({ children }) {
         };
     }, [user, allLeads, dailyApiCounts]);
 
+    const leadActionCount = useMemo(() => {
+        if (!user || !Array.isArray(allLeads)) return 0;
+        return allLeads.filter(isLeadOutsideAcceptedFlow).length;
+    }, [user, allLeads]);
+
     const loadSupervisorTaskCount = useCallback(async () => {
         if (!user || user.role !== 'supervisor') return;
         try {
@@ -149,6 +166,44 @@ export function NavDataProvider({ children }) {
         } catch {}
     }, [user]);
 
+    const loadWhatsappStatus = useCallback(async () => {
+        if (!user || !isAdminRole(user.role)) {
+            setWhatsappStatus(null);
+            return;
+        }
+
+        const adminToken = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP_TOKEN || '';
+        try {
+            const res = await fetch(`${getApiBaseUrl()}/api/whatsapp-admin/status`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(adminToken ? { 'x-admin-token': adminToken } : {}),
+                },
+            });
+            if (!res.ok) {
+                throw new Error(`HTTP ${res.status}`);
+            }
+            const data = await res.json();
+            setWhatsappStatus(data?.status || 'unknown');
+        } catch {
+            setWhatsappStatus('error');
+        }
+    }, [user]);
+
+    const loadTeamSuspendedCount = useCallback(async () => {
+        if (!user || !['root_admin', 'client_admin', 'admin', 'supervisor'].includes(user.role)) {
+            setTeamSuspendedCount(0);
+            return;
+        }
+
+        try {
+            const data = await apiRequest('/api/team', { user });
+            setTeamSuspendedCount(Number(data?.summary?.suspendedSales || 0));
+        } catch {
+            setTeamSuspendedCount(0);
+        }
+    }, [user]);
+
     const supervisorTaskCount = useMemo(() => {
         if (!user || user.role !== 'supervisor') return 0;
 
@@ -176,7 +231,9 @@ export function NavDataProvider({ children }) {
         void loadNotificationSummary();
         void loadDailyTaskCounts();
         void loadSupervisorTaskCount();
-    }, [loadDailyTaskCounts, loadNotificationSummary, loadSupervisorTaskCount, user]);
+        void loadWhatsappStatus();
+        void loadTeamSuspendedCount();
+    }, [loadDailyTaskCounts, loadNotificationSummary, loadSupervisorTaskCount, loadTeamSuspendedCount, loadWhatsappStatus, user]);
 
     usePagePolling({
         enabled: Boolean(user),
@@ -185,6 +242,8 @@ export function NavDataProvider({ children }) {
             await loadNotificationSummary();
             await loadDailyTaskCounts();
             await loadSupervisorTaskCount();
+            await loadWhatsappStatus();
+            await loadTeamSuspendedCount();
         },
     });
 
@@ -203,9 +262,27 @@ export function NavDataProvider({ children }) {
 
     const hasUnreadLeads = hasUnreadSince(summary.latestLeadAt, seenState.leads);
     const hasUnreadLogs = hasUnreadSince(summary.latestLogAt, seenState.logs);
+    const hasWhatsappIssue = Boolean(user && isAdminRole(user.role) && whatsappStatus && whatsappStatus !== 'connected');
+    const navNotificationCount = user?.role === 'sales'
+        ? taskCounts.totalCount
+        : user?.role === 'supervisor'
+            ? supervisorTaskCount
+            : leadActionCount;
 
     return (
-        <NavDataContext.Provider value={{ hasUnreadLeads, hasUnreadLogs, taskCounts, supervisorTaskCount }}>
+        <NavDataContext.Provider
+            value={{
+                hasUnreadLeads,
+                hasUnreadLogs,
+                taskCounts,
+                supervisorTaskCount,
+                leadActionCount,
+                teamSuspendedCount,
+                navNotificationCount,
+                hasWhatsappIssue,
+                whatsappStatus,
+            }}
+        >
             {children}
         </NavDataContext.Provider>
     );

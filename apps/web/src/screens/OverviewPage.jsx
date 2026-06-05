@@ -8,6 +8,7 @@ import { useWorkspace } from '../context/WorkspaceContext';
 import { apiRequest } from '../lib/api';
 import Header from '../components/Header';
 import { usePagePolling } from '../hooks/usePagePolling';
+import { DATE_PRESET_OPTIONS, getPresetRange } from '../utils/datePresets';
 import OverviewSection from './dashboard-sections/OverviewSection';
 
 function FilterIcon() {
@@ -26,32 +27,6 @@ function CheckIcon() {
             <polyline points="20 6 9 17 4 12" />
         </svg>
     );
-}
-
-const PERIOD_OPTIONS = [
-    { value: 'today', label: 'Hari Ini' },
-    { value: 'last7', label: '7 Hari Terakhir' },
-    { value: 'last30', label: '30 Hari Terakhir' },
-    { value: 'last90', label: '90 Hari Terakhir' },
-    { value: 'thisMonth', label: 'Bulan Ini' },
-];
-
-function formatDateInput(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-function getPresetRange(key) {
-    const today = new Date();
-    const end = formatDateInput(today);
-    if (key === 'today') return { dateFrom: end, dateTo: end };
-    if (key === 'last7') { const s = new Date(today); s.setDate(today.getDate() - 6); return { dateFrom: formatDateInput(s), dateTo: end }; }
-    if (key === 'last30') { const s = new Date(today); s.setDate(today.getDate() - 29); return { dateFrom: formatDateInput(s), dateTo: end }; }
-    if (key === 'last90') { const s = new Date(today); s.setDate(today.getDate() - 89); return { dateFrom: formatDateInput(s), dateTo: end }; }
-    const s = new Date(today.getFullYear(), today.getMonth(), 1);
-    return { dateFrom: formatDateInput(s), dateTo: end };
 }
 
 function buildQuery(range) {
@@ -76,9 +51,9 @@ export default function OverviewPage() {
     const { user } = useAuth();
     const { activeWorkspace } = useWorkspace();
     const [analytics, setAnalytics] = useState(DEFAULT_ANALYTICS);
-    const [activePeriod, setActivePeriod] = useState('today');
+    const [activePeriod, setActivePeriod] = useState('thisMonth');
     const [loading, setLoading] = useState(false);
-    const [appliedRange, setAppliedRange] = useState(() => getPresetRange('today'));
+    const [appliedRange, setAppliedRange] = useState(() => getPresetRange('thisMonth'));
     const [filterOpen, setFilterOpen] = useState(false);
 
     const loadData = useCallback(async (range) => {
@@ -116,7 +91,7 @@ export default function OverviewPage() {
         }
     };
 
-    const currentLabel = PERIOD_OPTIONS.find((o) => o.value === activePeriod)?.label ?? 'Hari Ini';
+    const currentLabel = DATE_PRESET_OPTIONS.find((o) => o.value === activePeriod)?.label ?? 'Hari Ini';
 
     return (
         <div className="page-container dash-page">
@@ -150,7 +125,7 @@ export default function OverviewPage() {
                     <div className="overview-sheet">
                         <div className="overview-sheet-handle" />
                         <div className="overview-sheet-title">Pilih Periode</div>
-                        {PERIOD_OPTIONS.map((opt) => (
+                        {DATE_PRESET_OPTIONS.map((opt) => (
                             <button
                                 key={opt.value}
                                 type="button"

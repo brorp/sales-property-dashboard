@@ -681,11 +681,32 @@ html[data-theme="light"] .leads-page {
 .leads-filter-sheet-body {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 14px;
 }
 
 .leads-filter-sheet-body .sf-wrap {
     width: 100%;
+}
+
+.leads-filter-sheet-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 0 14px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.leads-filter-sheet-group:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.leads-filter-sheet-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
 }
 
 /* ── Desktop overrides ─────────────────────────────────────────────── */

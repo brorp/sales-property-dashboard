@@ -68,6 +68,71 @@ function formatSuspensionUntil(value) {
     });
 }
 
+function formatPenaltyDate(value) {
+    if (!value) {
+        return '-';
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+        return '-';
+    }
+
+    return parsed.toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+    });
+}
+
+function formatSpLevel(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (!normalized || normalized === 'none') {
+        return '-';
+    }
+    return normalized.toUpperCase();
+}
+
+function getPenaltyCount(member) {
+    return Number(member?.penaltyCount || member?.penaltySequence || 0);
+}
+
+function hasPenaltySignal(member) {
+    return Boolean(
+        getPenaltyCount(member) > 0 ||
+        formatSpLevel(member?.spLevel) !== '-' ||
+        member?.isSuspended
+    );
+}
+
+function formatPenaltyStatus(status) {
+    switch (String(status || '').toLowerCase()) {
+        case 'active':
+            return 'Aktif';
+        case 'expired':
+            return 'Expired';
+        case 'compensated':
+            return 'Kompensasi';
+        case 'invalid':
+            return 'Invalid';
+        default:
+            return status || '-';
+    }
+}
+
+function getPenaltyStatusClass(status) {
+    switch (String(status || '').toLowerCase()) {
+        case 'active':
+            return 'badge-danger';
+        case 'compensated':
+            return 'badge-purple';
+        case 'invalid':
+            return 'badge-neutral';
+        default:
+            return 'badge-neutral';
+    }
+}
+
 function getTeamActionErrorMessage(error, fallback) {
     if (!(error instanceof Error)) {
         return fallback;
@@ -86,9 +151,24 @@ function getTeamActionErrorMessage(error, fallback) {
             return 'Password admin wajib diisi.';
         case 'ADMIN_PASSWORD_INVALID':
             return 'Password admin tidak valid.';
+        case 'PENALTY_COMPENSATION_REASON_REQUIRED':
+            return 'Alasan kompensasi wajib diisi.';
         default:
             return error.message;
     }
+}
+
+function TeamPenaltyMeta({ member }) {
+    if (!hasPenaltySignal(member)) {
+        return null;
+    }
+
+    return (
+        <div className="team-penalty-meta">
+            <span className="team-penalty-pill">Penalty #{getPenaltyCount(member)}</span>
+            <span className="team-penalty-pill">SP {formatSpLevel(member?.spLevel)}</span>
+        </div>
+    );
 }
 
 function TeamSummaryCard({ label, value, tone = 'default', helper }) {
@@ -161,6 +241,10 @@ export default function TeamPage() {
     const { teamStats, refreshTeamStats, createSalesUser } = useLeads();
     const { tenant } = useTenant();
     const router = useRouter();
+    const canViewTeam = Boolean(isAdmin);
+    const canViewTeamGroups = Boolean(user && ['root_admin', 'client_admin', 'supervisor'].includes(user.role));
+    const canManageTeamGroups = Boolean(user && ['root_admin', 'client_admin'].includes(user.role));
+    const canManagePenaltyActions = Boolean(user && ['root_admin', 'client_admin'].includes(user.role));
     const [refreshing, setRefreshing] = useState(false);
     const [fabOpen, setFabOpen] = useState(false);
     const [createModal, setCreateModal] = useState(null);
@@ -175,21 +259,59 @@ export default function TeamPage() {
     const [lifecycleState, setLifecycleState] = useState(null);
     const [assignmentState, setAssignmentState] = useState(null);
     const [deleteSupervisorState, setDeleteSupervisorState] = useState(null);
+    const [teamGroups, setTeamGroups] = useState([]);
+    const [teamGroupsLoading, setTeamGroupsLoading] = useState(false);
+    const [teamGroupsError, setTeamGroupsError] = useState('');
+    const [newGroupName, setNewGroupName] = useState('');
+    const [groupMemberDraft, setGroupMemberDraft] = useState({});
+    const [groupActionLoading, setGroupActionLoading] = useState('');
+    const [penaltyState, setPenaltyState] = useState(null);
 
     useEffect(() => {
-        if (!isAdmin) {
+        if (!canViewTeam) {
             return;
         }
 
         void refreshTeamStats();
-    }, [isAdmin, refreshTeamStats]);
+    }, [canViewTeam, refreshTeamStats]);
+
+    const loadTeamGroups = useCallback(async () => {
+        if (!user || !canViewTeamGroups) {
+            setTeamGroups([]);
+            return;
+        }
+
+        setTeamGroupsLoading(true);
+        setTeamGroupsError('');
+        try {
+            const rows = await apiRequest('/api/team/groups', { user });
+            setTeamGroups(Array.isArray(rows) ? rows : []);
+        } catch (err) {
+            setTeamGroupsError(err instanceof Error ? err.message : 'Gagal memuat group tim');
+            setTeamGroups([]);
+        } finally {
+            setTeamGroupsLoading(false);
+        }
+    }, [canViewTeamGroups, user]);
+
+    useEffect(() => {
+        if (!canViewTeamGroups) {
+            setTeamGroups([]);
+            return;
+        }
+
+        void loadTeamGroups();
+    }, [canViewTeamGroups, loadTeamGroups]);
 
     usePagePolling({
-        enabled: Boolean(isAdmin && user),
+        enabled: Boolean(canViewTeam && user),
         intervalMs: 3000,
         run: useCallback(async () => {
             await refreshTeamStats();
-        }, [refreshTeamStats]),
+            if (canViewTeamGroups) {
+                await loadTeamGroups();
+            }
+        }, [canViewTeamGroups, loadTeamGroups, refreshTeamStats]),
     });
     const groups = Array.isArray(teamStats?.groups) ? teamStats.groups : [];
     const availableSupervisors = useMemo(() => {
@@ -209,6 +331,36 @@ export default function TeamPage() {
         }
 
         return nextMap;
+    }, [groups]);
+    const teamGroupMemberOptions = useMemo(() => {
+        const optionMap = new Map();
+
+        const pushOption = (member, roleLabel) => {
+            if (!member?.id || (member?.isActive === false)) {
+                return;
+            }
+
+            optionMap.set(member.id, {
+                value: member.id,
+                label: `${member.name} - ${roleLabel}`,
+                role: member.role,
+            });
+        };
+
+        for (const group of groups) {
+            for (const supervisor of group.supervisors || []) {
+                pushOption(supervisor, 'Supervisor');
+                for (const sales of supervisor.sales || []) {
+                    pushOption(sales, 'Sales');
+                }
+            }
+            for (const sales of group.unassignedSales || []) {
+                pushOption(sales, 'Sales');
+            }
+        }
+
+        return Array.from(optionMap.values())
+            .sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')));
     }, [groups]);
 
     const canCreateSupervisor = user?.role === 'client_admin';
@@ -273,7 +425,7 @@ export default function TeamPage() {
         }] : []),
     ];
 
-    if (!isAdmin) {
+    if (!canViewTeam) {
         return null;
     }
 
@@ -281,8 +433,262 @@ export default function TeamPage() {
         setRefreshing(true);
         try {
             await refreshTeamStats();
+            await loadTeamGroups();
         } finally {
             setRefreshing(false);
+        }
+    };
+
+    const handleCreateTeamGroup = async (event) => {
+        event.preventDefault();
+        if (!user || !canManageTeamGroups) {
+            return;
+        }
+
+        const name = newGroupName.trim();
+        if (!name) {
+            setTeamGroupsError('Nama group wajib diisi.');
+            return;
+        }
+
+        setGroupActionLoading('create');
+        setTeamGroupsError('');
+        try {
+            await apiRequest('/api/team/groups', {
+                method: 'POST',
+                user,
+                body: { name },
+            });
+            setNewGroupName('');
+            await loadTeamGroups();
+            setSubmitSuccess('Group tim berhasil dibuat.');
+        } catch (err) {
+            setTeamGroupsError(getTeamActionErrorMessage(err, 'Gagal membuat group tim'));
+        } finally {
+            setGroupActionLoading('');
+        }
+    };
+
+    const handleDeleteTeamGroup = async (groupId) => {
+        if (!user || !canManageTeamGroups || !groupId) {
+            return;
+        }
+
+        setGroupActionLoading(`delete:${groupId}`);
+        setTeamGroupsError('');
+        try {
+            await apiRequest(`/api/team/groups/${groupId}`, {
+                method: 'DELETE',
+                user,
+            });
+            await loadTeamGroups();
+            setSubmitSuccess('Group tim berhasil dihapus.');
+        } catch (err) {
+            setTeamGroupsError(getTeamActionErrorMessage(err, 'Gagal menghapus group tim'));
+        } finally {
+            setGroupActionLoading('');
+        }
+    };
+
+    const handleAddTeamGroupMember = async (groupId) => {
+        if (!user || !canManageTeamGroups || !groupId) {
+            return;
+        }
+
+        const userId = groupMemberDraft[groupId];
+        if (!userId) {
+            setTeamGroupsError('Pilih member yang ingin dimasukkan ke group.');
+            return;
+        }
+
+        setGroupActionLoading(`add:${groupId}`);
+        setTeamGroupsError('');
+        try {
+            await apiRequest(`/api/team/groups/${groupId}/members`, {
+                method: 'POST',
+                user,
+                body: { userId },
+            });
+            setGroupMemberDraft((prev) => ({ ...prev, [groupId]: '' }));
+            await loadTeamGroups();
+        } catch (err) {
+            setTeamGroupsError(getTeamActionErrorMessage(err, 'Gagal menambahkan member group'));
+        } finally {
+            setGroupActionLoading('');
+        }
+    };
+
+    const handleRemoveTeamGroupMember = async (groupId, memberId) => {
+        if (!user || !canManageTeamGroups || !groupId || !memberId) {
+            return;
+        }
+
+        setGroupActionLoading(`remove:${memberId}`);
+        setTeamGroupsError('');
+        try {
+            await apiRequest(`/api/team/groups/${groupId}/members/${memberId}`, {
+                method: 'DELETE',
+                user,
+            });
+            await loadTeamGroups();
+        } catch (err) {
+            setTeamGroupsError(getTeamActionErrorMessage(err, 'Gagal menghapus member group'));
+        } finally {
+            setGroupActionLoading('');
+        }
+    };
+
+    const loadPenaltyHistory = async (salesId) => {
+        if (!user || !salesId) {
+            return [];
+        }
+
+        const rows = await apiRequest(`/api/penalties?salesId=${encodeURIComponent(salesId)}`, { user });
+        return Array.isArray(rows) ? rows : [];
+    };
+
+    const openPenaltyActions = async (sales) => {
+        if (!sales?.id) {
+            return;
+        }
+
+        setPenaltyState({
+            sales,
+            history: [],
+            loading: true,
+            error: '',
+            reason: '',
+            submitting: '',
+            success: '',
+        });
+
+        try {
+            const history = await loadPenaltyHistory(sales.id);
+            setPenaltyState((prev) => prev ? {
+                ...prev,
+                history,
+                loading: false,
+            } : prev);
+        } catch (err) {
+            setPenaltyState((prev) => prev ? {
+                ...prev,
+                loading: false,
+                error: getTeamActionErrorMessage(err, 'Gagal memuat history penalty'),
+            } : prev);
+        }
+    };
+
+    const reloadPenaltyState = async (patch = {}) => {
+        if (!penaltyState?.sales?.id) {
+            return;
+        }
+
+        const history = await loadPenaltyHistory(penaltyState.sales.id);
+        setPenaltyState((prev) => prev ? {
+            ...prev,
+            ...patch,
+            history,
+            loading: false,
+            submitting: '',
+        } : prev);
+        await refreshTeamStats();
+    };
+
+    const handleResetPenalty = async () => {
+        if (!user || !penaltyState?.sales?.id || !canManagePenaltyActions) {
+            return;
+        }
+
+        setPenaltyState((prev) => prev ? { ...prev, submitting: 'reset-penalty', error: '', success: '' } : prev);
+        try {
+            const updated = await apiRequest(`/api/team/sales/${penaltyState.sales.id}/reset-penalties`, {
+                method: 'POST',
+                user,
+            });
+            await reloadPenaltyState({
+                sales: {
+                    ...penaltyState.sales,
+                    penaltyCount: 0,
+                    penaltySequence: 0,
+                    spLevel: 'none',
+                    isSuspended: false,
+                    suspension: null,
+                },
+                success: `${updated?.updatedCount || 0} penalty ditandai invalid.`,
+            });
+        } catch (err) {
+            setPenaltyState((prev) => prev ? {
+                ...prev,
+                submitting: '',
+                error: getTeamActionErrorMessage(err, 'Gagal reset penalty'),
+            } : prev);
+        }
+    };
+
+    const handleResetSp = async () => {
+        if (!user || !penaltyState?.sales?.id || !canManagePenaltyActions) {
+            return;
+        }
+
+        setPenaltyState((prev) => prev ? { ...prev, submitting: 'reset-sp', error: '', success: '' } : prev);
+        try {
+            const updated = await apiRequest(`/api/team/sales/${penaltyState.sales.id}/reset-sp`, {
+                method: 'POST',
+                user,
+            });
+            await reloadPenaltyState({
+                sales: {
+                    ...penaltyState.sales,
+                    spLevel: 'none',
+                },
+                success: `${updated?.updatedCount || 0} SP penalty direset.`,
+            });
+        } catch (err) {
+            setPenaltyState((prev) => prev ? {
+                ...prev,
+                submitting: '',
+                error: getTeamActionErrorMessage(err, 'Gagal reset SP'),
+            } : prev);
+        }
+    };
+
+    const handleCompensateSuspension = async () => {
+        if (!user || !penaltyState?.sales?.suspension?.penaltyId || !canManagePenaltyActions) {
+            return;
+        }
+
+        const reason = String(penaltyState.reason || '').trim();
+        if (!reason) {
+            setPenaltyState((prev) => prev ? {
+                ...prev,
+                error: 'Alasan kompensasi wajib diisi.',
+            } : prev);
+            return;
+        }
+
+        setPenaltyState((prev) => prev ? { ...prev, submitting: 'compensate', error: '', success: '' } : prev);
+        try {
+            await apiRequest(`/api/penalties/${penaltyState.sales.suspension.penaltyId}/compensate`, {
+                method: 'POST',
+                user,
+                body: { reason },
+            });
+            await reloadPenaltyState({
+                sales: {
+                    ...penaltyState.sales,
+                    penaltyCount: Math.max(0, getPenaltyCount(penaltyState.sales) - 1),
+                    isSuspended: false,
+                    suspension: null,
+                },
+                reason: '',
+                success: 'Penalty aktif berhasil dikompensasi.',
+            });
+        } catch (err) {
+            setPenaltyState((prev) => prev ? {
+                ...prev,
+                submitting: '',
+                error: getTeamActionErrorMessage(err, 'Gagal kompensasi penalty'),
+            } : prev);
         }
     };
 
@@ -728,6 +1134,114 @@ export default function TeamPage() {
             {submitSuccess ? <p className="settings-success">{submitSuccess}</p> : null}
             {submitError ? <p className="settings-error">{submitError}</p> : null}
 
+            {canViewTeamGroups ? (
+                <section className="set-card team-custom-groups">
+                    <div className="team-group-header">
+                        <div>
+                            <span className="team-group-kicker">Grouping Analytics</span>
+                            <h2 className="team-group-title">Group Tim</h2>
+                            <p className="team-group-description">Kelompokkan supervisor dan sales untuk kebutuhan analitik seperti PIC Agent vs group lain.</p>
+                        </div>
+                        <span className="badge badge-purple">{teamGroups.length} Group</span>
+                    </div>
+
+                    {canManageTeamGroups ? (
+                        <form className="team-group-create" onSubmit={handleCreateTeamGroup}>
+                            <input
+                                className="input-field"
+                                value={newGroupName}
+                                onChange={(event) => setNewGroupName(event.target.value)}
+                                placeholder="Contoh: PIC Agent, Group Supervisor 1"
+                            />
+                            <button type="submit" className="btn btn-primary" disabled={groupActionLoading === 'create'}>
+                                {groupActionLoading === 'create' ? 'Menyimpan...' : 'Buat Group'}
+                            </button>
+                        </form>
+                    ) : null}
+
+                    {teamGroupsError ? <p className="settings-error">{teamGroupsError}</p> : null}
+
+                    {teamGroupsLoading ? (
+                        <div className="team-empty-subtree">Memuat group tim...</div>
+                    ) : teamGroups.length === 0 ? (
+                        <div className="team-empty-subtree">Belum ada group custom.</div>
+                    ) : (
+                        <div className="team-custom-group-grid">
+                            {teamGroups.map((group) => {
+                                const memberIds = new Set((group.members || []).map((member) => member.userId));
+                                const addOptions = teamGroupMemberOptions.filter((option) => !memberIds.has(option.value));
+                                return (
+                                    <article key={group.id} className="team-custom-group-card">
+                                        <div className="team-custom-group-card-head">
+                                            <div>
+                                                <h3>{group.name}</h3>
+                                                <p>{group.members?.length || 0} member</p>
+                                            </div>
+                                            {canManageTeamGroups ? (
+                                                <button
+                                                    type="button"
+                                                    className="team-icon-btn team-icon-btn--danger"
+                                                    onClick={() => void handleDeleteTeamGroup(group.id)}
+                                                    disabled={groupActionLoading === `delete:${group.id}`}
+                                                    title="Hapus group"
+                                                >
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></svg>
+                                                </button>
+                                            ) : null}
+                                        </div>
+
+                                        {Array.isArray(group.members) && group.members.length > 0 ? (
+                                            <div className="team-custom-members">
+                                                {group.members.map((member) => (
+                                                    <span key={member.id} className="team-custom-member-pill">
+                                                        <span>
+                                                            <strong>{member.name}</strong>
+                                                            <small>{member.role === 'supervisor' ? 'Supervisor' : 'Sales'}</small>
+                                                        </span>
+                                                        {canManageTeamGroups ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => void handleRemoveTeamGroupMember(group.id, member.id)}
+                                                                disabled={groupActionLoading === `remove:${member.id}`}
+                                                                aria-label={`Hapus ${member.name} dari group`}
+                                                            >
+                                                                ×
+                                                            </button>
+                                                        ) : null}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="team-custom-empty">Belum ada member di group ini.</p>
+                                        )}
+
+                                        {canManageTeamGroups ? (
+                                            <div className="team-custom-add-row">
+                                                <Select
+                                                    options={addOptions}
+                                                    value={groupMemberDraft[group.id] || ''}
+                                                    onChange={(value) => setGroupMemberDraft((prev) => ({ ...prev, [group.id]: value }))}
+                                                    placeholder={addOptions.length ? 'Tambah supervisor/sales' : 'Semua member sudah masuk'}
+                                                    clearable
+                                                />
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-secondary"
+                                                    onClick={() => void handleAddTeamGroupMember(group.id)}
+                                                    disabled={!groupMemberDraft[group.id] || groupActionLoading === `add:${group.id}`}
+                                                >
+                                                    Tambah
+                                                </button>
+                                            </div>
+                                        ) : null}
+                                    </article>
+                                );
+                            })}
+                        </div>
+                    )}
+                </section>
+            ) : null}
+
             <div className="team-list">
                 {groups.length === 0 ? (
                     <div className="set-card">
@@ -804,11 +1318,17 @@ export default function TeamPage() {
                                                                 <button type="button" className="team-sales-chip-body" onClick={() => goToMemberDetail(sales.id)}>
                                                                     <span className="team-sales-chip-name">{sales.name}</span>
                                                                     <span className="team-sales-chip-meta">{sales.totalLeads || 0} leads</span>
+                                                                    <TeamPenaltyMeta member={sales} />
                                                                     {salesSuspended ? <span className="badge badge-danger" style={{ fontSize: '0.6rem', padding: '2px 5px', marginTop: 4 }}>Suspended</span> : null}
                                                                 </button>
                                                             </div>
                                                             {!isLockedTeamMember(sales) ? (
                                                                 <div className="team-sales-chip-actions">
+                                                                    {hasPenaltySignal(sales) ? (
+                                                                        <button type="button" className="team-chip-icon-btn team-chip-icon-btn--warning" onClick={() => void openPenaltyActions(sales)} data-tip="Penalty" title="Penalty">
+                                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
+                                                                        </button>
+                                                                    ) : null}
                                                                     {canEditMembers ? (
                                                                         <button type="button" className="team-chip-icon-btn" onClick={() => openEditMember(sales)} data-tip="Edit" title="Edit">
                                                                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
@@ -847,38 +1367,48 @@ export default function TeamPage() {
                                         <span className="badge badge-neutral">{group.unassignedSales.length} Sales</span>
                                     </div>
                                     <div className="team-sales-grid">
-                                        {sortMembersWithLockedLast(group.unassignedSales).map((sales) => (
-                                            <div key={sales.id} className="team-sales-chip">
-                                                <div className="team-sales-chip-content">
-                                                    <div className="team-sales-chip-top">
-                                                        <UserAvatar name={sales.name} size="xs" shape="circle" />
+                                        {sortMembersWithLockedLast(group.unassignedSales).map((sales) => {
+                                            const salesSuspended = Boolean(sales?.isSuspended && sales?.suspension);
+                                            return (
+                                                <div key={sales.id} className={`team-sales-chip${salesSuspended ? ' is-suspended' : ''}`}>
+                                                    <div className="team-sales-chip-content">
+                                                        <div className="team-sales-chip-top">
+                                                            <UserAvatar name={sales.name} size="xs" shape="circle" />
+                                                        </div>
+                                                        <button type="button" className="team-sales-chip-body" onClick={() => goToMemberDetail(sales.id)}>
+                                                            <span className="team-sales-chip-name">{sales.name}</span>
+                                                            <span className="team-sales-chip-meta">{sales.totalLeads || 0} leads</span>
+                                                            <TeamPenaltyMeta member={sales} />
+                                                            {salesSuspended ? <span className="badge badge-danger" style={{ fontSize: '0.6rem', padding: '2px 5px', marginTop: 4 }}>Suspended</span> : null}
+                                                        </button>
                                                     </div>
-                                                    <button type="button" className="team-sales-chip-body" onClick={() => goToMemberDetail(sales.id)}>
-                                                        <span className="team-sales-chip-name">{sales.name}</span>
-                                                        <span className="team-sales-chip-meta">{sales.totalLeads || 0} leads</span>
-                                                    </button>
+                                                    {!isLockedTeamMember(sales) ? (
+                                                        <div className="team-sales-chip-actions">
+                                                            {hasPenaltySignal(sales) ? (
+                                                                <button type="button" className="team-chip-icon-btn team-chip-icon-btn--warning" onClick={() => void openPenaltyActions(sales)} data-tip="Penalty" title="Penalty">
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
+                                                                </button>
+                                                            ) : null}
+                                                            {canEditMembers ? (
+                                                                <button type="button" className="team-chip-icon-btn" onClick={() => openEditMember(sales)} data-tip="Edit" title="Edit">
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                                </button>
+                                                            ) : null}
+                                                            {canManageSalesSupervisor ? (
+                                                                <button type="button" className="team-chip-icon-btn" onClick={() => openAssignSupervisor(sales)} data-tip="Assign SPV" title="Assign SPV">
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></svg>
+                                                                </button>
+                                                            ) : null}
+                                                            {canManageSalesLifecycle ? (
+                                                                <button type="button" className="team-chip-icon-btn team-chip-icon-btn--danger" onClick={() => openDeactivateMember(sales)} data-tip="Nonaktifkan" title="Nonaktifkan">
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>
+                                                                </button>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : null}
                                                 </div>
-                                                {!isLockedTeamMember(sales) ? (
-                                                    <div className="team-sales-chip-actions">
-                                                        {canEditMembers ? (
-                                                            <button type="button" className="team-chip-icon-btn" onClick={() => openEditMember(sales)} data-tip="Edit" title="Edit">
-                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                                            </button>
-                                                        ) : null}
-                                                        {canManageSalesSupervisor ? (
-                                                            <button type="button" className="team-chip-icon-btn" onClick={() => openAssignSupervisor(sales)} data-tip="Assign SPV" title="Assign SPV">
-                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" /><polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" /></svg>
-                                                            </button>
-                                                        ) : null}
-                                                        {canManageSalesLifecycle ? (
-                                                            <button type="button" className="team-chip-icon-btn team-chip-icon-btn--danger" onClick={() => openDeactivateMember(sales)} data-tip="Nonaktifkan" title="Nonaktifkan">
-                                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" /></svg>
-                                                            </button>
-                                                        ) : null}
-                                                    </div>
-                                                ) : null}
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </article>
                             ) : null}
@@ -1087,6 +1617,113 @@ export default function TeamPage() {
                     <button type="button" className="btn btn-danger" onClick={() => void handleDeleteSupervisor()} disabled={deleteSupervisorState?.submitting}>
                         {deleteSupervisorState?.submitting ? 'Menghapus...' : 'Ya, Hapus Supervisor'}
                     </button>
+                </div>
+            </Modal>
+
+            <Modal
+                isOpen={Boolean(penaltyState)}
+                onClose={() => setPenaltyState(null)}
+                title={`Penalty ${penaltyState?.sales?.name || ''}`}
+            >
+                <div className="team-penalty-modal">
+                    <div className="team-penalty-summary">
+                        <div>
+                            <span>Penalty</span>
+                            <strong>#{getPenaltyCount(penaltyState?.sales)}</strong>
+                        </div>
+                        <div>
+                            <span>SP</span>
+                            <strong>{formatSpLevel(penaltyState?.sales?.spLevel)}</strong>
+                        </div>
+                        <div>
+                            <span>Status</span>
+                            <strong>{penaltyState?.sales?.isSuspended ? 'Suspended' : 'Tidak aktif'}</strong>
+                        </div>
+                    </div>
+
+                    {penaltyState?.sales?.isSuspended ? (
+                        <div className="team-penalty-alert">
+                            Distribution queue diblok sampai {formatSuspensionUntil(penaltyState.sales.suspension?.suspendedUntil)}.
+                        </div>
+                    ) : null}
+
+                    {canManagePenaltyActions ? (
+                        <div className="team-penalty-actions">
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={() => void handleResetPenalty()}
+                                disabled={penaltyState?.submitting || getPenaltyCount(penaltyState?.sales) <= 0}
+                            >
+                                {penaltyState?.submitting === 'reset-penalty' ? 'Reset...' : 'Riset Penalty'}
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-secondary"
+                                onClick={() => void handleResetSp()}
+                                disabled={penaltyState?.submitting || formatSpLevel(penaltyState?.sales?.spLevel) === '-'}
+                            >
+                                {penaltyState?.submitting === 'reset-sp' ? 'Reset...' : 'Riset SP'}
+                            </button>
+                        </div>
+                    ) : (
+                        <p className="team-modal-helper">Supervisor hanya dapat melihat history penalty sales di bawahnya.</p>
+                    )}
+
+                    {canManagePenaltyActions && penaltyState?.sales?.isSuspended && penaltyState?.sales?.suspension?.penaltyId ? (
+                        <div className="team-penalty-compensate">
+                            <label>Alasan kompensasi suspend</label>
+                            <textarea
+                                className="input-field"
+                                rows={3}
+                                value={penaltyState?.reason || ''}
+                                onChange={(event) => setPenaltyState((prev) => prev ? { ...prev, reason: event.target.value, error: '' } : prev)}
+                                placeholder="Contoh: emergency, penalty dikompensasi oleh admin"
+                            />
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={() => void handleCompensateSuspension()}
+                                disabled={penaltyState?.submitting === 'compensate'}
+                            >
+                                {penaltyState?.submitting === 'compensate' ? 'Mengompensasi...' : 'Kompensasi Suspend'}
+                            </button>
+                        </div>
+                    ) : null}
+
+                    {penaltyState?.success ? <p className="settings-success">{penaltyState.success}</p> : null}
+                    {penaltyState?.error ? <p className="settings-error">{penaltyState.error}</p> : null}
+
+                    <div className="team-penalty-history">
+                        <div className="team-penalty-history-head">
+                            <h3>History Penalty</h3>
+                            {penaltyState?.loading ? <span>Memuat...</span> : <span>{penaltyState?.history?.length || 0} data</span>}
+                        </div>
+                        {penaltyState?.loading ? (
+                            <div className="team-empty-subtree">Memuat history penalty...</div>
+                        ) : Array.isArray(penaltyState?.history) && penaltyState.history.length > 0 ? (
+                            <div className="team-penalty-history-list">
+                                {penaltyState.history.map((item) => (
+                                    <article key={item.id} className="team-penalty-history-item">
+                                        <div className="team-penalty-history-top">
+                                            <strong>Penalty #{item.penaltySequence || '-'}</strong>
+                                            <span className={`badge ${getPenaltyStatusClass(item.status)}`}>{formatPenaltyStatus(item.status)}</span>
+                                        </div>
+                                        <p>{item.taskLabel || item.reason || 'Daily Task'}</p>
+                                        <div className="team-penalty-history-meta">
+                                            <span>SP {formatSpLevel(item.spLevel)}</span>
+                                            <span>{item.durationHours || 0} jam</span>
+                                            <span>{formatPenaltyDate(item.blockedFrom)} - {formatPenaltyDate(item.blockedUntil)}</span>
+                                        </div>
+                                        {item.reason ? <small>{item.reason}</small> : null}
+                                        {item.compensationReason ? <small>Kompensasi: {item.compensationReason}</small> : null}
+                                    </article>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="team-empty-subtree">Belum ada history penalty untuk sales ini.</div>
+                        )}
+                    </div>
                 </div>
             </Modal>
 

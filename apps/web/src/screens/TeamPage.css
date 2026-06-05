@@ -140,6 +140,129 @@
     flex-wrap: wrap;
 }
 
+.team-group-description {
+    margin: 4px 0 0;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+.team-custom-groups {
+    margin-bottom: 16px;
+}
+
+.team-group-create {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.team-custom-group-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.team-custom-group-card {
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: var(--bg-input);
+}
+
+.team-custom-group-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.team-custom-group-card-head h3 {
+    margin: 0;
+    font-size: 0.98rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.team-custom-group-card-head p {
+    margin: 3px 0 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.team-custom-members {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.team-custom-member-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 100%;
+    padding: 8px 9px;
+    border: 1px solid rgba(30, 58, 95, 0.12);
+    border-radius: 12px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
+.team-custom-member-pill span {
+    min-width: 0;
+}
+
+.team-custom-member-pill strong {
+    display: block;
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.78rem;
+}
+
+.team-custom-member-pill small {
+    display: block;
+    margin-top: 1px;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+}
+
+.team-custom-member-pill button {
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(244, 63, 94, 0.08);
+    color: var(--danger);
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.team-custom-add-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.team-custom-empty {
+    margin: 0 0 12px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+@media (max-width: 560px) {
+    .team-group-create,
+    .team-custom-add-row {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* ── Hierarchy ────────────────────────────────────────────────────────── */
 
 .team-hierarchy {
@@ -405,6 +528,26 @@
     color: var(--text-muted);
 }
 
+.team-penalty-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.team-penalty-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 18px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.12);
+    color: #B45309;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+}
+
 /* ── Empty states ─────────────────────────────────────────────────────── */
 
 .team-empty-subtree {
@@ -568,6 +711,15 @@
     background: var(--danger-bg, rgba(220,38,38,0.08));
 }
 
+.team-chip-icon-btn--warning {
+    color: #B45309;
+}
+
+.team-chip-icon-btn--warning:hover:not(:disabled) {
+    background: rgba(245, 158, 11, 0.12);
+    color: #92400E;
+}
+
 .team-chip-icon-btn:disabled {
     opacity: 0.3;
     cursor: not-allowed;
@@ -619,4 +771,157 @@ html[data-theme="light"] .team-chip-icon-btn[data-tip]::before {
 
 html[data-theme="light"] .team-chip-icon-btn[data-tip]::after {
     border-left-color: #1e293b;
+}
+
+/* ── Penalty modal ────────────────────────────────────────────────────── */
+
+.team-penalty-modal {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.team-penalty-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.team-penalty-summary > div {
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: var(--bg-input);
+}
+
+.team-penalty-summary span {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.team-penalty-summary strong {
+    display: block;
+    margin-top: 5px;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.team-penalty-alert {
+    padding: 11px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(244, 63, 94, 0.22);
+    background: var(--danger-bg, rgba(244, 63, 94, 0.08));
+    color: var(--danger);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.team-penalty-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.team-penalty-compensate {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    border: 1px dashed rgba(30, 58, 95, 0.22);
+    border-radius: 14px;
+    background: var(--bg-input);
+}
+
+.team-penalty-compensate label {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.team-penalty-history {
+    border-top: 1px solid var(--border-color);
+    padding-top: 12px;
+}
+
+.team-penalty-history-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.team-penalty-history-head h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+
+.team-penalty-history-head span {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.team-penalty-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    max-height: 320px;
+    overflow: auto;
+    padding-right: 2px;
+}
+
+.team-penalty-history-item {
+    padding: 11px;
+    border-radius: 13px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+}
+
+.team-penalty-history-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.team-penalty-history-top strong {
+    color: var(--text-primary);
+}
+
+.team-penalty-history-item p {
+    margin: 7px 0 0;
+    font-size: 0.84rem;
+    color: var(--text-primary);
+}
+
+.team-penalty-history-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.team-penalty-history-meta span {
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: var(--bg-input);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.team-penalty-history-item small {
+    display: block;
+    margin-top: 7px;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+@media (max-width: 520px) {
+    .team-penalty-summary,
+    .team-penalty-actions {
+        grid-template-columns: 1fr;
+    }
 }

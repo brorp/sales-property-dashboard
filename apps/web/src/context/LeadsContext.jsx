@@ -108,6 +108,7 @@ function normalizeLead(input) {
         interestProjectType: input.interestProjectType || null,
         interestUnitName: input.interestUnitName || null,
         resultStatus: input.resultStatus || null,
+        resultStatusUpdatedAt: input.resultStatusUpdatedAt || input.result_status_updated_at || null,
         rejectedReason: input.rejectedReason || null,
         rejectedNote: input.rejectedNote || null,
         acceptedAt: input.acceptedAt || null,

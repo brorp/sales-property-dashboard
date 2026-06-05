@@ -271,3 +271,34 @@ html[data-theme="dark"] .ws-sheet {
     border: 1.5px solid var(--bn-badge-ring);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
+
+.bottom-nav-task-dot {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--hot);
+    border: 1.5px solid var(--bn-icon-ring);
+    box-shadow: 0 1px 4px rgba(239, 68, 68, 0.28);
+}
+
+.bottom-nav-alert-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 17px;
+    height: 17px;
+    border-radius: 999px;
+    background: var(--hot);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid var(--bn-badge-ring);
+    box-shadow: 0 1px 4px rgba(239, 68, 68, 0.28);
+}

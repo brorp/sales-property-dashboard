@@ -1,10 +1,21 @@
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../db/index";
-import { client, lead, session, teamGroup, teamGroupMember, user } from "../db/schema";
+import {
+    activity,
+    client,
+    dailyTaskPenalty,
+    dailyTaskPenaltySuspension,
+    lead,
+    session,
+    teamGroup,
+    teamGroupMember,
+    user,
+} from "../db/schema";
 import type { QueryScope } from "../middleware/rbac";
 import { countAppointmentsForSalesIds } from "./appointments.service";
 import { getActiveSalesSuspensionMap } from "./sales-suspension.service";
 import { normalizeResultStatus } from "../utils/lead-workflow";
+import { generateId } from "../utils/id";
 
 function createEmptyStats() {
     return {
@@ -259,14 +270,81 @@ function mergeStats(items: ReturnType<typeof createEmptyStats>[]) {
     };
 }
 
+function isValidPenaltyStatus(status: string | null | undefined) {
+    return status !== "compensated" && status !== "invalid";
+}
+
+function getSpRank(spLevel: string | null | undefined) {
+    switch (String(spLevel || "").toLowerCase()) {
+        case "sp3": return 3;
+        case "sp2": return 2;
+        case "sp1": return 1;
+        default: return 0;
+    }
+}
+
+async function loadPenaltySummaryMap(salesIds: string[], scope?: QueryScope) {
+    const summaryMap = new Map<string, {
+        penaltyCount: number;
+        spLevel: string;
+        latestPenaltySequence: number;
+    }>();
+
+    if (salesIds.length === 0) {
+        return summaryMap;
+    }
+
+    const conditions = [inArray(dailyTaskPenalty.salesId, salesIds)];
+    if (scope?.clientId) {
+        conditions.push(eq(dailyTaskPenalty.clientId, scope.clientId));
+    }
+
+    const rows = await db
+        .select({
+            salesId: dailyTaskPenalty.salesId,
+            penaltySequence: dailyTaskPenalty.penaltySequence,
+            spLevel: dailyTaskPenalty.spLevel,
+            status: dailyTaskPenalty.status,
+        })
+        .from(dailyTaskPenalty)
+        .where(and(...conditions))
+        .orderBy(asc(dailyTaskPenalty.salesId), desc(dailyTaskPenalty.penaltySequence));
+
+    for (const row of rows) {
+        if (!isValidPenaltyStatus(row.status)) {
+            continue;
+        }
+
+        const current = summaryMap.get(row.salesId) || {
+            penaltyCount: 0,
+            spLevel: "none",
+            latestPenaltySequence: 0,
+        };
+        current.penaltyCount += 1;
+        current.latestPenaltySequence = Math.max(current.latestPenaltySequence, Number(row.penaltySequence || 0));
+        if (getSpRank(row.spLevel) > getSpRank(current.spLevel)) {
+            current.spLevel = row.spLevel || "none";
+        }
+        summaryMap.set(row.salesId, current);
+    }
+
+    return summaryMap;
+}
+
 function buildSalesMember(
     member: any,
     statsMap: Map<string, ReturnType<typeof createEmptyStats>>,
     appointmentCountMap: Map<string, number>,
-    suspensionMap: Map<string, any>
+    suspensionMap: Map<string, any>,
+    penaltySummaryMap: Map<string, any>
 ) {
     const stats = statsMap.get(member.id) || createEmptyStats();
     const suspension = suspensionMap.get(member.id) || null;
+    const penaltySummary = penaltySummaryMap.get(member.id) || {
+        penaltyCount: 0,
+        spLevel: "none",
+        latestPenaltySequence: 0,
+    };
 
     return {
         id: member.id,
@@ -279,9 +357,13 @@ function buildSalesMember(
         supervisorId: member.supervisorId,
         isActive: member.isActive,
         deactivatedAt: member.deactivatedAt || null,
+        penaltyCount: penaltySummary.penaltyCount || 0,
+        penaltySequence: penaltySummary.latestPenaltySequence || 0,
+        spLevel: penaltySummary.spLevel || "none",
         isSuspended: Boolean(suspension),
         suspension: suspension
             ? {
+                penaltyId: suspension.penaltyId,
                 penaltyLayer: suspension.penaltySequence,
                 penaltySequence: suspension.penaltySequence,
                 durationHours: suspension.durationHours,
@@ -302,10 +384,11 @@ function buildSupervisorMember(
     salesMembers: any[],
     statsMap: Map<string, ReturnType<typeof createEmptyStats>>,
     appointmentCountMap: Map<string, number>,
-    suspensionMap: Map<string, any>
+    suspensionMap: Map<string, any>,
+    penaltySummaryMap: Map<string, any>
 ) {
     const sales = salesMembers
-        .map((item) => buildSalesMember(item, statsMap, appointmentCountMap, suspensionMap))
+        .map((item) => buildSalesMember(item, statsMap, appointmentCountMap, suspensionMap, penaltySummaryMap))
         .sort((a, b) => a.name.localeCompare(b.name));
 
     return {
@@ -342,7 +425,10 @@ export async function getTeamHierarchy(scope?: QueryScope) {
         countAppointmentsForSalesIds(salesIds, scope?.clientId),
     ]);
     const salesStatsMap = buildStatsMap(leadRows);
-    const suspensionMap = await getActiveSalesSuspensionMap(salesIds);
+    const [suspensionMap, penaltySummaryMap] = await Promise.all([
+        getActiveSalesSuspensionMap(salesIds),
+        loadPenaltySummaryMap(salesIds, scope),
+    ]);
 
     const groupMap = new Map<string, {
         id: string;
@@ -379,7 +465,8 @@ export async function getTeamHierarchy(scope?: QueryScope) {
                     salesMembers.filter((item) => item.supervisorId === supervisor.id),
                     salesStatsMap,
                     appointmentCountMap,
-                    suspensionMap
+                    suspensionMap,
+                    penaltySummaryMap
                 )
             );
         }
@@ -392,7 +479,8 @@ export async function getTeamHierarchy(scope?: QueryScope) {
                     salesMembers.filter((item) => item.supervisorId === supervisor.id),
                     salesStatsMap,
                     appointmentCountMap,
-                    suspensionMap
+                    suspensionMap,
+                    penaltySummaryMap
                 )
             );
         }
@@ -400,14 +488,14 @@ export async function getTeamHierarchy(scope?: QueryScope) {
         for (const sales of salesMembers.filter((item) => !item.supervisorId)) {
             const group = ensureGroup(sales.clientId, sales.clientName);
             group.unassignedSales.push(
-                buildSalesMember(sales, salesStatsMap, appointmentCountMap, suspensionMap)
+                buildSalesMember(sales, salesStatsMap, appointmentCountMap, suspensionMap, penaltySummaryMap)
             );
         }
 
         for (const inactiveSales of inactiveSalesMembers) {
             const group = ensureGroup(inactiveSales.clientId, inactiveSales.clientName);
             group.inactiveSales.push(
-                buildSalesMember(inactiveSales, salesStatsMap, appointmentCountMap, suspensionMap)
+                buildSalesMember(inactiveSales, salesStatsMap, appointmentCountMap, suspensionMap, penaltySummaryMap)
             );
         }
     }
@@ -673,6 +761,164 @@ export async function removeTeamGroupMember(params: {
     return deleted;
 }
 
+function assertCanManageSalesPenalty(scope?: QueryScope) {
+    if (!scope || (scope.role !== "root_admin" && scope.role !== "client_admin")) {
+        throw new Error("FORBIDDEN_PENALTY_MANAGEMENT");
+    }
+}
+
+async function loadVisibleSalesForPenaltyAction(salesId: string, scope?: QueryScope) {
+    const member = await loadVisibleMemberById(salesId, scope);
+    if (!member || member.role !== "sales") {
+        throw new Error("TEAM_MEMBER_NOT_FOUND");
+    }
+    return member;
+}
+
+async function insertSalesPenaltyActivity(
+    executor: any,
+    params: {
+        salesId: string;
+        clientId?: string | null;
+        note: string;
+        timestamp: Date;
+    }
+) {
+    const leadConditions = [eq(lead.assignedTo, params.salesId)];
+    if (params.clientId) {
+        leadConditions.push(eq(lead.clientId, params.clientId));
+    }
+
+    const [latestLead] = await executor
+        .select({ id: lead.id })
+        .from(lead)
+        .where(and(...leadConditions))
+        .orderBy(desc(lead.updatedAt), desc(lead.createdAt))
+        .limit(1);
+
+    if (!latestLead) {
+        return;
+    }
+
+    await executor.insert(activity).values({
+        id: generateId(),
+        leadId: latestLead.id,
+        type: "penalty",
+        note: params.note,
+        timestamp: params.timestamp,
+    });
+}
+
+export async function resetSalesPenalties(params: {
+    salesId: string;
+    actorId: string;
+    scope?: QueryScope;
+}) {
+    assertCanManageSalesPenalty(params.scope);
+    const sales = await loadVisibleSalesForPenaltyAction(params.salesId, params.scope);
+    const now = new Date();
+
+    return db.transaction(async (tx) => {
+        const conditions = [eq(dailyTaskPenalty.salesId, sales.id)];
+        if (params.scope?.clientId) {
+            conditions.push(eq(dailyTaskPenalty.clientId, params.scope.clientId));
+        }
+
+        const penaltyRows = await tx
+            .select({
+                id: dailyTaskPenalty.id,
+                status: dailyTaskPenalty.status,
+            })
+            .from(dailyTaskPenalty)
+            .where(and(...conditions));
+
+        const validPenaltyIds = penaltyRows
+            .filter((row) => isValidPenaltyStatus(row.status))
+            .map((row) => row.id);
+
+        if (validPenaltyIds.length === 0) {
+            return { salesId: sales.id, updatedCount: 0 };
+        }
+
+        await tx
+            .update(dailyTaskPenalty)
+            .set({
+                status: "invalid",
+                compensationReason: `Penalty direset oleh admin ${params.actorId}`,
+                updatedAt: now,
+            })
+            .where(inArray(dailyTaskPenalty.id, validPenaltyIds));
+
+        await tx
+            .update(dailyTaskPenaltySuspension)
+            .set({
+                status: "invalid",
+                updatedAt: now,
+            })
+            .where(inArray(dailyTaskPenaltySuspension.penaltyId, validPenaltyIds));
+
+        await insertSalesPenaltyActivity(tx, {
+            salesId: sales.id,
+            clientId: sales.clientId,
+            note: `Penalty ${sales.name} direset oleh admin. ${validPenaltyIds.length} penalty ditandai invalid.`,
+            timestamp: now,
+        });
+
+        return { salesId: sales.id, updatedCount: validPenaltyIds.length };
+    });
+}
+
+export async function resetSalesSpLevel(params: {
+    salesId: string;
+    actorId: string;
+    scope?: QueryScope;
+}) {
+    assertCanManageSalesPenalty(params.scope);
+    const sales = await loadVisibleSalesForPenaltyAction(params.salesId, params.scope);
+    const now = new Date();
+
+    return db.transaction(async (tx) => {
+        const conditions = [eq(dailyTaskPenalty.salesId, sales.id)];
+        if (params.scope?.clientId) {
+            conditions.push(eq(dailyTaskPenalty.clientId, params.scope.clientId));
+        }
+
+        const penaltyRows = await tx
+            .select({
+                id: dailyTaskPenalty.id,
+                status: dailyTaskPenalty.status,
+                spLevel: dailyTaskPenalty.spLevel,
+            })
+            .from(dailyTaskPenalty)
+            .where(and(...conditions));
+
+        const targetPenaltyIds = penaltyRows
+            .filter((row) => isValidPenaltyStatus(row.status) && getSpRank(row.spLevel) > 0)
+            .map((row) => row.id);
+
+        if (targetPenaltyIds.length === 0) {
+            return { salesId: sales.id, updatedCount: 0 };
+        }
+
+        await tx
+            .update(dailyTaskPenalty)
+            .set({
+                spLevel: "none",
+                updatedAt: now,
+            })
+            .where(inArray(dailyTaskPenalty.id, targetPenaltyIds));
+
+        await insertSalesPenaltyActivity(tx, {
+            salesId: sales.id,
+            clientId: sales.clientId,
+            note: `SP ${sales.name} direset oleh admin. ${targetPenaltyIds.length} penalty dikembalikan ke SP none.`,
+            timestamp: now,
+        });
+
+        return { salesId: sales.id, updatedCount: targetPenaltyIds.length };
+    });
+}
+
 async function loadVisibleMemberById(memberId: string, scope?: QueryScope) {
     const [member] = await db
         .select({
@@ -845,7 +1091,16 @@ export async function getTeamMemberDetail(memberId: string, scope?: QueryScope) 
     const suspensionMap = await getActiveSalesSuspensionMap(
         member.role === "sales" ? [member.id] : managedSalesIds
     );
+    const penaltySummaryMap = await loadPenaltySummaryMap(
+        member.role === "sales" ? [member.id] : managedSalesIds,
+        scope
+    );
     const memberSuspension = member.role === "sales" ? (suspensionMap.get(member.id) || null) : null;
+    const memberPenaltySummary = penaltySummaryMap.get(member.id) || {
+        penaltyCount: 0,
+        latestPenaltySequence: 0,
+        spLevel: "none",
+    };
     const salesStatsMap = buildStatsMap(
         leadRows.map((item) => ({
             assignedTo: item.assignedTo,
@@ -889,9 +1144,13 @@ export async function getTeamMemberDetail(memberId: string, scope?: QueryScope) 
             createdByUserId: member.createdByUserId,
             createdByName: member.createdByName,
             isActive: member.isActive,
+            penaltyCount: member.role === "sales" ? memberPenaltySummary.penaltyCount || 0 : 0,
+            penaltySequence: member.role === "sales" ? memberPenaltySummary.latestPenaltySequence || 0 : 0,
+            spLevel: member.role === "sales" ? memberPenaltySummary.spLevel || "none" : "none",
             isSuspended: Boolean(memberSuspension),
             suspension: memberSuspension
                 ? {
+                    penaltyId: memberSuspension.penaltyId,
                     penaltyLayer: memberSuspension.penaltySequence,
                     penaltySequence: memberSuspension.penaltySequence,
                     durationHours: memberSuspension.durationHours,
@@ -909,6 +1168,11 @@ export async function getTeamMemberDetail(memberId: string, scope?: QueryScope) 
         },
         managedSales: managedSales.map((item) => {
             const itemSuspension = suspensionMap.get(item.id) || null;
+            const itemPenaltySummary = penaltySummaryMap.get(item.id) || {
+                penaltyCount: 0,
+                latestPenaltySequence: 0,
+                spLevel: "none",
+            };
             return {
                 id: item.id,
                 name: item.name,
@@ -916,9 +1180,13 @@ export async function getTeamMemberDetail(memberId: string, scope?: QueryScope) 
                 phone: item.phone,
                 role: item.role,
                 supervisorId: item.supervisorId,
+                penaltyCount: itemPenaltySummary.penaltyCount || 0,
+                penaltySequence: itemPenaltySummary.latestPenaltySequence || 0,
+                spLevel: itemPenaltySummary.spLevel || "none",
                 isSuspended: Boolean(itemSuspension),
                 suspension: itemSuspension
                     ? {
+                        penaltyId: itemSuspension.penaltyId,
                         penaltyLayer: itemSuspension.penaltySequence,
                         penaltySequence: itemSuspension.penaltySequence,
                         durationHours: itemSuspension.durationHours,
