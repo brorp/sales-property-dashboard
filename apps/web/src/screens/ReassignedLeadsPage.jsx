@@ -46,7 +46,7 @@ export default function ReassignedLeadsPage() {
         [assignedLeads, leads, selectedLeadId]
     );
     const availableSales = useMemo(
-        () => salesUsers.filter((sales) => sales.id !== selectedLead?.assignedTo),
+        () => salesUsers.filter((sales) => sales.isActive !== false && sales.id !== selectedLead?.assignedTo),
         [salesUsers, selectedLead?.assignedTo]
     );
 

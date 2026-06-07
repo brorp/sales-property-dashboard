@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatCount } from './utils';
 import PieChartCard from '../../components/PieChartCard';
 import Select from '../../components/Select';
+import DateRangePicker from '../../components/DateRangePicker';
+import { DATE_PRESET_OPTIONS, getPresetRange, parseDateInput } from '../../utils/datePresets';
 import './DashboardSections.css';
 
 const PIE_COLORS = [
@@ -354,6 +356,15 @@ function BarChartCard({ title, subtitle, total, items, emptyLabel }) {
     );
 }
 
+function formatRangeButtonLabel(range) {
+    if (!range?.dateFrom && !range?.dateTo) return 'Kustom';
+    const formatter = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' });
+    const start = parseDateInput(range.dateFrom);
+    const end = parseDateInput(range.dateTo || range.dateFrom);
+    if (!start || !end) return 'Kustom';
+    return `${formatter.format(start)} – ${formatter.format(end)}`;
+}
+
 export default function AnalyticsSection({
     leads = [],
     transactionRecap = null,
@@ -361,14 +372,37 @@ export default function AnalyticsSection({
     cancelReasons = [],
     appliedDateRange,
     rangeSummary = '',
-    periodLabel = '',
-    onOpenFilter,
+    onDateRangeChange,
     sourceOptions = [],
     selectedSource = 'all',
     onSourceChange,
     viewerRole = '',
     viewerId = '',
 }) {
+    const datePickerOpenRef = useRef(null);
+
+    const isCustomPeriod = !DATE_PRESET_OPTIONS.some((r) => {
+        const pr = getPresetRange(r.value);
+        return pr.dateFrom === appliedDateRange?.dateFrom && pr.dateTo === appliedDateRange?.dateTo;
+    });
+    const activePeriodKey = isCustomPeriod
+        ? 'custom'
+        : (DATE_PRESET_OPTIONS.find((r) => {
+            const pr = getPresetRange(r.value);
+            return pr.dateFrom === appliedDateRange?.dateFrom && pr.dateTo === appliedDateRange?.dateTo;
+        })?.value ?? '');
+
+    const periodOptions = useMemo(() => [
+        ...DATE_PRESET_OPTIONS.map(({ value, label }) => ({ value, label })),
+        { value: 'custom', label: isCustomPeriod ? formatRangeButtonLabel(appliedDateRange) : 'Rentang Kustom' },
+    ], [isCustomPeriod, appliedDateRange]);
+
+    const handlePeriodChange = (v) => {
+        if (!v || !onDateRangeChange) return;
+        if (v === 'custom') { datePickerOpenRef.current?.(); return; }
+        onDateRangeChange(getPresetRange(v));
+    };
+
     const unitIdToType = useMemo(() => {
         const m = new Map();
         for (const u of projectUnits) {
@@ -397,10 +431,32 @@ export default function AnalyticsSection({
     const getCancelReasonLabel = useMemo(() => makeCancelReasonResolver(cancelCodeToLabel), [cancelCodeToLabel]);
 
     const [selectedSalesId, setSelectedSalesId] = useState('all');
+    const [selectedGroupId, setSelectedGroupId] = useState('all');
     const [statusFilter, setStatusFilter] = useState(null);
     const [chartType, setChartType] = useState('pie');
     const [isSalesListOpen, setIsSalesListOpen] = useState(false);
     const salesPaneRef = useRef(null);
+
+    const groupOptions = useMemo(() => {
+        const comparisonGroups = Array.isArray(transactionRecap?.comparisonGroups) ? transactionRecap.comparisonGroups : [];
+        return comparisonGroups
+            .filter((g) => (g.salesCount || 0) > 0)
+            .map((g) => ({ id: g.id, name: g.name || 'Tanpa Nama', salesIds: Array.isArray(g.salesIds) ? g.salesIds : [] }));
+    }, [transactionRecap]);
+
+    const groupSalesIdsSet = useMemo(() => {
+        if (selectedGroupId === 'all') return null;
+        const opt = groupOptions.find((g) => g.id === selectedGroupId);
+        return opt ? new Set(opt.salesIds) : new Set();
+    }, [selectedGroupId, groupOptions]);
+
+    // If selected sales no longer belongs to selected group, reset to 'all'
+    useEffect(() => {
+        if (!groupSalesIdsSet) return;
+        if (selectedSalesId !== 'all' && !groupSalesIdsSet.has(selectedSalesId)) {
+            setSelectedSalesId('all');
+        }
+    }, [groupSalesIdsSet, selectedSalesId]);
 
     const dateStart = useMemo(() => parseInputDate(appliedDateRange?.dateFrom), [appliedDateRange?.dateFrom]);
     const dateEnd = useMemo(() => parseInputDateEnd(appliedDateRange?.dateTo), [appliedDateRange?.dateTo]);
@@ -434,9 +490,12 @@ export default function AnalyticsSection({
             const me = out.find((s) => s.id === viewerId);
             return me ? [me] : out.filter((s) => s.id === viewerId);
         }
-        out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
-        return out;
-    }, [transactionRecap, viewerRole, viewerId]);
+        const filtered = groupSalesIdsSet
+            ? out.filter((s) => groupSalesIdsSet.has(s.id))
+            : out;
+        filtered.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+        return filtered;
+    }, [transactionRecap, viewerRole, viewerId, groupSalesIdsSet]);
 
     const salesNameById = useMemo(() => {
         const map = new Map();
@@ -459,6 +518,16 @@ export default function AnalyticsSection({
         return sourceFilteredLeads.filter((l) => withinRange(l.createdAt || l.receivedAt, dateStart, dateEnd));
     }, [sourceFilteredLeads, hasDateFilter, dateStart, dateEnd]);
 
+    // appointment.createdAt-based filter for Visit (Survey) column
+    const apptCreatedAtFilteredLeads = useMemo(() => {
+        if (!hasDateFilter) return sourceFilteredLeads;
+        return sourceFilteredLeads.filter((l) => {
+            const apptCreated = l.latestAppointment?.createdAt;
+            if (!apptCreated) return false;
+            return withinRange(apptCreated, dateStart, dateEnd);
+        });
+    }, [sourceFilteredLeads, hasDateFilter, dateStart, dateEnd]);
+
     // resultStatusUpdatedAt-based filter for Transaction column
     const l4FilteredLeads = useMemo(() => {
         if (!hasDateFilter) return sourceFilteredLeads;
@@ -474,21 +543,40 @@ export default function AnalyticsSection({
         return map;
     }, [createdAtFilteredLeads]);
 
+    const totalDatabaseCount = useMemo(() => {
+        if (!groupSalesIdsSet) return createdAtFilteredLeads.length;
+        let n = 0;
+        for (const l of createdAtFilteredLeads) {
+            if (l.assignedTo && groupSalesIdsSet.has(l.assignedTo)) n += 1;
+        }
+        return n;
+    }, [createdAtFilteredLeads, groupSalesIdsSet]);
+
     const isAllSales = selectedSalesId === 'all';
 
     function applySalesFilter(items) {
-        if (isAllSales) return items;
-        return items.filter((l) => l.assignedTo === selectedSalesId);
+        if (!isAllSales) {
+            return items.filter((l) => l.assignedTo === selectedSalesId);
+        }
+        if (groupSalesIdsSet) {
+            return items.filter((l) => l.assignedTo && groupSalesIdsSet.has(l.assignedTo));
+        }
+        return items;
     }
 
     const scopedCreatedAtLeads = useMemo(
         () => applySalesFilter(createdAtFilteredLeads),
-        [createdAtFilteredLeads, selectedSalesId]
+        [createdAtFilteredLeads, selectedSalesId, groupSalesIdsSet]
+    );
+
+    const scopedApptCreatedAtLeads = useMemo(
+        () => applySalesFilter(apptCreatedAtFilteredLeads),
+        [apptCreatedAtFilteredLeads, selectedSalesId, groupSalesIdsSet]
     );
 
     const scopedL4Leads = useMemo(
         () => applySalesFilter(l4FilteredLeads),
-        [l4FilteredLeads, selectedSalesId]
+        [l4FilteredLeads, selectedSalesId, groupSalesIdsSet]
     );
 
     const l2Reached = useMemo(() => scopedCreatedAtLeads.filter(isL2Reached), [scopedCreatedAtLeads]);
@@ -502,15 +590,15 @@ export default function AnalyticsSection({
     }, [scopedCreatedAtLeads]);
 
 
-    const l3Reached = useMemo(() => scopedCreatedAtLeads.filter(isL3Reached), [scopedCreatedAtLeads]);
+    const l3Reached = useMemo(() => scopedApptCreatedAtLeads.filter(isL3Reached), [scopedApptCreatedAtLeads]);
     const l3Counts = useMemo(() => {
         const m = { sudah_survey: 0, mau_survey: 0, dibatalkan: 0 };
-        for (const l of scopedCreatedAtLeads) {
+        for (const l of scopedApptCreatedAtLeads) {
             const k = getL3BucketKey(l.appointmentTag);
             if (k) m[k] += 1;
         }
         return m;
-    }, [scopedCreatedAtLeads]);
+    }, [scopedApptCreatedAtLeads]);
 
     const l4Reached = useMemo(() => scopedL4Leads.filter(isL4Reached), [scopedL4Leads]);
     const l4Counts = useMemo(() => {
@@ -525,7 +613,7 @@ export default function AnalyticsSection({
     const closingNumerator = (l4Counts.full_book || 0) + (l4Counts.lunas || 0);
     const prospectNumerator = (l2Counts.hot || 0) + (l2Counts.hot_validated || 0);
     const closingRate = pct(closingNumerator, scopedL4Leads.length);
-    const surveyRate = pct(l3Counts.sudah_survey, scopedCreatedAtLeads.length);
+    const surveyRate = pct(l3Counts.sudah_survey, scopedApptCreatedAtLeads.length);
     const prospectRate = pct(prospectNumerator, scopedCreatedAtLeads.length);
 
     const statusSalesBreakdown = useMemo(() => {
@@ -552,7 +640,7 @@ export default function AnalyticsSection({
                 L3_STATUSES.map((status) => [
                     status.key,
                     buildStatusSalesBreakdown(
-                        createdAtFilteredLeads,
+                        apptCreatedAtFilteredLeads,
                         (lead) => getL3BucketKey(lead.appointmentTag) === status.key,
                         salesNameById
                     ),
@@ -569,7 +657,7 @@ export default function AnalyticsSection({
                 ])
             ),
         };
-    }, [createdAtFilteredLeads, isAllSales, l4FilteredLeads, salesNameById]);
+    }, [createdAtFilteredLeads, apptCreatedAtFilteredLeads, isAllSales, l4FilteredLeads, salesNameById]);
 
     const chartLeads = useMemo(() => {
         if (!statusFilter) return scopedCreatedAtLeads;
@@ -578,13 +666,13 @@ export default function AnalyticsSection({
             return scopedCreatedAtLeads.filter((l) => getL2BucketKey(l) === key);
         }
         if (type === 'visit') {
-            return scopedCreatedAtLeads.filter((l) => getL3BucketKey(l.appointmentTag) === key);
+            return scopedApptCreatedAtLeads.filter((l) => getL3BucketKey(l.appointmentTag) === key);
         }
         if (type === 'transaction') {
             return scopedL4Leads.filter((l) => getL4BucketKey(l.resultStatus) === key);
         }
         return scopedCreatedAtLeads;
-    }, [statusFilter, scopedCreatedAtLeads, scopedL4Leads]);
+    }, [statusFilter, scopedCreatedAtLeads, scopedApptCreatedAtLeads, scopedL4Leads]);
 
     const sourceItems = useMemo(() => {
         const items = buildBreakdown(chartLeads, getSourceLabel, 8);
@@ -639,31 +727,49 @@ export default function AnalyticsSection({
 
     return (
         <div className="ds-card an-section">
-            <div className="ds-card-head an-head">
-                <div>
-                    <div className="an-head-title-row">
-                        <h2 className="ds-card-title">Analitik</h2>
-                        {periodLabel ? <span className="tpc-period-badge">{periodLabel}</span> : null}
+            {rangeSummary ? (
+                <div className="ds-card-head an-head">
+                    <div>
+                        <span className="ds-card-summary">{rangeSummary}</span>
                     </div>
-                    <span className="ds-card-summary">{rangeSummary || 'Klik status untuk memfilter grafik di bawah.'}</span>
                 </div>
-                <div className="an-head-actions">
-                    {sourceOptions.length > 1 ? (
+            ) : null}
+
+            <div className="sps-filter-row sps-filter-row--2col">
+                <div className="sps-filter-field">
+                    <span className="sps-filter-label">Tanggal</span>
+                    <Select
+                        options={periodOptions}
+                        value={activePeriodKey}
+                        onChange={handlePeriodChange}
+                        placeholder="Periode"
+                        clearable={false}
+                    />
+                    <DateRangePicker
+                        value={appliedDateRange || { dateFrom: '', dateTo: '' }}
+                        onApply={(range) => onDateRangeChange?.({
+                            dateFrom: range?.dateFrom || '',
+                            dateTo: range?.dateTo || '',
+                        })}
+                        onReset={() => onDateRangeChange?.(getPresetRange('thisMonth'))}
+                        trigger={({ open }) => {
+                            datePickerOpenRef.current = open;
+                            return <span style={{ display: 'block', height: 0, visibility: 'hidden' }} />;
+                        }}
+                    />
+                </div>
+                {sourceOptions.length > 1 ? (
+                    <div className="sps-filter-field">
+                        <span className="sps-filter-label">Sumber</span>
                         <Select
-                            className="an-source-select"
                             options={sourceOptions}
                             value={selectedSource}
                             onChange={onSourceChange}
-                            placeholder="Sumber Data"
+                            placeholder="Semua Sumber"
                             clearable={false}
                         />
-                    ) : null}
-                    {onOpenFilter ? (
-                        <button type="button" className="ds-section-filter-btn" onClick={onOpenFilter} aria-label="Pilih rentang tanggal">
-                            <CalendarIcon />
-                        </button>
-                    ) : null}
-                </div>
+                    </div>
+                ) : null}
             </div>
 
             <div className="ds-tab-body an-body">
@@ -671,6 +777,27 @@ export default function AnalyticsSection({
                     {/* Collapsible Sales Pane (Full Width) */}
                     {viewerRole !== 'sales' ? (
                         <div className="an-sales-pane" ref={salesPaneRef}>
+                            {groupOptions.length > 0 ? (
+                                <div className="an-sales-group-pills">
+                                    <button
+                                        type="button"
+                                        className={`an-sales-group-pill${selectedGroupId === 'all' ? ' is-active' : ''}`}
+                                        onClick={() => setSelectedGroupId('all')}
+                                    >
+                                        Semua Grup
+                                    </button>
+                                    {groupOptions.map((g) => (
+                                        <button
+                                            key={g.id}
+                                            type="button"
+                                            className={`an-sales-group-pill${selectedGroupId === g.id ? ' is-active' : ''}`}
+                                            onClick={() => setSelectedGroupId(g.id)}
+                                        >
+                                            {g.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : null}
                             <button
                                 type="button"
                                 className={`an-sales-row an-sales-row--total ${selectedSalesId !== 'all' ? 'is-active' : ''}`}
@@ -705,7 +832,7 @@ export default function AnalyticsSection({
                                 <strong className="an-sales-row-count">
                                     {formatCount(
                                         selectedSalesId === 'all'
-                                            ? createdAtFilteredLeads.length
+                                            ? totalDatabaseCount
                                             : salesLeadCounts.get(selectedSalesId) || 0
                                     )}
                                 </strong>
@@ -719,7 +846,7 @@ export default function AnalyticsSection({
                                     }}
                                 >
                                     <span className="an-sales-row-label">Total Database</span>
-                                    <strong className="an-sales-row-count">{formatCount(createdAtFilteredLeads.length)}</strong>
+                                    <strong className="an-sales-row-count">{formatCount(totalDatabaseCount)}</strong>
                                 </button>
                                 {visibleSales.length === 0 ? (
                                     <div className="an-sales-empty">Tidak ada sales</div>
@@ -776,7 +903,7 @@ export default function AnalyticsSection({
                             rateLabel="Survey Rate"
                             rateValue={surveyRate}
                             rateFormula="Sudah Survey / Total Leads"
-                            rateFormulaDetail={formatFormulaDetail([l3Counts.sudah_survey || 0], scopedCreatedAtLeads.length)}
+                            rateFormulaDetail={formatFormulaDetail([l3Counts.sudah_survey || 0], scopedApptCreatedAtLeads.length)}
                         >
                             {L3_STATUSES.map((status) => (
                                 <StatusRow

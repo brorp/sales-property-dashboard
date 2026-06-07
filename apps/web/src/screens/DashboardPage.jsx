@@ -96,7 +96,7 @@ export default function DashboardPage() {
     const { dashboardAnalytics, refreshAll, leads, salesUsers, leadSources } = useLeads();
     const router = useRouter();
 
-    const [activeSectionTab, setActiveSectionTab] = useState('analytics');
+    const [activeSectionTab, setActiveSectionTab] = useState('overview');
     const [globalTeamFilter, setGlobalTeamFilter] = useState('all');
     const [selectedSourceFilter, setSelectedSourceFilter] = useState('all');
     const [transactionUnitType, setTransactionUnitType] = useState('');
@@ -522,26 +522,26 @@ export default function DashboardPage() {
                 <div className="dash-sticky-bar-row">
                     <div className="dash-section-tabs">
                         <button type="button" className={`dash-section-tab${activeSectionTab === 'overview' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('overview')}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
-                            <span className="dash-tab-label-full">Daily Report</span>
-                            <span className="dash-tab-label-short">Daily Report</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="16" y2="17" /><line x1="8" y1="9" x2="10" y2="9" /></svg>
+                            <span className="dash-tab-label-full">Laporan</span>
+                            <span className="dash-tab-label-short">Laporan</span>
                         </button>
                         <button type="button" className={`dash-section-tab${activeSectionTab === 'analytics' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('analytics')}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><path d="M7 16l4-5 4 4 4-6" /></svg>
-                            <span className="dash-tab-label-full">Overview</span>
-                            <span className="dash-tab-label-short">Overview</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><circle cx="4" cy="6" r="1.4" /><circle cx="4" cy="12" r="1.4" /><circle cx="4" cy="18" r="1.4" /></svg>
+                            <span className="dash-tab-label-full">Ringkasan</span>
+                            <span className="dash-tab-label-short">Ringkasan</span>
                         </button>
                         {showTeamPerformance ? (
                             <button type="button" className={`dash-section-tab${activeSectionTab === 'team-performance' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('team-performance')}>
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
-                                <span className="dash-tab-label-full">Team Performance</span>
-                                <span className="dash-tab-label-short">Team Perf.</span>
+                                <span className="dash-tab-label-full">Performa Tim</span>
+                                <span className="dash-tab-label-short">Performa</span>
                             </button>
                         ) : null}
                         <button type="button" className={`dash-section-tab${activeSectionTab === 'line-chart' ? ' is-active' : ''}`} onClick={() => setActiveSectionTab('line-chart')}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
-                            <span className="dash-tab-label-full">Line Chart</span>
-                            <span className="dash-tab-label-short">Tren</span>
+                            <span className="dash-tab-label-full">Grafik</span>
+                            <span className="dash-tab-label-short">Grafik</span>
                         </button>
                     </div>
 
@@ -583,6 +583,18 @@ export default function DashboardPage() {
                                     {filterLoading ? 'Memuat data...' : formatRangeSummary(appliedDateRange)}
                                 </p>
                             </div>
+                            {analyticsSourceOptions.length > 1 ? (
+                                <div className="dash-drawer-section">
+                                    <span className="dash-drawer-section-label">Sumber Data</span>
+                                    <Select
+                                        options={analyticsSourceOptions}
+                                        value={selectedSourceFilter}
+                                        onChange={(v) => void handleSourceFilterChange(v)}
+                                        placeholder="Semua Sumber Data"
+                                        clearable={false}
+                                    />
+                                </div>
+                            ) : null}
                         </div>
                     </div>
                 </div>
@@ -605,8 +617,7 @@ export default function DashboardPage() {
                     cancelReasons={cancelReasons}
                     appliedDateRange={appliedDateRange}
                     rangeSummary={formatRangeSummary(appliedDateRange)}
-                    periodLabel={transactionPeriodLabel}
-                    onOpenFilter={() => setShowFilterDrawer(true)}
+                    onDateRangeChange={(range) => void handleApplyDateFilter(range)}
                     sourceOptions={analyticsSourceOptions}
                     selectedSource={selectedSourceFilter}
                     onSourceChange={handleSourceFilterChange}

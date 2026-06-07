@@ -165,7 +165,7 @@ export default function AppointmentsPage() {
                     {canFilterBySales ? (
                         <Select
                             placeholder="Semua Sales"
-                            options={salesUsers.map((s) => ({ value: s.id, label: s.name }))}
+                            options={salesUsers.map((s) => ({ value: s.id, label: s.isActive === false ? `${s.name} (Inaktif)` : s.name }))}
                             value={salesFilter}
                             onChange={setSalesFilter}
                         />
@@ -273,7 +273,7 @@ export default function AppointmentsPage() {
                             {canFilterBySales ? (
                                 <Select
                                     placeholder="Semua Sales"
-                                    options={salesUsers.map((s) => ({ value: s.id, label: s.name }))}
+                                    options={salesUsers.map((s) => ({ value: s.id, label: s.isActive === false ? `${s.name} (Inaktif)` : s.name }))}
                                     value={salesFilter}
                                     onChange={setSalesFilter}
                                 />

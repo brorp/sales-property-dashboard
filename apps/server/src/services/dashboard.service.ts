@@ -2387,6 +2387,7 @@ export async function getHomeAnalytics(
                     id: group.id,
                     name: group.name,
                     salesCount: group.salesIds.length,
+                    salesIds: group.salesIds,
                 })),
                 groupSurveyBreakdown,
                 groupComparison: buildGroupComparisonForItems(items),
@@ -2552,11 +2553,22 @@ export async function getHomeAnalytics(
             transaksi: { reserve: number; fullBook: number; lunas: number };
         };
 
-        const recapBuckets = new Map<string, RecapBucket>();
+        // Build groupIds membership per sales (so client can filter by group)
+        const groupIdsBySalesId = new Map<string, string[]>();
+        for (const group of analyticsTeamGroups) {
+            for (const salesId of group.salesIds) {
+                const list = groupIdsBySalesId.get(salesId) || [];
+                if (!list.includes(group.id)) list.push(group.id);
+                groupIdsBySalesId.set(salesId, list);
+            }
+        }
+
+        const recapBuckets = new Map<string, RecapBucket & { groupIds: string[] }>();
         for (const sales of scopedSalesUsersList) {
             recapBuckets.set(sales.id, {
                 salesId: sales.id,
                 salesName: sales.name,
+                groupIds: groupIdsBySalesId.get(sales.id) || [],
                 followUp: { newLeads: 0, pipeline: 0, deadline: 0 },
                 survey: { hariIni: 0, nanti: 0, terlewat: 0 },
                 hotDatabase: { lessThanMonth: 0, moreThanMonth: 0 },

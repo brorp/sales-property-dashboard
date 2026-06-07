@@ -317,7 +317,7 @@ async function resequenceQueue(
 }
 
 export async function getSalesUsers(scope: SalesQueryScope = {}) {
-    const conditions: any[] = [eq(user.role, "sales"), eq(user.isActive, true)];
+    const conditions: any[] = [eq(user.role, "sales")];
     if (scope.supervisorId) {
         conditions.push(eq(user.supervisorId, scope.supervisorId));
     }

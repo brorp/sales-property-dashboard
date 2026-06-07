@@ -95,6 +95,7 @@ export default function DailyReportHeaderSection({ user }) {
     const [showDrawer, setShowDrawer] = useState(false);
     const [dtrCategory, setDtrCategory] = useState('followUp');
     const [dtrSelectedMetrics, setDtrSelectedMetrics] = useState(() => DTR_CATEGORIES[0].metrics.map((m) => m.key));
+    const [dtrGroupId, setDtrGroupId] = useState('all');
     const customPickerOpenRef = useRef(null);
 
     const fetchData = useCallback(async (range) => {
@@ -223,6 +224,21 @@ export default function DailyReportHeaderSection({ user }) {
         [data],
     );
 
+    const dtrGroupOptions = useMemo(() => {
+        const groups = Array.isArray(transactionRecap?.comparisonGroups) ? transactionRecap.comparisonGroups : [];
+        return [
+            { id: 'all', name: 'Semua Grup' },
+            ...groups
+                .filter((g) => (g.salesCount || 0) > 0)
+                .map((g) => ({ id: g.id, name: g.name || 'Tanpa Nama' })),
+        ];
+    }, [transactionRecap]);
+
+    const filteredDailyTaskRecap = useMemo(() => {
+        if (dtrGroupId === 'all') return dailyTaskRecap;
+        return dailyTaskRecap.filter((row) => Array.isArray(row.groupIds) && row.groupIds.includes(dtrGroupId));
+    }, [dailyTaskRecap, dtrGroupId]);
+
     const dtrActiveCategory = useMemo(
         () => DTR_CATEGORIES.find((c) => c.key === dtrCategory) || DTR_CATEGORIES[0],
         [dtrCategory],
@@ -256,6 +272,7 @@ export default function DailyReportHeaderSection({ user }) {
     return (
         <div className="drh-wrap">
             <div className="drh-toolbar">
+                <span className="drh-toolbar-summary">{formatRangeSummary(dateRange)}</span>
                 <span className="drh-toolbar-period">{periodLabel}</span>
                 <button
                     type="button"
@@ -391,6 +408,23 @@ export default function DailyReportHeaderSection({ user }) {
                     ))}
                 </div>
 
+                {dtrGroupOptions.length > 1 ? (
+                    <div className="dtr-group-tabs" role="tablist" aria-label="Filter grup tim">
+                        {dtrGroupOptions.map((g) => (
+                            <button
+                                key={g.id}
+                                type="button"
+                                role="tab"
+                                aria-selected={dtrGroupId === g.id}
+                                className={`dtr-group-tab${dtrGroupId === g.id ? ' is-active' : ''}`}
+                                onClick={() => setDtrGroupId(g.id)}
+                            >
+                                {g.name}
+                            </button>
+                        ))}
+                    </div>
+                ) : null}
+
                 <div className="dtr-submetrics">
                     {dtrActiveCategory.metrics.map((m) => {
                         const active = dtrSelectedMetrics.includes(m.key);
@@ -409,13 +443,17 @@ export default function DailyReportHeaderSection({ user }) {
                     })}
                 </div>
 
-                {dailyTaskRecap.length === 0 ? (
+                {filteredDailyTaskRecap.length === 0 ? (
                     <div className="dtr-empty">
-                        {loading ? 'Memuat data...' : 'Belum ada data sales.'}
+                        {loading
+                            ? 'Memuat data...'
+                            : dtrGroupId !== 'all'
+                                ? 'Belum ada sales di grup ini.'
+                                : 'Belum ada data sales.'}
                     </div>
                 ) : (
                     <div className="dtr-table">
-                        {dailyTaskRecap.map((row) => {
+                        {filteredDailyTaskRecap.map((row) => {
                             const categoryData = row[dtrActiveCategory.key] || {};
                             const total = dtrVisibleMetrics.reduce((s, m) => s + (categoryData[m.key] || 0), 0);
                             return (

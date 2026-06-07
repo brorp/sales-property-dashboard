@@ -51,11 +51,24 @@ function MetricBar({ label, kind, count, pct }) {
     );
 }
 
+function parseStart(value) {
+    if (!value) return null;
+    const dt = new Date(`${value}T00:00:00`);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
+function parseEnd(value) {
+    if (!value) return null;
+    const dt = new Date(`${value}T23:59:59.999`);
+    return Number.isNaN(dt.getTime()) ? null : dt;
+}
+
 export default function SalesPerformanceSection({ user }) {
-    const { leadSources } = useLeads();
+    const { leadSources, leads } = useLeads();
 
     const [dateRange, setDateRange] = useState(() => getPresetRange('thisMonth'));
     const [sourceFilter, setSourceFilter] = useState('all');
+    const [groupFilter, setGroupFilter] = useState('all');
     const [selectedMetrics, setSelectedMetrics] = useState(DEFAULT_METRICS);
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -136,6 +149,45 @@ export default function SalesPerformanceSection({ user }) {
         [transactionRecap],
     );
 
+    const groupOptions = useMemo(() => {
+        const comparisonGroups = Array.isArray(transactionRecap?.comparisonGroups) ? transactionRecap.comparisonGroups : [];
+        return [
+            { value: 'all', label: 'Semua Grup', salesIds: [] },
+            ...comparisonGroups
+                .filter((g) => (g.salesCount || 0) > 0)
+                .map((g) => ({ value: g.id, label: g.name || 'Tanpa Nama', salesIds: Array.isArray(g.salesIds) ? g.salesIds : [] })),
+        ];
+    }, [transactionRecap]);
+
+    const groupSalesIdsSet = useMemo(() => {
+        if (groupFilter === 'all') return null;
+        const opt = groupOptions.find((o) => o.value === groupFilter);
+        return opt ? new Set(opt.salesIds) : new Set();
+    }, [groupFilter, groupOptions]);
+
+    // Visit (Sudah Survey) count per sales, sourced from appointment.createdAt
+    const surveyByApptCreatedAt = useMemo(() => {
+        const start = parseStart(dateRange?.dateFrom);
+        const end = parseEnd(dateRange?.dateTo);
+        const normalizedSource = sourceFilter && sourceFilter !== 'all'
+            ? String(sourceFilter).toLowerCase()
+            : null;
+        const m = new Map();
+        for (const lead of (Array.isArray(leads) ? leads : [])) {
+            if (lead.appointmentTag !== 'sudah_survey') continue;
+            if (!lead.assignedTo) continue;
+            if (normalizedSource && String(lead.source || '').toLowerCase() !== normalizedSource) continue;
+            const apptCreated = lead.latestAppointment?.createdAt;
+            if (!apptCreated) continue;
+            const t = new Date(apptCreated).getTime();
+            if (Number.isNaN(t)) continue;
+            if (start && t < start.getTime()) continue;
+            if (end && t > end.getTime()) continue;
+            m.set(lead.assignedTo, (m.get(lead.assignedTo) || 0) + 1);
+        }
+        return m;
+    }, [leads, dateRange?.dateFrom, dateRange?.dateTo, sourceFilter]);
+
     const allSalesData = useMemo(() => {
         const list = [];
         const seen = new Set();
@@ -145,15 +197,17 @@ export default function SalesPerformanceSection({ user }) {
                 seen.add(s.salesId);
                 const closing = (s.fullBook || 0) + (s.akad || 0);
                 const prospek = s.prospek || 0;
+                // Override survey count using appointment.createdAt source of truth
+                const survey = surveyByApptCreatedAt.get(s.salesId) || 0;
                 list.push({
                     salesId: s.salesId,
                     salesName: s.salesName,
                     prospek,
-                    survey: s.survey || 0,
+                    survey,
                     hot: s.hot || 0,
                     closing,
                     databasePct: totalLeads > 0 ? (prospek / totalLeads) * 100 : 0,
-                    surveyPct: prospek > 0 ? ((s.survey || 0) / prospek) * 100 : 0,
+                    surveyPct: prospek > 0 ? (survey / prospek) * 100 : 0,
                     closingPct: prospek > 0 ? (closing / prospek) * 100 : 0,
                     hotPct: prospek > 0 ? ((s.hot || 0) / prospek) * 100 : 0,
                 });
@@ -162,25 +216,29 @@ export default function SalesPerformanceSection({ user }) {
         if (list.length === 0 && data?.perAgentSurveyRatio?.length) {
             for (const s of data.perAgentSurveyRatio) {
                 const prospek = s.totalLeads || 0;
+                const survey = surveyByApptCreatedAt.get(s.salesId) || 0;
                 list.push({
                     salesId: s.salesId,
                     salesName: s.salesName,
                     prospek,
-                    survey: s.surveyedLeads || 0,
+                    survey,
                     hot: 0,
                     closing: 0,
                     databasePct: totalLeads > 0 ? (prospek / totalLeads) * 100 : 0,
-                    surveyPct: s.ratioPercent || 0,
+                    surveyPct: prospek > 0 ? (survey / prospek) * 100 : 0,
                     closingPct: 0,
                     hotPct: 0,
                 });
             }
         }
         return list;
-    }, [teams, data?.perAgentSurveyRatio, totalLeads]);
+    }, [teams, data?.perAgentSurveyRatio, totalLeads, surveyByApptCreatedAt]);
 
     const sortedSales = useMemo(() => {
-        const list = [...allSalesData];
+        const list = allSalesData.filter((s) => {
+            if (!groupSalesIdsSet) return true;
+            return groupSalesIdsSet.has(s.salesId);
+        });
         const primary = selectedMetrics[0] || 'visit';
         list.sort((a, b) => {
             let valA = 0;
@@ -193,14 +251,13 @@ export default function SalesPerformanceSection({ user }) {
             return a.salesName.localeCompare(b.salesName);
         });
         return list;
-    }, [allSalesData, selectedMetrics]);
+    }, [allSalesData, selectedMetrics, groupSalesIdsSet]);
 
     return (
         <div className="ov-wrap">
             <div className="ov-card ov-card--sales-performance">
                 <div className="ov-card-head ov-card-head--sales">
                     <div className="ov-card-title-group">
-                        <span className="ov-eyebrow">Performa Sales</span>
                         <h3 className="ov-card-title">Tingkat Survey per Sales</h3>
                     </div>
                     <div className="ov-card-select-wrap">
@@ -221,14 +278,14 @@ export default function SalesPerformanceSection({ user }) {
                     </div>
                 </div>
 
-                <div className="sps-filter-row">
+                <div className="sps-filter-row sps-filter-row--3col">
                     <div className="sps-filter-field">
                         <span className="sps-filter-label">Tanggal</span>
                         <Select
                             options={periodOptions}
                             value={activePeriodKey}
                             onChange={handlePeriodChange}
-                            placeholder="Pilih Periode"
+                            placeholder="Periode"
                             clearable={false}
                         />
                         <DateRangePicker
@@ -252,6 +309,16 @@ export default function SalesPerformanceSection({ user }) {
                             value={sourceFilter}
                             onChange={(v) => setSourceFilter(v || 'all')}
                             placeholder="Semua Sumber"
+                            clearable={false}
+                        />
+                    </div>
+                    <div className="sps-filter-field">
+                        <span className="sps-filter-label">Grup Tim</span>
+                        <Select
+                            options={groupOptions.map((g) => ({ value: g.value, label: g.label }))}
+                            value={groupFilter}
+                            onChange={(v) => setGroupFilter(v || 'all')}
+                            placeholder="Semua Grup"
                             clearable={false}
                         />
                     </div>

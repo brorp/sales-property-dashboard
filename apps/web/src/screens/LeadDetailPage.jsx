@@ -921,7 +921,7 @@ export default function LeadDetailPage({ leadId }) {
                                         <Select
                                             options={[
                                                 { value: '', label: 'Open (tanpa sales)' },
-                                                ...salesUsers.map((s) => ({ value: s.id, label: s.name }))
+                                                ...salesUsers.filter((s) => s.isActive !== false).map((s) => ({ value: s.id, label: s.name }))
                                             ]}
                                             value={tempSales}
                                             onChange={(val) => setTempSales(val)}

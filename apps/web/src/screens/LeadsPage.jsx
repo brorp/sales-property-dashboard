@@ -786,7 +786,7 @@ export default function LeadsPage() {
                             placeholder="Sales"
                             value={salesFilter}
                             onChange={setSalesFilter}
-                            options={salesUsers.map((s) => ({ value: s.id, label: s.name }))}
+                            options={salesUsers.map((s) => ({ value: s.id, label: s.isActive === false ? `${s.name} (Inaktif)` : s.name }))}
                             multiple
                         />
                     ) : null}
@@ -982,7 +982,7 @@ export default function LeadsPage() {
                                             placeholder="Biarkan Open"
                                             value={newLead.assignedTo}
                                             onChange={(v) => setNewLead({ ...newLead, assignedTo: v })}
-                                            options={salesUsers.map((s) => ({ value: s.id, label: s.name }))}
+                                            options={salesUsers.filter((s) => s.isActive !== false).map((s) => ({ value: s.id, label: s.name }))}
                                             variant="white"
                                         />
                                     </div>
@@ -1025,7 +1025,7 @@ export default function LeadsPage() {
                                         placeholder="Pilih sales target"
                                         value={importTargetSalesId}
                                         onChange={(v) => setImportTargetSalesId(v)}
-                                        options={salesUsers.map((s) => ({ value: s.id, label: s.name }))}
+                                        options={salesUsers.filter((s) => s.isActive !== false).map((s) => ({ value: s.id, label: s.name }))}
                                         variant="white"
                                         clearable={false}
                                     />
@@ -1131,7 +1131,7 @@ export default function LeadsPage() {
                                         placeholder="Sales"
                                         value={salesFilter}
                                         onChange={setSalesFilter}
-                                        options={salesUsers.map((s) => ({ value: s.id, label: s.name }))}
+                                        options={salesUsers.map((s) => ({ value: s.id, label: s.isActive === false ? `${s.name} (Inaktif)` : s.name }))}
                                         multiple
                                     />
                                 ) : null}
@@ -1354,7 +1354,7 @@ export default function LeadsPage() {
                                         {salesUsers.map((sales) => (
                                             <label key={sales.id} className="export-checklist-item">
                                                 <input type="checkbox" checked={exportFilters.salesIds.includes(sales.id)} onChange={() => toggleExportSelection('salesIds', sales.id)} />
-                                                <span>{sales.name}</span>
+                                                <span>{sales.isActive === false ? `${sales.name} (Inaktif)` : sales.name}</span>
                                             </label>
                                         ))}
                                     </div>
