@@ -398,7 +398,9 @@ export async function getSalesUsers(scope: SalesQueryScope = {}) {
 }
 
 export async function getDistributionQueue(clientId: string) {
-    const rows = await getSalesUsers({ clientId });
+    const allRows = await getSalesUsers({ clientId });
+    // Distribution queue should only consider active sales
+    const rows = allRows.filter((row) => row.isActive !== false);
     const baseQueueRows = rows
         .filter((row) => Number(row.queueOrder) > 0 && !row.isSuspended)
         .sort((a, b) => {

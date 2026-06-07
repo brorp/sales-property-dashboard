@@ -1,6 +1,7 @@
 import { and, asc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { db } from "../db/index";
 import { appointment, cancelReason, client, dailyTask, lead, projectUnit, teamGroup, teamGroupMember, user } from "../db/schema";
+import { markOverdueDailyTasks } from "./daily-task.service";
 import { resolveAppointmentTag, toAppointmentDateTime } from "../utils/appointment";
 import type { QueryScope } from "../middleware/rbac";
 import { isCancelResultStatus } from "../utils/lead-workflow";
@@ -2577,18 +2578,23 @@ export async function getHomeAnalytics(
         }
 
         // Follow Up tasks (current pending/overdue daily_task)
+        // Mirror realtime daily-task state: mark overdue first, then only count
+        // tasks for leads still assigned to the same sales (inline reconcile so
+        // unassigned/closed-lead tasks don't inflate the rekap).
         if (scopedSalesIdsForRecap.length > 0) {
-            const taskConditions: any[] = [
-                inArray(dailyTask.salesId, scopedSalesIdsForRecap),
-                inArray(dailyTask.status, ["pending", "overdue"]),
-            ];
+            await markOverdueDailyTasks(db);
             const taskRows = await db
                 .select({
                     salesId: dailyTask.salesId,
                     taskType: dailyTask.taskType,
                 })
                 .from(dailyTask)
-                .where(and(...taskConditions));
+                .innerJoin(lead, eq(dailyTask.leadId, lead.id))
+                .where(and(
+                    inArray(dailyTask.salesId, scopedSalesIdsForRecap),
+                    inArray(dailyTask.status, ["pending", "overdue"]),
+                    eq(lead.assignedTo, dailyTask.salesId),
+                ));
 
             for (const row of taskRows) {
                 const bucket = recapBuckets.get(row.salesId);

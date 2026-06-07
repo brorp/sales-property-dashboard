@@ -898,7 +898,7 @@ export default function AnalyticsSection({
                         </ColumnCard>
 
                         <ColumnCard
-                            title="Visit"
+                            title="Prospek Survey"
                             total={l3Reached.length}
                             rateLabel="Survey Rate"
                             rateValue={surveyRate}

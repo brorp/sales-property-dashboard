@@ -786,7 +786,7 @@ export default function LeadsPage() {
                             placeholder="Sales"
                             value={salesFilter}
                             onChange={setSalesFilter}
-                            options={salesUsers.map((s) => ({ value: s.id, label: s.isActive === false ? `${s.name} (Inaktif)` : s.name }))}
+                            options={salesUsers.map((s) => ({ value: s.id, label: s.isActive === false ? `${s.name} (Nonaktif)` : s.name }))}
                             multiple
                         />
                     ) : null}
@@ -1131,7 +1131,7 @@ export default function LeadsPage() {
                                         placeholder="Sales"
                                         value={salesFilter}
                                         onChange={setSalesFilter}
-                                        options={salesUsers.map((s) => ({ value: s.id, label: s.isActive === false ? `${s.name} (Inaktif)` : s.name }))}
+                                        options={salesUsers.map((s) => ({ value: s.id, label: s.isActive === false ? `${s.name} (Nonaktif)` : s.name }))}
                                         multiple
                                     />
                                 ) : null}
@@ -1354,7 +1354,7 @@ export default function LeadsPage() {
                                         {salesUsers.map((sales) => (
                                             <label key={sales.id} className="export-checklist-item">
                                                 <input type="checkbox" checked={exportFilters.salesIds.includes(sales.id)} onChange={() => toggleExportSelection('salesIds', sales.id)} />
-                                                <span>{sales.isActive === false ? `${sales.name} (Inaktif)` : sales.name}</span>
+                                                <span>{sales.isActive === false ? `${sales.name} (Nonaktif)` : sales.name}</span>
                                             </label>
                                         ))}
                                     </div>

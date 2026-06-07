@@ -603,6 +603,27 @@ export async function create(data: {
         });
     }
 
+    // Walk In lead → auto-create appointment marked as Sudah Survey for today
+    if (normalizedSource.toLowerCase() === "walk in") {
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, "0");
+        const dd = String(now.getDate()).padStart(2, "0");
+        const hh = String(now.getHours()).padStart(2, "0");
+        const mi = String(now.getMinutes()).padStart(2, "0");
+        await db.insert(appointment).values({
+            id: generateId(),
+            leadId: id,
+            salesId: assignedTo,
+            date: `${yyyy}-${mm}-${dd}`,
+            time: `${hh}:${mi}`,
+            status: "sudah_survey",
+            location: "-",
+            notes: null,
+            createdAt: now,
+            updatedAt: now,
+        });
+    }
+
     return newLead;
 }
 
