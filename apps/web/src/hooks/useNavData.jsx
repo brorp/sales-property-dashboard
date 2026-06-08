@@ -29,8 +29,9 @@ function isAdminRole(role) {
     return ADMIN_ROLES.has(role);
 }
 
-function isLeadOutsideAcceptedFlow(lead) {
-    return String(lead?.flowStatus || '').trim().toLowerCase() !== 'accepted';
+function isLeadOpenOrUnassigned(lead) {
+    const flowStatus = String(lead?.flowStatus || '').trim().toLowerCase();
+    return !lead?.assignedTo || flowStatus === 'open';
 }
 
 export function NavDataProvider({ children }) {
@@ -123,7 +124,7 @@ export function NavDataProvider({ children }) {
 
     const leadActionCount = useMemo(() => {
         if (!user || !Array.isArray(allLeads)) return 0;
-        return allLeads.filter(isLeadOutsideAcceptedFlow).length;
+        return allLeads.filter(isLeadOpenOrUnassigned).length;
     }, [user, allLeads]);
 
     const loadSupervisorTaskCount = useCallback(async () => {

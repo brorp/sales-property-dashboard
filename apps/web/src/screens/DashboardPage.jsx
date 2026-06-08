@@ -99,6 +99,7 @@ export default function DashboardPage() {
     const [activeSectionTab, setActiveSectionTab] = useState('overview');
     const [globalTeamFilter, setGlobalTeamFilter] = useState('all');
     const [selectedSourceFilter, setSelectedSourceFilter] = useState('all');
+    const [analyticsSourceFilters, setAnalyticsSourceFilters] = useState([]);
     const [transactionUnitType, setTransactionUnitType] = useState('');
     const [lineChartGranularity, setLineChartGranularity] = useState('month');
     const [dbSelectedLayer, setDbSelectedLayer] = useState('l1');
@@ -265,6 +266,7 @@ export default function DashboardPage() {
             setPageAnalytics(null);
             setAppliedDateRange(getPresetRange('thisMonth'));
             setSelectedSourceFilter('all');
+            setAnalyticsSourceFilters([]);
             setProjectUnits([]);
             setCancelReasons([]);
             return;
@@ -619,8 +621,8 @@ export default function DashboardPage() {
                     rangeSummary={formatRangeSummary(appliedDateRange)}
                     onDateRangeChange={(range) => void handleApplyDateFilter(range)}
                     sourceOptions={analyticsSourceOptions}
-                    selectedSource={selectedSourceFilter}
-                    onSourceChange={handleSourceFilterChange}
+                    selectedSource={analyticsSourceFilters}
+                    onSourceChange={setAnalyticsSourceFilters}
                     viewerRole={user?.role}
                     viewerId={user?.id}
                 />

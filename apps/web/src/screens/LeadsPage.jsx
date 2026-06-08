@@ -281,14 +281,12 @@ export default function LeadsPage() {
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [showBulkEditSheet, setShowBulkEditSheet] = useState(false);
     const [showBulkDeleteSheet, setShowBulkDeleteSheet] = useState(false);
-    const [bulkEditForm, setBulkEditForm] = useState({ source: '', salesStatus: '', interestUnitId: '' });
+    const [bulkEditForm, setBulkEditForm] = useState({ salesStatus: '' });
     const [bulkEditLoading, setBulkEditLoading] = useState(false);
     const [bulkEditError, setBulkEditError] = useState('');
     const [bulkDeletePassword] = useState('');
     const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
     const [bulkDeleteError, setBulkDeleteError] = useState('');
-    const [bulkUnitOptions, setBulkUnitOptions] = useState([]);
-    const [bulkUnitsLoading, setBulkUnitsLoading] = useState(false);
 
     const allLeads = getLeadsForUser(user.id, user.role);
     const salesUsers = getSalesUsers();
@@ -580,33 +578,29 @@ export default function LeadsPage() {
         });
     };
 
-    const loadBulkUnits = async () => {
-        if (bulkUnitOptions.length > 0) return;
-        setBulkUnitsLoading(true);
-        try {
-            const rows = await apiRequest('/api/units', { user });
-            setBulkUnitOptions(Array.isArray(rows) ? rows : []);
-        } catch (_) {
-            // ignore
-        } finally {
-            setBulkUnitsLoading(false);
-        }
-    };
-
     const handleBulkEdit = async () => {
-        const payload = {};
-        if (bulkEditForm.source) payload.source = bulkEditForm.source;
-        if (bulkEditForm.salesStatus) payload.salesStatus = bulkEditForm.salesStatus;
-        if (bulkEditForm.interestUnitId) payload.interestUnitId = bulkEditForm.interestUnitId;
-        if (!Object.keys(payload).length) { setBulkEditError('Pilih minimal satu field untuk diubah.'); return; }
+        if (!bulkEditForm.salesStatus) { setBulkEditError('Pilih Status L2 untuk diubah.'); return; }
         setBulkEditLoading(true);
         setBulkEditError('');
         try {
             const ids = Array.from(selectedIds);
-            // TODO: nanti ganti pake API yang dibuat yan - POST /api/leads/bulk-update
-            // await Promise.allSettled(ids.map((id) => apiRequest(`/api/leads/${id}`, { method: 'PATCH', user, body: payload })));
-            void ids;
-            setBulkEditError('Bulk edit API belum tersedia.');
+            const result = await apiRequest('/api/leads/bulk-update', {
+                method: 'POST',
+                user,
+                body: {
+                    ids,
+                    salesStatus: bulkEditForm.salesStatus,
+                },
+            });
+            await refreshLeadsPage();
+            if (result?.failed > 0) {
+                setBulkEditError(`${result.updated || 0} lead berhasil, ${result.failed} gagal. Cek lead yang belum Accepted atau belum eligible status tersebut.`);
+                return;
+            }
+            setShowBulkEditSheet(false);
+            setSelectionMode(false);
+            setSelectedIds(new Set());
+            setBulkEditForm({ salesStatus: '' });
         } catch (err) {
             setBulkEditError(err instanceof Error ? err.message : 'Gagal memperbarui leads');
         } finally {
@@ -895,7 +889,7 @@ export default function LeadsPage() {
                             type="button"
                             className="bulk-action-icon-btn"
                             disabled={!selectedIds.size}
-                            onClick={() => { void loadBulkUnits(); setShowBulkEditSheet(true); setBulkEditError(''); }}
+                            onClick={() => { setShowBulkEditSheet(true); setBulkEditError(''); }}
                             title="Edit leads terpilih"
                         >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1168,18 +1162,8 @@ export default function LeadsPage() {
                     <div className="bottom-sheet">
                         <div className="sheet-handle" />
                         <h2>Edit {selectedIds.size} Leads</h2>
-                        <p className="settings-help">Kosongkan field yang tidak ingin diubah.</p>
+                        <p className="settings-help">Bulk edit saat ini mendukung update Status L2.</p>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <div className="input-group">
-                                <label>Sumber Leads</label>
-                                <Select
-                                    placeholder="Biarkan tidak berubah"
-                                    value={bulkEditForm.source}
-                                    onChange={(v) => setBulkEditForm((prev) => ({ ...prev, source: v }))}
-                                    options={availableLeadSources.map((s) => ({ value: s, label: s }))}
-                                    variant="white"
-                                />
-                            </div>
                             <div className="input-group">
                                 <label>Status L2</label>
                                 <Select
@@ -1187,16 +1171,6 @@ export default function LeadsPage() {
                                     value={bulkEditForm.salesStatus}
                                     onChange={(v) => setBulkEditForm((prev) => ({ ...prev, salesStatus: v }))}
                                     options={SALES_STATUSES.map((s) => ({ value: s.key, label: s.label }))}
-                                    variant="white"
-                                />
-                            </div>
-                            <div className="input-group">
-                                <label>Tipe Unit</label>
-                                <Select
-                                    placeholder={bulkUnitsLoading ? 'Memuat unit...' : 'Biarkan tidak berubah'}
-                                    value={bulkEditForm.interestUnitId}
-                                    onChange={(v) => setBulkEditForm((prev) => ({ ...prev, interestUnitId: v }))}
-                                    options={bulkUnitOptions.map((item) => ({ value: item.id, label: `${item.projectType} - ${item.unitName}` }))}
                                     variant="white"
                                 />
                             </div>

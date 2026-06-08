@@ -17,6 +17,9 @@ import {
     normalizeFlowStatus,
     normalizeSalesStatus,
     canSubmitNewLeadTaskSalesStatus,
+    SKIP_AUTO_CANCEL_NOTE,
+    SKIP_AUTO_CANCEL_REASON,
+    SKIP_AUTO_RESULT_STATUS,
 } from "../utils/lead-workflow";
 
 type DbExecutor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -109,10 +112,12 @@ function isLeadEligibleForFollowUpTask(
     appointmentTag: AppointmentTag
 ) {
     const normalizedFlowStatus = normalizeFlowStatus(leadRow.flowStatus, leadRow.assignedTo);
+    const normalizedSalesStatus = normalizeSalesStatus(leadRow.salesStatus);
     return (
         normalizedFlowStatus === "accepted" &&
         Boolean(leadRow.assignedTo) &&
         !leadRow.resultStatus &&
+        normalizedSalesStatus !== "skip" &&
         appointmentTag === "none"
     );
 }
@@ -834,6 +839,7 @@ export async function submitNewLeadTask(params: {
             normalizedFlowStatus === "assigned"
                 ? now
                 : leadRow.acceptedAt || now;
+        const isSkipStatus = nextSalesStatus === "skip";
 
         await tx
             .update(lead)
@@ -843,6 +849,20 @@ export async function submitNewLeadTask(params: {
                 salesStatus: nextSalesStatus,
                 clientStatus: nextSalesStatus,
                 layer2Status: nextSalesStatus,
+                ...(isSkipStatus
+                    ? {
+                        resultStatus: SKIP_AUTO_RESULT_STATUS,
+                        resultStatusUpdatedAt:
+                            leadRow.resultStatus === SKIP_AUTO_RESULT_STATUS && leadRow.resultStatusUpdatedAt
+                                ? leadRow.resultStatusUpdatedAt
+                                : now,
+                        rejectedReason: SKIP_AUTO_CANCEL_REASON,
+                        rejectedNote: SKIP_AUTO_CANCEL_NOTE,
+                        unitName: null,
+                        unitDetail: null,
+                        paymentMethod: null,
+                    }
+                    : {}),
                 updatedAt: now,
             })
             .where(eq(lead.id, leadRow.id));
@@ -867,9 +887,19 @@ export async function submitNewLeadTask(params: {
             id: generateId(),
             leadId: leadRow.id,
             type: "daily_task",
-            note: `Daily Task New Lead diselesaikan oleh ${params.actorName}.${acceptedCopy} Status L2 diubah ke ${getSalesStatusLabel(nextSalesStatus)}.`,
+            note: `Daily Task New Lead diselesaikan oleh ${params.actorName}.${acceptedCopy} Status L2 diubah ke ${getSalesStatusLabel(nextSalesStatus)}.${isSkipStatus ? " Status transaksi otomatis menjadi Cancel Minat dengan alasan Lainnya." : ""}`,
             timestamp: now,
         });
+
+        if (isSkipStatus) {
+            await tx.insert(activity).values({
+                id: generateId(),
+                leadId: leadRow.id,
+                type: "result_status",
+                note: "Status transaksi otomatis menjadi Cancel Minat karena status L2 Skip. Alasan batal: Lainnya.",
+                timestamp: now,
+            });
+        }
 
         await syncLeadDailyTasksForLead(leadRow.id, tx, now);
 

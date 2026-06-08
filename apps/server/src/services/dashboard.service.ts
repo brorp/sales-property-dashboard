@@ -1,7 +1,7 @@
 import { and, asc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { db } from "../db/index";
-import { appointment, cancelReason, client, dailyTask, lead, projectUnit, teamGroup, teamGroupMember, user } from "../db/schema";
-import { markOverdueDailyTasks } from "./daily-task.service";
+import { appointment, cancelReason, client, lead, projectUnit, teamGroup, teamGroupMember, user } from "../db/schema";
+import { getDailyTasksForSales } from "./daily-task.service";
 import { resolveAppointmentTag, toAppointmentDateTime } from "../utils/appointment";
 import type { QueryScope } from "../middleware/rbac";
 import { isCancelResultStatus } from "../utils/lead-workflow";
@@ -280,6 +280,10 @@ function resolveDatabaseResultStatusKey(resultStatus: string | null | undefined)
     return null;
 }
 
+function hasFilledResultStatus(resultStatus: string | null | undefined) {
+    return Boolean(resolveDatabaseResultStatusKey(resultStatus));
+}
+
 function resolveDatabaseL2StatusKey(item: Pick<LeadRow, "salesStatus" | "validated">) {
     if (toLowerTrimmed(item.salesStatus) === "hot" && item.validated) {
         return "hot_validated";
@@ -422,6 +426,7 @@ function formatLineChartPeriodLabel(date: Date, granularity: string) {
     }
 
     return new Intl.DateTimeFormat("id-ID", {
+        weekday: "short",
         day: "numeric",
         month: "short",
     }).format(date);
@@ -2577,32 +2582,34 @@ export async function getHomeAnalytics(
             });
         }
 
-        // Follow Up tasks (current pending/overdue daily_task)
-        // Mirror realtime daily-task state: mark overdue first, then only count
-        // tasks for leads still assigned to the same sales (inline reconcile so
-        // unassigned/closed-lead tasks don't inflate the rekap).
-        if (scopedSalesIdsForRecap.length > 0) {
-            await markOverdueDailyTasks(db);
-            const taskRows = await db
-                .select({
-                    salesId: dailyTask.salesId,
-                    taskType: dailyTask.taskType,
-                })
-                .from(dailyTask)
-                .innerJoin(lead, eq(dailyTask.leadId, lead.id))
-                .where(and(
-                    inArray(dailyTask.salesId, scopedSalesIdsForRecap),
-                    inArray(dailyTask.status, ["pending", "overdue"]),
-                    eq(lead.assignedTo, dailyTask.salesId),
-                ));
+        const {
+            leads: dailyTaskRecapLeads,
+            appointments: dailyTaskRecapAppointments,
+        } = await loadScopedLeadsAndAppointments(userId, role, scope);
+        const latestDailyTaskRecapAppointmentByLead = getLatestAppointmentByLead(dailyTaskRecapAppointments);
+        const dailyTaskRecapDecoratedLeads = dailyTaskRecapLeads.map((item) => {
+            const latestAppointment = latestDailyTaskRecapAppointmentByLead.get(item.id) || null;
+            return {
+                ...item,
+                flowStatus: normalizeFlowStatus(item.flowStatus, item.assignedTo),
+                appointmentTag: resolveAppointmentTag(latestAppointment),
+                latestAppointment,
+            };
+        });
 
-            for (const row of taskRows) {
-                const bucket = recapBuckets.get(row.salesId);
-                if (!bucket) continue;
-                if (row.taskType === "new_lead") bucket.followUp.newLeads += 1;
-                else if (row.taskType === "follow_up") bucket.followUp.pipeline += 1;
-                else if (row.taskType === "deadline_lead") bucket.followUp.deadline += 1;
-            }
+        // Daily Task recap mirrors the Sales Daily Task page:
+        // task buckets come from getDailyTasksForSales() so pending/overdue
+        // visibility is reconciled exactly like the sales dashboard.
+        if (scopedSalesIdsForRecap.length > 0) {
+            const now = new Date();
+            await Promise.all(scopedSalesUsersList.map(async (sales) => {
+                const bucket = recapBuckets.get(sales.id);
+                if (!bucket) return;
+                const tasks = await getDailyTasksForSales(sales.id, scope?.clientId || null, now);
+                bucket.followUp.newLeads = tasks.counts.newLeadCount || 0;
+                bucket.followUp.pipeline = tasks.counts.followUpCount || 0;
+                bucket.followUp.deadline = tasks.counts.deadlineLeadCount || 0;
+            }));
         }
 
         // Survey (appointments by date vs today, Jakarta)
@@ -2612,7 +2619,7 @@ export async function getHomeAnalytics(
             const jakartaNow = new Date(now.getTime() + jakartaOffsetMs);
             return jakartaNow.toISOString().slice(0, 10);
         })();
-        for (const appt of scopedAppointments) {
+        for (const appt of dailyTaskRecapAppointments) {
             if (!appt.salesId || appt.status !== "mau_survey") continue;
             const bucket = recapBuckets.get(appt.salesId);
             if (!bucket) continue;
@@ -2624,13 +2631,15 @@ export async function getHomeAnalytics(
             else bucket.survey.nanti += 1;
         }
 
-        // Hot Database (validated hot leads, partitioned by receivedAt age vs 30d)
+        // Hot Database mirrors Sales Daily Task > Hot Leads:
+        // HOT + validated + no transaction/result status yet.
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        for (const item of decoratedLeads) {
+        for (const item of dailyTaskRecapDecoratedLeads) {
             if (!item.assignedTo) continue;
             if (toLowerTrimmed(item.salesStatus) !== "hot") continue;
             if (!item.validated) continue;
+            if (hasFilledResultStatus(item.resultStatus)) continue;
             const bucket = recapBuckets.get(item.assignedTo);
             if (!bucket) continue;
             const received = new Date(item.receivedAt || item.createdAt);
@@ -2642,15 +2651,14 @@ export async function getHomeAnalytics(
             }
         }
 
-        // Transaksi (by resultStatus)
-        for (const item of decoratedLeads) {
+        // Transaksi mirrors Sales Daily Task > Transaksi: only Reserve and Full Book are pending.
+        for (const item of dailyTaskRecapDecoratedLeads) {
             if (!item.assignedTo) continue;
             const bucket = recapBuckets.get(item.assignedTo);
             if (!bucket) continue;
-            const status = toLowerTrimmed(item.resultStatus);
+            const status = resolveDatabaseResultStatusKey(item.resultStatus);
             if (status === "reserve") bucket.transaksi.reserve += 1;
             else if (status === "full_book") bucket.transaksi.fullBook += 1;
-            else if (status === "lunas" || status === "akad") bucket.transaksi.lunas += 1;
         }
 
         const dailyTaskRecap = Array.from(recapBuckets.values())

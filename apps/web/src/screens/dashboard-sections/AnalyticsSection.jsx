@@ -506,11 +506,28 @@ export default function AnalyticsSection({
     }, [visibleSales]);
 
     const sourceFilteredLeads = useMemo(() => {
-        const sourceValue = String(selectedSource || 'all').trim();
-        if (!sourceValue || sourceValue === 'all') return leads;
-        const normalizedSource = sourceValue.toLowerCase();
-        return leads.filter((lead) => toLowerTrimmed(getSourceLabel(lead)) === normalizedSource);
+        const sourceValues = Array.isArray(selectedSource)
+            ? selectedSource
+            : (selectedSource && selectedSource !== 'all' ? [selectedSource] : []);
+        const normalizedSources = sourceValues
+            .map((value) => toLowerTrimmed(value))
+            .filter((value) => value && value !== 'all');
+        if (normalizedSources.length === 0) return leads;
+        const sourceSet = new Set(normalizedSources);
+        return leads.filter((lead) => sourceSet.has(toLowerTrimmed(getSourceLabel(lead))));
     }, [leads, selectedSource]);
+
+    const selectedSourceValues = useMemo(() => {
+        const values = Array.isArray(selectedSource)
+            ? selectedSource
+            : (selectedSource && selectedSource !== 'all' ? [selectedSource] : []);
+        return values.filter((value) => value && value !== 'all');
+    }, [selectedSource]);
+
+    const sourceFilterOptions = useMemo(
+        () => sourceOptions.filter((option) => option.value !== 'all'),
+        [sourceOptions]
+    );
 
     // createdAt-based filter for non-Transaction views
     const createdAtFilteredLeads = useMemo(() => {
@@ -518,13 +535,13 @@ export default function AnalyticsSection({
         return sourceFilteredLeads.filter((l) => withinRange(l.createdAt || l.receivedAt, dateStart, dateEnd));
     }, [sourceFilteredLeads, hasDateFilter, dateStart, dateEnd]);
 
-    // appointment.createdAt-based filter for Visit (Survey) column
-    const apptCreatedAtFilteredLeads = useMemo(() => {
+    // appointment.date-based filter for Visit (Survey) column.
+    const surveyDateFilteredLeads = useMemo(() => {
         if (!hasDateFilter) return sourceFilteredLeads;
         return sourceFilteredLeads.filter((l) => {
-            const apptCreated = l.latestAppointment?.createdAt;
-            if (!apptCreated) return false;
-            return withinRange(apptCreated, dateStart, dateEnd);
+            const surveyDate = l.latestAppointment?.date;
+            if (!surveyDate) return false;
+            return withinRange(`${surveyDate}T00:00:00`, dateStart, dateEnd);
         });
     }, [sourceFilteredLeads, hasDateFilter, dateStart, dateEnd]);
 
@@ -569,9 +586,9 @@ export default function AnalyticsSection({
         [createdAtFilteredLeads, selectedSalesId, groupSalesIdsSet]
     );
 
-    const scopedApptCreatedAtLeads = useMemo(
-        () => applySalesFilter(apptCreatedAtFilteredLeads),
-        [apptCreatedAtFilteredLeads, selectedSalesId, groupSalesIdsSet]
+    const scopedSurveyDateLeads = useMemo(
+        () => applySalesFilter(surveyDateFilteredLeads),
+        [surveyDateFilteredLeads, selectedSalesId, groupSalesIdsSet]
     );
 
     const scopedL4Leads = useMemo(
@@ -590,15 +607,15 @@ export default function AnalyticsSection({
     }, [scopedCreatedAtLeads]);
 
 
-    const l3Reached = useMemo(() => scopedApptCreatedAtLeads.filter(isL3Reached), [scopedApptCreatedAtLeads]);
+    const l3Reached = useMemo(() => scopedSurveyDateLeads.filter(isL3Reached), [scopedSurveyDateLeads]);
     const l3Counts = useMemo(() => {
         const m = { sudah_survey: 0, mau_survey: 0, dibatalkan: 0 };
-        for (const l of scopedApptCreatedAtLeads) {
+        for (const l of scopedSurveyDateLeads) {
             const k = getL3BucketKey(l.appointmentTag);
             if (k) m[k] += 1;
         }
         return m;
-    }, [scopedApptCreatedAtLeads]);
+    }, [scopedSurveyDateLeads]);
 
     const l4Reached = useMemo(() => scopedL4Leads.filter(isL4Reached), [scopedL4Leads]);
     const l4Counts = useMemo(() => {
@@ -612,9 +629,10 @@ export default function AnalyticsSection({
 
     const closingNumerator = (l4Counts.full_book || 0) + (l4Counts.lunas || 0);
     const prospectNumerator = (l2Counts.hot || 0) + (l2Counts.hot_validated || 0);
-    const closingRate = pct(closingNumerator, scopedL4Leads.length);
-    const surveyRate = pct(l3Counts.sudah_survey, scopedApptCreatedAtLeads.length);
-    const prospectRate = pct(prospectNumerator, scopedCreatedAtLeads.length);
+    const rateDenominator = scopedCreatedAtLeads.length;
+    const closingRate = pct(closingNumerator, rateDenominator);
+    const surveyRate = pct(l3Counts.sudah_survey, rateDenominator);
+    const prospectRate = pct(prospectNumerator, rateDenominator);
 
     const statusSalesBreakdown = useMemo(() => {
         if (!isAllSales) {
@@ -640,7 +658,7 @@ export default function AnalyticsSection({
                 L3_STATUSES.map((status) => [
                     status.key,
                     buildStatusSalesBreakdown(
-                        apptCreatedAtFilteredLeads,
+                        surveyDateFilteredLeads,
                         (lead) => getL3BucketKey(lead.appointmentTag) === status.key,
                         salesNameById
                     ),
@@ -657,7 +675,7 @@ export default function AnalyticsSection({
                 ])
             ),
         };
-    }, [createdAtFilteredLeads, apptCreatedAtFilteredLeads, isAllSales, l4FilteredLeads, salesNameById]);
+    }, [createdAtFilteredLeads, surveyDateFilteredLeads, isAllSales, l4FilteredLeads, salesNameById]);
 
     const chartLeads = useMemo(() => {
         if (!statusFilter) return scopedCreatedAtLeads;
@@ -666,13 +684,13 @@ export default function AnalyticsSection({
             return scopedCreatedAtLeads.filter((l) => getL2BucketKey(l) === key);
         }
         if (type === 'visit') {
-            return scopedApptCreatedAtLeads.filter((l) => getL3BucketKey(l.appointmentTag) === key);
+            return scopedSurveyDateLeads.filter((l) => getL3BucketKey(l.appointmentTag) === key);
         }
         if (type === 'transaction') {
             return scopedL4Leads.filter((l) => getL4BucketKey(l.resultStatus) === key);
         }
         return scopedCreatedAtLeads;
-    }, [statusFilter, scopedCreatedAtLeads, scopedApptCreatedAtLeads, scopedL4Leads]);
+    }, [statusFilter, scopedCreatedAtLeads, scopedSurveyDateLeads, scopedL4Leads]);
 
     const sourceItems = useMemo(() => {
         const items = buildBreakdown(chartLeads, getSourceLabel, 8);
@@ -758,15 +776,16 @@ export default function AnalyticsSection({
                         }}
                     />
                 </div>
-                {sourceOptions.length > 1 ? (
+                {sourceFilterOptions.length > 0 ? (
                     <div className="sps-filter-field">
                         <span className="sps-filter-label">Sumber</span>
                         <Select
-                            options={sourceOptions}
-                            value={selectedSource}
+                            options={sourceFilterOptions}
+                            value={selectedSourceValues}
                             onChange={onSourceChange}
                             placeholder="Semua Sumber"
-                            clearable={false}
+                            multiple
+                            maxDisplayed={2}
                         />
                     </div>
                 ) : null}
@@ -882,7 +901,7 @@ export default function AnalyticsSection({
                             rateLabel="Closing Rate"
                             rateValue={closingRate}
                             rateFormula="Full Book + Lunas / Total Leads"
-                            rateFormulaDetail={formatFormulaDetail([l4Counts.full_book || 0, l4Counts.lunas || 0], scopedL4Leads.length)}
+                            rateFormulaDetail={formatFormulaDetail([l4Counts.full_book || 0, l4Counts.lunas || 0], rateDenominator)}
                         >
                             {L4_STATUSES.map((status) => (
                                 <StatusRow
@@ -903,7 +922,7 @@ export default function AnalyticsSection({
                             rateLabel="Survey Rate"
                             rateValue={surveyRate}
                             rateFormula="Sudah Survey / Total Leads"
-                            rateFormulaDetail={formatFormulaDetail([l3Counts.sudah_survey || 0], scopedApptCreatedAtLeads.length)}
+                            rateFormulaDetail={formatFormulaDetail([l3Counts.sudah_survey || 0], rateDenominator)}
                         >
                             {L3_STATUSES.map((status) => (
                                 <StatusRow
@@ -924,7 +943,7 @@ export default function AnalyticsSection({
                             rateLabel="Prospect Rate"
                             rateValue={prospectRate}
                             rateFormula="Hot / Total Leads"
-                            rateFormulaDetail={formatFormulaDetail([prospectNumerator], scopedCreatedAtLeads.length)}
+                            rateFormulaDetail={formatFormulaDetail([prospectNumerator], rateDenominator)}
                         >
                             {L2_STATUSES.map((status) => (
                                 <StatusRow

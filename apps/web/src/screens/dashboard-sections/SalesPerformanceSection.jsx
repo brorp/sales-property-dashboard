@@ -8,7 +8,7 @@ import DateRangePicker from '../../components/DateRangePicker';
 import { DATE_PRESET_OPTIONS, getPresetRange, parseDateInput } from '../../utils/datePresets';
 import './DashboardSections.css';
 
-const DEFAULT_METRICS = ['database', 'visit', 'transaksi'];
+const DEFAULT_METRICS = ['database', 'hot', 'visit', 'transaksi'];
 
 function pctStr(n) {
     return `${Number(n || 0).toFixed(1)}%`;
@@ -165,8 +165,8 @@ export default function SalesPerformanceSection({ user }) {
         return opt ? new Set(opt.salesIds) : new Set();
     }, [groupFilter, groupOptions]);
 
-    // Visit (Sudah Survey) count per sales, sourced from appointment.createdAt
-    const surveyByApptCreatedAt = useMemo(() => {
+    // Visit (Sudah Survey) count per sales, sourced from appointment survey date.
+    const surveyBySurveyDate = useMemo(() => {
         const start = parseStart(dateRange?.dateFrom);
         const end = parseEnd(dateRange?.dateTo);
         const normalizedSource = sourceFilter && sourceFilter !== 'all'
@@ -177,9 +177,9 @@ export default function SalesPerformanceSection({ user }) {
             if (lead.appointmentTag !== 'sudah_survey') continue;
             if (!lead.assignedTo) continue;
             if (normalizedSource && String(lead.source || '').toLowerCase() !== normalizedSource) continue;
-            const apptCreated = lead.latestAppointment?.createdAt;
-            if (!apptCreated) continue;
-            const t = new Date(apptCreated).getTime();
+            const surveyDate = lead.latestAppointment?.date;
+            if (!surveyDate) continue;
+            const t = new Date(`${surveyDate}T00:00:00`).getTime();
             if (Number.isNaN(t)) continue;
             if (start && t < start.getTime()) continue;
             if (end && t > end.getTime()) continue;
@@ -197,8 +197,8 @@ export default function SalesPerformanceSection({ user }) {
                 seen.add(s.salesId);
                 const closing = (s.fullBook || 0) + (s.akad || 0);
                 const prospek = s.prospek || 0;
-                // Override survey count using appointment.createdAt source of truth
-                const survey = surveyByApptCreatedAt.get(s.salesId) || 0;
+                // Override survey count using appointment survey date source of truth.
+                const survey = surveyBySurveyDate.get(s.salesId) || 0;
                 list.push({
                     salesId: s.salesId,
                     salesName: s.salesName,
@@ -216,7 +216,7 @@ export default function SalesPerformanceSection({ user }) {
         if (list.length === 0 && data?.perAgentSurveyRatio?.length) {
             for (const s of data.perAgentSurveyRatio) {
                 const prospek = s.totalLeads || 0;
-                const survey = surveyByApptCreatedAt.get(s.salesId) || 0;
+                const survey = surveyBySurveyDate.get(s.salesId) || 0;
                 list.push({
                     salesId: s.salesId,
                     salesName: s.salesName,
@@ -232,7 +232,7 @@ export default function SalesPerformanceSection({ user }) {
             }
         }
         return list;
-    }, [teams, data?.perAgentSurveyRatio, totalLeads, surveyByApptCreatedAt]);
+    }, [teams, data?.perAgentSurveyRatio, totalLeads, surveyBySurveyDate]);
 
     const sortedSales = useMemo(() => {
         const list = allSalesData.filter((s) => {
@@ -264,9 +264,9 @@ export default function SalesPerformanceSection({ user }) {
                         <Select
                             options={[
                                 { value: 'database', label: 'Database' },
+                                { value: 'hot', label: 'Hot Prospek' },
                                 { value: 'visit', label: 'Visit' },
                                 { value: 'transaksi', label: 'Transaksi' },
-                                { value: 'hot', label: 'Hot Prospek' },
                             ]}
                             value={selectedMetrics}
                             onChange={(val) => { if (val && val.length > 0) setSelectedMetrics(val); }}
@@ -363,14 +363,14 @@ export default function SalesPerformanceSection({ user }) {
                                         {selectedMetrics.includes('database') ? (
                                             <MetricBar label="Database" kind="database" count={`${agent.prospek}/${totalLeads}`} pct={agent.databasePct} />
                                         ) : null}
+                                        {selectedMetrics.includes('hot') ? (
+                                            <MetricBar label="Hot Prospek" kind="hot" count={`${agent.hot}/${agent.prospek}`} pct={agent.hotPct} />
+                                        ) : null}
                                         {selectedMetrics.includes('visit') ? (
                                             <MetricBar label="Visit" kind="survey" count={`${agent.survey}/${agent.prospek}`} pct={agent.surveyPct} />
                                         ) : null}
                                         {selectedMetrics.includes('transaksi') ? (
                                             <MetricBar label="Transaksi" kind="transaksi" count={`${agent.closing}/${agent.prospek}`} pct={agent.closingPct} />
-                                        ) : null}
-                                        {selectedMetrics.includes('hot') ? (
-                                            <MetricBar label="Hot Prospek" kind="hot" count={`${agent.hot}/${agent.prospek}`} pct={agent.hotPct} />
                                         ) : null}
                                     </div>
                                 </div>

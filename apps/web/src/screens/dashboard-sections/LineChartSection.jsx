@@ -143,7 +143,7 @@ function formatPeriodLabel(date, granularity) {
         const fmtShort = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' });
         return `${fmtShort.format(date)} – ${fmtShort.format(end)}`;
     }
-    return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' }).format(date);
+    return new Intl.DateTimeFormat('id-ID', { weekday: 'short', day: 'numeric', month: 'short' }).format(date);
 }
 
 function buildPeriods(rangeStart, rangeEnd, granularity) {

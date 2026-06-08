@@ -47,6 +47,7 @@ function formatExactDateTime(value) {
     }
 
     return date.toLocaleString('id-ID', {
+        timeZone: 'Asia/Jakarta',
         day: 'numeric',
         month: 'long',
         year: 'numeric',
@@ -66,10 +67,44 @@ function formatExactDate(value) {
     }
 
     return date.toLocaleDateString('id-ID', {
+        timeZone: 'Asia/Jakarta',
         day: 'numeric',
         month: 'long',
         year: 'numeric',
     });
+}
+
+function getJakartaDateParts(value) {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return null;
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Jakarta',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    }).formatToParts(date);
+    const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return {
+        year: map.year,
+        month: map.month,
+        day: map.day,
+        hour: map.hour === '24' ? '00' : map.hour,
+        minute: map.minute,
+    };
+}
+
+function toJakartaDateInputValue(value) {
+    const parts = getJakartaDateParts(value);
+    return parts ? `${parts.year}-${parts.month}-${parts.day}` : '';
+}
+
+function toJakartaDateTimeInputValue(value) {
+    const parts = getJakartaDateParts(value);
+    return parts ? `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}` : '';
 }
 
 function isOlderThanDays(value, days) {
@@ -239,6 +274,11 @@ export default function LeadDetailPage({ leadId }) {
     const [showProspectStatusSheet, setShowProspectStatusSheet] = useState(false);
     const [editName, setEditName] = useState(false);
     const [tempName, setTempName] = useState('');
+    const [editLeadDates, setEditLeadDates] = useState(false);
+    const [leadDateDraft, setLeadDateDraft] = useState({
+        createdAt: '',
+        resultStatusUpdatedAt: '',
+    });
 
     const {
         register: registerSource,
@@ -358,6 +398,10 @@ export default function LeadDetailPage({ leadId }) {
             rejectedReason: lead.rejectedReason || '',
             rejectedNote: lead.rejectedNote || '',
         });
+        setLeadDateDraft({
+            createdAt: toJakartaDateTimeInputValue(lead.createdAt),
+            resultStatusUpdatedAt: toJakartaDateInputValue(lead.resultStatusUpdatedAt || lead.result_status_updated_at),
+        });
     }, [availableLeadSources, lead, resetSource, resetResult]);
 
     useEffect(() => {
@@ -443,6 +487,7 @@ export default function LeadDetailPage({ leadId }) {
         return Boolean(isAdmin && !lead?.assignedTo);
     }, [isAdmin, lead?.assignedTo]);
     const canDeleteLead = user?.role === 'client_admin' || user?.role === 'root_admin';
+    const canEditLeadDates = user?.role === 'client_admin' || user?.role === 'root_admin';
     const canEditLeadFull = canEditLead || isAdmin;
 
     const isAcceptedLead = effectiveFlowStatus === 'accepted';
@@ -559,6 +604,24 @@ export default function LeadDetailPage({ leadId }) {
         const ok = await runLeadUpdate(payload, 'Info berhasil disimpan.');
         if (ok) {
             setEditSourceDomicile(false);
+        }
+    };
+
+    const handleSaveLeadDates = async (event) => {
+        event.preventDefault();
+        if (!canEditLeadDates) return;
+        if (!leadDateDraft.createdAt) {
+            toast.error('Tanggal masuk wajib diisi.');
+            return;
+        }
+
+        const payload = {
+            createdAt: leadDateDraft.createdAt,
+            resultStatusUpdatedAt: leadDateDraft.resultStatusUpdatedAt || null,
+        };
+        const ok = await runLeadUpdate(payload, 'Tanggal lead berhasil diperbarui.');
+        if (ok) {
+            setEditLeadDates(false);
         }
     };
 
@@ -978,10 +1041,12 @@ export default function LeadDetailPage({ leadId }) {
                             )}
                         </span>
                     </div>
-                    <div className="ldp-info-item">
-                        <span className="ldp-info-label">Tanggal Masuk</span>
-                        <span className="ldp-info-value">{formatDate(lead.createdAt)}</span>
-                    </div>
+                    {!canEditLeadDates ? (
+                        <div className="ldp-info-item">
+                            <span className="ldp-info-label">Tanggal Masuk</span>
+                            <span className="ldp-info-value">{formatDate(lead.createdAt)}</span>
+                        </div>
+                    ) : null}
                     {lead.acceptedAt ? (
                         <div className="ldp-info-item">
                             <span className="ldp-info-label">Diterima</span>
@@ -989,6 +1054,92 @@ export default function LeadDetailPage({ leadId }) {
                         </div>
                     ) : null}
                 </div>
+
+                {canEditLeadDates ? (
+                    <form
+                        className="ldp-editable-row"
+                        onSubmit={handleSaveLeadDates}
+                        style={{ marginTop: 12 }}
+                    >
+                        <div className="ldp-editable-row-head" style={{ alignItems: 'center', display: 'flex', justifyContent: 'space-between', width: '100%', border: 'none', padding: 0, margin: 0, background: 'none' }}>
+                            <div className="ldp-editable-pairs">
+                                <div className="ldp-editable-pair">
+                                    <span className="ldp-info-label">Tanggal Masuk</span>
+                                    {editLeadDates ? (
+                                        <DatePicker
+                                            value={leadDateDraft.createdAt}
+                                            onChange={(value) => setLeadDateDraft((prev) => ({ ...prev, createdAt: value }))}
+                                            placeholder="Pilih tanggal masuk"
+                                            showTime
+                                        />
+                                    ) : (
+                                        <span className="ldp-info-value">{formatExactDateTime(lead.createdAt)}</span>
+                                    )}
+                                </div>
+                                <div className="ldp-editable-pair">
+                                    <span className="ldp-info-label">Tanggal Transaksi</span>
+                                    {editLeadDates ? (
+                                        <DatePicker
+                                            value={leadDateDraft.resultStatusUpdatedAt}
+                                            onChange={(value) => setLeadDateDraft((prev) => ({ ...prev, resultStatusUpdatedAt: value }))}
+                                            placeholder="Belum ada transaksi"
+                                        />
+                                    ) : (
+                                        <span className="ldp-info-value">{lead.resultStatus ? formatExactDate(resultStatusUpdatedAt) : '-'}</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="ldp-row-action-wrap">
+                                {editLeadDates ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <button
+                                            type="submit"
+                                            className="btn btn-sm btn-primary"
+                                            title="Simpan tanggal"
+                                            style={{ width: '38px', height: '38px', minWidth: '38px', borderRadius: '8px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        >
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="20 6 9 17 4 12" />
+                                            </svg>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm btn-secondary"
+                                            onClick={() => {
+                                                setLeadDateDraft({
+                                                    createdAt: toJakartaDateTimeInputValue(lead.createdAt),
+                                                    resultStatusUpdatedAt: toJakartaDateInputValue(resultStatusUpdatedAt),
+                                                });
+                                                setEditLeadDates(false);
+                                            }}
+                                            title="Batal"
+                                            style={{ width: '38px', height: '38px', minWidth: '38px', borderRadius: '8px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        >
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                                <line x1="18" y1="6" x2="6" y2="18" />
+                                                <line x1="6" y1="6" x2="18" y2="18" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="ldp-edit-name-icon-btn"
+                                        onClick={() => setEditLeadDates(true)}
+                                        title="Edit tanggal lead"
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px', margin: '-8px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}
+                                    >
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </form>
+                ) : null}
 
                 {/* Inline edit: Sumber Leads + Domisili */}
                 <div className="ldp-editable-row">

@@ -12,6 +12,46 @@ import { getWorkspaceClientId, resolveClientIdFromWorkspace } from "../utils/req
 import { normalizeResultStatus } from "../utils/lead-workflow";
 
 const router: ReturnType<typeof Router> = Router();
+const JAKARTA_OFFSET = "+07:00";
+
+function parseJakartaDateInput(value: unknown, options: { dateOnly?: boolean } = {}) {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (value === null || value === "") {
+        return null;
+    }
+    if (value instanceof Date) {
+        return Number.isNaN(value.getTime()) ? null : value;
+    }
+    if (typeof value !== "string") {
+        return null;
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const timePart = options.dateOnly ? "00:00:00" : "00:00:00";
+        const date = new Date(`${trimmed}T${timePart}${JAKARTA_OFFSET}`);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(trimmed)) {
+        const date = new Date(`${trimmed}:00${JAKARTA_OFFSET}`);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(trimmed)) {
+        const date = new Date(`${trimmed}${JAKARTA_OFFSET}`);
+        return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const date = new Date(trimmed);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
 
 function canViewLeadByUser(
     lead: { clientId?: string | null; assignedTo?: string | null } | null,
@@ -288,7 +328,7 @@ router.post("/:id/customer-pipeline/:stepNo/complete", requireRole("sales") as a
 
 router.post("/", async (req, res: Response, next: NextFunction) => {
     try {
-        const { user, scope } = req as unknown as AuthenticatedRequest;
+        const { user } = req as unknown as AuthenticatedRequest;
         const { name, phone, source, assignedTo, agentOfficeName, createdAt: createdAtRaw } = req.body ?? {};
         if (!name || !phone) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "name dan phone wajib diisi" });
@@ -323,7 +363,7 @@ router.post("/", async (req, res: Response, next: NextFunction) => {
             return;
         }
 
-        const parsedCreatedAt = createdAtRaw ? new Date(createdAtRaw) : null;
+        const parsedCreatedAt = parseJakartaDateInput(createdAtRaw);
         const created = await leadsService.create({
             name,
             phone,
@@ -337,8 +377,65 @@ router.post("/", async (req, res: Response, next: NextFunction) => {
                         : null,
             clientId: targetClientId,
             createdAt: parsedCreatedAt && !Number.isNaN(parsedCreatedAt.getTime()) ? parsedCreatedAt : null,
+            createdByName: user.name,
         });
         res.status(201).json(created);
+    } catch (error) {
+        next(error);
+    }
+});
+
+router.post("/bulk-update", requireMinRole("supervisor") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { user, scope } = req as unknown as AuthenticatedRequest;
+        const ids: string[] = Array.isArray(req.body?.ids)
+            ? Array.from(new Set(req.body.ids.map((id: unknown) => String(id || "").trim()).filter(Boolean)))
+            : [];
+        const salesStatus = typeof req.body?.salesStatus === "string" ? req.body.salesStatus.trim() : "";
+
+        if (ids.length === 0) {
+            res.status(400).json({ error: "VALIDATION_ERROR", message: "Pilih minimal satu lead." });
+            return;
+        }
+        if (!salesStatus) {
+            res.status(400).json({ error: "VALIDATION_ERROR", message: "Status L2 wajib dipilih." });
+            return;
+        }
+
+        const results: Array<{ id: string; status: "updated" | "error"; message?: string }> = [];
+        for (const id of ids) {
+            try {
+                const currentLead = await leadsService.findById(id);
+                if (!currentLead) {
+                    results.push({ id, status: "error", message: "Lead tidak ditemukan" });
+                    continue;
+                }
+                if (!canEditLeadByUser(currentLead, user, scope)) {
+                    results.push({ id, status: "error", message: "Tidak punya akses edit lead ini" });
+                    continue;
+                }
+
+                await leadsService.patchLead({
+                    id,
+                    actorId: user.id,
+                    actorRole: user.role,
+                    actorClientId: getWorkspaceClientId(req as unknown as AuthenticatedRequest),
+                    managedSalesIds: scope?.managedSalesIds || [],
+                    salesStatus,
+                });
+                results.push({ id, status: "updated" });
+            } catch (error) {
+                results.push({
+                    id,
+                    status: "error",
+                    message: error instanceof Error ? error.message : "Gagal update lead",
+                });
+            }
+        }
+
+        const updated = results.filter((item) => item.status === "updated").length;
+        const failed = results.length - updated;
+        res.json({ updated, failed, results });
     } catch (error) {
         next(error);
     }
@@ -363,6 +460,8 @@ router.patch("/:id", async (req, res: Response, next: NextFunction) => {
             rejectedNote,
             assignedTo,
             activityNote,
+            createdAt,
+            resultStatusUpdatedAt,
         } = req.body ?? {};
 
         const currentLead = await leadsService.findById(req.params.id);
@@ -418,6 +517,8 @@ router.patch("/:id", async (req, res: Response, next: NextFunction) => {
             rejectedNote,
             assignedTo,
             activityNote,
+            createdAt: parseJakartaDateInput(createdAt) ?? undefined,
+            resultStatusUpdatedAt: parseJakartaDateInput(resultStatusUpdatedAt, { dateOnly: true }),
         });
 
         if (!updated) {

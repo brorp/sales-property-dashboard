@@ -30,6 +30,9 @@ import {
     normalizeSalesStatus,
     canManuallySetSalesStatus,
     isCancelResultStatus,
+    SKIP_AUTO_CANCEL_NOTE,
+    SKIP_AUTO_CANCEL_REASON,
+    SKIP_AUTO_RESULT_STATUS,
 } from "../utils/lead-workflow";
 
 interface LeadFilters {
@@ -63,6 +66,8 @@ export type LeadPatchInput = {
     rejectedReason?: string | null;
     rejectedNote?: string | null;
     assignedTo?: string | null;
+    createdAt?: Date | null;
+    resultStatusUpdatedAt?: Date | null;
     activityNote?: string;
 };
 
@@ -513,6 +518,7 @@ export async function create(data: {
     assignedTo?: string | null;
     clientId?: string | null;
     createdAt?: Date | null;
+    createdByName?: string | null;
 }) {
     const id = generateId();
     const now = data.createdAt instanceof Date && !Number.isNaN(data.createdAt.getTime())
@@ -584,13 +590,25 @@ export async function create(data: {
         })
         .returning();
 
+    const assignedSalesName = assignedTo
+        ? (await db
+            .select({ name: user.name })
+            .from(user)
+            .where(eq(user.id, assignedTo))
+            .limit(1))[0]?.name || null
+        : null;
+
     await db.insert(activity).values({
         id: generateId(),
         leadId: id,
         type: "new",
-        note: assignedTo
-            ? "Lead baru ditambahkan dan langsung di-assign."
-            : "Lead baru ditambahkan (status open).",
+        note: [
+            `Lead manual ditambahkan oleh ${data.createdByName || "Admin"}.`,
+            `Sumber: ${normalizedSource}${normalizedAgentOfficeName ? ` (${normalizedAgentOfficeName})` : ""}.`,
+            assignedTo
+                ? `Langsung di-assign ke ${assignedSalesName || "sales terpilih"}.`
+                : "Status awal Open / Unassigned.",
+        ].join(" "),
         timestamp: now,
     });
 
@@ -960,6 +978,48 @@ export async function patchLead(input: LeadPatchInput) {
         currentLead.assignedTo
     );
 
+    if (input.createdAt !== undefined) {
+        if (!isAdminRole) {
+            throw new Error("FORBIDDEN_DATE_EDIT");
+        }
+        if (!(input.createdAt instanceof Date) || Number.isNaN(input.createdAt.getTime())) {
+            throw new Error("INVALID_CREATED_AT");
+        }
+        if (input.createdAt.getTime() !== currentLead.createdAt.getTime()) {
+            updates.createdAt = input.createdAt;
+            updates.receivedAt = input.createdAt;
+            activityEntries.push({
+                type: "lead_status",
+                note: `Tanggal masuk lead diubah ke ${input.createdAt.toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" })}`,
+            });
+        }
+    }
+
+    if (input.resultStatusUpdatedAt !== undefined) {
+        if (!isAdminRole) {
+            throw new Error("FORBIDDEN_DATE_EDIT");
+        }
+        const nextTransactionDate = input.resultStatusUpdatedAt;
+        const currentTransactionDate = currentLead.resultStatusUpdatedAt || null;
+        const hasChanged =
+            nextTransactionDate === null
+                ? currentTransactionDate !== null
+                : !currentTransactionDate ||
+                    nextTransactionDate.getTime() !== currentTransactionDate.getTime();
+
+        if (nextTransactionDate !== null && Number.isNaN(nextTransactionDate.getTime())) {
+            throw new Error("INVALID_RESULT_STATUS_UPDATED_AT");
+        }
+
+        if (hasChanged) {
+            updates.resultStatusUpdatedAt = nextTransactionDate;
+            activityEntries.push({
+                type: "result_status",
+                note: `Tanggal transaksi diubah ke ${nextTransactionDate ? nextTransactionDate.toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta" }) : "-"}`,
+            });
+        }
+    }
+
     const nextName = sanitizeRequiredText(input.name);
     if (typeof nextName === "string" && nextName !== currentLead.name) {
         updates.name = nextName;
@@ -1103,6 +1163,31 @@ export async function patchLead(input: LeadPatchInput) {
                 type: "lead_status",
                 note: `Status L2 berubah dari ${getSalesStatusLabel(currentLead.salesStatus)} ke ${getSalesStatusLabel(nextSalesStatus)}`,
             });
+        }
+
+        if (nextSalesStatus === "skip") {
+            const currentResultStatus = normalizeResultStatus(currentLead.resultStatus);
+            const shouldAutoSetCancelMinat =
+                currentResultStatus !== SKIP_AUTO_RESULT_STATUS ||
+                currentLead.rejectedReason !== SKIP_AUTO_CANCEL_REASON ||
+                currentLead.rejectedNote !== SKIP_AUTO_CANCEL_NOTE;
+
+            if (shouldAutoSetCancelMinat) {
+                updates.resultStatus = SKIP_AUTO_RESULT_STATUS;
+                updates.resultStatusUpdatedAt =
+                    currentResultStatus === SKIP_AUTO_RESULT_STATUS && currentLead.resultStatusUpdatedAt
+                        ? currentLead.resultStatusUpdatedAt
+                        : now;
+                updates.rejectedReason = SKIP_AUTO_CANCEL_REASON;
+                updates.rejectedNote = SKIP_AUTO_CANCEL_NOTE;
+                updates.unitName = null;
+                updates.unitDetail = null;
+                updates.paymentMethod = null;
+                activityEntries.push({
+                    type: "result_status",
+                    note: `Status transaksi otomatis menjadi ${getResultStatusLabel(SKIP_AUTO_RESULT_STATUS)} karena status L2 Skip. Alasan batal: Lainnya.`,
+                });
+            }
         }
     }
 

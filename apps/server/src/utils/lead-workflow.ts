@@ -42,6 +42,9 @@ export const DAILY_TASK_FOLLOWUP_STAGE_COUNT = DAILY_TASK_FOLLOWUP_MILESTONE_DAY
 export const DAILY_TASK_TYPE_SET = new Set(["new_lead", "follow_up", "deadline_lead"]);
 export const DAILY_TASK_STATUS_SET = new Set(["pending", "done", "invalid", "overdue"]);
 export const DAILY_TASK_PENALTY_RULE_CODE = "daily_task_overdue";
+export const SKIP_AUTO_RESULT_STATUS = "cancel_minat";
+export const SKIP_AUTO_CANCEL_REASON = "lainnya";
+export const SKIP_AUTO_CANCEL_NOTE = "Otomatis karena status L2 Skip.";
 export const DAILY_TASK_PENALTY_STATUS_SET = new Set([
     "active",
     "expired",
