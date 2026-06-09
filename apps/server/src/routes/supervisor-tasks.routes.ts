@@ -18,6 +18,7 @@ router.get(
             const leads = await supervisorTasksService.listPendingHotLeads({
                 supervisorId: user.id,
                 managedSalesIds,
+                clientId: scope?.clientId || null,
             });
 
             res.json(leads);
@@ -88,6 +89,8 @@ router.post(
                 leadId,
                 supervisorId: user.id,
                 supervisorName: user.name,
+                managedSalesIds,
+                clientId: scope?.clientId || null,
             });
 
             res.json(result);
@@ -95,6 +98,10 @@ router.post(
             const err = error as Error;
             if (err.message === "LEAD_NOT_FOUND") {
                 res.status(404).json({ error: "NOT_FOUND", message: "Lead tidak ditemukan" });
+                return;
+            }
+            if (err.message === "FORBIDDEN_HOT_LEAD") {
+                res.status(403).json({ error: "FORBIDDEN", message: "Lead ini bukan milik tim/workspace Anda" });
                 return;
             }
             if (err.message === "LEAD_NOT_HOT") {
@@ -133,6 +140,8 @@ router.post(
                 leadId,
                 supervisorId: user.id,
                 supervisorName: user.name,
+                managedSalesIds,
+                clientId: scope?.clientId || null,
                 note: typeof note === "string" ? note.trim() || undefined : undefined,
             });
 
@@ -141,6 +150,10 @@ router.post(
             const err = error as Error;
             if (err.message === "LEAD_NOT_FOUND") {
                 res.status(404).json({ error: "NOT_FOUND", message: "Lead tidak ditemukan" });
+                return;
+            }
+            if (err.message === "FORBIDDEN_HOT_LEAD") {
+                res.status(403).json({ error: "FORBIDDEN", message: "Lead ini bukan milik tim/workspace Anda" });
                 return;
             }
             if (err.message === "LEAD_NOT_HOT") {
@@ -157,7 +170,7 @@ router.get(
     "/validated-hot",
     async (req, res: Response, next: NextFunction) => {
         try {
-            const { user } = req as unknown as AuthenticatedRequest;
+            const { user, scope } = req as unknown as AuthenticatedRequest;
 
             if (user.role !== "sales") {
                 res.status(403).json({ error: "FORBIDDEN", message: "Hanya sales yang bisa mengakses endpoint ini" });
@@ -166,6 +179,7 @@ router.get(
 
             const leads = await supervisorTasksService.listValidatedHotLeads({
                 salesId: user.id,
+                clientId: scope?.clientId || null,
             });
 
             res.json(leads);

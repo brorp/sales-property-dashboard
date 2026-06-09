@@ -107,6 +107,23 @@ function getErrorMessage(text, status) {
     return text;
 }
 
+async function parseJsonResponse(res) {
+    const text = await res.text();
+    if (!text) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        const trimmed = text.trim().toLowerCase();
+        if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<html')) {
+            throw new Error(`API mengembalikan HTML, bukan JSON. Cek endpoint/proxy untuk ${res.url}`);
+        }
+        throw new Error('Response API bukan JSON yang valid.');
+    }
+}
+
 function isMutationMethod(method) {
     const normalized = String(method || 'GET').toUpperCase();
     return normalized === 'POST' || normalized === 'PATCH' || normalized === 'PUT' || normalized === 'DELETE';
@@ -378,7 +395,7 @@ export async function apiRequest(path, options = {}) {
             return null;
         }
 
-        return res.json();
+        return parseJsonResponse(res);
     })();
 
     if (isMutation && mutationSignature) {
@@ -425,5 +442,5 @@ export async function publicApiRequest(path, options = {}) {
         return null;
     }
 
-    return res.json();
+    return parseJsonResponse(res);
 }

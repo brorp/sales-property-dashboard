@@ -10,9 +10,19 @@ import {
 export async function listPendingHotLeads(params: {
     supervisorId: string;
     managedSalesIds: string[];
+    clientId?: string | null;
 }) {
     if (params.managedSalesIds.length === 0) {
         return [];
+    }
+
+    const conditions = [
+        inArray(lead.assignedTo, params.managedSalesIds),
+        eq(lead.salesStatus, "hot"),
+        eq(lead.validated, false),
+    ];
+    if (params.clientId) {
+        conditions.push(eq(lead.clientId, params.clientId));
     }
 
     const rows = await db
@@ -31,13 +41,7 @@ export async function listPendingHotLeads(params: {
         })
         .from(lead)
         .leftJoin(user, eq(lead.assignedTo, user.id))
-        .where(
-            and(
-                inArray(lead.assignedTo, params.managedSalesIds),
-                eq(lead.salesStatus, "hot"),
-                eq(lead.validated, false)
-            )
-        )
+        .where(and(...conditions))
         .orderBy(desc(lead.updatedAt));
 
     return rows;
@@ -47,10 +51,13 @@ export async function validateHotLead(params: {
     leadId: string;
     supervisorId: string;
     supervisorName: string;
+    managedSalesIds?: string[];
+    clientId?: string | null;
 }) {
     const [currentLead] = await db
         .select({
             id: lead.id,
+            clientId: lead.clientId,
             salesStatus: lead.salesStatus,
             validated: lead.validated,
             assignedTo: lead.assignedTo,
@@ -61,6 +68,18 @@ export async function validateHotLead(params: {
 
     if (!currentLead) {
         throw new Error("LEAD_NOT_FOUND");
+    }
+
+    if (params.clientId && currentLead.clientId !== params.clientId) {
+        throw new Error("LEAD_NOT_FOUND");
+    }
+
+    if (
+        Array.isArray(params.managedSalesIds) &&
+        params.managedSalesIds.length > 0 &&
+        !params.managedSalesIds.includes(currentLead.assignedTo || "")
+    ) {
+        throw new Error("FORBIDDEN_HOT_LEAD");
     }
 
     if (currentLead.salesStatus !== "hot") {
@@ -97,12 +116,16 @@ export async function rejectHotLead(params: {
     supervisorId: string;
     supervisorName: string;
     note?: string;
+    managedSalesIds?: string[];
+    clientId?: string | null;
 }) {
     const [currentLead] = await db
         .select({
             id: lead.id,
+            clientId: lead.clientId,
             salesStatus: lead.salesStatus,
             validated: lead.validated,
+            assignedTo: lead.assignedTo,
         })
         .from(lead)
         .where(eq(lead.id, params.leadId))
@@ -110,6 +133,18 @@ export async function rejectHotLead(params: {
 
     if (!currentLead) {
         throw new Error("LEAD_NOT_FOUND");
+    }
+
+    if (params.clientId && currentLead.clientId !== params.clientId) {
+        throw new Error("LEAD_NOT_FOUND");
+    }
+
+    if (
+        Array.isArray(params.managedSalesIds) &&
+        params.managedSalesIds.length > 0 &&
+        !params.managedSalesIds.includes(currentLead.assignedTo || "")
+    ) {
+        throw new Error("FORBIDDEN_HOT_LEAD");
     }
 
     if (currentLead.salesStatus !== "hot") {
@@ -143,7 +178,18 @@ export async function rejectHotLead(params: {
 
 export async function listValidatedHotLeads(params: {
     salesId: string;
+    clientId?: string | null;
 }) {
+    const conditions = [
+        eq(lead.assignedTo, params.salesId),
+        eq(lead.salesStatus, "hot"),
+        eq(lead.validated, true),
+        or(isNull(lead.resultStatus), eq(lead.resultStatus, "")),
+    ];
+    if (params.clientId) {
+        conditions.push(eq(lead.clientId, params.clientId));
+    }
+
     const rows = await db
         .select({
             id: lead.id,
@@ -157,14 +203,7 @@ export async function listValidatedHotLeads(params: {
             createdAt: lead.createdAt,
         })
         .from(lead)
-        .where(
-            and(
-                eq(lead.assignedTo, params.salesId),
-                eq(lead.salesStatus, "hot"),
-                eq(lead.validated, true),
-                or(isNull(lead.resultStatus), eq(lead.resultStatus, ""))
-            )
-        )
+        .where(and(...conditions))
         .orderBy(desc(lead.updatedAt));
 
     return rows;

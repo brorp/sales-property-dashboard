@@ -388,6 +388,33 @@ export const dailyTaskPenaltySuspension = pgTable(
     })
 );
 
+export const dailyTaskPenaltyImmunity = pgTable(
+    "daily_task_penalty_immunity",
+    {
+        id: text("id").primaryKey(),
+        salesId: text("sales_id")
+            .notNull()
+            .references(() => user.id, { onDelete: "cascade" }),
+        clientId: text("client_id").references(() => client.id, { onDelete: "set null" }),
+        grantedBy: text("granted_by").references(() => user.id, { onDelete: "set null" }),
+        revokedBy: text("revoked_by").references(() => user.id, { onDelete: "set null" }),
+        status: text("status").notNull().default("active"),
+        grantedAt: timestamp("granted_at").notNull().defaultNow(),
+        revokedAt: timestamp("revoked_at"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        salesIdx: index("daily_task_penalty_immunity_sales_id_idx").on(table.salesId),
+        clientIdx: index("daily_task_penalty_immunity_client_id_idx").on(table.clientId),
+        statusIdx: index("daily_task_penalty_immunity_status_idx").on(table.status),
+        salesClientUnique: uniqueIndex("daily_task_penalty_immunity_sales_client_unique").on(
+            table.salesId,
+            table.clientId
+        ),
+    })
+);
+
 export const leadPenalty = pgTable(
     "lead_penalty",
     {

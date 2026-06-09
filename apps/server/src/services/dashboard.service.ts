@@ -2651,7 +2651,9 @@ export async function getHomeAnalytics(
             }
         }
 
-        // Transaksi mirrors Sales Daily Task > Transaksi: only Reserve and Full Book are pending.
+        // Transaksi recap is sourced from lead L4/result status, not Daily Task rows.
+        // Reserve/Full Book are still pending transaction actions, while Lunas shows
+        // how many closed deals each sales already owns in the active workspace.
         for (const item of dailyTaskRecapDecoratedLeads) {
             if (!item.assignedTo) continue;
             const bucket = recapBuckets.get(item.assignedTo);
@@ -2659,6 +2661,7 @@ export async function getHomeAnalytics(
             const status = resolveDatabaseResultStatusKey(item.resultStatus);
             if (status === "reserve") bucket.transaksi.reserve += 1;
             else if (status === "full_book") bucket.transaksi.fullBook += 1;
+            else if (status === "lunas") bucket.transaksi.lunas += 1;
         }
 
         const dailyTaskRecap = Array.from(recapBuckets.values())

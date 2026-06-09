@@ -1,9 +1,10 @@
-import { and, asc, desc, eq, inArray, lte, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte, ne } from "drizzle-orm";
 import { db } from "../db/index";
 import {
     activity,
     dailyTask,
     dailyTaskPenalty,
+    dailyTaskPenaltyImmunity,
     dailyTaskPenaltySuspension,
     lead,
     user,
@@ -23,6 +24,62 @@ type DbExecutor = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0
 
 function canCountPenaltyStatus(status: string | null | undefined) {
     return status !== "compensated" && status !== "invalid";
+}
+
+function assertCanManagePenaltyImmunity(scope?: QueryScope) {
+    if (!scope || (scope.role !== "client_admin" && scope.role !== "root_admin")) {
+        throw new Error("FORBIDDEN_PENALTY_IMMUNITY");
+    }
+}
+
+function buildPenaltyImmunityClientCondition(clientId: string | null | undefined) {
+    return clientId ? eq(dailyTaskPenaltyImmunity.clientId, clientId) : isNull(dailyTaskPenaltyImmunity.clientId);
+}
+
+async function loadSalesForPenaltyImmunityAction(
+    salesId: string,
+    scope?: QueryScope,
+    executor: DbExecutor = db
+) {
+    const [salesRow] = await executor
+        .select({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            clientId: user.clientId,
+            isActive: user.isActive,
+        })
+        .from(user)
+        .where(eq(user.id, salesId))
+        .limit(1);
+
+    if (!salesRow || salesRow.role !== "sales" || !salesRow.isActive) {
+        throw new Error("SALES_NOT_FOUND");
+    }
+
+    return {
+        ...salesRow,
+        immunityClientId: scope?.clientId || salesRow.clientId || null,
+    };
+}
+
+export async function isSalesPenaltyImmune(
+    salesId: string,
+    clientId?: string | null,
+    executor: DbExecutor = db
+) {
+    const [row] = await executor
+        .select({ id: dailyTaskPenaltyImmunity.id })
+        .from(dailyTaskPenaltyImmunity)
+        .where(and(
+            eq(dailyTaskPenaltyImmunity.salesId, salesId),
+            buildPenaltyImmunityClientCondition(clientId || null),
+            eq(dailyTaskPenaltyImmunity.status, "active")
+        ))
+        .limit(1);
+
+    return Boolean(row);
 }
 
 export async function countValidPenaltiesForSales(
@@ -114,6 +171,15 @@ export async function createPenaltyForTask(
     }
 
     if (taskRow.taskType === "deadline_lead") {
+        return null;
+    }
+
+    const isImmune = await isSalesPenaltyImmune(
+        taskRow.salesId,
+        taskRow.clientId || null,
+        executor
+    );
+    if (isImmune) {
         return null;
     }
 
@@ -386,4 +452,142 @@ export async function getPenalties(params: {
                 ? `Follow Up ${row.followupStage}`
                 : "New Lead",
     }));
+}
+
+export async function listPenaltyImmunities(params: {
+    scope?: QueryScope;
+}) {
+    assertCanManagePenaltyImmunity(params.scope);
+
+    const conditions = [eq(dailyTaskPenaltyImmunity.status, "active")];
+    if (params.scope?.role !== "root_admin") {
+        conditions.push(buildPenaltyImmunityClientCondition(params.scope?.clientId || null));
+    }
+
+    return db
+        .select({
+            id: dailyTaskPenaltyImmunity.id,
+            salesId: dailyTaskPenaltyImmunity.salesId,
+            clientId: dailyTaskPenaltyImmunity.clientId,
+            status: dailyTaskPenaltyImmunity.status,
+            grantedBy: dailyTaskPenaltyImmunity.grantedBy,
+            grantedAt: dailyTaskPenaltyImmunity.grantedAt,
+            createdAt: dailyTaskPenaltyImmunity.createdAt,
+            updatedAt: dailyTaskPenaltyImmunity.updatedAt,
+            salesName: user.name,
+            salesEmail: user.email,
+        })
+        .from(dailyTaskPenaltyImmunity)
+        .leftJoin(user, eq(dailyTaskPenaltyImmunity.salesId, user.id))
+        .where(and(...conditions))
+        .orderBy(desc(dailyTaskPenaltyImmunity.grantedAt), asc(user.name));
+}
+
+export async function addPenaltyImmunity(params: {
+    salesId: string;
+    grantedById: string;
+    scope?: QueryScope;
+}) {
+    assertCanManagePenaltyImmunity(params.scope);
+    const salesId = String(params.salesId || "").trim();
+    if (!salesId) {
+        throw new Error("SALES_ID_REQUIRED");
+    }
+
+    return db.transaction(async (tx) => {
+        const salesRow = await loadSalesForPenaltyImmunityAction(salesId, params.scope, tx);
+        const clientId = salesRow.immunityClientId;
+        const now = new Date();
+
+        const [existing] = await tx
+            .select({
+                id: dailyTaskPenaltyImmunity.id,
+            })
+            .from(dailyTaskPenaltyImmunity)
+            .where(and(
+                eq(dailyTaskPenaltyImmunity.salesId, salesRow.id),
+                buildPenaltyImmunityClientCondition(clientId)
+            ))
+            .limit(1);
+
+        if (existing) {
+            const [updated] = await tx
+                .update(dailyTaskPenaltyImmunity)
+                .set({
+                    status: "active",
+                    grantedBy: params.grantedById,
+                    revokedBy: null,
+                    grantedAt: now,
+                    revokedAt: null,
+                    updatedAt: now,
+                })
+                .where(eq(dailyTaskPenaltyImmunity.id, existing.id))
+                .returning();
+
+            return {
+                ...updated,
+                salesName: salesRow.name,
+                salesEmail: salesRow.email,
+            };
+        }
+
+        const [inserted] = await tx
+            .insert(dailyTaskPenaltyImmunity)
+            .values({
+                id: generateId(),
+                salesId: salesRow.id,
+                clientId,
+                grantedBy: params.grantedById,
+                status: "active",
+                grantedAt: now,
+                createdAt: now,
+                updatedAt: now,
+            })
+            .returning();
+
+        return {
+            ...inserted,
+            salesName: salesRow.name,
+            salesEmail: salesRow.email,
+        };
+    });
+}
+
+export async function removePenaltyImmunity(params: {
+    salesId: string;
+    revokedById: string;
+    scope?: QueryScope;
+}) {
+    assertCanManagePenaltyImmunity(params.scope);
+    const salesId = String(params.salesId || "").trim();
+    if (!salesId) {
+        throw new Error("SALES_ID_REQUIRED");
+    }
+
+    return db.transaction(async (tx) => {
+        const salesRow = await loadSalesForPenaltyImmunityAction(salesId, params.scope, tx);
+        const clientId = salesRow.immunityClientId;
+        const now = new Date();
+
+        const [updated] = await tx
+            .update(dailyTaskPenaltyImmunity)
+            .set({
+                status: "revoked",
+                revokedBy: params.revokedById,
+                revokedAt: now,
+                updatedAt: now,
+            })
+            .where(and(
+                eq(dailyTaskPenaltyImmunity.salesId, salesRow.id),
+                buildPenaltyImmunityClientCondition(clientId),
+                eq(dailyTaskPenaltyImmunity.status, "active")
+            ))
+            .returning();
+
+        return {
+            success: true,
+            salesId: salesRow.id,
+            updated: Boolean(updated),
+        };
+    });
 }
