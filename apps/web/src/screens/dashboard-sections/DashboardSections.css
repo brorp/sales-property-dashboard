@@ -1893,6 +1893,19 @@
     color: #EF4444 !important;
 }
 
+.ov-card--sales-performance .ov-rank-count {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #0F172A;
+}
+
+.ov-card--sales-performance .ov-rank-pct {
+    font-size: 0.98rem;
+    font-weight: 800;
+    min-width: 48px;
+    color: #0F172A !important;
+}
+
 @media (max-width: 640px) {
     .ov-rank-table-item-split {
         gap: 12px;
