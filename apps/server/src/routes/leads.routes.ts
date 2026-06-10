@@ -64,7 +64,8 @@ function canViewLeadByUser(
     if (scope?.clientId && lead.clientId !== scope.clientId) return false;
     if (reqUser.role === "client_admin") return true;
     if (reqUser.role === "supervisor") {
-        if (scope?.managedSalesIds?.includes(lead.assignedTo || "")) return true;
+        if (!lead.assignedTo) return true;
+        if (scope?.managedSalesIds?.includes(lead.assignedTo)) return true;
         return false;
     }
     return lead.assignedTo === reqUser.id;
@@ -86,7 +87,8 @@ function canEditLeadByUser(
         return true;
     }
     if (reqUser.role === "supervisor") {
-        if (scope?.managedSalesIds?.includes(lead.assignedTo || "")) return true;
+        if (!lead.assignedTo) return true;
+        if (scope?.managedSalesIds?.includes(lead.assignedTo)) return true;
         return false;
     }
     return lead.assignedTo === reqUser.id;
@@ -335,14 +337,14 @@ router.post("/:id/customer-pipeline/:stepNo/complete", requireRole("sales") as a
 
 router.post("/", async (req, res: Response, next: NextFunction) => {
     try {
-        const { user } = req as unknown as AuthenticatedRequest;
+        const { user, scope } = req as unknown as AuthenticatedRequest;
         const { name, phone, source, assignedTo, agentOfficeName, createdAt: createdAtRaw } = req.body ?? {};
         if (!name || !phone) {
             res.status(400).json({ error: "VALIDATION_ERROR", message: "name dan phone wajib diisi" });
             return;
         }
 
-        if ((user.role === "client_admin" || user.role === "root_admin") && assignedTo) {
+        if ((user.role === "client_admin" || user.role === "root_admin" || user.role === "supervisor") && assignedTo) {
             const [salesRow] = await db
                 .select({
                     id: userTable.id,
@@ -359,6 +361,10 @@ router.post("/", async (req, res: Response, next: NextFunction) => {
                 return;
             }
 
+            if (user.role === "supervisor" && !scope?.managedSalesIds?.includes(assignedTo)) {
+                res.status(403).json({ error: "FORBIDDEN_ASSIGN", message: "Sales harus berada di bawah supervisor ini" });
+                return;
+            }
         }
 
         const targetClientId = resolveClientIdFromWorkspace(
@@ -373,7 +379,7 @@ router.post("/", async (req, res: Response, next: NextFunction) => {
         const parsedCreatedAt = parseJakartaDateInput(createdAtRaw);
 
         const resolvedAssignedTo =
-            (user.role === "client_admin" || user.role === "root_admin")
+            (user.role === "client_admin" || user.role === "root_admin" || user.role === "supervisor")
                 ? assignedTo || null
                 : user.role === "sales"
                     ? user.id

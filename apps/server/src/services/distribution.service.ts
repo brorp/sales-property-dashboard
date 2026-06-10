@@ -511,6 +511,8 @@ export async function handleSalesAck(
         const [leadRow] = await tx
             .select({
                 clientId: lead.clientId,
+                name: lead.name,
+                phone: lead.phone,
             })
             .from(lead)
             .where(eq(lead.id, leadId))
