@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { getToken, onMessage, deleteToken } from 'firebase/messaging';
+import { getToken, deleteToken, onMessage } from 'firebase/messaging';
 import { getFirebaseMessaging } from '../lib/firebase';
 import { apiRequest } from '../lib/api';
 
@@ -19,10 +19,11 @@ async function registerServiceWorker() {
         appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '',
     });
 
-    await navigator.serviceWorker.register(
+    const registration = await navigator.serviceWorker.register(
         `/firebase-messaging-sw.js?${params.toString()}`
     );
     await navigator.serviceWorker.ready;
+    return registration;
 }
 
 function getDeviceLabel() {
@@ -52,49 +53,82 @@ export async function removePushToken(user) {
 }
 
 export function usePushNotification({ user, onForegroundMessage } = {}) {
-    const registeredRef = useRef(false);
+    const registeredUserIdRef = useRef(null);
 
     useEffect(() => {
-        if (!user || !VAPID_KEY || registeredRef.current) return;
+        if (!user) {
+            registeredUserIdRef.current = null;
+            return;
+        }
+        if (!VAPID_KEY || registeredUserIdRef.current === user.id) return;
 
-        let unsub = null;
+        let unsubMessage = null;
 
         async function init() {
             try {
                 const permission = await Notification.requestPermission();
-                if (permission !== 'granted') return;
+                if (permission !== 'granted') {
+                    return;
+                }
 
                 const messaging = await getFirebaseMessaging();
-                if (!messaging) return;
+                if (!messaging) {
+                    return;
+                }
 
-                await registerServiceWorker();
+                const swReg = await registerServiceWorker();
 
-                const token = await getToken(messaging, { vapidKey: VAPID_KEY });
-                if (!token) return;
-
-                // Simpan token ke localStorage untuk referensi saat logout
-                localStorage.setItem(STORAGE_KEY, token);
-
-                await apiRequest('/api/notifications/fcm-token', {
-                    method: 'POST',
-                    user,
-                    body: { token, deviceLabel: getDeviceLabel() },
+                const token = await getToken(messaging, {
+                    vapidKey: VAPID_KEY,
+                    serviceWorkerRegistration: swReg || undefined,
                 });
 
-                registeredRef.current = true;
+                if (token) {
+                    localStorage.setItem(STORAGE_KEY, token);
 
-                unsub = onMessage(messaging, (payload) => {
-                    if (onForegroundMessage) onForegroundMessage(payload);
+                    await apiRequest('/api/notifications/fcm-token', {
+                        method: 'POST',
+                        user,
+                        body: { token, deviceLabel: getDeviceLabel() },
+                    });
+
+                    registeredUserIdRef.current = user.id;
+                }
+
+                unsubMessage = onMessage(messaging, (payload) => {
+                    if (onForegroundMessage) {
+                        onForegroundMessage(payload);
+                    } else {
+                        const { title, body, icon } = payload.notification || {};
+                        if (title && Notification.permission === 'granted') {
+                            try {
+                                if ('serviceWorker' in navigator) {
+                                    navigator.serviceWorker.ready.then((reg) => {
+                                        reg.showNotification(title, {
+                                            body: body || '',
+                                            icon: icon || undefined,
+                                        });
+                                    });
+                                } else if ('Notification' in window) {
+                                    new Notification(title, {
+                                        body: body || '',
+                                        icon: icon || undefined,
+                                    });
+                                }
+                            } catch (e) {
+                            }
+                        }
+                    }
                 });
-            } catch {
-                // gagal init push notification — tidak fatal
+            } catch (err) {
             }
         }
 
         void init();
 
         return () => {
-            if (unsub) unsub();
+            if (unsubMessage) unsubMessage();
         };
     }, [user?.id]);
 }
+

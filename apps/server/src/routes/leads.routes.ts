@@ -54,6 +54,14 @@ function parseJakartaDateInput(value: unknown, options: { dateOnly?: boolean } =
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function formatStatus(val: string | null | undefined): string {
+    if (!val) return "-";
+    return val
+        .split(/[_-]/)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(" ");
+}
+
 function canViewLeadByUser(
     lead: { clientId?: string | null; assignedTo?: string | null } | null,
     reqUser: { id: string; role: string; clientId?: string | null },
@@ -556,6 +564,58 @@ router.patch("/:id", async (req, res: Response, next: NextFunction) => {
         const prevResultStatus = normalizeResultStatus(currentLead.resultStatus);
         const newSalesStatus = fullLead?.salesStatus;
         const newResultStatus = normalizeResultStatus(fullLead?.resultStatus);
+        const prevAssignedTo = currentLead.assignedTo;
+        const newAssignedTo = fullLead?.assignedTo;
+
+        // assignedTo berubah (di-assign ke sales baru) -> kirim notifikasi ke sales tersebut
+        if (newAssignedTo && newAssignedTo !== prevAssignedTo) {
+            void sendToUser(newAssignedTo, {
+                title: "Lead Baru Ditugaskan",
+                body: `Kamu ditugaskan untuk mengelola lead ${fullLead.name} (${fullLead.phone}).`,
+                data: { leadId: req.params.id, type: "assigned_lead" },
+            });
+        } else if (newAssignedTo && newAssignedTo === prevAssignedTo && user.id !== newAssignedTo) {
+            const changes: string[] = [];
+            let specificTitle = `Update Lead: ${fullLead.name}`;
+
+            if (name !== undefined && name !== currentLead.name) {
+                changes.push(`Nama diubah ke "${name}"`);
+            }
+            if (domicileCity !== undefined && domicileCity !== currentLead.domicileCity) {
+                changes.push(`Domisili diubah ke "${domicileCity || "-"}"`);
+            }
+            if (salesStatus !== undefined && salesStatus !== currentLead.salesStatus) {
+                changes.push(`Status L2 menjadi "${formatStatus(salesStatus)}"`);
+                specificTitle = `Status Lead Diperbarui: ${fullLead.name}`;
+            }
+            if (unitName !== undefined && unitName !== currentLead.unitName) {
+                changes.push(`Unit menjadi "${unitName || "-"}"`);
+            }
+            if (resultStatus !== undefined && resultStatus !== currentLead.resultStatus) {
+                changes.push(`Status transaksi menjadi "${formatStatus(resultStatus)}"`);
+                specificTitle = `Transaksi Lead Diperbarui: ${fullLead.name}`;
+            }
+            if (manualNote !== undefined && manualNote !== currentLead.manualNote) {
+                changes.push(`Catatan diperbarui`);
+            }
+            if (paymentMethod !== undefined && paymentMethod !== currentLead.paymentMethod) {
+                changes.push(`Metode bayar menjadi "${formatStatus(paymentMethod)}"`);
+            }
+            if (source !== undefined && source !== currentLead.source) {
+                changes.push(`Sumber menjadi "${source}"`);
+            }
+
+            if (changes.length > 0) {
+                const actorName = user.name || "Supervisor/Admin";
+                const bodyText = `${changes.join(", ")} oleh ${actorName}.`;
+
+                void sendToUser(newAssignedTo, {
+                    title: specificTitle,
+                    body: bodyText,
+                    data: { leadId: req.params.id, type: "lead_updated" },
+                });
+            }
+        }
 
         // salesStatus jadi HOT → notif supervisor
         if (salesStatus && newSalesStatus === "hot" && prevSalesStatus !== "hot" && fullLead?.assignedTo) {
@@ -645,6 +705,15 @@ router.post("/:id/assign", requireMinRole("supervisor") as any, async (req, res:
         }
 
         const fullLead = await leadsService.findById(req.params.id);
+
+        if (fullLead && salesId) {
+            void sendToUser(salesId, {
+                title: "Lead Baru Ditugaskan",
+                body: `Kamu ditugaskan untuk mengelola lead ${fullLead.name} (${fullLead.phone}).`,
+                data: { leadId: req.params.id, type: "assigned_lead" },
+            });
+        }
+
         res.json(fullLead || updated);
     } catch (error) {
         next(error);
@@ -703,6 +772,14 @@ router.post("/:id/appointments", async (req, res: Response, next: NextFunction) 
             notes,
             salesId: user.id,
         });
+
+        if (lead && lead.assignedTo && user.id !== lead.assignedTo) {
+            void sendToUser(lead.assignedTo, {
+                title: "Jadwal Baru Dibuat",
+                body: `Janji temu baru telah dibuat untuk lead ${lead.name} oleh ${user.name || "Supervisor"}.`,
+                data: { leadId: req.params.id, type: "new_appointment" },
+            });
+        }
         res.status(201).json(created);
     } catch (error) {
         next(error);

@@ -156,6 +156,16 @@ router.post(
                 note: typeof note === "string" ? note.trim() || undefined : undefined,
             });
 
+            // Notif ke sales bahwa lead HOT-nya ditolak
+            const lead = await (await import("../services/leads.service")).findById(leadId);
+            if (lead?.assignedTo) {
+                void sendToUser(lead.assignedTo, {
+                    title: "Validasi Lead HOT Ditolak",
+                    body: `Lead ${lead.name} ditolak status HOT-nya oleh supervisor.${note ? ` Catatan: ${note}` : ""}`,
+                    data: { leadId, type: "hot_rejected" },
+                });
+            }
+
             res.json(result);
         } catch (error) {
             const err = error as Error;

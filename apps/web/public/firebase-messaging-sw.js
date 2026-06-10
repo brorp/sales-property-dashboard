@@ -24,12 +24,13 @@ if (config?.apiKey) {
     const messaging = firebase.messaging();
 
     messaging.onBackgroundMessage((payload) => {
-        const { title, body } = payload.notification || {};
-        if (!title) return;
+        const { title, body, icon } = payload.notification || {};
+        if (!title) {
+            return;
+        }
         self.registration.showNotification(title, {
             body: body || '',
-            icon: '/icon-192.png',
-            badge: '/badge-72.png',
+            icon: icon || undefined,
             data: payload.data || {},
         });
     });

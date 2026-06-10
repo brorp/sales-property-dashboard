@@ -4,8 +4,17 @@ import type { AuthenticatedRequest } from "../middleware/auth";
 import * as appointmentsService from "../services/appointments.service";
 import * as leadsService from "../services/leads.service";
 import { getWorkspaceClientId } from "../utils/request-client";
+import { sendToUser } from "../services/push-notification.service";
 
 const router: ReturnType<typeof Router> = Router();
+
+function formatStatus(val: string | null | undefined): string {
+    if (!val) return "-";
+    return val
+        .split(/[_-]/)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(" ");
+}
 
 function canEditLeadByUser(
     lead: { clientId?: string | null; assignedTo?: string | null } | null,
@@ -80,6 +89,31 @@ router.patch("/:id", async (req, res: Response, next: NextFunction) => {
             notes: req.body?.notes,
         });
 
+        if (lead && lead.assignedTo && user.id !== lead.assignedTo) {
+            const changes: string[] = [];
+            if (req.body?.date && req.body.date !== existing.date) {
+                changes.push(`tanggal menjadi ${req.body.date}`);
+            }
+            if (req.body?.time && req.body.time !== existing.time) {
+                changes.push(`jam menjadi ${req.body.time}`);
+            }
+            if (req.body?.location && req.body.location !== existing.location) {
+                changes.push(`lokasi menjadi ${req.body.location}`);
+            }
+            if (req.body?.status && req.body.status !== existing.status) {
+                changes.push(`status menjadi "${formatStatus(req.body.status)}"`);
+            }
+
+            if (changes.length > 0) {
+                const changesText = changes.join(", ");
+                void sendToUser(lead.assignedTo, {
+                    title: `Jadwal Lead Diubah: ${lead.name}`,
+                    body: `Jadwal janji temu diubah (${changesText}) oleh ${user.name || "Supervisor"}.`,
+                    data: { leadId: lead.id, type: "appointment_updated" },
+                });
+            }
+        }
+
         res.json(updated);
     } catch (error) {
         next(error);
@@ -118,6 +152,14 @@ router.post("/:id/cancel", async (req, res: Response, next: NextFunction) => {
             actorId: user.id,
             notes: req.body?.notes,
         });
+
+        if (lead && lead.assignedTo && user.id !== lead.assignedTo) {
+            void sendToUser(lead.assignedTo, {
+                title: `Jadwal Lead Dibatalkan: ${lead.name}`,
+                body: `Jadwal janji temu telah dibatalkan oleh ${user.name || "Supervisor"}.${req.body?.notes ? ` Alasan: ${req.body.notes}` : ""}`,
+                data: { leadId: lead.id, type: "appointment_cancelled" },
+            });
+        }
 
         res.json(updated);
     } catch (error) {
