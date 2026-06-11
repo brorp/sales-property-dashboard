@@ -96,6 +96,8 @@ export default function DailyReportHeaderSection({ user }) {
     const [dtrCategory, setDtrCategory] = useState('followUp');
     const [dtrSelectedMetrics, setDtrSelectedMetrics] = useState(() => DTR_CATEGORIES[0].metrics.map((m) => m.key));
     const [dtrGroupId, setDtrGroupId] = useState('all');
+    const [dtrSortOrder, setDtrSortOrder] = useState('default'); // 'default' | 'terbanyak' | 'terdikit'
+    const [showDtrSortDrawer, setShowDtrSortDrawer] = useState(false);
     const customPickerOpenRef = useRef(null);
 
     const fetchData = useCallback(async (range) => {
@@ -249,6 +251,17 @@ export default function DailyReportHeaderSection({ user }) {
         [dtrActiveCategory, dtrSelectedMetrics],
     );
 
+    const sortedDailyTaskRecap = useMemo(() => {
+        if (dtrSortOrder === 'default') return filteredDailyTaskRecap;
+        return [...filteredDailyTaskRecap].sort((a, b) => {
+            const catA = a[dtrActiveCategory.key] || {};
+            const catB = b[dtrActiveCategory.key] || {};
+            const totalA = dtrVisibleMetrics.reduce((s, m) => s + (catA[m.key] || 0), 0);
+            const totalB = dtrVisibleMetrics.reduce((s, m) => s + (catB[m.key] || 0), 0);
+            return dtrSortOrder === 'terbanyak' ? totalB - totalA : totalA - totalB;
+        });
+    }, [filteredDailyTaskRecap, dtrSortOrder, dtrActiveCategory, dtrVisibleMetrics]);
+
     const handleSelectCategory = (key) => {
         const cat = DTR_CATEGORIES.find((c) => c.key === key);
         if (!cat) return;
@@ -390,6 +403,34 @@ export default function DailyReportHeaderSection({ user }) {
                     <div className="dtr-card-title-group">
                         <h3 className="dtr-card-title">Rekap Daily Task</h3>
                     </div>
+                    <button
+                        type="button"
+                        className={`dtr-sort-btn${dtrSortOrder !== 'default' ? ' is-active' : ''}`}
+                        onClick={() => setShowDtrSortDrawer(true)}
+                        title="Urutkan"
+                    >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                        </svg>
+                        {dtrSortOrder !== 'default' ? (
+                            <span className="dtr-sort-badge">
+                                {dtrSortOrder === 'terbanyak' ? 'Terbanyak' : 'Terdikit'}
+                            </span>
+                        ) : null}
+                        {dtrSortOrder !== 'default' ? (
+                            <span
+                                className="dtr-sort-clear"
+                                role="button"
+                                tabIndex={0}
+                                onClick={(e) => { e.stopPropagation(); setDtrSortOrder('default'); }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setDtrSortOrder('default'); } }}
+                            >
+                                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </span>
+                        ) : null}
+                    </button>
                 </div>
 
                 <div className="dtr-tabs" role="tablist">
@@ -453,7 +494,7 @@ export default function DailyReportHeaderSection({ user }) {
                     </div>
                 ) : (
                     <div className="dtr-table">
-                        {filteredDailyTaskRecap.map((row) => {
+                        {sortedDailyTaskRecap.map((row) => {
                             const categoryData = row[dtrActiveCategory.key] || {};
                             const total = dtrVisibleMetrics.reduce((s, m) => s + (categoryData[m.key] || 0), 0);
                             return (
@@ -484,6 +525,83 @@ export default function DailyReportHeaderSection({ user }) {
                     </div>
                 )}
             </div>
+
+            {/* ── DTR Sort Drawer ──────────────────────────────────────── */}
+            {showDtrSortDrawer ? (
+                <div className="sheet-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowDtrSortDrawer(false); }}>
+                    <div className="bottom-sheet">
+                        <div className="sheet-handle" />
+                        <h2>Urutkan Rekap Daily Task</h2>
+                        <div className="dtr-sort-options">
+                            {[
+                                {
+                                    value: 'terbanyak',
+                                    label: 'Terbanyak',
+                                    desc: 'Sales dengan aktivitas laporan terbanyak di atas',
+                                    icon: (
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="18 15 12 9 6 15" />
+                                        </svg>
+                                    ),
+                                    color: '#16A34A',
+                                },
+                                {
+                                    value: 'terdikit',
+                                    label: 'Terdikit',
+                                    desc: 'Sales dengan aktivitas laporan tersedikit di atas',
+                                    icon: (
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="6 9 12 15 18 9" />
+                                        </svg>
+                                    ),
+                                    color: '#EF4444',
+                                },
+                            ].map((opt) => (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    className={`dtr-sort-option${dtrSortOrder === opt.value ? ' is-active' : ''}`}
+                                    onClick={() => { setDtrSortOrder(opt.value); setShowDtrSortDrawer(false); }}
+                                >
+                                    <span className="dtr-sort-option-icon" style={{ color: opt.color }}>
+                                        {opt.icon}
+                                    </span>
+                                    <div className="dtr-sort-option-body">
+                                        <span className="dtr-sort-option-label">{opt.label}</span>
+                                        <span className="dtr-sort-option-desc">{opt.desc}</span>
+                                    </div>
+                                    {dtrSortOrder === opt.value ? (
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="20 6 9 17 4 12" />
+                                        </svg>
+                                    ) : null}
+                                </button>
+                            ))}
+                            {dtrSortOrder !== 'default' ? (
+                                <button
+                                    type="button"
+                                    className="dtr-sort-option dtr-sort-option--reset"
+                                    onClick={() => { setDtrSortOrder('default'); setShowDtrSortDrawer(false); }}
+                                >
+                                    <span className="dtr-sort-option-icon" style={{ color: 'var(--text-muted)' }}>
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                            <path d="M3 3v5h5" />
+                                        </svg>
+                                    </span>
+                                    <div className="dtr-sort-option-body">
+                                        <span className="dtr-sort-option-label">Reset Urutan</span>
+                                        <span className="dtr-sort-option-desc">Kembali ke urutan default</span>
+                                    </div>
+                                </button>
+                            ) : null}
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                            <button type="button" className="btn btn-primary animate-hover" style={{ flex: 1 }} onClick={() => setShowDtrSortDrawer(false)}>Tutup</button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }
