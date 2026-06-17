@@ -811,3 +811,145 @@ export async function reassignLeadManually(params: {
         flowStatus: "assigned",
     };
 }
+
+export async function reassignLeadsBulk(params: {
+    leadIds: string[];
+    targetSalesId: string;
+    note?: string | null;
+    actor: AdminActor;
+}) {
+    assertAdminActor(params.actor);
+
+    const targetSales = await getManagedSalesRow(params.targetSalesId, params.actor, true);
+    if (!targetSales) {
+        throw new Error("TARGET_SALES_NOT_FOUND");
+    }
+
+    if (params.leadIds.length === 0) {
+        return { updated: 0, skipped: 0, total: 0 };
+    }
+
+    const note = sanitizeText(params.note);
+    if (!note) {
+        throw new Error("LEAD_REASSIGN_NOTE_REQUIRED");
+    }
+
+    // Load all the leads to reassign
+    const candidateLeads = await db
+        .select({
+            id: lead.id,
+            name: lead.name,
+            phone: lead.phone,
+            clientId: lead.clientId,
+            assignedTo: lead.assignedTo,
+            flowStatus: lead.flowStatus,
+            acceptedAt: lead.acceptedAt,
+            currentSalesName: user.name,
+        })
+        .from(lead)
+        .leftJoin(user, eq(lead.assignedTo, user.id))
+        .where(inArray(lead.id, params.leadIds));
+
+    let updatedCount = 0;
+    let skippedCount = 0;
+    const now = new Date();
+
+    if (candidateLeads.length > 0) {
+        await db.transaction(async (tx) => {
+            for (const currentLead of candidateLeads) {
+                // Access check
+                if (
+                    params.actor.actorRole !== "root_admin" &&
+                    params.actor.actorClientId &&
+                    currentLead.clientId !== params.actor.actorClientId
+                ) {
+                    skippedCount += 1;
+                    continue;
+                }
+
+                // Must be currently assigned to someone
+                if (!currentLead.assignedTo) {
+                    skippedCount += 1;
+                    continue;
+                }
+
+                // Cannot reassign to the same sales
+                if (currentLead.assignedTo === targetSales.id) {
+                    skippedCount += 1;
+                    continue;
+                }
+
+                await tx
+                    .update(lead)
+                    .set({
+                        assignedTo: targetSales.id,
+                        flowStatus: "assigned",
+                        acceptedAt: null,
+                        updatedAt: now,
+                    })
+                    .where(eq(lead.id, currentLead.id));
+
+                await dailyTaskService.invalidateFollowUpTasksForLead(currentLead.id, tx, now);
+                await dailyTaskService.createNewLeadTaskForLead({
+                    leadId: currentLead.id,
+                    salesId: targetSales.id,
+                    clientId: currentLead.clientId || params.actor.actorClientId || null,
+                    assignedAt: now,
+                    executor: tx,
+                    forceReactivateDone: true,
+                });
+
+                await syncLeadAppointmentsSalesOwner({
+                    leadId: currentLead.id,
+                    salesId: targetSales.id,
+                    executor: tx,
+                });
+
+                const fromSalesName = currentLead.currentSalesName || "sales sebelumnya";
+                const actorName = params.actor.actorName || "Admin";
+                const noteSuffix = note ? ` Catatan: ${note}` : "";
+
+                await tx.insert(activity).values({
+                    id: generateId(),
+                    leadId: currentLead.id,
+                    type: "lead_status",
+                    note: `Lead direassign dari ${fromSalesName} ke ${targetSales.name} oleh ${actorName}.${noteSuffix}`,
+                    timestamp: now,
+                });
+
+                await tx.insert(leadReassignmentAudit).values({
+                    id: generateId(),
+                    leadId: currentLead.id,
+                    fromSalesId: currentLead.assignedTo,
+                    toSalesId: targetSales.id,
+                    triggeredByUserId: params.actor.actorId,
+                    source: "manual_reassign",
+                    importBatchId: null,
+                    metadata: JSON.stringify({
+                        note: note || null,
+                        fromSalesName,
+                        toSalesName: targetSales.name,
+                        leadName: currentLead.name,
+                        leadPhone: currentLead.phone,
+                        previousFlowStatus: currentLead.flowStatus || null,
+                        previousAcceptedAt: currentLead.acceptedAt || null,
+                    }),
+                    createdAt: now,
+                });
+
+                updatedCount += 1;
+            }
+        });
+    }
+
+    // Skipped count includes those that were not found in the DB at all
+    const notFoundCount = Math.max(0, params.leadIds.length - candidateLeads.length);
+    skippedCount += notFoundCount;
+
+    return {
+        updated: updatedCount,
+        skipped: skippedCount,
+        total: params.leadIds.length,
+    };
+}
+

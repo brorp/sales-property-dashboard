@@ -597,6 +597,28 @@ export function LeadsProvider({ children }) {
         return result;
     }, [refreshAppointments, refreshDashboardAnalytics, refreshLeads, refreshSalesUsers, refreshTeamStats, syncLeadToState, user]);
 
+    const reassignLeadsBulk = useCallback(async (payload) => {
+        if (!user) {
+            throw new Error('Unauthorized');
+        }
+
+        const result = await apiRequest('/api/leads/bulk-reassign', {
+            method: 'POST',
+            user,
+            body: payload,
+        });
+
+        await Promise.all([
+            refreshLeads(),
+            refreshSalesUsers(),
+            refreshAppointments(),
+            refreshDashboardAnalytics(),
+            refreshTeamStats(),
+        ]);
+
+        return result;
+    }, [refreshAppointments, refreshDashboardAnalytics, refreshLeads, refreshSalesUsers, refreshTeamStats, user]);
+
     const addAppointment = useCallback(async (leadId, payload) => {
         if (!user) {
             throw new Error('Unauthorized');
@@ -714,6 +736,7 @@ export function LeadsProvider({ children }) {
         addLead,
         deleteLead,
         reassignLead,
+        reassignLeadsBulk,
         addAppointment,
         updateAppointment,
         cancelAppointment,
@@ -747,6 +770,7 @@ export function LeadsProvider({ children }) {
         addLead,
         deleteLead,
         reassignLead,
+        reassignLeadsBulk,
         appointments,
         cancelAppointment,
         createSalesUser,

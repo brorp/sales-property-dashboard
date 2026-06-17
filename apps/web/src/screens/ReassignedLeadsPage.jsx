@@ -28,14 +28,13 @@ function leadMatchesSearch(lead, search) {
 
 export default function ReassignedLeadsPage() {
     const { user } = useAuth();
-    const { leads, getSalesUsers, getLeadSources, reassignLead, refreshLeads, refreshSalesUsers } = useLeads();
+    const { leads, getSalesUsers, getLeadSources, reassignLead, reassignLeadsBulk, refreshLeads, refreshSalesUsers } = useLeads();
     const toast = useToast();
     const [search, setSearch] = useState('');
     const [selectedLeadId, setSelectedLeadId] = useState('');
     const [targetSalesId, setTargetSalesId] = useState('');
     const [note, setNote] = useState('');
     const [submitting, setSubmitting] = useState(false);
-    const [feedback, setFeedback] = useState('');
     const [error, setError] = useState('');
 
     // Filters for leads list
@@ -142,8 +141,24 @@ export default function ReassignedLeadsPage() {
                 return;
             }
 
-            toast.warning(`Gagal mengalihkan ${selectedLeadIds.size} leads secara massal. API bulk reassign belum didukung saat ini.`);
-            setError('API bulk reassign belum tersedia. Silakan alihkan lead satu per satu.');
+            setSubmitting(true);
+            setError('');
+            try {
+                const result = await reassignLeadsBulk({
+                    leadIds: Array.from(selectedLeadIds),
+                    targetSalesId: effectiveTargetSalesId,
+                    note: note.trim(),
+                });
+                toast.success(`Berhasil mengalihkan ${result.updated} lead ke sales baru. (Dilewati: ${result.skipped})`);
+                setSelectedLeadIds(new Set());
+                setTargetSalesId('');
+                setNote('');
+                await Promise.all([refreshLeads(), refreshSalesUsers()]);
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Gagal melakukan reassign massal');
+            } finally {
+                setSubmitting(false);
+            }
             return;
         }
 
@@ -153,13 +168,12 @@ export default function ReassignedLeadsPage() {
 
         setSubmitting(true);
         setError('');
-        setFeedback('');
         try {
             const result = await reassignLead(selectedLead.id, {
                 targetSalesId: effectiveTargetSalesId,
                 note: note.trim(),
             });
-            setFeedback(`Lead berhasil direassign ke ${result?.toSalesName || 'sales baru'}. Task New Lead sudah dipindahkan.`);
+            toast.success(`Lead berhasil direassign ke ${result?.toSalesName || 'sales baru'}. Task New Lead sudah dipindahkan.`);
             setSelectedLeadId('');
             setTargetSalesId('');
             setNote('');
@@ -219,7 +233,6 @@ export default function ReassignedLeadsPage() {
                                 setIsBulkMode(!isBulkMode);
                                 setSelectedLeadIds(new Set());
                                 setSelectedLeadId('');
-                                setFeedback('');
                                 setError('');
                             }}
                             title={isBulkMode ? 'Batal' : 'Pilih Banyak'}
@@ -337,12 +350,10 @@ export default function ReassignedLeadsPage() {
                                             if (next.has(lead.id)) next.delete(lead.id); else next.add(lead.id);
                                             return next;
                                         });
-                                        setFeedback('');
                                         setError('');
                                     } else {
                                         setSelectedLeadId(lead.id);
                                         setTargetSalesId('');
-                                        setFeedback('');
                                         setError('');
                                     }
                                 }}
@@ -464,7 +475,6 @@ export default function ReassignedLeadsPage() {
                     </div>
 
                     {error ? <p className="settings-error">{error}</p> : null}
-                    {feedback ? <p className="settings-success">{feedback}</p> : null}
 
                     <button
                         type="submit"

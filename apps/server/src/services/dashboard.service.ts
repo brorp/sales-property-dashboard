@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte, ne, or, sql } from "drizzle-orm";
 import { db } from "../db/index";
 import { appointment, cancelReason, client, lead, projectUnit, teamGroup, teamGroupMember, user } from "../db/schema";
 import { getDailyTasksForSales } from "./daily-task.service";
@@ -741,7 +741,8 @@ async function loadAnalyticsTeamGroups(scope?: QueryScope) {
                 and(
                     inArray(user.supervisorId, supervisorIds),
                     eq(user.role, "sales"),
-                    eq(user.isActive, true)
+                    eq(user.isActive, true),
+                    ne(user.email, PIC_AGENT_EMAIL)
                 )
             )
         : [];

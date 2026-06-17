@@ -295,6 +295,54 @@ router.post("/:id/reassign", requireRole("root_admin", "client_admin") as any, a
     }
 });
 
+router.post("/bulk-reassign", requireRole("root_admin", "client_admin") as any, async (req, res: Response, next: NextFunction) => {
+    try {
+        const { user } = req as unknown as AuthenticatedRequest;
+        const { leadIds, targetSalesId, note } = req.body ?? {};
+
+        if (!Array.isArray(leadIds) || leadIds.length === 0) {
+            res.status(400).json({
+                error: "VALIDATION_ERROR",
+                message: "leadIds wajib diisi berupa array",
+            });
+            return;
+        }
+
+        if (!targetSalesId || typeof targetSalesId !== "string") {
+            res.status(400).json({
+                error: "VALIDATION_ERROR",
+                message: "targetSalesId wajib diisi",
+            });
+            return;
+        }
+
+        const result = await leadTransferService.reassignLeadsBulk({
+            leadIds,
+            targetSalesId,
+            note: typeof note === "string" ? note : null,
+            actor: {
+                actorId: user.id,
+                actorRole: user.role,
+                actorClientId: getWorkspaceClientId(req as unknown as AuthenticatedRequest),
+                actorName: user.name,
+            },
+        });
+
+        if (targetSalesId && result.updated > 0) {
+            void sendToUser(targetSalesId, {
+                title: "Leads Dialihkan ke Kamu",
+                body: `${result.updated} leads telah dialihkan ke kamu secara massal.`,
+                data: { type: "bulk_reassigned_leads" },
+            });
+        }
+
+        res.json(result);
+    } catch (error) {
+        next(error);
+    }
+});
+
+
 router.get("/:id/customer-pipeline", async (req, res: Response, next: NextFunction) => {
     try {
         const { user, scope } = req as unknown as AuthenticatedRequest;
