@@ -91,6 +91,25 @@ export default function AppointmentsPage() {
     const [sortOption, setSortOption] = useState('terbaru');
     const [showSortDrawer, setShowSortDrawer] = useState(false);
     const salesUsers = getSalesUsers();
+    const salesOptions = useMemo(() => {
+        const activeSales = salesUsers.filter((s) => s.isActive !== false);
+        const inactiveSales = salesUsers.filter((s) => s.isActive === false);
+
+        const options = [];
+        if (activeSales.length > 0) {
+            options.push({ isGroupHeader: true, label: 'Aktif' });
+            activeSales.forEach((s) => {
+                options.push({ value: s.id, label: s.name });
+            });
+        }
+        if (inactiveSales.length > 0) {
+            options.push({ isGroupHeader: true, label: 'Nonaktif' });
+            inactiveSales.forEach((s) => {
+                options.push({ value: s.id, label: s.name });
+            });
+        }
+        return options;
+    }, [salesUsers]);
     const canFilterBySales = user?.role === 'root_admin' || user?.role === 'client_admin' || user?.role === 'supervisor';
     const hasAnyFilter = Boolean(search || salesFilter);
     const resetAllFilters = () => {
@@ -425,7 +444,7 @@ export default function AppointmentsPage() {
                     <div className="ap-selects-row">
                         <Select
                             placeholder="Semua Sales"
-                            options={salesUsers.map((s) => ({ value: s.id, label: s.isActive === false ? `${s.name} (Nonaktif)` : s.name }))}
+                            options={salesOptions}
                             value={salesFilter}
                             onChange={setSalesFilter}
                         />
@@ -591,7 +610,7 @@ export default function AppointmentsPage() {
                             {canFilterBySales ? (
                                 <Select
                                     placeholder="Semua Sales"
-                                    options={salesUsers.map((s) => ({ value: s.id, label: s.isActive === false ? `${s.name} (Nonaktif)` : s.name }))}
+                                    options={salesOptions}
                                     value={salesFilter}
                                     onChange={setSalesFilter}
                                 />

@@ -292,6 +292,25 @@ export default function LeadsPage() {
 
     const allLeads = getLeadsForUser(user.id, user.role);
     const salesUsers = getSalesUsers();
+    const salesOptions = useMemo(() => {
+        const activeSales = salesUsers.filter((s) => s.isActive !== false);
+        const inactiveSales = salesUsers.filter((s) => s.isActive === false);
+
+        const options = [];
+        if (activeSales.length > 0) {
+            options.push({ isGroupHeader: true, label: 'Aktif' });
+            activeSales.forEach((s) => {
+                options.push({ value: s.id, label: s.name });
+            });
+        }
+        if (inactiveSales.length > 0) {
+            options.push({ isGroupHeader: true, label: 'Nonaktif' });
+            inactiveSales.forEach((s) => {
+                options.push({ value: s.id, label: s.name });
+            });
+        }
+        return options;
+    }, [salesUsers]);
     const leadSources = getLeadSources();
     const getSalesNameById = (salesId) => salesUsers.find((item) => item.id === salesId)?.name || 'Unassigned';
     const canExportLeads = user?.role === 'root_admin' || user?.role === 'client_admin' || user?.role === 'admin';
@@ -859,7 +878,7 @@ export default function LeadsPage() {
                             placeholder="Sales"
                             value={salesFilter}
                             onChange={setSalesFilter}
-                            options={salesUsers.map((s) => ({ value: s.id, label: s.isActive === false ? `${s.name} (Nonaktif)` : s.name }))}
+                            options={salesOptions}
                             multiple
                         />
                     ) : null}
@@ -1204,7 +1223,7 @@ export default function LeadsPage() {
                                         placeholder="Sales"
                                         value={salesFilter}
                                         onChange={setSalesFilter}
-                                        options={salesUsers.map((s) => ({ value: s.id, label: s.isActive === false ? `${s.name} (Nonaktif)` : s.name }))}
+                                        options={salesOptions}
                                         multiple
                                     />
                                 ) : null}

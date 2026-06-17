@@ -98,9 +98,29 @@ export default function Select({
         }
     }
 
-    const filteredOptions = searchable && searchQuery.trim()
-        ? options.filter((opt) => opt.label.toLowerCase().includes(searchQuery.toLowerCase()))
+    let filteredOptions = searchable && searchQuery.trim()
+        ? options.filter((opt) => opt.isGroupHeader || opt.label.toLowerCase().includes(searchQuery.toLowerCase()))
         : options;
+
+    if (searchable && searchQuery.trim()) {
+        const finalOptions = [];
+        for (let i = 0; i < filteredOptions.length; i++) {
+            const opt = filteredOptions[i];
+            if (opt.isGroupHeader) {
+                let hasActiveOption = false;
+                for (let j = i + 1; j < filteredOptions.length; j++) {
+                    if (filteredOptions[j].isGroupHeader) break;
+                    hasActiveOption = true;
+                }
+                if (hasActiveOption) {
+                    finalOptions.push(opt);
+                }
+            } else {
+                finalOptions.push(opt);
+            }
+        }
+        filteredOptions = finalOptions;
+    }
 
     useEffect(() => {
         if (!open) return;
@@ -177,7 +197,8 @@ export default function Select({
     const handleClear = (e) => {
         e.stopPropagation();
         if (!allowEmpty && options.length > 0) {
-            onChange(multiple ? [options[0].value] : options[0].value);
+            const firstValOpt = options.find((opt) => !opt.isGroupHeader);
+            onChange(multiple ? (firstValOpt ? [firstValOpt.value] : []) : (firstValOpt ? firstValOpt.value : ''));
         } else {
             onChange(multiple ? [] : '');
         }
@@ -232,21 +253,33 @@ export default function Select({
                         </div>
                     )}
                     <div className="sf-options-list">
-                        {filteredOptions.length > 0 ? filteredOptions.map((opt) => (
-                            <button
-                                key={opt.value}
-                                type="button"
-                                role="option"
-                                aria-selected={isSelected(opt.value)}
-                                className={`sf-option${isSelected(opt.value) ? ' is-selected' : ''}`}
-                                onClick={() => handleSelect(opt.value)}
-                            >
-                                <span className="sf-option-label">{opt.label}</span>
-                                {isSelected(opt.value) ? (
-                                    <span className="sf-option-check"><CheckIcon /></span>
-                                ) : null}
-                            </button>
-                        )) : (
+                        {filteredOptions.length > 0 ? (() => {
+                            const hasGroups = options.some((o) => o.isGroupHeader);
+                            return filteredOptions.map((opt, index) => {
+                                if (opt.isGroupHeader) {
+                                    return (
+                                        <div key={`group-${index}`} className="sf-group-header">
+                                            {opt.label}
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <button
+                                        key={opt.value}
+                                        type="button"
+                                        role="option"
+                                        aria-selected={isSelected(opt.value)}
+                                        className={`sf-option${isSelected(opt.value) ? ' is-selected' : ''}${hasGroups ? ' is-indented' : ''}`}
+                                        onClick={() => handleSelect(opt.value)}
+                                    >
+                                        <span className="sf-option-label">{opt.label}</span>
+                                        {isSelected(opt.value) ? (
+                                            <span className="sf-option-check"><CheckIcon /></span>
+                                        ) : null}
+                                    </button>
+                                );
+                            });
+                        })() : (
                             <div className="sf-no-result">Tidak ditemukan</div>
                         )}
                     </div>

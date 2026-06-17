@@ -1,37 +1,37 @@
 /* ── Select ────────────────────────────────────────────────────────── */
 
 html[data-theme="light"] .sf-wrap {
-    --sf-trigger-bg:       #F0F5FB;
-    --sf-trigger-border:   #DCE8F5;
+    --sf-trigger-bg: #F0F5FB;
+    --sf-trigger-border: #DCE8F5;
     --sf-trigger-hover-bg: #E0EBF8;
-    --sf-trigger-open-bg:  #FFFFFF;
-    --sf-active-bg:        #EEF3F9;
-    --sf-active-color:     #1E3A5F;
-    --sf-label-color:      #64748B;
-    --sf-chevron-color:    #94A3B8;
-    --sf-dropdown-bg:      #FFFFFF;
-    --sf-option-hover-bg:  #F0F5FB;
-    --sf-option-sel-bg:    #EEF3F9;
-    --sf-glow:             rgba(30, 58, 95, 0.08);
-    --sf-border-focus:     #93C5FD;
-    --sf-clear-bg:         #CBD5E1;
+    --sf-trigger-open-bg: #FFFFFF;
+    --sf-active-bg: #EEF3F9;
+    --sf-active-color: #1E3A5F;
+    --sf-label-color: #64748B;
+    --sf-chevron-color: #94A3B8;
+    --sf-dropdown-bg: #FFFFFF;
+    --sf-option-hover-bg: #F0F5FB;
+    --sf-option-sel-bg: #EEF3F9;
+    --sf-glow: rgba(30, 58, 95, 0.08);
+    --sf-border-focus: #93C5FD;
+    --sf-clear-bg: #CBD5E1;
 }
 
 html[data-theme="dark"] .sf-wrap {
-    --sf-trigger-bg:       var(--bg-card);
-    --sf-trigger-border:   var(--border-color);
+    --sf-trigger-bg: var(--bg-card);
+    --sf-trigger-border: var(--border-color);
     --sf-trigger-hover-bg: var(--bg-card-hover);
-    --sf-trigger-open-bg:  var(--bg-card);
-    --sf-active-bg:        var(--info-bg);
-    --sf-active-color:     var(--primary);
-    --sf-label-color:      var(--text-secondary);
-    --sf-chevron-color:    var(--text-muted);
-    --sf-dropdown-bg:      var(--bg-surface);
-    --sf-option-hover-bg:  var(--bg-card-hover);
-    --sf-option-sel-bg:    var(--info-bg);
-    --sf-glow:             var(--primary-glow);
-    --sf-border-focus:     var(--primary-light);
-    --sf-clear-bg:         var(--text-muted);
+    --sf-trigger-open-bg: var(--bg-card);
+    --sf-active-bg: var(--info-bg);
+    --sf-active-color: var(--primary);
+    --sf-label-color: var(--text-secondary);
+    --sf-chevron-color: var(--text-muted);
+    --sf-dropdown-bg: var(--bg-surface);
+    --sf-option-hover-bg: var(--bg-card-hover);
+    --sf-option-sel-bg: var(--info-bg);
+    --sf-glow: var(--primary-glow);
+    --sf-border-focus: var(--primary-light);
+    --sf-clear-bg: var(--text-muted);
 }
 
 .sf-wrap {
@@ -189,6 +189,7 @@ html[data-theme="dark"] .sf-wrap {
         opacity: 0;
         transform: translateY(-6px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -294,4 +295,34 @@ html[data-theme="dark"] .sf-wrap {
     font-size: 0.8125rem;
     color: var(--sf-chevron-color);
     text-align: center;
+}
+
+/* Group Header */
+.sf-group-header {
+    padding: 12px 14px 6px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    pointer-events: none;
+    user-select: none;
+}
+
+html[data-theme="light"] .sf-group-header {
+    color: #000000;
+}
+
+html[data-theme="dark"] .sf-group-header {
+    color: #FFFFFF;
+}
+
+.sf-group-header:not(:first-child) {
+    border-top: 1px solid var(--sf-trigger-border);
+    margin-top: 6px;
+    padding-top: 14px;
+}
+
+/* Indented Options under groups */
+.sf-option.is-indented {
+    padding-left: 26px;
 }
