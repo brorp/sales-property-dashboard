@@ -252,6 +252,17 @@ async function upsertDailyTask(params: {
         .returning();
 
     if (inserted) {
+        if (params.taskType === "follow_up" || params.taskType === "deadline_lead") {
+            const { sendToUser } = await import("./push-notification.service");
+            const label = params.taskType === "follow_up"
+                ? `Follow Up ${followupStage}/3`
+                : "Deadline Lead";
+            void sendToUser(params.salesId, {
+                title: `Tugas Baru: ${label}`,
+                body: `Kamu punya task ${label} yang perlu diselesaikan.`,
+                data: { leadId: params.leadId, type: params.taskType },
+            });
+        }
         return inserted;
     }
 

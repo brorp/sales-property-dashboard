@@ -718,3 +718,15 @@ export const leadReassignmentAudit = pgTable(
         batchIdx: index("lead_reassignment_audit_import_batch_id_idx").on(table.importBatchId),
     })
 );
+
+export const fcmToken = pgTable("fcm_token", {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    token: text("token").notNull(),
+    deviceLabel: text("device_label"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at").notNull().defaultNow(),
+}, (table) => ({
+    userIdx: index("fcm_token_user_id_idx").on(table.userId),
+    tokenUniq: uniqueIndex("fcm_token_token_uniq").on(table.token),
+}));

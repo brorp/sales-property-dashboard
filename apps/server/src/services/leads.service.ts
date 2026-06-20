@@ -260,9 +260,14 @@ export async function findAll(
             // client_admin: all operational data inside active workspace
         } else if (role === "supervisor") {
             if (scope?.managedSalesIds && scope.managedSalesIds.length > 0) {
-                conditions.push(inArray(lead.assignedTo, scope.managedSalesIds));
+                conditions.push(
+                    or(
+                        inArray(lead.assignedTo, scope.managedSalesIds),
+                        sql`${lead.assignedTo} is null`
+                    )
+                );
             } else {
-                conditions.push(eq(lead.assignedTo, "__none__"));
+                conditions.push(sql`${lead.assignedTo} is null`);
             }
         } else {
             // sales: only own leads inside active workspace

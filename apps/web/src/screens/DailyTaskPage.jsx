@@ -286,6 +286,8 @@ export default function DailyTaskPage() {
     const [sideLoading, setSideLoading] = useState(false);
     const [reschedulingApptId, setReschedulingApptId] = useState(null);
     const [rescheduleValue, setRescheduleValue] = useState('');
+    const [sortOption, setSortOption] = useState('terbaru');
+    const [showSortDrawer, setShowSortDrawer] = useState(false);
 
     const normalizeLeadCardData = (raw, type) => {
         const leadId = type === 'hot' ? raw.id : raw.leadId;
@@ -505,7 +507,82 @@ export default function DailyTaskPage() {
             ? followUpSubTab === 'deadlines' ? tasks.deadlineLeads : tasks.followUps
             : [];
 
-    const visibleTasks = sortByUrgency(
+    const getCountValForLead = (leadId) => {
+        const lead = (Array.isArray(leads) ? leads : []).find((l) => l.id === leadId);
+        if (!lead) return 0;
+        return (lead.customerPipelineCompletedCount || 0) + (lead.activities?.length || 0);
+    };
+
+    const sortTasks = (list) => {
+        const sorted = [...list];
+        if (sortOption === 'terbaru') {
+            return sorted.sort((a, b) => new Date(b.assignedAt || b.createdAt || 0) - new Date(a.assignedAt || a.createdAt || 0));
+        }
+        if (sortOption === 'terlama') {
+            return sorted.sort((a, b) => new Date(a.assignedAt || a.createdAt || 0) - new Date(b.assignedAt || b.createdAt || 0));
+        }
+        if (sortOption === 'terbanyak') {
+            return sorted.sort((a, b) => getCountValForLead(b.leadId) - getCountValForLead(a.leadId));
+        }
+        if (sortOption === 'terdikit') {
+            return sorted.sort((a, b) => getCountValForLead(a.leadId) - getCountValForLead(b.leadId));
+        }
+        if (sortOption === 'abjad' || sortOption === 'abjad_asc') {
+            return sorted.sort((a, b) => String(a.leadName || '').localeCompare(String(b.leadName || '')));
+        }
+        if (sortOption === 'abjad_desc') {
+            return sorted.sort((a, b) => String(b.leadName || '').localeCompare(String(a.leadName || '')));
+        }
+        return sorted;
+    };
+
+    const sortAppointments = (list) => {
+        const sorted = [...list];
+        if (sortOption === 'terbaru') {
+            return sorted.sort((a, b) => new Date(b.date + 'T' + (b.time || '00:00')) - new Date(a.date + 'T' + (a.time || '00:00')));
+        }
+        if (sortOption === 'terlama') {
+            return sorted.sort((a, b) => new Date(a.date + 'T' + (a.time || '00:00')) - new Date(b.date + 'T' + (b.time || '00:00')));
+        }
+        if (sortOption === 'terbanyak') {
+            return sorted.sort((a, b) => getCountValForLead(b.leadId) - getCountValForLead(a.leadId));
+        }
+        if (sortOption === 'terdikit') {
+            return sorted.sort((a, b) => getCountValForLead(a.leadId) - getCountValForLead(b.leadId));
+        }
+        if (sortOption === 'abjad' || sortOption === 'abjad_asc') {
+            return sorted.sort((a, b) => String(a.leadName || '').localeCompare(String(b.leadName || '')));
+        }
+        if (sortOption === 'abjad_desc') {
+            return sorted.sort((a, b) => String(b.leadName || '').localeCompare(String(a.leadName || '')));
+        }
+        return sorted;
+    };
+
+    const sortLeads = (list) => {
+        const sorted = [...list];
+        if (sortOption === 'terbaru') {
+            return sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        }
+        if (sortOption === 'terlama') {
+            return sorted.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+        }
+        if (sortOption === 'terbanyak') {
+            return sorted.sort((a, b) => getCountValForLead(b.id) - getCountValForLead(a.id));
+        }
+        if (sortOption === 'terdikit') {
+            return sorted.sort((a, b) => getCountValForLead(a.id) - getCountValForLead(b.id));
+        }
+        if (sortOption === 'abjad' || sortOption === 'abjad_asc') {
+            return sorted.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+        }
+        if (sortOption === 'abjad_desc') {
+            return sorted.sort((a, b) => String(b.name || '').localeCompare(String(a.name || '')));
+        }
+        return sorted;
+    };
+
+    const visibleTasks = sortTasks(
         nameSearch.trim()
             ? rawTasks.filter((t) => t.salesStatus !== 'skip' && t.leadName?.toLowerCase().includes(nameSearch.toLowerCase()))
             : rawTasks.filter((t) => t.salesStatus !== 'skip')
@@ -682,11 +759,13 @@ export default function DailyTaskPage() {
 
     const ownLeads = Array.isArray(leads) ? leads.filter((lead) => lead.assignedTo === user?.id) : [];
     const transactionLeads = ownLeads.filter((lead) => ['reserve', 'full_book'].includes(getLeadResultStatus(lead)));
-    const visibleTransactionLeads = transactionLeads.filter((lead) => {
-        if (transactionSubTab !== getLeadResultStatus(lead)) return false;
-        if (!nameSearch.trim()) return true;
-        return lead.name?.toLowerCase().includes(nameSearch.toLowerCase());
-    });
+    const visibleTransactionLeads = sortLeads(
+        transactionLeads.filter((lead) => {
+            if (transactionSubTab !== getLeadResultStatus(lead)) return false;
+            if (!nameSearch.trim()) return true;
+            return lead.name?.toLowerCase().includes(nameSearch.toLowerCase());
+        })
+    );
     const reserveCount = transactionLeads.filter((lead) => getLeadResultStatus(lead) === 'reserve').length;
     const fullBookCount = transactionLeads.filter((lead) => getLeadResultStatus(lead) === 'full_book').length;
 
@@ -839,22 +918,72 @@ export default function DailyTaskPage() {
 
             {/* ── Search bar ───────────────────────────────────────── */}
             {(['new_leads', 'appointments', 'follow_up', 'hot_validated', 'transactions'].includes(activeTab)) ? (
-                <div className="dt-search-wrap">
-                    <svg className="dt-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
-                    <input
-                        type="text"
-                        className="dt-search-input"
-                        placeholder="Cari nama lead..."
-                        value={nameSearch}
-                        onChange={(e) => setNameSearch(e.target.value)}
-                    />
-                    {nameSearch ? (
-                        <button type="button" className="dt-search-clear" onClick={() => setNameSearch('')}>
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
+                    <div className="dt-search-wrap" style={{ flex: 1, marginBottom: 0 }}>
+                        <svg className="dt-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                        <input
+                            type="text"
+                            className="dt-search-input"
+                            placeholder="Cari nama lead..."
+                            value={nameSearch}
+                            onChange={(e) => setNameSearch(e.target.value)}
+                        />
+                        {nameSearch ? (
+                            <button type="button" className="dt-search-clear" onClick={() => setNameSearch('')}>
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                            </button>
+                        ) : null}
+                    </div>
+                    <div style={{ position: 'relative', display: 'inline-flex' }}>
+                        <button
+                            type="button"
+                            className="dt-sort-btn"
+                            onClick={() => setShowSortDrawer(true)}
+                            title="Urutkan"
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="21" y1="10" x2="3" y2="10" />
+                                <line x1="21" y1="6" x2="3" y2="6" />
+                                <line x1="21" y1="14" x2="3" y2="14" />
+                                <line x1="21" y1="18" x2="3" y2="18" />
+                            </svg>
                         </button>
-                    ) : null}
+                        {sortOption !== 'terbaru' ? (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSortOption('terbaru');
+                                }}
+                                title="Reset Urutan"
+                                style={{
+                                    position: 'absolute',
+                                    top: '-6px',
+                                    right: '-6px',
+                                    width: '18px',
+                                    height: '18px',
+                                    borderRadius: '50%',
+                                    background: '#EF4444',
+                                    color: '#FFFFFF',
+                                    border: 'none',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    zIndex: 2,
+                                    padding: 0,
+                                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+                                }}
+                            >
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
+                        ) : null}
+                    </div>
                 </div>
             ) : null}
 
@@ -1117,9 +1246,11 @@ export default function DailyTaskPage() {
                     {sideLoading ? <DtEmpty variant="loading" /> : null}
                     {!sideLoading && activeAppointments.length === 0 ? <DtEmpty variant="no_appointment" /> : null}
                     {!sideLoading && activeAppointments.length > 0 ? (() => {
-                        const filtered = nameSearch.trim()
-                            ? activeAppointments.filter((a) => a.leadName?.toLowerCase().includes(nameSearch.toLowerCase()))
-                            : activeAppointments;
+                        const filtered = sortAppointments(
+                            nameSearch.trim()
+                                ? activeAppointments.filter((a) => a.leadName?.toLowerCase().includes(nameSearch.toLowerCase()))
+                                : activeAppointments
+                        );
                         if (filtered.length === 0) return <DtEmpty variant={nameSearch ? 'no_search' : 'no_appointment'} />;
 
                         const grouped = {
@@ -1302,9 +1433,11 @@ export default function DailyTaskPage() {
                     {sideLoading ? <DtEmpty variant="loading" /> : null}
                     {!sideLoading && visibleValidatedHot.length === 0 ? <DtEmpty variant="no_hot" /> : null}
                     {!sideLoading && visibleValidatedHot.length > 0 ? (() => {
-                        const filtered = nameSearch.trim()
-                            ? visibleValidatedHot.filter((l) => l.name?.toLowerCase().includes(nameSearch.toLowerCase()))
-                            : visibleValidatedHot;
+                        const filtered = sortLeads(
+                            nameSearch.trim()
+                                ? visibleValidatedHot.filter((l) => l.name?.toLowerCase().includes(nameSearch.toLowerCase()))
+                                : visibleValidatedHot
+                        );
                         if (filtered.length === 0) return <DtEmpty variant="no_search" />;
 
                         const groupLess = [];
@@ -1480,6 +1613,128 @@ export default function DailyTaskPage() {
                         </div>
                     )}
                 </>
+            ) : null}
+
+            {showSortDrawer ? (
+                <div className="sheet-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowSortDrawer(false); }}>
+                    <div className="bottom-sheet">
+                        <div className="sheet-handle" />
+                        <h2>Urutkan Tugas Harian</h2>
+                        <div className="ap-filter-sheet-body">
+                            {[
+                                {
+                                    id: 'date',
+                                    label: 'Waktu / Tanggal',
+                                    icon: (
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                            <line x1="16" y1="2" x2="16" y2="6" />
+                                            <line x1="8" y1="2" x2="8" y2="6" />
+                                            <line x1="3" y1="10" x2="21" y2="10" />
+                                        </svg>
+                                    ),
+                                    options: {
+                                        desc: { value: 'terbaru', label: 'Terbaru' },
+                                        asc: { value: 'terlama', label: 'Terlama' }
+                                    }
+                                },
+                                {
+                                    id: 'name',
+                                    label: 'Nama Lead (Abjad)',
+                                    icon: (
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                                        </svg>
+                                    ),
+                                    options: {
+                                        asc: { value: 'abjad', label: 'A-Z' },
+                                        desc: { value: 'abjad_desc', label: 'Z-A' }
+                                    }
+                                },
+                                {
+                                    id: 'activity',
+                                    label: 'Aktivitas Laporan',
+                                    icon: (
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                                        </svg>
+                                    ),
+                                    options: {
+                                        desc: { value: 'terbanyak', label: 'Terbanyak' },
+                                        asc: { value: 'terdikit', label: 'Terdikit' }
+                                    }
+                                }
+                            ].map((field) => {
+                                const isAscActive = sortOption === field.options.asc.value || (field.id === 'name' && sortOption === 'abjad_asc');
+                                const isDescActive = sortOption === field.options.desc.value;
+                                const isActive = isAscActive || isDescActive;
+                                return (
+                                    <button
+                                        key={field.id}
+                                        type="button"
+                                        className={`sfd-item${isActive ? ' active' : ''}`}
+                                        onClick={() => {
+                                            if (field.id === 'date') {
+                                                setSortOption(sortOption === 'terbaru' ? 'terlama' : 'terbaru');
+                                            } else if (field.id === 'name') {
+                                                setSortOption((sortOption === 'abjad' || sortOption === 'abjad_asc') ? 'abjad_desc' : 'abjad');
+                                            } else if (field.id === 'activity') {
+                                                setSortOption(sortOption === 'terbanyak' ? 'terdikit' : 'terbanyak');
+                                            }
+                                        }}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 16px' }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <span style={{ display: 'flex', color: isActive ? 'var(--primary)' : 'var(--text-muted)' }}>
+                                                {field.icon}
+                                            </span>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                                <span className="sfd-item-label" style={{ fontWeight: isActive ? '700' : '500', color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                                                    {field.label}
+                                                </span>
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                    {isActive ? (isDescActive ? field.options.desc.label : field.options.asc.label) : 'Pilih untuk mengurutkan'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            {/* ASC (Up Arrow) */}
+                                            <span style={{
+                                                display: 'flex',
+                                                padding: '4px',
+                                                borderRadius: '6px',
+                                                background: isAscActive ? 'var(--primary-glow, rgba(30, 58, 95, 0.1))' : 'transparent',
+                                                color: isAscActive ? 'var(--primary)' : 'var(--text-muted)',
+                                                transition: 'all 150ms ease'
+                                            }}>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                    <polyline points="18 15 12 9 6 15" />
+                                                </svg>
+                                            </span>
+                                            {/* DESC (Down Arrow) */}
+                                            <span style={{
+                                                display: 'flex',
+                                                padding: '4px',
+                                                borderRadius: '6px',
+                                                background: isDescActive ? 'var(--primary-glow, rgba(30, 58, 95, 0.1))' : 'transparent',
+                                                color: isDescActive ? 'var(--primary)' : 'var(--text-muted)',
+                                                transition: 'all 150ms ease'
+                                            }}>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                    <polyline points="6 9 12 15 18 9" />
+                                                </svg>
+                                            </span>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                            <button type="button" className="btn btn-primary animate-hover" style={{ flex: 1 }} onClick={() => setShowSortDrawer(false)}>Tutup</button>
+                        </div>
+                    </div>
+                </div>
             ) : null}
         </div>
     );

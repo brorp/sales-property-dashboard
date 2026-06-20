@@ -287,9 +287,30 @@ export default function LeadsPage() {
     const [bulkDeletePassword] = useState('');
     const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
     const [bulkDeleteError, setBulkDeleteError] = useState('');
+    const [sortOption, setSortOption] = useState('terbaru');
+    const [showSortDrawer, setShowSortDrawer] = useState(false);
 
     const allLeads = getLeadsForUser(user.id, user.role);
     const salesUsers = getSalesUsers();
+    const salesOptions = useMemo(() => {
+        const activeSales = salesUsers.filter((s) => s.isActive !== false);
+        const inactiveSales = salesUsers.filter((s) => s.isActive === false);
+
+        const options = [];
+        if (activeSales.length > 0) {
+            options.push({ isGroupHeader: true, label: 'Aktif' });
+            activeSales.forEach((s) => {
+                options.push({ value: s.id, label: s.name });
+            });
+        }
+        if (inactiveSales.length > 0) {
+            options.push({ isGroupHeader: true, label: 'Nonaktif' });
+            inactiveSales.forEach((s) => {
+                options.push({ value: s.id, label: s.name });
+            });
+        }
+        return options;
+    }, [salesUsers]);
     const leadSources = getLeadSources();
     const getSalesNameById = (salesId) => salesUsers.find((item) => item.id === salesId)?.name || 'Unassigned';
     const canExportLeads = user?.role === 'root_admin' || user?.role === 'client_admin' || user?.role === 'admin';
@@ -352,7 +373,7 @@ export default function LeadsPage() {
     }, [agentOfficeOptions, allLeads]);
 
     const filteredLeads = useMemo(() => {
-        return allLeads.filter((lead) => {
+        const list = allLeads.filter((lead) => {
             if (search) {
                 const q = search.toLowerCase();
                 if (!lead.name.toLowerCase().includes(q) && !lead.phone.includes(q)) return false;
@@ -365,8 +386,37 @@ export default function LeadsPage() {
                 if (hasDomisili && hasTipeUnit) return false;
             }
             return matchesLeadFilters(lead, { flowStatus: flowFilter, salesStatus: salesStatusFilter, resultStatus: resultFilter, appointmentTag: appointmentFilter, salesId: salesFilter });
-        }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    }, [allLeads, appliedDateRange, appointmentFilter, flowFilter, resultFilter, salesFilter, salesStatusFilter, search, sourceFilter, incompleteDataFilter]);
+        });
+
+        if (sortOption === 'terbaru') {
+            return list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        }
+        if (sortOption === 'terlama') {
+            return list.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+        }
+        if (sortOption === 'terbanyak') {
+            return list.sort((a, b) => {
+                const countA = (a.customerPipelineCompletedCount || 0) + (a.activities?.length || 0);
+                const countB = (b.customerPipelineCompletedCount || 0) + (b.activities?.length || 0);
+                return countB - countA;
+            });
+        }
+        if (sortOption === 'terdikit') {
+            return list.sort((a, b) => {
+                const countA = (a.customerPipelineCompletedCount || 0) + (a.activities?.length || 0);
+                const countB = (b.customerPipelineCompletedCount || 0) + (b.activities?.length || 0);
+                return countA - countB;
+            });
+        }
+        if (sortOption === 'abjad' || sortOption === 'abjad_asc') {
+            return list.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+        }
+        if (sortOption === 'abjad_desc') {
+            return list.sort((a, b) => String(b.name || '').localeCompare(String(a.name || '')));
+        }
+
+        return list;
+    }, [allLeads, appliedDateRange, appointmentFilter, flowFilter, resultFilter, salesFilter, salesStatusFilter, search, sourceFilter, incompleteDataFilter, sortOption]);
 
     const exportLeads = useMemo(() => {
         return allLeads.filter((lead) => {
@@ -706,6 +756,54 @@ export default function LeadsPage() {
                             )}
                         </button>
                     ) : null}
+                    <div style={{ position: 'relative', display: 'inline-flex' }}>
+                        <button
+                            type="button"
+                            className="leads-mobile-filter-btn leads-sort-btn"
+                            onClick={() => setShowSortDrawer(true)}
+                            title="Urutkan"
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="21" y1="10" x2="3" y2="10" />
+                                <line x1="21" y1="6" x2="3" y2="6" />
+                                <line x1="21" y1="14" x2="3" y2="14" />
+                                <line x1="21" y1="18" x2="3" y2="18" />
+                            </svg>
+                        </button>
+                        {sortOption !== 'terbaru' ? (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSortOption('terbaru');
+                                }}
+                                title="Reset Urutan"
+                                style={{
+                                    position: 'absolute',
+                                    top: '-6px',
+                                    right: '-6px',
+                                    width: '18px',
+                                    height: '18px',
+                                    borderRadius: '50%',
+                                    background: '#EF4444',
+                                    color: '#FFFFFF',
+                                    border: 'none',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    zIndex: 2,
+                                    padding: 0,
+                                    boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
+                                }}
+                            >
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </svg>
+                            </button>
+                        ) : null}
+                    </div>
                     <button
                         type="button"
                         className={`leads-mobile-filter-btn${activeFilterCount > 0 ? ' is-active' : ''}`}
@@ -780,7 +878,7 @@ export default function LeadsPage() {
                             placeholder="Sales"
                             value={salesFilter}
                             onChange={setSalesFilter}
-                            options={salesUsers.map((s) => ({ value: s.id, label: s.isActive === false ? `${s.name} (Nonaktif)` : s.name }))}
+                            options={salesOptions}
                             multiple
                         />
                     ) : null}
@@ -1125,7 +1223,7 @@ export default function LeadsPage() {
                                         placeholder="Sales"
                                         value={salesFilter}
                                         onChange={setSalesFilter}
-                                        options={salesUsers.map((s) => ({ value: s.id, label: s.isActive === false ? `${s.name} (Nonaktif)` : s.name }))}
+                                        options={salesOptions}
                                         multiple
                                     />
                                 ) : null}
@@ -1339,6 +1437,133 @@ export default function LeadsPage() {
                             <button type="submit" className="btn btn-primary btn-full" disabled={exporting}>{exporting ? 'Mengekspor...' : 'Ekspor XLSX'}</button>
                             <button type="button" className="btn btn-secondary btn-full" onClick={() => setShowExportModal(false)}>Batal</button>
                         </form>
+                    </div>
+                </div>
+            ) : null}
+
+            {showSortDrawer ? (
+                <div className="sheet-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowSortDrawer(false); }}>
+                    <div className="bottom-sheet">
+                        <div className="sheet-handle" />
+                        <h2>Urutkan Leads</h2>
+                        <div className="ap-filter-sheet-body">
+                            {[
+                                {
+                                    id: 'date',
+                                    label: 'Waktu / Tanggal',
+                                    icon: (
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                            <line x1="16" y1="2" x2="16" y2="6" />
+                                            <line x1="8" y1="2" x2="8" y2="6" />
+                                            <line x1="3" y1="10" x2="21" y2="10" />
+                                        </svg>
+                                    ),
+                                    options: {
+                                        desc: { value: 'terbaru', label: 'Terbaru' },
+                                        asc: { value: 'terlama', label: 'Terlama' }
+                                    }
+                                },
+                                {
+                                    id: 'activity',
+                                    label: 'Jumlah Aktivitas',
+                                    desc: 'Berdasarkan total follow-up & tahap pipeline lead',
+                                    icon: (
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <line x1="18" y1="20" x2="18" y2="10" />
+                                            <line x1="12" y1="20" x2="12" y2="4" />
+                                            <line x1="6" y1="20" x2="6" y2="14" />
+                                        </svg>
+                                    ),
+                                    options: {
+                                        desc: { value: 'terbanyak', label: 'Terbanyak' },
+                                        asc: { value: 'terdikit', label: 'Terdikit' }
+                                    }
+                                },
+                                {
+                                    id: 'name',
+                                    label: 'Nama Lead (Abjad)',
+                                    icon: (
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                                        </svg>
+                                    ),
+                                    options: {
+                                        asc: { value: 'abjad', label: 'A-Z' },
+                                        desc: { value: 'abjad_desc', label: 'Z-A' }
+                                    }
+                                }
+                            ].map((field) => {
+                                const isAscActive = sortOption === field.options.asc.value || (field.id === 'name' && sortOption === 'abjad_asc');
+                                const isDescActive = sortOption === field.options.desc.value;
+                                const isActive = isAscActive || isDescActive;
+                                return (
+                                    <button
+                                        key={field.id}
+                                        type="button"
+                                        className={`sfd-item${isActive ? ' active' : ''}`}
+                                        onClick={() => {
+                                            if (field.id === 'date') {
+                                                setSortOption(sortOption === 'terbaru' ? 'terlama' : 'terbaru');
+                                            } else if (field.id === 'activity') {
+                                                setSortOption(sortOption === 'terbanyak' ? 'terdikit' : 'terbanyak');
+                                            } else if (field.id === 'name') {
+                                                setSortOption((sortOption === 'abjad' || sortOption === 'abjad_asc') ? 'abjad_desc' : 'abjad');
+                                            }
+                                        }}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 16px' }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <span style={{ display: 'flex', color: isActive ? 'var(--primary)' : 'var(--text-muted)' }}>
+                                                {field.icon}
+                                            </span>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                                                <span className="sfd-item-label" style={{ fontWeight: isActive ? '700' : '500', color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                                                    {field.label}
+                                                </span>
+                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                    {isActive
+                                                        ? (isDescActive ? field.options.desc.label : field.options.asc.label)
+                                                        : (field.desc || 'Pilih untuk mengurutkan')}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            {/* ASC (Up Arrow) */}
+                                            <span style={{
+                                                display: 'flex',
+                                                padding: '4px',
+                                                borderRadius: '6px',
+                                                background: isAscActive ? 'var(--primary-glow, rgba(30, 58, 95, 0.1))' : 'transparent',
+                                                color: isAscActive ? 'var(--primary)' : 'var(--text-muted)',
+                                                transition: 'all 150ms ease'
+                                            }}>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                    <polyline points="18 15 12 9 6 15" />
+                                                </svg>
+                                            </span>
+                                            {/* DESC (Down Arrow) */}
+                                            <span style={{
+                                                display: 'flex',
+                                                padding: '4px',
+                                                borderRadius: '6px',
+                                                background: isDescActive ? 'var(--primary-glow, rgba(30, 58, 95, 0.1))' : 'transparent',
+                                                color: isDescActive ? 'var(--primary)' : 'var(--text-muted)',
+                                                transition: 'all 150ms ease'
+                                            }}>
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                    <polyline points="6 9 12 15 18 9" />
+                                                </svg>
+                                            </span>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                            <button type="button" className="btn btn-primary animate-hover" style={{ flex: 1 }} onClick={() => setShowSortDrawer(false)}>Tutup</button>
+                        </div>
                     </div>
                 </div>
             ) : null}

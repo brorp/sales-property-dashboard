@@ -681,3 +681,37 @@ html[data-theme="dark"] .bottom-sheet h2 {
         grid-template-columns: 1fr;
     }
 }
+
+/* Bulk Reassign Toggle Button */
+.reassign-bulk-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 150ms ease;
+    flex-shrink: 0;
+}
+
+.reassign-bulk-toggle-btn:hover {
+    background: var(--bg-card-hover);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.reassign-bulk-toggle-btn.is-active {
+    border-color: var(--primary);
+    background: var(--primary-glow);
+    color: var(--primary);
+}
+
+.reassign-bulk-toggle-btn.is-active:hover {
+    background: var(--primary-glow);
+    opacity: 0.95;
+}
+

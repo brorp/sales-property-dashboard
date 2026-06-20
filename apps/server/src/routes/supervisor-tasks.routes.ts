@@ -3,6 +3,7 @@ import type { NextFunction, Response } from "express";
 import type { AuthenticatedRequest } from "../middleware/auth";
 import { requireMinRole } from "../middleware/rbac";
 import * as supervisorTasksService from "../services/supervisor-tasks.service";
+import { sendToUser } from "../services/push-notification.service";
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -93,6 +94,16 @@ router.post(
                 clientId: scope?.clientId || null,
             });
 
+            // Notif ke sales bahwa lead HOT-nya sudah divalidasi
+            const lead = await (await import("../services/leads.service")).findById(leadId);
+            if (lead?.assignedTo) {
+                void sendToUser(lead.assignedTo, {
+                    title: "Lead HOT Divalidasi",
+                    body: `Lead ${lead.name} telah divalidasi oleh supervisor.`,
+                    data: { leadId, type: "hot_validated" },
+                });
+            }
+
             res.json(result);
         } catch (error) {
             const err = error as Error;
@@ -144,6 +155,16 @@ router.post(
                 clientId: scope?.clientId || null,
                 note: typeof note === "string" ? note.trim() || undefined : undefined,
             });
+
+            // Notif ke sales bahwa lead HOT-nya ditolak
+            const lead = await (await import("../services/leads.service")).findById(leadId);
+            if (lead?.assignedTo) {
+                void sendToUser(lead.assignedTo, {
+                    title: "Validasi Lead HOT Ditolak",
+                    body: `Lead ${lead.name} ditolak status HOT-nya oleh supervisor.${note ? ` Catatan: ${note}` : ""}`,
+                    data: { leadId, type: "hot_rejected" },
+                });
+            }
 
             res.json(result);
         } catch (error) {

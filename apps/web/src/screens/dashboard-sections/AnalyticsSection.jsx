@@ -167,14 +167,40 @@ function buildBreakdown(leads, getLabel, limit = 8) {
         if (!label) continue;
         map.set(label, (map.get(label) || 0) + 1);
     }
-    const sorted = Array.from(map.entries())
-        .map(([label, count]) => ({ label, count }))
-        .sort((a, b) => b.count - a.count);
-    if (sorted.length <= limit) return sorted;
-    const top = sorted.slice(0, limit - 1);
-    const rest = sorted.slice(limit - 1);
-    const restTotal = rest.reduce((s, item) => s + item.count, 0);
-    return [...top, { label: 'Lainnya', count: restTotal }];
+    const entries = Array.from(map.entries()).map(([label, count]) => ({ label, count }));
+
+    const isSpecial = (label) => {
+        const l = label.toLowerCase();
+        return l === 'belum diisi' || l === 'lainnya' || l === 'unassigned';
+    };
+
+    const normals = entries.filter(e => !isSpecial(e.label));
+    const specials = entries.filter(e => isSpecial(e.label));
+
+    normals.sort((a, b) => b.count - a.count);
+    specials.sort((a, b) => b.count - a.count);
+
+    if (normals.length + specials.length <= limit) {
+        return [...normals, ...specials];
+    }
+
+    const otherSpecials = specials.filter(s => s.label.toLowerCase() !== 'lainnya');
+    const existingLainnya = specials.find(s => s.label.toLowerCase() === 'lainnya');
+
+    const availableSlotsForNormals = Math.max(0, limit - 1 - otherSpecials.length);
+    const topNormals = normals.slice(0, availableSlotsForNormals);
+    const restNormals = normals.slice(availableSlotsForNormals);
+
+    const restCount = restNormals.reduce((sum, item) => sum + item.count, 0);
+    const existingLainnyaCount = existingLainnya ? existingLainnya.count : 0;
+    const totalLainnyaCount = restCount + existingLainnyaCount;
+
+    const result = [...topNormals, ...otherSpecials];
+    if (totalLainnyaCount > 0) {
+        result.push({ label: 'Lainnya', count: totalLainnyaCount });
+    }
+
+    return result.slice(0, limit);
 }
 
 function formatFormulaDetail(parts, total) {
@@ -694,23 +720,47 @@ export default function AnalyticsSection({
 
     const sourceItems = useMemo(() => {
         const items = buildBreakdown(chartLeads, getSourceLabel, 8);
-        return items.map((it, i) => ({ ...it, color: PIE_COLORS[i % PIE_COLORS.length] }));
+        let normalIdx = 0;
+        return items.map((it) => {
+            const labelLower = String(it.label || '').trim().toLowerCase();
+            const isGray = labelLower === 'belum diisi' || labelLower === 'lainnya' || labelLower === 'unassigned';
+            const color = isGray ? '#CBD5E1' : PIE_COLORS[normalIdx++ % PIE_COLORS.length];
+            return { ...it, color };
+        });
     }, [chartLeads]);
 
     const domicileItems = useMemo(() => {
         const items = buildBreakdown(chartLeads, getDomicileLabel, 8);
-        return items.map((it, i) => ({ ...it, color: PIE_COLORS[i % PIE_COLORS.length] }));
+        let normalIdx = 0;
+        return items.map((it) => {
+            const labelLower = String(it.label || '').trim().toLowerCase();
+            const isGray = labelLower === 'belum diisi' || labelLower === 'lainnya' || labelLower === 'unassigned';
+            const color = isGray ? '#CBD5E1' : PIE_COLORS[normalIdx++ % PIE_COLORS.length];
+            return { ...it, color };
+        });
     }, [chartLeads]);
 
     const unitItems = useMemo(() => {
         const items = buildBreakdown(chartLeads, getUnitLabel, 8);
-        return items.map((it, i) => ({ ...it, color: PIE_COLORS[i % PIE_COLORS.length] }));
+        let normalIdx = 0;
+        return items.map((it) => {
+            const labelLower = String(it.label || '').trim().toLowerCase();
+            const isGray = labelLower === 'belum diisi' || labelLower === 'lainnya' || labelLower === 'unassigned';
+            const color = isGray ? '#CBD5E1' : PIE_COLORS[normalIdx++ % PIE_COLORS.length];
+            return { ...it, color };
+        });
     }, [chartLeads, getUnitLabel]);
 
     const cancelLeads = useMemo(() => chartLeads.filter(isCancelLead), [chartLeads]);
     const cancelItems = useMemo(() => {
         const items = buildBreakdown(cancelLeads, getCancelReasonLabel, 8);
-        return items.map((it, i) => ({ ...it, color: PIE_COLORS[i % PIE_COLORS.length] }));
+        let normalIdx = 0;
+        return items.map((it) => {
+            const labelLower = String(it.label || '').trim().toLowerCase();
+            const isGray = labelLower === 'belum diisi' || labelLower === 'lainnya' || labelLower === 'unassigned';
+            const color = isGray ? '#CBD5E1' : PIE_COLORS[normalIdx++ % PIE_COLORS.length];
+            return { ...it, color };
+        });
     }, [cancelLeads, getCancelReasonLabel]);
 
     function toggleStatusFilter(type, key) {

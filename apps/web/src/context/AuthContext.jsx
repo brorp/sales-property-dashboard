@@ -408,9 +408,15 @@ export function AuthProvider({ children }) {
     };
 
     const logout = () => {
+        const currentUser = user;
         setUser(null);
         clearStoredAuthUser();
         persistAuthSessionToken(null);
+
+        // Hapus FCM token device ini sebelum logout
+        import('../hooks/usePushNotification').then(({ removePushToken }) => {
+            void removePushToken(currentUser);
+        }).catch(() => {});
 
         void fetch(`${getApiBaseUrl()}/api/auth/sign-out`, {
             method: 'POST',

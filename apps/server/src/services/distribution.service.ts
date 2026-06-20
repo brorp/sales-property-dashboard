@@ -16,6 +16,7 @@ import { getActiveWhatsAppNumber } from "./whatsapp-identity.service";
 import { moveSalesToQueueEnd } from "./sales.service";
 import { getActiveSalesSuspensionMap } from "./sales-suspension.service";
 import { createNewLeadTaskForLead } from "./daily-task.service";
+import { sendToUser, sendToUsers } from "./push-notification.service";
 import { ensureLeadCode } from "./lead-code.service";
 
 type DbExecutor = typeof db;
@@ -510,6 +511,8 @@ export async function handleSalesAck(
         const [leadRow] = await tx
             .select({
                 clientId: lead.clientId,
+                name: lead.name,
+                phone: lead.phone,
             })
             .from(lead)
             .where(eq(lead.id, leadId))
@@ -557,6 +560,12 @@ export async function handleSalesAck(
             clientId: leadRow.clientId,
             assignedAt: now,
             executor: tx as unknown as DbExecutor,
+        });
+
+        void sendToUser(salesId, {
+            title: "Lead Baru Masuk",
+            body: `${leadRow.name} (${leadRow.phone}) telah ditugaskan ke kamu.`,
+            data: { leadId, type: "new_lead" },
         });
 
         const [queueRewardRow] = await tx

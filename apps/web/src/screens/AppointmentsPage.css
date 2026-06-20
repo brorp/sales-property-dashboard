@@ -434,3 +434,259 @@ html[data-theme="light"] .ap-page {
     background: var(--bg-card-hover);
     border-color: var(--primary);
 }
+
+.ap-sort-btn {
+    display: inline-flex !important;
+}
+
+/* ── Main Tabs (Segmented control style) ── */
+.ap-main-tabs {
+    display: flex;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 4px;
+    margin-bottom: 16px;
+    gap: 4px;
+}
+
+.ap-main-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 200ms ease;
+}
+
+.ap-main-tab:hover:not(.is-active) {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+html[data-theme="light"] .ap-main-tab:hover:not(.is-active) {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.ap-main-tab.is-active {
+    background: var(--primary);
+    color: #FFFFFF;
+    box-shadow: 0 4px 12px rgba(30, 58, 95, 0.15);
+}
+
+.ap-main-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 99px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.2);
+    color: inherit;
+}
+
+.ap-main-tab.is-active .ap-main-tab-badge {
+    background: rgba(255, 255, 255, 0.25);
+    color: #FFFFFF;
+}
+
+/* ── Sub Tabs (Pill style) ── */
+.ap-subtabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 2px 0;
+}
+
+.ap-subtabs::-webkit-scrollbar {
+    display: none;
+}
+
+.ap-subtab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 150ms ease;
+    border: 1px solid var(--border-color);
+    background: transparent;
+}
+
+html[data-theme="light"] .ap-subtab {
+    background: #F8FAFC;
+    color: #475569;
+}
+
+html[data-theme="light"] .ap-subtab:hover:not(.is-active) {
+    background: #F1F5F9;
+    color: #1E3A5F;
+}
+
+html[data-theme="light"] .ap-subtab.is-active {
+    background: #1E3A5F;
+    color: #FFFFFF;
+    border-color: #1E3A5F;
+}
+
+html[data-theme="dark"] .ap-subtab {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .ap-subtab:hover:not(.is-active) {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+}
+
+html[data-theme="dark"] .ap-subtab.is-active {
+    background: var(--primary);
+    color: #FFFFFF;
+    border-color: var(--primary);
+}
+
+.ap-subtab-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    background: rgba(0, 0, 0, 0.08);
+    color: inherit;
+}
+
+html[data-theme="dark"] .ap-subtab-badge {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.ap-subtab.is-active .ap-subtab-badge {
+    background: rgba(255, 255, 255, 0.2);
+    color: #FFFFFF;
+}
+
+/* ── Appointment Action Buttons ── */
+.dt-appt-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.dt-appt-actions-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+}
+
+.dt-appt-actions-row .dt-btn-action {
+    flex: 1;
+    min-width: 0;
+}
+
+.dt-btn-action {
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    border-radius: 10px;
+    background: transparent;
+    cursor: pointer;
+    text-align: center;
+    font-family: inherit;
+    transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+    border: 1.5px solid var(--border-color);
+    color: var(--text-primary);
+    outline: none;
+}
+
+.dt-btn-action.btn-sudah-survey {
+    border-color: #10B981;
+    color: #10B981;
+}
+
+.dt-btn-action.btn-sudah-survey:hover {
+    background: rgba(16, 185, 129, 0.08);
+}
+
+.dt-btn-action.btn-reschedule {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.dt-btn-action.btn-reschedule:hover {
+    background: rgba(30, 58, 95, 0.08);
+}
+
+.dt-btn-action.btn-batal-survey {
+    border-color: #EF4444;
+    color: #EF4444;
+}
+
+.dt-btn-action.btn-batal-survey:hover {
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.dt-reschedule-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 10px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-input);
+    border-radius: 10px;
+}
+
+.dt-reschedule-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+/* ── Primary Button Brand Overrides ── */
+.ap-page .btn-primary {
+    background: var(--primary) !important;
+    border-color: var(--primary) !important;
+    color: #FFFFFF !important;
+    box-shadow: none !important;
+}
+
+.ap-page .btn-primary:hover:not(:disabled) {
+    background: var(--primary-dark, #152943) !important;
+    border-color: var(--primary-dark, #152943) !important;
+    box-shadow: none !important;
+}
+
+html[data-theme="light"] .ap-page .btn-primary {
+    background: #1E3A5F !important;
+    border-color: #1E3A5F !important;
+    color: #FFFFFF !important;
+}
+
+html[data-theme="light"] .ap-page .btn-primary:hover:not(:disabled) {
+    background: #2A5080 !important;
+    border-color: #2A5080 !important;
+}
+
+

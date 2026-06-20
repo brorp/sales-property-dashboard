@@ -980,3 +980,7 @@ html[data-theme="dark"] .bulk-action-bar {
 .fab-group--hidden {
     display: none;
 }
+
+.leads-sort-btn {
+    display: inline-flex !important;
+}

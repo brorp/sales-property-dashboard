@@ -6,6 +6,7 @@ import Sidebar from './Sidebar';
 import FloatingWorkspaceButton from './FloatingWorkspaceButton';
 import { useAuth } from '../context/AuthContext';
 import { NavDataProvider } from '../hooks/useNavData';
+import { usePushNotification } from '../hooks/usePushNotification';
 
 export default function AppShell({ children }) {
     const { user, loading } = useAuth();
@@ -31,6 +32,8 @@ export default function AppShell({ children }) {
             return next;
         });
     };
+
+    usePushNotification({ user });
 
     if (loading) return null;
 

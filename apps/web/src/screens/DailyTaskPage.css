@@ -917,3 +917,26 @@ html[data-theme="dark"] .dt-subtab.is-active {
         border-radius: 12px !important;
     }
 }
+
+.dt-sort-btn {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border: 1.5px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--bg-card);
+    color: var(--text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+    box-sizing: border-box;
+}
+
+.dt-sort-btn:hover {
+    border-color: var(--primary);
+    background: var(--bg-card-hover, rgba(255, 255, 255, 0.05));
+    color: var(--primary);
+}
+
