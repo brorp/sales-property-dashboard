@@ -5,6 +5,7 @@
 //   name            → unik, format: server-{slug}
 //   PORT            → unik per workspace (3001, 3002, dst)
 //   WA_ACTIVE_CLIENT_SLUG → slug client di DB (tabel `client`)
+//   WA_EXPECTED_NUMBER    → nomor WA yang wajib cocok dengan workspace
 //   WA_QR_AUTH_PATH → folder session WA, HARUS BERBEDA antar workspace
 //   WA_WEBJS_CLIENT_ID    → ID sesi browser, HARUS BERBEDA antar workspace
 //
@@ -42,6 +43,10 @@ const SHARED_BASE = {
         WA_QUEUE_ENABLED: "true",
         WA_QUEUE_MIN_DELAY_MS: "5000",
         WA_QUEUE_MAX_DELAY_MS: "20000",
+        WA_QUEUE_LOCK_DURATION_MS: "120000",
+        WA_QUEUE_WAIT_TIMEOUT_MS: "180000",
+        WA_WEBJS_SEND_TIMEOUT_MS: "60000",
+        WA_RECOVERY_FAILURE_RESTART_THRESHOLD: "3",
         WA_WEBJS_HEADLESS: "true",
         WA_WEBJS_EXECUTABLE_PATH: "/usr/bin/google-chrome-stable",
         WA_WEBJS_PUPPETEER_ARGS: SHARED_WA_ARGS,
@@ -58,6 +63,7 @@ module.exports = {
                 ...SHARED_BASE.env,
                 PORT: 3001,
                 WA_ACTIVE_CLIENT_SLUG: "widari-residence",
+                WA_EXPECTED_NUMBER: "+6287810100090",
                 WA_QR_AUTH_PATH: ".wa-qr-auth-wr",
                 WA_WEBJS_CLIENT_ID: "wa-wr",
             },
@@ -71,6 +77,7 @@ module.exports = {
                 ...SHARED_BASE.env,
                 PORT: 3002,
                 WA_ACTIVE_CLIENT_SLUG: "widari-village",
+                WA_EXPECTED_NUMBER: "+6282320662323",
                 WA_QR_AUTH_PATH: ".wa-qr-auth-wv",
                 WA_WEBJS_CLIENT_ID: "wa-wv",
             },
@@ -84,6 +91,7 @@ module.exports = {
         //         ...SHARED_BASE.env,
         //         PORT: 3003,                           // port berikutnya
         //         WA_ACTIVE_CLIENT_SLUG: "{slug}",      // slug di tabel client
+        //         WA_EXPECTED_NUMBER: "+62...",        // nomor WA khusus workspace
         //         WA_QR_AUTH_PATH: ".wa-qr-auth-{slug}",
         //         WA_WEBJS_CLIENT_ID: "wa-{slug}",
         //     },

@@ -18,6 +18,10 @@ import { getActiveSalesSuspensionMap } from "./sales-suspension.service";
 import { createNewLeadTaskForLead } from "./daily-task.service";
 import { sendToUser, sendToUsers } from "./push-notification.service";
 import { ensureLeadCode } from "./lead-code.service";
+import {
+    attemptCountsAsDeliveredOffer,
+    isTransientWhatsAppDeliveryFailure,
+} from "../utils/whatsapp-runtime";
 
 type DbExecutor = typeof db;
 
@@ -70,12 +74,18 @@ async function getNextQueueEntry(
     const attemptedRows = await executor
         .select({
             salesId: distributionAttempt.salesId,
+            status: distributionAttempt.status,
+            closeReason: distributionAttempt.closeReason,
         })
         .from(distributionAttempt)
         .where(eq(distributionAttempt.cycleId, cycleId))
         .orderBy(asc(distributionAttempt.assignedAt), asc(distributionAttempt.queueOrder));
 
-    const attemptedSalesIds = new Set(attemptedRows.map((row) => row.salesId));
+    const attemptedSalesIds = new Set(
+        attemptedRows
+            .filter(attemptCountsAsDeliveredOffer)
+            .map((row) => row.salesId)
+    );
     const rows = await executor
         .select({
             salesId: salesQueue.salesId,
@@ -144,6 +154,66 @@ async function logDistributionActivity(
         note,
         timestamp: new Date(),
     });
+}
+
+async function finalizeDeliveredOffer(
+    executor: DbExecutor,
+    params: {
+        attemptId: string;
+        leadId: string;
+        clientId: string;
+        salesId: string;
+        salesName: string;
+        queueOrder: number;
+        repeatOrderRemaining: number;
+        ackTimeoutMs: number;
+        sentAt?: Date;
+    }
+) {
+    const sentAt = params.sentAt || new Date();
+    const ackDeadline = new Date(sentAt.getTime() + params.ackTimeoutMs);
+    await executor
+        .update(distributionAttempt)
+        .set({
+            status: "waiting_ok",
+            ackDeadline,
+            closedAt: null,
+            closeReason: null,
+        })
+        .where(eq(distributionAttempt.id, params.attemptId));
+
+    const queueRolled = params.repeatOrderRemaining > 0
+        ? false
+        : await moveSalesToQueueEnd(
+            params.salesId,
+            params.clientId,
+            executor
+        );
+
+    await logDistributionActivity(
+        executor,
+        params.leadId,
+        "note",
+        `Lead didistribusikan ke ${params.salesName} (urutan ${params.queueOrder}), tunggu ACK OK hingga ${ackDeadline.toISOString()}.`
+    );
+
+    if (queueRolled) {
+        await logDistributionActivity(
+            executor,
+            params.leadId,
+            "note",
+            `Urutan sesi berikutnya langsung dirotasi setelah offer dikirim ke ${params.salesName}.`
+        );
+    } else if (params.repeatOrderRemaining > 0) {
+        await logDistributionActivity(
+            executor,
+            params.leadId,
+            "note",
+            `${params.salesName} memiliki reward repeat order ${params.repeatOrderRemaining}x. Queue ditahan sampai sales membalas OK atau timeout.`
+        );
+    }
+
+    return ackDeadline;
 }
 
 async function assignNextQueue(
@@ -288,7 +358,9 @@ async function assignNextQueue(
     });
 
     const outboundResult = next.salesPhone
-        ? await sendWhatsAppText(next.salesPhone, messageBody)
+        ? await sendWhatsAppText(next.salesPhone, messageBody, {
+            jobId: `distribution-offer-${attempt.id}`,
+        })
         : {
               sent: false,
               provider: (process.env.WA_PROVIDER || "dummy") as
@@ -313,14 +385,46 @@ async function assignNextQueue(
     });
 
     if (!outboundResult.sent) {
+        const transientDeliveryFailure =
+            isTransientWhatsAppDeliveryFailure(outboundResult.errorCode) ||
+            isTransientWhatsAppDeliveryFailure(outboundResult.error);
         await executor
             .update(distributionAttempt)
             .set({
                 status: "closed",
                 closedAt: new Date(),
-                closeReason: "send_failed",
+                closeReason: transientDeliveryFailure
+                    ? "send_uncertain_transient"
+                    : "send_failed",
             })
             .where(eq(distributionAttempt.id, attempt.id));
+
+        if (transientDeliveryFailure) {
+            await executor
+                .update(distributionCycle)
+                .set({
+                    status: "paused",
+                })
+                .where(eq(distributionCycle.id, cycleId));
+
+            await executor
+                .update(lead)
+                .set({
+                    assignedTo: null,
+                    flowStatus: "open",
+                    updatedAt: new Date(),
+                })
+                .where(eq(lead.id, leadId));
+
+            await logDistributionActivity(
+                executor,
+                leadId,
+                "note",
+                `Offer distribusi ke ${next.salesName} tidak dapat dikonfirmasi (${outboundResult.errorCode || outboundResult.error || "unknown error"}). Cycle dipause dan akan dilanjutkan setelah WhatsApp tersambung sehat.`
+            );
+
+            return attempt;
+        }
 
         await logDistributionActivity(
             executor,
@@ -332,45 +436,16 @@ async function assignNextQueue(
         return assignNextQueue(executor, cycleId, leadId, clientId);
     }
 
-    const sentAt = new Date();
-    const ackDeadline = new Date(sentAt.getTime() + ackTimeoutMs);
-    await executor
-        .update(distributionAttempt)
-        .set({
-            ackDeadline,
-        })
-        .where(eq(distributionAttempt.id, attempt.id));
-
-    const queueRolled = repeatOrderRemaining > 0
-        ? false
-        : await moveSalesToQueueEnd(
-            next.salesId,
-            clientId,
-            executor
-        );
-
-    await logDistributionActivity(
-        executor,
+    await finalizeDeliveredOffer(executor, {
+        attemptId: attempt.id,
         leadId,
-        "note",
-        `Lead didistribusikan ke ${next.salesName} (urutan ${next.queueOrder}), tunggu ACK OK hingga ${ackDeadline.toISOString()}.`
-    );
-
-    if (queueRolled) {
-        await logDistributionActivity(
-            executor,
-            leadId,
-            "note",
-            `Urutan sesi berikutnya langsung dirotasi setelah offer dikirim ke ${next.salesName}.`
-        );
-    } else if (repeatOrderRemaining > 0) {
-        await logDistributionActivity(
-            executor,
-            leadId,
-            "note",
-            `${next.salesName} memiliki reward repeat order ${repeatOrderRemaining}x. Queue ditahan sampai sales membalas OK atau timeout.`
-        );
-    }
+        clientId,
+        salesId: next.salesId,
+        salesName: next.salesName,
+        queueOrder: next.queueOrder,
+        repeatOrderRemaining,
+        ackTimeoutMs,
+    });
 
     return attempt;
 }
@@ -404,6 +479,7 @@ export async function ensureActiveCycle(leadId: string) {
     if (latestCycle) {
         if (
             latestCycle.status === "active" ||
+            latestCycle.status === "paused" ||
             latestCycle.status === "accepted" ||
             latestCycle.status === "exhausted"
         ) {
@@ -430,6 +506,130 @@ export async function ensureActiveCycle(leadId: string) {
         .where(eq(distributionCycle.id, cycle.id))
         .limit(1);
     return freshCycle || cycle;
+}
+
+export async function resumePausedDistributions(clientId: string) {
+    const pausedCycles = await db
+        .select({
+            id: distributionCycle.id,
+            leadId: distributionCycle.leadId,
+        })
+        .from(distributionCycle)
+        .innerJoin(lead, eq(distributionCycle.leadId, lead.id))
+        .where(
+            and(
+                eq(distributionCycle.status, "paused"),
+                eq(lead.clientId, clientId),
+                eq(lead.flowStatus, "open")
+            )
+        )
+        .orderBy(asc(distributionCycle.startedAt))
+        .limit(100);
+
+    let resumed = 0;
+    for (const cycle of pausedCycles) {
+        const [uncertainAttempt] = await db
+            .select({
+                id: distributionAttempt.id,
+                assignedAt: distributionAttempt.assignedAt,
+                salesId: distributionAttempt.salesId,
+                queueOrder: distributionAttempt.queueOrder,
+                salesName: user.name,
+                salesPhone: user.phone,
+            })
+            .from(distributionAttempt)
+            .innerJoin(user, eq(distributionAttempt.salesId, user.id))
+            .where(
+                and(
+                    eq(distributionAttempt.cycleId, cycle.id),
+                    eq(distributionAttempt.status, "closed"),
+                    eq(distributionAttempt.closeReason, "send_uncertain_transient")
+                )
+            )
+            .orderBy(desc(distributionAttempt.assignedAt))
+            .limit(1);
+
+        let deliveryReconciled = false;
+        if (uncertainAttempt?.salesPhone) {
+            const leadCode = await ensureLeadCode(cycle.leadId);
+            const { inspectRecentOutboundWhatsAppText } = await import(
+                "./whatsapp-qr.service"
+            );
+            const inspection = await inspectRecentOutboundWhatsAppText({
+                to: uncertainAttempt.salesPhone,
+                marker: `[lid] ${leadCode}`,
+                sentAfter: uncertainAttempt.assignedAt,
+            });
+
+            if (inspection.status === "unavailable") {
+                await logDistributionActivity(
+                    db,
+                    cycle.leadId,
+                    "note",
+                    `Distribusi masih dipause karena verifikasi offer WhatsApp belum tersedia (${inspection.error}).`
+                );
+                continue;
+            }
+
+            deliveryReconciled = inspection.status === "found";
+        }
+
+        const [activated] = await db
+            .update(distributionCycle)
+            .set({ status: "active" })
+            .where(
+                and(
+                    eq(distributionCycle.id, cycle.id),
+                    eq(distributionCycle.status, "paused")
+                )
+            )
+            .returning({ id: distributionCycle.id });
+
+        if (!activated) {
+            continue;
+        }
+
+        if (deliveryReconciled && uncertainAttempt) {
+            const [queueEntry] = await db
+                .select({
+                    repeatOrderRemaining: salesQueue.repeatOrderRemaining,
+                })
+                .from(salesQueue)
+                .where(
+                    and(
+                        eq(salesQueue.clientId, clientId),
+                        eq(salesQueue.salesId, uncertainAttempt.salesId),
+                        eq(salesQueue.isActive, true)
+                    )
+                )
+                .limit(1);
+            const ackTimeoutMs = await getDistributionAckTimeoutMs(clientId);
+            await finalizeDeliveredOffer(db, {
+                attemptId: uncertainAttempt.id,
+                leadId: cycle.leadId,
+                clientId,
+                salesId: uncertainAttempt.salesId,
+                salesName: uncertainAttempt.salesName,
+                queueOrder: uncertainAttempt.queueOrder,
+                repeatOrderRemaining: Math.max(
+                    0,
+                    Number(queueEntry?.repeatOrderRemaining || 0)
+                ),
+                ackTimeoutMs,
+            });
+            await logDistributionActivity(
+                db,
+                cycle.leadId,
+                "note",
+                `Offer ke ${uncertainAttempt.salesName} ditemukan di riwayat WhatsApp. Sistem melanjutkan attempt yang sama tanpa mengirim pesan duplikat.`
+            );
+        } else {
+            await assignNextQueue(db, cycle.id, cycle.leadId, clientId);
+        }
+        resumed += 1;
+    }
+
+    return resumed;
 }
 
 export async function handleSalesAck(

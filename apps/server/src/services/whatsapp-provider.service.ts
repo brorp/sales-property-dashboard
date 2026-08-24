@@ -2,7 +2,12 @@ import { Queue, QueueEvents, Worker, type Job } from "bullmq";
 import IORedis from "ioredis";
 import { normalizePhone } from "../utils/phone";
 import { createComponentLogger } from "../utils/logger";
-import { sendWhatsAppQrMedia, sendWhatsAppQrText } from "./whatsapp-qr.service";
+import {
+    recoverWhatsAppQrBridge,
+    sendWhatsAppQrMedia,
+    sendWhatsAppQrText,
+} from "./whatsapp-qr.service";
+import { buildWhatsAppQueueReliabilityConfig } from "../utils/whatsapp-runtime";
 
 const waProviderLogger = createComponentLogger("wa:provider");
 const waQueueLogger = createComponentLogger("wa:queue");
@@ -14,6 +19,7 @@ type SendResult = {
     provider: WaProvider;
     providerMessageId?: string;
     error?: string;
+    errorCode?: string;
 };
 
 type TextJobData = {
@@ -224,6 +230,22 @@ function getQueueDelayConfig(provider: string) {
         minDelayMs,
         maxDelayMs: Math.max(minDelayMs, maxDelayMs),
     };
+}
+
+function getQueueReliabilityConfig() {
+    const queueDelay = getQueueDelayConfig(currentProvider());
+    return buildWhatsAppQueueReliabilityConfig({
+        queueMaxDelayMs: queueDelay.maxDelayMs,
+        sendTimeoutMs: parsePositiveIntEnv(process.env.WA_WEBJS_SEND_TIMEOUT_MS, 60_000),
+        configuredLockDurationMs: parsePositiveIntEnv(
+            process.env.WA_QUEUE_LOCK_DURATION_MS,
+            120_000
+        ),
+        configuredWaitTimeoutMs: parsePositiveIntEnv(
+            process.env.WA_QUEUE_WAIT_TIMEOUT_MS,
+            180_000
+        ),
+    });
 }
 
 async function applyQueueDelay(provider: WaProvider, job: Job<OutboundJobData, SendResult>) {
@@ -449,12 +471,19 @@ export function startWhatsAppOutboundWorker() {
         return;
     }
 
+    const reliability = getQueueReliabilityConfig();
     outboundWorker = new Worker<OutboundJobData, SendResult>(
         queueName(),
         processOutboundJob,
         {
             connection: getRedisConnection(),
             concurrency: parsePositiveIntEnv(process.env.WA_QUEUE_CONCURRENCY, 1),
+            lockDuration: reliability.lockDurationMs,
+            lockRenewTime: reliability.lockRenewTimeMs,
+            stalledInterval: reliability.stalledIntervalMs,
+            // WhatsApp sends are not safely replayable: the first browser call may
+            // have delivered even when its BullMQ lock was lost.
+            maxStalledCount: reliability.maxStalledCount,
         }
     );
 
@@ -475,21 +504,31 @@ export function startWhatsAppOutboundWorker() {
             scopeKey: job?.data?.scopeKey || null,
             error,
         });
+
+        if (/stalled more than allowable limit/i.test(error.message)) {
+            void recoverWhatsAppQrBridge("outbound_job_stalled", error);
+        }
     });
 
     waQueueLogger.info("WhatsApp outbound queue worker started", {
         queueName: queueName(),
         scopeKey: getOutboundScopeKey(),
+        lockDurationMs: reliability.lockDurationMs,
+        waitTimeoutMs: reliability.waitTimeoutMs,
+        maxStalledCount: reliability.maxStalledCount,
     });
 }
 
-async function enqueueOutboundJob(data: OutboundJobData): Promise<SendResult> {
+async function enqueueOutboundJob(
+    data: OutboundJobData,
+    options?: { jobId?: string }
+): Promise<SendResult> {
     startWhatsAppOutboundWorker();
 
     const queue = getOutboundQueue();
     const queueEvents = getOutboundQueueEvents();
-    const job = await queue.add(data.kind, data);
-    const waitTimeoutMs = parsePositiveIntEnv(process.env.WA_QUEUE_WAIT_TIMEOUT_MS, 180_000);
+    const job = await queue.add(data.kind, data, options?.jobId ? { jobId: options.jobId } : {});
+    const waitTimeoutMs = getQueueReliabilityConfig().waitTimeoutMs;
 
     waQueueLogger.info("WhatsApp outbound job queued", {
         jobId: job.id,
@@ -499,21 +538,48 @@ async function enqueueOutboundJob(data: OutboundJobData): Promise<SendResult> {
         waitTimeoutMs,
     });
 
-    return job.waitUntilFinished(queueEvents, waitTimeoutMs) as Promise<SendResult>;
+    try {
+        return await job.waitUntilFinished(queueEvents, waitTimeoutMs) as SendResult;
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error || "Unknown error");
+        const state = await job.getState().catch(() => "unknown" as const);
+
+        if (state === "completed" && job.returnvalue) {
+            return job.returnvalue as SendResult;
+        }
+
+        if (state === "failed" && job.failedReason) {
+            throw new Error(job.failedReason);
+        }
+
+        if (/timed out|no finish notification/i.test(message)) {
+            await recoverWhatsAppQrBridge("outbound_queue_wait_timeout", error);
+            throw new Error(`WA_QUEUE_DELIVERY_UNCERTAIN:${state}:${message}`);
+        }
+
+        throw error;
+    }
 }
 
-export async function sendWhatsAppText(to: string, body: string): Promise<SendResult> {
+export async function sendWhatsAppText(
+    to: string,
+    body: string,
+    options?: { jobId?: string }
+): Promise<SendResult> {
     if (!isQueueEnabled()) {
         return sendWhatsAppTextDirect(to, body);
     }
 
     try {
-        return await enqueueOutboundJob({
-            kind: "text",
-            to,
-            body,
-            scopeKey: getOutboundScopeKey(),
-        });
+        return await enqueueOutboundJob(
+            {
+                kind: "text",
+                to,
+                body,
+                scopeKey: getOutboundScopeKey(),
+            },
+            options
+        );
     } catch (error) {
         const provider = currentProvider();
         const message = error instanceof Error ? error.message : "Unknown queue error";
@@ -522,6 +588,9 @@ export async function sendWhatsAppText(to: string, body: string): Promise<SendRe
             sent: false,
             provider,
             error: message,
+            errorCode: message.startsWith("WA_QUEUE_DELIVERY_UNCERTAIN")
+                ? "WA_QUEUE_DELIVERY_UNCERTAIN"
+                : "WA_QUEUE_ERROR",
         };
     }
 }

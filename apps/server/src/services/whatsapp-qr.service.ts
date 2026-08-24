@@ -8,11 +8,21 @@ import {
 } from "./whatsapp-identity.service";
 import { normalizePhone } from "../utils/phone";
 import { createComponentLogger, markErrorAsHandled } from "../utils/logger";
+import { validateWorkspaceWhatsAppIdentity } from "../utils/whatsapp-runtime";
 
 type WebJsClient = {
     initialize: () => Promise<void>;
     destroy: () => Promise<void>;
     sendMessage: (chatId: string, content: any, options?: any) => Promise<any>;
+    searchMessages?: (
+        query: string,
+        options?: { chatId?: string; page?: number; limit?: number }
+    ) => Promise<Array<{
+        body?: string;
+        fromMe?: boolean;
+        timestamp?: number;
+        id?: { _serialized?: string } | string;
+    }>>;
     getChats?: () => Promise<WebJsChat[]>;
     on: (event: string, listener: (...args: any[]) => void) => void;
 };
@@ -42,6 +52,7 @@ type QrSendResult =
         sent: false;
         provider: "qr_local";
         error: string;
+        errorCode?: string;
     };
 
 export type WhatsAppQrAdminState = {
@@ -76,8 +87,12 @@ let reconnectEnabled = true;
 let sessionGeneration = 0;
 let runtimeGuardInstalled = false;
 let missedMessageRecoveryTimer: NodeJS.Timeout | null = null;
+let missedMessageRecoveryStartupTimer: NodeJS.Timeout | null = null;
+let missedMessageRecoveryGeneration: number | null = null;
 let missedMessageRecoveryRunning = false;
+let consecutiveMissedMessageRecoveryFailures = 0;
 let missedMessageRecoveryWatermarkMs = Date.now();
+let bridgeRecoveryPromise: Promise<void> | null = null;
 const RECENT_INBOUND_EVENT_WINDOW_MS = 5 * 60 * 1000;
 const MISSED_MESSAGE_RECOVERY_STARTUP_GRACE_MS = 5 * 60 * 1000;
 const MISSED_MESSAGE_RECOVERY_SCAN_OVERLAP_MS = 2 * 60 * 1000;
@@ -153,6 +168,25 @@ function currentWebJsClientId() {
 function currentActiveClientSlug() {
     const raw = String(process.env.WA_ACTIVE_CLIENT_SLUG || "").trim().toLowerCase();
     return raw || null;
+}
+
+function currentExpectedWhatsAppNumber() {
+    const raw = String(process.env.WA_EXPECTED_NUMBER || "").trim();
+    return raw ? normalizePhone(raw) : null;
+}
+
+function currentWebJsSendTimeoutMs() {
+    return envNumber("WA_WEBJS_SEND_TIMEOUT_MS", 60_000, {
+        min: 15_000,
+        max: 180_000,
+    });
+}
+
+function currentRecoveryFailureRestartThreshold() {
+    return envNumber("WA_RECOVERY_FAILURE_RESTART_THRESHOLD", 3, {
+        min: 1,
+        max: 20,
+    });
 }
 
 function describeSessionIsolation() {
@@ -405,23 +439,70 @@ function scheduleBridgeRestart(delayMs = 2500) {
     }, delayMs);
 }
 
-function handleTransientRuntimeError(source: string, error: unknown) {
-    const message = readErrorMessage(error);
-    markErrorAsHandled(error);
-    waQrLogger.warn("Transient runtime error", { source, error, message });
+export async function recoverWhatsAppQrBridge(
+    source: string,
+    error?: unknown,
+    options: { reconnect?: boolean; status?: "disconnected" | "error" } = {}
+) {
+    if (currentProvider() !== "qr_local") {
+        return;
+    }
+
+    if (bridgeRecoveryPromise) {
+        return bridgeRecoveryPromise;
+    }
+
+    const shouldReconnect = options.reconnect !== false;
+    const message = error ? readErrorMessage(error) : source;
+    const client = clientRef;
     clientRef = null;
+    sessionGeneration += 1;
+    stopMissedMessageRecovery();
     clearActiveWhatsAppNumber();
     updateRuntimeState({
-        status: "disconnected",
+        status: options.status || "disconnected",
         lastError: message,
         activeWaNumber: null,
         lastClientState: null,
         qr: null,
         qrImageUrl: null,
     });
-    if (reconnectEnabled) {
-        scheduleBridgeRestart();
-    }
+
+    waQrLogger.warn("Recovering unhealthy WhatsApp QR bridge", {
+        source,
+        error,
+        reconnect: shouldReconnect,
+        activeClientSlug: currentActiveClientSlug(),
+    });
+
+    bridgeRecoveryPromise = (async () => {
+        if (client) {
+            try {
+                await Promise.race([
+                    client.destroy(),
+                    new Promise<void>((resolve) => setTimeout(resolve, 10_000)),
+                ]);
+            } catch (destroyError) {
+                waQrLogger.warn("Failed destroying unhealthy WhatsApp QR bridge", {
+                    source,
+                    error: destroyError,
+                });
+            }
+        }
+
+        if (shouldReconnect && reconnectEnabled) {
+            scheduleBridgeRestart();
+        }
+    })().finally(() => {
+        bridgeRecoveryPromise = null;
+    });
+
+    return bridgeRecoveryPromise;
+}
+
+function handleTransientRuntimeError(source: string, error: unknown) {
+    markErrorAsHandled(error);
+    void recoverWhatsAppQrBridge(source, error);
 }
 
 function installRuntimeGuard() {
@@ -890,12 +971,55 @@ function toSendResult(response: any): QrSendResult {
     };
 }
 
-function toSendError(error: string): QrSendResult {
+function toSendError(error: string, errorCode?: string): QrSendResult {
     return {
         sent: false,
         provider: "qr_local" as const,
         error,
+        errorCode,
     };
+}
+
+function getWhatsAppTrafficReadinessError() {
+    if (!clientRef || runtimeState.status !== "connected") {
+        return {
+            code: "WA_SESSION_NOT_CONNECTED",
+            message: "QR WhatsApp client is not connected yet",
+        };
+    }
+
+    const identity = validateWorkspaceWhatsAppIdentity({
+        expectedNumber: currentExpectedWhatsAppNumber(),
+        connectedNumber: runtimeState.activeWaNumber,
+    });
+    if (!identity.valid) {
+        return {
+            code: "WA_WORKSPACE_IDENTITY_MISMATCH",
+            message: `WhatsApp session identity is not ready (${identity.reason})`,
+        };
+    }
+
+    return null;
+}
+
+async function runWithWhatsAppSendTimeout<T>(task: () => Promise<T>) {
+    const timeoutMs = currentWebJsSendTimeoutMs();
+    let timeout: NodeJS.Timeout | null = null;
+
+    try {
+        return await Promise.race([
+            task(),
+            new Promise<never>((_resolve, reject) => {
+                timeout = setTimeout(() => {
+                    reject(new Error(`WA_SEND_TIMEOUT:${timeoutMs}`));
+                }, timeoutMs);
+            }),
+        ]);
+    } finally {
+        if (timeout) {
+            clearTimeout(timeout);
+        }
+    }
 }
 
 function canReplyToJid(jid: string | null) {
@@ -949,6 +1073,12 @@ async function handleIncomingMessage(message: any) {
     const ignoreDecision = shouldIgnoreWhatsAppEvent(message);
     if (ignoreDecision.ignore) {
         logIgnoredWhatsAppEvent(message, ignoreDecision.reason || "ignored");
+        return;
+    }
+
+    const trafficReadinessError = getWhatsAppTrafficReadinessError();
+    if (trafficReadinessError) {
+        logIgnoredWhatsAppEvent(message, trafficReadinessError.code);
         return;
     }
 
@@ -1167,6 +1297,7 @@ async function runMissedMessageRecovery(generation: number, client: WebJsClient)
             }
         }
 
+        consecutiveMissedMessageRecoveryFailures = 0;
         missedMessageRecoveryWatermarkMs = Math.max(missedMessageRecoveryWatermarkMs, scanStartedAt);
         if (recoveredMessages > 0 || isQrDebugEnabled()) {
             logWaQrInfo("Missed-message recovery scan completed", {
@@ -1177,22 +1308,42 @@ async function runMissedMessageRecovery(generation: number, client: WebJsClient)
             });
         }
     } catch (error) {
+        consecutiveMissedMessageRecoveryFailures += 1;
         logWaQrWarn("Missed-message recovery scan failed", { error });
+        if (
+            consecutiveMissedMessageRecoveryFailures >=
+            currentRecoveryFailureRestartThreshold()
+        ) {
+            void recoverWhatsAppQrBridge("missed_message_recovery_failures", error);
+        }
     } finally {
         missedMessageRecoveryRunning = false;
     }
 }
 
 function stopMissedMessageRecovery() {
-    if (!missedMessageRecoveryTimer) {
-        return;
+    if (missedMessageRecoveryTimer) {
+        clearInterval(missedMessageRecoveryTimer);
+        missedMessageRecoveryTimer = null;
     }
-    clearInterval(missedMessageRecoveryTimer);
-    missedMessageRecoveryTimer = null;
+    if (missedMessageRecoveryStartupTimer) {
+        clearTimeout(missedMessageRecoveryStartupTimer);
+        missedMessageRecoveryStartupTimer = null;
+    }
+    missedMessageRecoveryGeneration = null;
     missedMessageRecoveryRunning = false;
+    consecutiveMissedMessageRecoveryFailures = 0;
 }
 
 function startMissedMessageRecovery(generation: number, client: WebJsClient) {
+    if (
+        missedMessageRecoveryTimer &&
+        missedMessageRecoveryGeneration === generation &&
+        clientRef === client
+    ) {
+        return;
+    }
+
     stopMissedMessageRecovery();
 
     if (!isMissedMessageRecoveryEnabled()) {
@@ -1207,14 +1358,17 @@ function startMissedMessageRecovery(generation: number, client: WebJsClient) {
     missedMessageRecoveryWatermarkMs = Date.now() - MISSED_MESSAGE_RECOVERY_STARTUP_GRACE_MS;
 
     const intervalMs = currentMissedMessageRecoveryIntervalMs();
+    missedMessageRecoveryGeneration = generation;
     missedMessageRecoveryTimer = setInterval(() => {
         void runMissedMessageRecovery(generation, client);
     }, intervalMs);
     missedMessageRecoveryTimer.unref?.();
 
-    setTimeout(() => {
+    missedMessageRecoveryStartupTimer = setTimeout(() => {
+        missedMessageRecoveryStartupTimer = null;
         void runMissedMessageRecovery(generation, client);
-    }, Math.min(15_000, intervalMs)).unref?.();
+    }, Math.min(15_000, intervalMs));
+    missedMessageRecoveryStartupTimer.unref?.();
 
     logWaQrInfo("Missed-message recovery started", {
         intervalMs,
@@ -1242,11 +1396,87 @@ export async function sendWhatsAppQrText(
         return toSendError("WA_PROVIDER is not qr_local");
     }
 
-    if (!clientRef) {
-        return toSendError("QR WhatsApp client is not connected yet");
+    const readinessError = getWhatsAppTrafficReadinessError();
+    if (readinessError) {
+        return toSendError(readinessError.message, readinessError.code);
     }
 
     return sendWhatsAppQrTextByJid(phoneToChatId(to), body);
+}
+
+export async function inspectRecentOutboundWhatsAppText(params: {
+    to: string;
+    marker: string;
+    sentAfter: Date;
+}) {
+    const readinessError = getWhatsAppTrafficReadinessError();
+    if (readinessError) {
+        return {
+            status: "unavailable" as const,
+            error: readinessError.message,
+        };
+    }
+
+    const activeClient = clientRef!;
+    if (!activeClient.searchMessages) {
+        return {
+            status: "unavailable" as const,
+            error: "WhatsApp message search is unavailable",
+        };
+    }
+
+    const chatId = phoneToChatId(params.to);
+    const minimumTimestamp = Math.floor(params.sentAfter.getTime() / 1000) - 60;
+
+    try {
+        let timeout: NodeJS.Timeout | null = null;
+        const messages = await Promise.race([
+            activeClient.searchMessages(params.marker, {
+                chatId,
+                limit: 20,
+            }),
+            new Promise<never>((_, reject) => {
+                timeout = setTimeout(
+                    () => reject(new Error("WA_OUTBOUND_RECONCILIATION_TIMEOUT")),
+                    15_000
+                );
+            }),
+        ]).finally(() => {
+            if (timeout) {
+                clearTimeout(timeout);
+            }
+        });
+        const match = messages.find(
+            (message) =>
+                message.fromMe === true &&
+                String(message.body || "").includes(params.marker) &&
+                Number(message.timestamp || 0) >= minimumTimestamp
+        );
+
+        if (!match) {
+            return { status: "not_found" as const };
+        }
+
+        const providerMessageId =
+            typeof match.id === "string"
+                ? match.id
+                : match.id?._serialized;
+        return {
+            status: "found" as const,
+            providerMessageId: providerMessageId || null,
+        };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        waQrLogger.error("Failed reconciling uncertain outbound WhatsApp message", {
+            to: params.to,
+            marker: params.marker,
+            error,
+        });
+        return {
+            status: "unavailable" as const,
+            error: message,
+        };
+    }
 }
 
 async function sendWhatsAppQrTextByJid(
@@ -1267,8 +1497,9 @@ export async function sendWhatsAppQrMedia(params: {
         return toSendError("WA_PROVIDER is not qr_local");
     }
 
-    if (!clientRef) {
-        return toSendError("QR WhatsApp client is not connected yet");
+    const readinessError = getWhatsAppTrafficReadinessError();
+    if (readinessError) {
+        return toSendError(readinessError.message, readinessError.code);
     }
 
     const caption = params.body?.trim() || undefined;
@@ -1297,9 +1528,12 @@ async function sendWhatsAppQrPayloadByJid(
         return toSendError("WA_PROVIDER is not qr_local");
     }
 
-    if (!clientRef) {
-        return toSendError("QR WhatsApp client is not connected yet");
+    const readinessError = getWhatsAppTrafficReadinessError();
+    if (readinessError) {
+        return toSendError(readinessError.message, readinessError.code);
     }
+
+    const activeClient = clientRef!;
 
     const chatId = normalizeChatId(jid);
     if (!chatId) {
@@ -1308,7 +1542,9 @@ async function sendWhatsAppQrPayloadByJid(
 
     try {
         if (typeof payload?.text === "string") {
-            const response = await clientRef.sendMessage(chatId, payload.text);
+            const response = await runWithWhatsAppSendTimeout(() =>
+                activeClient.sendMessage(chatId, payload.text)
+            );
             return toSendResult(response);
         }
 
@@ -1327,14 +1563,23 @@ async function sendWhatsAppQrPayloadByJid(
                 payload.fileName
             );
             const options = payload.caption ? { caption: String(payload.caption) } : undefined;
-            const response = await clientRef.sendMessage(chatId, media, options);
+            const response = await runWithWhatsAppSendTimeout(() =>
+                activeClient.sendMessage(chatId, media, options)
+            );
             return toSendResult(response);
         }
 
-        const response = await clientRef.sendMessage(chatId, payload);
+        const response = await runWithWhatsAppSendTimeout(() =>
+            activeClient.sendMessage(chatId, payload)
+        );
         return toSendResult(response);
     } catch (error) {
-        return toSendError(error instanceof Error ? error.message : "Unknown error");
+        const message = error instanceof Error ? error.message : "Unknown error";
+        if (message.startsWith("WA_SEND_TIMEOUT")) {
+            await recoverWhatsAppQrBridge("whatsapp_send_timeout", error);
+            return toSendError(message, "WA_SEND_TIMEOUT");
+        }
+        return toSendError(message, "WA_SEND_FAILED");
     }
 }
 
@@ -1555,16 +1800,66 @@ export async function startWhatsAppQrBridge() {
         });
 
         client.on("ready", () => {
-            if (generation !== sessionGeneration) {
-                return;
-            }
+            void (async () => {
+                if (generation !== sessionGeneration) {
+                    return;
+                }
 
-            const activeWaNumber = resolveConnectedAccountPhone(client);
-            setActiveWhatsAppNumber(activeWaNumber);
-            updateRuntimeState({ activeWaNumber });
-            markConnectedState("READY");
-            waQrLogger.info("WhatsApp QR connected", { activeWaNumber: activeWaNumber || null });
-            startMissedMessageRecovery(generation, client);
+                const activeWaNumber = resolveConnectedAccountPhone(client);
+                const identity = validateWorkspaceWhatsAppIdentity({
+                    expectedNumber: currentExpectedWhatsAppNumber(),
+                    connectedNumber: activeWaNumber,
+                });
+
+                if (!identity.valid) {
+                    const message =
+                        identity.reason === "number_mismatch"
+                            ? `Nomor WhatsApp ${identity.connectedNumber || "-"} tidak cocok dengan workspace ${currentActiveClientSlug() || "-"}; expected ${identity.expectedNumber || "-"}.`
+                            : `Nomor WhatsApp aktif tidak dapat diverifikasi untuk workspace ${currentActiveClientSlug() || "-"}.`;
+                    waQrLogger.error("WhatsApp workspace identity rejected", {
+                        activeClientSlug: currentActiveClientSlug(),
+                        ...identity,
+                    });
+                    await recoverWhatsAppQrBridge(
+                        "workspace_identity_rejected",
+                        new Error(message),
+                        {
+                            reconnect: identity.reason !== "number_mismatch",
+                            status: "error",
+                        }
+                    );
+                    return;
+                }
+
+                setActiveWhatsAppNumber(activeWaNumber);
+                updateRuntimeState({ activeWaNumber });
+                markConnectedState("READY");
+                waQrLogger.info("WhatsApp QR connected", {
+                    activeWaNumber: activeWaNumber || null,
+                    activeClientSlug: currentActiveClientSlug(),
+                    expectedWaNumber: identity.expectedNumber,
+                });
+                startMissedMessageRecovery(generation, client);
+
+                const activeClientSlug = currentActiveClientSlug();
+                const activeClient = activeClientSlug
+                    ? await getClientBySlug(activeClientSlug)
+                    : null;
+                if (activeClient?.id) {
+                    const { resumePausedDistributions } = await import("./distribution.service");
+                    const resumed = await resumePausedDistributions(activeClient.id);
+                    if (resumed > 0) {
+                        waQrLogger.info("Paused distributions resumed", {
+                            activeClientSlug,
+                            clientId: activeClient.id,
+                            resumed,
+                        });
+                    }
+                }
+            })().catch((error) => {
+                waQrLogger.error("Failed finalizing WhatsApp QR ready state", { error });
+                void recoverWhatsAppQrBridge("ready_state_failure", error);
+            });
         });
 
         client.on("auth_failure", (message: string) => {

@@ -247,6 +247,17 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
                     leadId: targetLeadId,
                     body: "Lead ini sudah di-claim oleh agent lain, distribusi sudah ditutup.",
                 });
+            } else if (
+                isAckMessage &&
+                latestAttempt?.status === "closed" &&
+                latestAttempt.closeReason === "send_uncertain_transient"
+            ) {
+                await sendSalesSystemReply({
+                    salesId: salesSender.id,
+                    salesPhone: salesSender.phone,
+                    leadId: targetLeadId,
+                    body: "Koneksi WhatsApp sempat tidak stabil. Offer ini sedang dipulihkan dan tidak dialihkan ke sales lain.",
+                });
             }
 
             return {
