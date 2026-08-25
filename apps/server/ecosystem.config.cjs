@@ -78,7 +78,7 @@ module.exports = {
                 ...SHARED_BASE.env,
                 PORT: 3002,
                 WA_ACTIVE_CLIENT_SLUG: "widari-village",
-                WA_EXPECTED_NUMBER: "+6282320662323",
+                WA_EXPECTED_NUMBER: "+628131006989",
                 WA_QR_AUTH_PATH: ".wa-qr-auth-wv",
                 WA_WEBJS_CLIENT_ID: "wa-wv",
             },
