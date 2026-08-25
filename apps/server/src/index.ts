@@ -16,6 +16,7 @@ import whatsappAdminRoutes from "./routes/whatsapp-admin.routes";
 import { startDistributionWorker } from "./worker/distribution.worker";
 import { startAppointmentReminderWorker } from "./worker/appointment-reminder.worker";
 import { startDailyTaskWorker } from "./worker/daily-task.worker";
+import { startWhatsAppOutboxWorker } from "./worker/whatsapp-outbox.worker";
 import { startWhatsAppQrBridge } from "./services/whatsapp-qr.service";
 import { startWhatsAppOutboundWorker } from "./services/whatsapp-provider.service";
 import {
@@ -82,6 +83,7 @@ app.listen(PORT, () => {
     startAppointmentReminderWorker();
     startDailyTaskWorker();
     startWhatsAppOutboundWorker();
+    startWhatsAppOutboxWorker();
     void startWhatsAppQrBridge();
     registerGlobalProcessErrorHandlers();
 });

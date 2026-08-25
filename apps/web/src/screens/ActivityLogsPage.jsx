@@ -24,6 +24,12 @@ function formatSourceLabel(value) {
         .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function sourceBadgeClass(item) {
+    if (item.source !== 'whatsapp_alert') return 'badge-purple';
+    if (item.status === 'resolved') return 'al-badge-resolved';
+    return item.severity === 'warning' ? 'al-badge-warning' : 'al-badge-critical';
+}
+
 export default function ActivityLogsPage() {
     const { user } = useAuth();
     const [logs, setLogs] = useState([]);
@@ -132,7 +138,7 @@ export default function ActivityLogsPage() {
                     {filtered.map((item) => (
                         <div key={item.id} className="al-item">
                             <div className="al-item-head">
-                                <span className="badge badge-purple">{formatSourceLabel(item.source)}</span>
+                                <span className={`badge ${sourceBadgeClass(item)}`}>{formatSourceLabel(item.source)}</span>
                                 <span className="al-item-time">{formatLogTime(item.timestamp)}</span>
                             </div>
                             <div className="al-item-meta">
@@ -150,6 +156,12 @@ export default function ActivityLogsPage() {
                                     <span>
                                         <span className="al-item-meta-key">Sales </span>
                                         <span className="al-item-meta-value">{item.salesName}</span>
+                                    </span>
+                                ) : null}
+                                {item.source === 'whatsapp_alert' ? (
+                                    <span>
+                                        <span className="al-item-meta-key">Status </span>
+                                        <span className="al-item-meta-value">{item.status === 'resolved' ? 'Pulih' : 'Perlu dicek'}</span>
                                     </span>
                                 ) : null}
                             </div>

@@ -12,6 +12,11 @@ import {
     shouldDisableMissedMessageRecovery,
     validateWorkspaceWhatsAppIdentity,
 } from "../utils/whatsapp-runtime";
+import {
+    recordWhatsAppAlert,
+    resolveWhatsAppAlert,
+    resolveWhatsAppAlertsForClient,
+} from "./whatsapp-alert.service";
 
 type WebJsClient = {
     initialize: () => Promise<void>;
@@ -479,6 +484,19 @@ export async function recoverWhatsAppQrBridge(
         error,
         reconnect: shouldReconnect,
         activeClientSlug: currentActiveClientSlug(),
+    });
+    void recordWhatsAppAlert({
+        eventCode: "bridge_recovery",
+        component: "wa:qr",
+        message: "Sesi WhatsApp tidak sehat dan sedang dipulihkan otomatis.",
+        severity: "warning",
+        workspaceSlug: currentActiveClientSlug(),
+        dedupeKey: source,
+        metadata: {
+            source,
+            error: message,
+            reconnect: shouldReconnect,
+        },
     });
 
     bridgeRecoveryPromise = (async () => {
@@ -1085,6 +1103,18 @@ async function handleIncomingMessage(message: any) {
     const trafficReadinessError = getWhatsAppTrafficReadinessError();
     if (trafficReadinessError) {
         logIgnoredWhatsAppEvent(message, trafficReadinessError.code);
+        await recordWhatsAppAlert({
+            eventCode: "inbound_ignored_session_not_ready",
+            component: "wa:qr",
+            message: "Event pesan masuk diterima saat sesi WhatsApp belum siap dan menunggu recovery.",
+            severity: "error",
+            workspaceSlug: currentActiveClientSlug(),
+            dedupeKey: getInboundProviderMessageId(message) || trafficReadinessError.code,
+            metadata: {
+                readinessCode: trafficReadinessError.code,
+                error: trafficReadinessError.message,
+            },
+        });
         return;
     }
 
@@ -1113,6 +1143,14 @@ async function handleIncomingMessage(message: any) {
     const activeClientSlug = currentActiveClientSlug();
     if (!activeClientSlug) {
         logWaQrError("Inbound message ignored", { reason: "missing_active_client_slug" });
+        await recordWhatsAppAlert({
+            eventCode: "inbound_workspace_missing",
+            component: "wa:qr",
+            message: "Pesan WhatsApp masuk tidak dapat diproses karena workspace aktif belum diset.",
+            severity: "critical",
+            dedupeKey: providerMessageId || fromWa,
+            metadata: { fromWa, providerMessageId },
+        });
         return;
     }
 
@@ -1123,6 +1161,15 @@ async function handleIncomingMessage(message: any) {
         logWaQrError("Inbound message ignored", {
             reason: "active_client_not_found",
             activeClientSlug,
+        });
+        await recordWhatsAppAlert({
+            eventCode: "inbound_workspace_not_found",
+            component: "wa:qr",
+            message: "Pesan WhatsApp masuk tidak dapat diproses karena workspace tidak ditemukan.",
+            severity: "critical",
+            workspaceSlug: activeClientSlug,
+            dedupeKey: providerMessageId || fromWa,
+            metadata: { fromWa, providerMessageId },
         });
         return;
     }
@@ -1157,6 +1204,19 @@ async function handleIncomingMessage(message: any) {
                 jid: inboundReplyJid || phoneToChatId(fromWa),
                 error: replyResult.error || "unknown error",
             });
+            await recordWhatsAppAlert({
+                eventCode: "customer_auto_reply_failed",
+                component: "wa:qr",
+                message: "Auto-reply ke calon customer gagal dikirim.",
+                severity: "error",
+                clientId: activeClientId,
+                leadId: result.lead?.id || null,
+                dedupeKey: providerMessageId || fromWa,
+                metadata: {
+                    fromWa,
+                    error: replyResult.error || "unknown error",
+                },
+            });
         } else if (isQrDebugEnabled()) {
             logWaQrInfo("Auto-reply sent", {
                 fromWa,
@@ -1187,6 +1247,18 @@ async function handleIncomingMessageEvent(eventName: string, generation: number,
         logWaQrError("Failed handling inbound WhatsApp message", {
             eventName,
             error,
+        });
+        await recordWhatsAppAlert({
+            eventCode: "inbound_handler_failed",
+            component: "wa:qr",
+            message: "Pesan WhatsApp masuk gagal diproses oleh sistem.",
+            severity: "critical",
+            workspaceSlug: currentActiveClientSlug(),
+            dedupeKey: getInboundProviderMessageId(message) || eventName,
+            metadata: {
+                eventName,
+                error: readErrorMessage(error),
+            },
         });
     }
 }
@@ -1304,6 +1376,16 @@ async function runMissedMessageRecovery(generation: number, client: WebJsClient)
         }
 
         consecutiveMissedMessageRecoveryFailures = 0;
+        await resolveWhatsAppAlert({
+            eventCode: "missed_message_recovery_failed",
+            workspaceSlug: currentActiveClientSlug(),
+            dedupeKey: "scanner",
+        });
+        await resolveWhatsAppAlert({
+            eventCode: "missed_message_recovery_disabled",
+            workspaceSlug: currentActiveClientSlug(),
+            dedupeKey: "scanner",
+        });
         missedMessageRecoveryWatermarkMs = Math.max(missedMessageRecoveryWatermarkMs, scanStartedAt);
         if (recoveredMessages > 0 || isQrDebugEnabled()) {
             logWaQrInfo("Missed-message recovery scan completed", {
@@ -1316,6 +1398,18 @@ async function runMissedMessageRecovery(generation: number, client: WebJsClient)
     } catch (error) {
         consecutiveMissedMessageRecoveryFailures += 1;
         logWaQrWarn("Missed-message recovery scan failed", { error });
+        await recordWhatsAppAlert({
+            eventCode: "missed_message_recovery_failed",
+            component: "wa:qr",
+            message: "Scanner pemulihan pesan WhatsApp gagal membaca recent chat.",
+            severity: "warning",
+            workspaceSlug: currentActiveClientSlug(),
+            dedupeKey: "scanner",
+            metadata: {
+                consecutiveFailures: consecutiveMissedMessageRecoveryFailures,
+                error: readErrorMessage(error),
+            },
+        });
         const failureThreshold = currentMissedRecoveryFailureThreshold();
         if (
             shouldDisableMissedMessageRecovery(
@@ -1330,6 +1424,18 @@ async function runMissedMessageRecovery(generation: number, client: WebJsClient)
                     failureThreshold,
                 }
             );
+            await recordWhatsAppAlert({
+                eventCode: "missed_message_recovery_disabled",
+                component: "wa:qr",
+                message: "Scanner pemulihan pesan dinonaktifkan; sesi utama tetap terhubung.",
+                severity: "error",
+                workspaceSlug: currentActiveClientSlug(),
+                dedupeKey: "scanner",
+                metadata: {
+                    consecutiveFailures: consecutiveMissedMessageRecoveryFailures,
+                    failureThreshold,
+                },
+            });
             stopMissedMessageRecovery();
         }
     } finally {
@@ -1368,6 +1474,14 @@ function startMissedMessageRecovery(generation: number, client: WebJsClient) {
 
     if (typeof client.getChats !== "function") {
         logWaQrWarn("Missed-message recovery disabled: getChats is unavailable");
+        void recordWhatsAppAlert({
+            eventCode: "missed_message_recovery_unavailable",
+            component: "wa:qr",
+            message: "Scanner pemulihan pesan tidak tersedia pada WhatsApp Web client.",
+            severity: "error",
+            workspaceSlug: currentActiveClientSlug(),
+            dedupeKey: "scanner",
+        });
         return;
     }
 
@@ -1836,6 +1950,15 @@ export async function startWhatsAppQrBridge() {
                         activeClientSlug: currentActiveClientSlug(),
                         ...identity,
                     });
+                    await recordWhatsAppAlert({
+                        eventCode: "workspace_identity_rejected",
+                        component: "wa:qr",
+                        message,
+                        severity: "critical",
+                        workspaceSlug: currentActiveClientSlug(),
+                        dedupeKey: "identity",
+                        metadata: identity,
+                    });
                     await recoverWhatsAppQrBridge(
                         "workspace_identity_rejected",
                         new Error(message),
@@ -1862,6 +1985,32 @@ export async function startWhatsAppQrBridge() {
                     ? await getClientBySlug(activeClientSlug)
                     : null;
                 if (activeClient?.id) {
+                    await resolveWhatsAppAlertsForClient(activeClient.id, [
+                        "bridge_recovery",
+                        "whatsapp_disconnected",
+                        "whatsapp_auth_failure",
+                        "workspace_identity_rejected",
+                    ]);
+                    const { processPendingWhatsAppOutbox } = await import(
+                        "./whatsapp-outbox.service"
+                    );
+                    try {
+                        await processPendingWhatsAppOutbox(activeClient.id);
+                    } catch (error) {
+                        logWaQrError("Failed flushing WhatsApp outbox after reconnect", {
+                            clientId: activeClient.id,
+                            error,
+                        });
+                        await recordWhatsAppAlert({
+                            eventCode: "outbox_reconnect_flush_failed",
+                            component: "wa:qr",
+                            message: "Antrean balasan tertunda gagal diproses segera setelah reconnect.",
+                            severity: "error",
+                            clientId: activeClient.id,
+                            dedupeKey: "ready-flush",
+                            metadata: { error: readErrorMessage(error) },
+                        });
+                    }
                     const { resumePausedDistributions } = await import("./distribution.service");
                     const resumed = await resumePausedDistributions(activeClient.id);
                     if (resumed > 0) {
@@ -1891,6 +2040,15 @@ export async function startWhatsAppQrBridge() {
                 lastError: message || "Authentication failure",
             });
             waQrLogger.error("WhatsApp QR authentication failed", { message });
+            void recordWhatsAppAlert({
+                eventCode: "whatsapp_auth_failure",
+                component: "wa:qr",
+                message: "Autentikasi sesi WhatsApp gagal.",
+                severity: "critical",
+                workspaceSlug: currentActiveClientSlug(),
+                dedupeKey: "session",
+                metadata: { error: message || "Authentication failure" },
+            });
         });
 
         client.on("disconnected", (reason: string) => {
@@ -1913,6 +2071,15 @@ export async function startWhatsAppQrBridge() {
                 pairingPhone: null,
             });
             waQrLogger.warn("WhatsApp QR disconnected", { reason: reason || "unknown" });
+            void recordWhatsAppAlert({
+                eventCode: "whatsapp_disconnected",
+                component: "wa:qr",
+                message: "Sesi WhatsApp terputus dan sedang dijadwalkan tersambung ulang.",
+                severity: "error",
+                workspaceSlug: currentActiveClientSlug(),
+                dedupeKey: "session",
+                metadata: { reason: reason || "unknown" },
+            });
 
             if (!reconnectEnabled || generation !== sessionGeneration) {
                 return;

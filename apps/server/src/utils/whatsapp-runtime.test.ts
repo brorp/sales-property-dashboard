@@ -2,8 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
     attemptCountsAsDeliveredOffer,
+    buildWhatsAppReplyMarker,
     buildWhatsAppQueueReliabilityConfig,
+    getWhatsAppOutboxRetryDelayMs,
     isTransientWhatsAppDeliveryFailure,
+    shouldReconcileWhatsAppOutbox,
     shouldDisableMissedMessageRecovery,
     validateWorkspaceWhatsAppIdentity,
 } from "./whatsapp-runtime";
@@ -21,6 +24,23 @@ test("workspace WhatsApp identity rejects a connected number from another worksp
             connectedNumber: "+6287810100090",
         }
     );
+});
+
+test("durable reply marker reuses the lead identifier and distinguishes reply type", () => {
+    assert.equal(buildWhatsAppReplyMarker("4z-j42l", "claim"), "[lid] 4ZJ42L [claim]");
+    assert.notEqual(
+        buildWhatsAppReplyMarker("4ZJ42L", "claim"),
+        buildWhatsAppReplyMarker("4ZJ42L", "late")
+    );
+});
+
+test("WhatsApp outbox retries back off and reconcile every attempt after the first", () => {
+    assert.equal(getWhatsAppOutboxRetryDelayMs(1), 15_000);
+    assert.equal(getWhatsAppOutboxRetryDelayMs(2), 30_000);
+    assert.equal(getWhatsAppOutboxRetryDelayMs(20), 300_000);
+    assert.equal(shouldReconcileWhatsAppOutbox(1, "[lid] ABC123 [claim]"), false);
+    assert.equal(shouldReconcileWhatsAppOutbox(2, "[lid] ABC123 [claim]"), true);
+    assert.equal(shouldReconcileWhatsAppOutbox(2, null), false);
 });
 
 test("workspace WhatsApp identity accepts equivalent normalized phone formats", () => {

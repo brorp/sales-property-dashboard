@@ -8,6 +8,7 @@ import {
     sendWhatsAppQrText,
 } from "./whatsapp-qr.service";
 import { buildWhatsAppQueueReliabilityConfig } from "../utils/whatsapp-runtime";
+import { recordWhatsAppAlert, resolveWhatsAppAlert } from "./whatsapp-alert.service";
 
 const waProviderLogger = createComponentLogger("wa:provider");
 const waQueueLogger = createComponentLogger("wa:queue");
@@ -567,11 +568,33 @@ export async function sendWhatsAppText(
     options?: { jobId?: string }
 ): Promise<SendResult> {
     if (!isQueueEnabled()) {
-        return sendWhatsAppTextDirect(to, body);
+        const result = await sendWhatsAppTextDirect(to, body);
+        if (!result.sent) {
+            void recordWhatsAppAlert({
+                eventCode: "outbound_text_failed",
+                component: "wa:provider",
+                message: "Pengiriman pesan WhatsApp gagal pada provider.",
+                severity: "error",
+                workspaceSlug: process.env.WA_ACTIVE_CLIENT_SLUG || null,
+                dedupeKey: `${to}:text`,
+                metadata: {
+                    to,
+                    errorCode: result.errorCode || null,
+                    error: result.error || "unknown",
+                },
+            });
+        } else {
+            void resolveWhatsAppAlert({
+                eventCode: "outbound_text_failed",
+                workspaceSlug: process.env.WA_ACTIVE_CLIENT_SLUG || null,
+                dedupeKey: `${to}:text`,
+            });
+        }
+        return result;
     }
 
     try {
-        return await enqueueOutboundJob(
+        const result = await enqueueOutboundJob(
             {
                 kind: "text",
                 to,
@@ -580,10 +603,46 @@ export async function sendWhatsAppText(
             },
             options
         );
+        if (!result.sent) {
+            void recordWhatsAppAlert({
+                eventCode: "outbound_text_failed",
+                component: "wa:provider",
+                message: "Pengiriman pesan WhatsApp gagal pada provider.",
+                severity: "error",
+                workspaceSlug: process.env.WA_ACTIVE_CLIENT_SLUG || null,
+                dedupeKey: `${to}:text`,
+                metadata: {
+                    to,
+                    errorCode: result.errorCode || null,
+                    error: result.error || "unknown",
+                },
+            });
+        } else {
+            void resolveWhatsAppAlert({
+                eventCode: "outbound_text_failed",
+                workspaceSlug: process.env.WA_ACTIVE_CLIENT_SLUG || null,
+                dedupeKey: `${to}:text`,
+            });
+            void resolveWhatsAppAlert({
+                eventCode: "outbound_queue_failed",
+                workspaceSlug: process.env.WA_ACTIVE_CLIENT_SLUG || null,
+                dedupeKey: `${to}:queue`,
+            });
+        }
+        return result;
     } catch (error) {
         const provider = currentProvider();
         const message = error instanceof Error ? error.message : "Unknown queue error";
         waQueueLogger.error("WhatsApp text queue send failed", { error, to });
+        void recordWhatsAppAlert({
+            eventCode: "outbound_queue_failed",
+            component: "wa:queue",
+            message: "Queue pengiriman pesan WhatsApp gagal menyelesaikan job.",
+            severity: "error",
+            workspaceSlug: process.env.WA_ACTIVE_CLIENT_SLUG || null,
+            dedupeKey: `${to}:queue`,
+            metadata: { to, error: message },
+        });
         return {
             sent: false,
             provider,

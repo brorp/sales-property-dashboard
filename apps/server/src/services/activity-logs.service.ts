@@ -10,6 +10,7 @@ import {
     leadStatusHistory,
     user,
     waMessage,
+    whatsappOperationalAlert,
 } from "../db/schema";
 
 type UnifiedActivityLog = {
@@ -22,6 +23,9 @@ type UnifiedActivityLog = {
     salesId: string | null;
     salesName: string | null;
     timestamp: Date;
+    severity?: string | null;
+    status?: string | null;
+    occurrenceCount?: number | null;
 };
 
 function sortDescByTime(a: UnifiedActivityLog, b: UnifiedActivityLog) {
@@ -110,7 +114,7 @@ export async function getUnifiedActivityLogs(
         accessibleLeadIds = rows.map((row) => row.id);
     }
 
-    const [activityRows, waRows, attemptRows, cycleRows, appointmentRows, statusRows, progressRows] =
+    const [activityRows, waRows, attemptRows, cycleRows, appointmentRows, statusRows, progressRows, alertRows] =
         await Promise.all([
             db
                 .select({
@@ -226,6 +230,33 @@ export async function getUnifiedActivityLogs(
                 .leftJoin(user, eq(leadProgressHistory.changedBy, user.id))
                 .orderBy(desc(leadProgressHistory.changedAt))
                 .limit(limit),
+            db
+                .select({
+                    id: whatsappOperationalAlert.id,
+                    eventCode: whatsappOperationalAlert.eventCode,
+                    message: whatsappOperationalAlert.message,
+                    severity: whatsappOperationalAlert.severity,
+                    status: whatsappOperationalAlert.status,
+                    occurrenceCount: whatsappOperationalAlert.occurrenceCount,
+                    timestamp: whatsappOperationalAlert.lastOccurredAt,
+                    leadId: whatsappOperationalAlert.leadId,
+                    leadName: lead.name,
+                    salesId: whatsappOperationalAlert.salesId,
+                    salesName: user.name,
+                })
+                .from(whatsappOperationalAlert)
+                .leftJoin(lead, eq(whatsappOperationalAlert.leadId, lead.id))
+                .leftJoin(user, eq(whatsappOperationalAlert.salesId, user.id))
+                .where(
+                    role === "root_admin"
+                        ? undefined
+                        : eq(
+                            whatsappOperationalAlert.clientId,
+                            scope?.clientId || "__no_client__"
+                        )
+                )
+                .orderBy(desc(whatsappOperationalAlert.lastOccurredAt))
+                .limit(limit),
         ]);
 
     const normalized: UnifiedActivityLog[] = [
@@ -309,10 +340,28 @@ export async function getUnifiedActivityLogs(
             salesName: row.salesName || null,
             timestamp: row.timestamp,
         })),
+        ...alertRows.map((row) => ({
+            id: `whatsapp_alert:${row.id}`,
+            source: "whatsapp_alert",
+            eventType: row.eventCode,
+            message: `${row.message}${row.occurrenceCount > 1 ? ` (terjadi ${row.occurrenceCount}x)` : ""}`,
+            leadId: row.leadId || null,
+            leadName: row.leadName || null,
+            salesId: row.salesId || null,
+            salesName: row.salesName || null,
+            timestamp: row.timestamp,
+            severity: row.severity,
+            status: row.status,
+            occurrenceCount: row.occurrenceCount,
+        })),
     ];
 
     const scoped = accessibleLeadIds
-        ? normalized.filter((row) => row.leadId && accessibleLeadIds.includes(row.leadId))
+        ? normalized.filter(
+            (row) =>
+                row.source === "whatsapp_alert" ||
+                (row.leadId && accessibleLeadIds.includes(row.leadId))
+        )
         : normalized;
 
     return scoped.sort(sortDescByTime).slice(0, limit);

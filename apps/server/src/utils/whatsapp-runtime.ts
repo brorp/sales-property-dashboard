@@ -112,3 +112,26 @@ export function shouldDisableMissedMessageRecovery(
 ) {
     return failureThreshold > 0 && consecutiveFailures >= failureThreshold;
 }
+
+export function buildWhatsAppReplyMarker(
+    leadCode: string,
+    replyType: "claim" | "late" | "closed" | "recovery"
+) {
+    const normalizedLeadCode = String(leadCode || "UNKNOWN")
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "");
+    return `[lid] ${normalizedLeadCode || "UNKNOWN"} [${replyType}]`;
+}
+
+export function getWhatsAppOutboxRetryDelayMs(attemptCount: number) {
+    const normalizedAttempt = Math.max(1, Math.floor(attemptCount || 1));
+    return Math.min(5 * 60_000, 15_000 * 2 ** Math.min(normalizedAttempt - 1, 5));
+}
+
+export function shouldReconcileWhatsAppOutbox(
+    attemptCount: number,
+    reconciliationMarker?: string | null
+) {
+    return attemptCount > 1 && Boolean(String(reconciliationMarker || "").trim());
+}

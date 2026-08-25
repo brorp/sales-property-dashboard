@@ -211,6 +211,21 @@ html[data-theme="dark"] .activity-page {
     gap: 8px;
 }
 
+.al-badge-warning {
+    background: #fff7d6;
+    color: #9a6700;
+}
+
+.al-badge-critical {
+    background: #ffe4e6;
+    color: #be123c;
+}
+
+.al-badge-resolved {
+    background: #dcfce7;
+    color: #15803d;
+}
+
 .al-item-time {
     font-size: 0.7rem;
     color: var(--text-muted);

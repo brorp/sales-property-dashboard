@@ -6,13 +6,18 @@ import { normalizePhone } from "../utils/phone";
 import { ensureActiveCycle, handleSalesAck } from "./distribution.service";
 import { getOperationalWindowState } from "./system-settings.service";
 import { getActiveWhatsAppNumber } from "./whatsapp-identity.service";
-import { sendWhatsAppText } from "./whatsapp-provider.service";
 import { createComponentLogger } from "../utils/logger";
+import { buildWhatsAppReplyMarker } from "../utils/whatsapp-runtime";
 import {
     buildLeadCode,
     ensureLeadCode,
     renderLeadMessageTemplate,
 } from "./lead-code.service";
+import {
+    enqueueWhatsAppOutbox,
+    processWhatsAppOutboxItem,
+} from "./whatsapp-outbox.service";
+import { recordWhatsAppAlert } from "./whatsapp-alert.service";
 
 const waIngestLogger = createComponentLogger("wa:ingest");
 
@@ -79,37 +84,64 @@ async function hasInboundClientMessage(params: {
 }
 
 async function sendSalesSystemReply(params: {
+    clientId: string | null;
+    inboundMessageId: string;
+    replyType: "late" | "closed" | "recovery";
     salesId: string;
     salesPhone: string | null;
     leadId: string | null;
     body: string;
 }) {
-    const now = new Date();
-    const fallbackProvider = (process.env.WA_PROVIDER || "dummy") as
-        | "dummy"
-        | "cloud_api"
-        | "qr_local";
-    const outboundResult = params.salesPhone
-        ? await sendWhatsAppText(params.salesPhone, params.body)
-        : {
-              sent: false,
-              provider: fallbackProvider,
-              error: "Sales phone is empty",
-          };
-
-    await db.insert(waMessage).values({
-        id: generateId(),
-        providerMessageId: outboundResult.providerMessageId || null,
-        fromWa: getActiveWhatsAppNumber(),
-        toWa: params.salesPhone || `sales:${params.salesId}`,
-        body: outboundResult.sent
-            ? params.body
-            : `${params.body}\n\n[send_error] ${outboundResult.error || "unknown"}`,
-        direction: "outbound_to_sales",
-        leadId: params.leadId,
-        salesId: params.salesId,
-        createdAt: now,
-    });
+    try {
+        if (!params.salesPhone) {
+            throw new Error("SALES_PHONE_NOT_FOUND");
+        }
+        const [leadContext] = params.leadId
+            ? await db
+                .select({ clientId: lead.clientId })
+                .from(lead)
+                .where(eq(lead.id, params.leadId))
+                .limit(1)
+            : [];
+        const clientId = params.clientId || leadContext?.clientId || null;
+        if (!clientId) {
+            throw new Error("WHATSAPP_REPLY_CLIENT_NOT_FOUND");
+        }
+        const leadCode = params.leadId ? await ensureLeadCode(params.leadId) : null;
+        const reconciliationMarker = leadCode
+            ? buildWhatsAppReplyMarker(leadCode, params.replyType)
+            : null;
+        const body = reconciliationMarker
+            ? `${reconciliationMarker}\n${params.body}`
+            : params.body;
+        const outbox = await enqueueWhatsAppOutbox({
+            clientId,
+            dedupeKey: `sales-system-reply:${params.inboundMessageId}:${params.replyType}`,
+            messageType: `sales_${params.replyType}_reply`,
+            recipientWa: params.salesPhone,
+            body,
+            reconciliationMarker,
+            leadId: params.leadId,
+            salesId: params.salesId,
+        });
+        return processWhatsAppOutboxItem(outbox.id, clientId);
+    } catch (error) {
+        await recordWhatsAppAlert({
+            eventCode: "sales_reply_enqueue_failed",
+            component: "wa:ingest",
+            message: "Balasan sistem untuk sales gagal dicatat ke antrean durable.",
+            severity: "critical",
+            clientId: params.clientId,
+            leadId: params.leadId,
+            salesId: params.salesId,
+            dedupeKey: params.inboundMessageId,
+            metadata: {
+                replyType: params.replyType,
+                error: error instanceof Error ? error.message : String(error),
+            },
+        });
+        return { processed: false as const };
+    }
 }
 
 export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
@@ -224,6 +256,9 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
                 latestAttempt.closeReason === "ack_timeout_5m"
             ) {
                 await sendSalesSystemReply({
+                    clientId: latestAttempt.clientId,
+                    inboundMessageId: message.id,
+                    replyType: "late",
                     salesId: salesSender.id,
                     salesPhone: salesSender.phone,
                     leadId: targetLeadId,
@@ -231,6 +266,9 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
                 });
             } else if (isAckMessage && latestAttempt?.status === "accepted") {
                 await sendSalesSystemReply({
+                    clientId: latestAttempt.clientId,
+                    inboundMessageId: message.id,
+                    replyType: "closed",
                     salesId: salesSender.id,
                     salesPhone: salesSender.phone,
                     leadId: targetLeadId,
@@ -242,6 +280,9 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
                 latestAttempt.closeReason === "accepted_by_other"
             ) {
                 await sendSalesSystemReply({
+                    clientId: latestAttempt.clientId,
+                    inboundMessageId: message.id,
+                    replyType: "closed",
                     salesId: salesSender.id,
                     salesPhone: salesSender.phone,
                     leadId: targetLeadId,
@@ -253,6 +294,9 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
                 latestAttempt.closeReason === "send_uncertain_transient"
             ) {
                 await sendSalesSystemReply({
+                    clientId: latestAttempt.clientId,
+                    inboundMessageId: message.id,
+                    replyType: "recovery",
                     salesId: salesSender.id,
                     salesPhone: salesSender.phone,
                     leadId: targetLeadId,
@@ -275,16 +319,17 @@ export async function ingestIncomingMessage(payload: IncomingWhatsAppPayload) {
         );
 
         if (ackResult.accepted) {
-            await sendSalesSystemReply({
-                salesId: salesSender.id,
-                salesPhone: salesSender.phone,
-                leadId: targetLeadId,
-                body:
-                    ackResult.claimLeadMessage ||
-                    "OK diterima. Lead berhasil di-assign ke dashboard Anda.",
-            });
+            if (ackResult.claimReplyOutboxId) {
+                await processWhatsAppOutboxItem(
+                    ackResult.claimReplyOutboxId,
+                    latestAttempt.clientId
+                );
+            }
         } else if (ackResult.reason === "late_timeout") {
             await sendSalesSystemReply({
+                clientId: latestAttempt.clientId,
+                inboundMessageId: message.id,
+                replyType: "late",
                 salesId: salesSender.id,
                 salesPhone: salesSender.phone,
                 leadId: targetLeadId,

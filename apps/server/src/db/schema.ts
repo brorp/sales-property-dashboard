@@ -651,6 +651,80 @@ export const waMessage = pgTable(
     })
 );
 
+export const whatsappOutbox = pgTable(
+    "whatsapp_outbox",
+    {
+        id: text("id").primaryKey(),
+        clientId: text("client_id")
+            .notNull()
+            .references(() => client.id, { onDelete: "cascade" }),
+        dedupeKey: text("dedupe_key").notNull(),
+        messageType: text("message_type").notNull(),
+        recipientWa: text("recipient_wa").notNull(),
+        body: text("body").notNull(),
+        reconciliationMarker: text("reconciliation_marker"),
+        status: text("status").notNull().default("pending"),
+        attemptCount: integer("attempt_count").notNull().default(0),
+        maxAttempts: integer("max_attempts").notNull().default(288),
+        availableAt: timestamp("available_at").notNull().defaultNow(),
+        processingStartedAt: timestamp("processing_started_at"),
+        lastAttemptAt: timestamp("last_attempt_at"),
+        sentAt: timestamp("sent_at"),
+        providerMessageId: text("provider_message_id"),
+        lastError: text("last_error"),
+        leadId: text("lead_id").references(() => lead.id, { onDelete: "set null" }),
+        salesId: text("sales_id").references(() => user.id, { onDelete: "set null" }),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        dedupeUnique: uniqueIndex("whatsapp_outbox_dedupe_key_unique").on(table.dedupeKey),
+        clientStatusAvailableIdx: index("whatsapp_outbox_client_status_available_idx").on(
+            table.clientId,
+            table.status,
+            table.availableAt
+        ),
+        leadIdx: index("whatsapp_outbox_lead_id_idx").on(table.leadId),
+        salesIdx: index("whatsapp_outbox_sales_id_idx").on(table.salesId),
+    })
+);
+
+export const whatsappOperationalAlert = pgTable(
+    "whatsapp_operational_alert",
+    {
+        id: text("id").primaryKey(),
+        fingerprint: text("fingerprint").notNull(),
+        clientId: text("client_id").references(() => client.id, { onDelete: "cascade" }),
+        workspaceSlug: text("workspace_slug"),
+        severity: text("severity").notNull().default("error"),
+        component: text("component").notNull(),
+        eventCode: text("event_code").notNull(),
+        message: text("message").notNull(),
+        status: text("status").notNull().default("open"),
+        occurrenceCount: integer("occurrence_count").notNull().default(1),
+        leadId: text("lead_id").references(() => lead.id, { onDelete: "set null" }),
+        salesId: text("sales_id").references(() => user.id, { onDelete: "set null" }),
+        metadata: text("metadata"),
+        firstOccurredAt: timestamp("first_occurred_at").notNull().defaultNow(),
+        lastOccurredAt: timestamp("last_occurred_at").notNull().defaultNow(),
+        resolvedAt: timestamp("resolved_at"),
+        createdAt: timestamp("created_at").notNull().defaultNow(),
+        updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    },
+    (table) => ({
+        fingerprintUnique: uniqueIndex("whatsapp_operational_alert_fingerprint_unique").on(
+            table.fingerprint
+        ),
+        clientStatusIdx: index("whatsapp_operational_alert_client_status_idx").on(
+            table.clientId,
+            table.status,
+            table.lastOccurredAt
+        ),
+        leadIdx: index("whatsapp_operational_alert_lead_id_idx").on(table.leadId),
+        salesIdx: index("whatsapp_operational_alert_sales_id_idx").on(table.salesId),
+    })
+);
+
 export const leadStatusHistory = pgTable(
     "lead_status_history",
     {

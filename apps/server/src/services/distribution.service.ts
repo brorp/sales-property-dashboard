@@ -20,8 +20,11 @@ import { sendToUser, sendToUsers } from "./push-notification.service";
 import { ensureLeadCode } from "./lead-code.service";
 import {
     attemptCountsAsDeliveredOffer,
+    buildWhatsAppReplyMarker,
     isTransientWhatsAppDeliveryFailure,
 } from "../utils/whatsapp-runtime";
+import { enqueueWhatsAppOutbox } from "./whatsapp-outbox.service";
+import { recordWhatsAppAlert } from "./whatsapp-alert.service";
 
 type DbExecutor = typeof db;
 
@@ -54,10 +57,13 @@ function buildClaimOfferMessage(params: {
 }
 
 function buildClaimSuccessLeadMessage(params: {
+    leadCode: string;
     leadName: string | null | undefined;
     leadPhone: string | null | undefined;
 }) {
+    const marker = buildWhatsAppReplyMarker(params.leadCode, "claim");
     return [
+        marker,
         "Claim berhasil.",
         `Nama: ${params.leadName || "-"}`,
         `WA: ${params.leadPhone || "-"}`,
@@ -388,6 +394,25 @@ async function assignNextQueue(
         const transientDeliveryFailure =
             isTransientWhatsAppDeliveryFailure(outboundResult.errorCode) ||
             isTransientWhatsAppDeliveryFailure(outboundResult.error);
+        await recordWhatsAppAlert({
+            eventCode: "distribution_offer_failed",
+            component: "wa:distribution",
+            message: transientDeliveryFailure
+                ? "Offer distribusi tertunda karena koneksi WhatsApp tidak dapat dikonfirmasi."
+                : "Offer distribusi gagal dikirim ke sales.",
+            severity: transientDeliveryFailure ? "warning" : "error",
+            clientId,
+            leadId,
+            salesId: next.salesId,
+            dedupeKey: attempt.id,
+            metadata: {
+                attemptId: attempt.id,
+                salesName: next.salesName,
+                errorCode: outboundResult.errorCode || null,
+                error: outboundResult.error || "unknown error",
+                transient: transientDeliveryFailure,
+            },
+        });
         await executor
             .update(distributionAttempt)
             .set({
@@ -707,10 +732,11 @@ export async function handleSalesAck(
 
     const now = new Date();
 
-    await db.transaction(async (tx) => {
+    const claimResult = await db.transaction(async (tx) => {
         const [leadRow] = await tx
             .select({
                 clientId: lead.clientId,
+                leadCode: lead.leadCode,
                 name: lead.name,
                 phone: lead.phone,
             })
@@ -721,6 +747,25 @@ export async function handleSalesAck(
         if (!leadRow?.clientId) {
             throw new Error("LEAD_CLIENT_NOT_FOUND");
         }
+
+        const [salesRow] = await tx
+            .select({ phone: user.phone })
+            .from(user)
+            .where(eq(user.id, salesId))
+            .limit(1);
+        if (!salesRow?.phone) {
+            throw new Error("SALES_PHONE_NOT_FOUND");
+        }
+
+        const leadCode =
+            leadRow.leadCode ||
+            (await ensureLeadCode(leadId, tx as unknown as DbExecutor));
+        const reconciliationMarker = buildWhatsAppReplyMarker(leadCode, "claim");
+        const claimLeadMessage = buildClaimSuccessLeadMessage({
+            leadCode,
+            leadName: leadRow.name,
+            leadPhone: leadRow.phone,
+        });
 
         await tx
             .update(distributionAttempt)
@@ -761,6 +806,20 @@ export async function handleSalesAck(
             assignedAt: now,
             executor: tx as unknown as DbExecutor,
         });
+
+        const claimReply = await enqueueWhatsAppOutbox(
+            {
+                clientId: leadRow.clientId,
+                dedupeKey: `sales-claim-success:${waitingAttempt.id}`,
+                messageType: "sales_claim_success",
+                recipientWa: salesRow.phone,
+                body: claimLeadMessage,
+                reconciliationMarker,
+                leadId,
+                salesId,
+            },
+            tx as unknown as DbExecutor
+        );
 
         void sendToUser(salesId, {
             title: "Lead Baru Masuk",
@@ -819,24 +878,18 @@ export async function handleSalesAck(
             "note",
             `Lead di-claim sales ${salesId} dengan balasan OK.`
         );
-    });
 
-    const [leadInfo] = await db
-        .select({
-            name: lead.name,
-            phone: lead.phone,
-        })
-        .from(lead)
-        .where(eq(lead.id, leadId))
-        .limit(1);
+        return {
+            claimLeadMessage,
+            claimReplyOutboxId: claimReply.id,
+        };
+    });
 
     return {
         accepted: true,
         reason: "accepted" as const,
-        claimLeadMessage: buildClaimSuccessLeadMessage({
-            leadName: leadInfo?.name,
-            leadPhone: leadInfo?.phone,
-        }),
+        claimLeadMessage: claimResult.claimLeadMessage,
+        claimReplyOutboxId: claimResult.claimReplyOutboxId,
     };
 }
 
