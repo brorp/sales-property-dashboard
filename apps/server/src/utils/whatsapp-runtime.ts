@@ -105,3 +105,10 @@ export function attemptCountsAsDeliveredOffer(attempt: {
         attempt.closeReason === "send_uncertain_transient"
     );
 }
+
+export function shouldDisableMissedMessageRecovery(
+    consecutiveFailures: number,
+    failureThreshold: number
+) {
+    return failureThreshold > 0 && consecutiveFailures >= failureThreshold;
+}

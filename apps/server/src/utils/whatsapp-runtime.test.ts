@@ -4,6 +4,7 @@ import {
     attemptCountsAsDeliveredOffer,
     buildWhatsAppQueueReliabilityConfig,
     isTransientWhatsAppDeliveryFailure,
+    shouldDisableMissedMessageRecovery,
     validateWorkspaceWhatsAppIdentity,
 } from "./whatsapp-runtime";
 
@@ -82,4 +83,10 @@ test("temporary WhatsApp failures pause distribution and remain retryable", () =
         }),
         true
     );
+});
+
+test("missed-message scanner disables itself without treating scanner failures as session failures", () => {
+    assert.equal(shouldDisableMissedMessageRecovery(2, 3), false);
+    assert.equal(shouldDisableMissedMessageRecovery(3, 3), true);
+    assert.equal(shouldDisableMissedMessageRecovery(4, 3), true);
 });

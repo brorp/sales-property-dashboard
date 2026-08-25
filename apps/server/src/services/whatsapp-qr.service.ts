@@ -8,7 +8,10 @@ import {
 } from "./whatsapp-identity.service";
 import { normalizePhone } from "../utils/phone";
 import { createComponentLogger, markErrorAsHandled } from "../utils/logger";
-import { validateWorkspaceWhatsAppIdentity } from "../utils/whatsapp-runtime";
+import {
+    shouldDisableMissedMessageRecovery,
+    validateWorkspaceWhatsAppIdentity,
+} from "../utils/whatsapp-runtime";
 
 type WebJsClient = {
     initialize: () => Promise<void>;
@@ -182,8 +185,11 @@ function currentWebJsSendTimeoutMs() {
     });
 }
 
-function currentRecoveryFailureRestartThreshold() {
-    return envNumber("WA_RECOVERY_FAILURE_RESTART_THRESHOLD", 3, {
+function currentMissedRecoveryFailureThreshold() {
+    const legacyThreshold = Number(
+        process.env.WA_RECOVERY_FAILURE_RESTART_THRESHOLD || 3
+    );
+    return envNumber("WA_MISSED_RECOVERY_FAILURE_THRESHOLD", legacyThreshold, {
         min: 1,
         max: 20,
     });
@@ -1310,11 +1316,21 @@ async function runMissedMessageRecovery(generation: number, client: WebJsClient)
     } catch (error) {
         consecutiveMissedMessageRecoveryFailures += 1;
         logWaQrWarn("Missed-message recovery scan failed", { error });
+        const failureThreshold = currentMissedRecoveryFailureThreshold();
         if (
-            consecutiveMissedMessageRecoveryFailures >=
-            currentRecoveryFailureRestartThreshold()
+            shouldDisableMissedMessageRecovery(
+                consecutiveMissedMessageRecoveryFailures,
+                failureThreshold
+            )
         ) {
-            void recoverWhatsAppQrBridge("missed_message_recovery_failures", error);
+            logWaQrWarn(
+                "Missed-message recovery disabled after repeated failures; primary WhatsApp session remains connected",
+                {
+                    consecutiveFailures: consecutiveMissedMessageRecoveryFailures,
+                    failureThreshold,
+                }
+            );
+            stopMissedMessageRecovery();
         }
     } finally {
         missedMessageRecoveryRunning = false;
