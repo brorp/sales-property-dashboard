@@ -113,6 +113,33 @@ export function shouldDisableMissedMessageRecovery(
     return failureThreshold > 0 && consecutiveFailures >= failureThreshold;
 }
 
+export function isHealthyWhatsAppClientState(state?: string | null) {
+    return String(state || "").trim().toUpperCase() === "CONNECTED";
+}
+
+export function shouldRecoverWhatsAppHealth(
+    consecutiveFailures: number,
+    failureThreshold: number
+) {
+    return failureThreshold > 0 && consecutiveFailures >= failureThreshold;
+}
+
+export function isWhatsAppBrowserProcessForProfile(
+    commandLine: string,
+    profilePath: string
+) {
+    const expectedArgument = `--user-data-dir=${profilePath}`;
+    const argumentsList = String(commandLine || "")
+        .split("\0")
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+    return (
+        argumentsList.includes(expectedArgument) &&
+        !argumentsList.some((value) => value.startsWith("--type="))
+    );
+}
+
 export function buildWhatsAppReplyMarker(
     leadCode: string,
     replyType: "claim" | "late" | "closed" | "recovery"

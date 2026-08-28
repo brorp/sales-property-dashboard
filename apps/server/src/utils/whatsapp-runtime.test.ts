@@ -5,7 +5,10 @@ import {
     buildWhatsAppReplyMarker,
     buildWhatsAppQueueReliabilityConfig,
     getWhatsAppOutboxRetryDelayMs,
+    isHealthyWhatsAppClientState,
+    isWhatsAppBrowserProcessForProfile,
     isTransientWhatsAppDeliveryFailure,
+    shouldRecoverWhatsAppHealth,
     shouldReconcileWhatsAppOutbox,
     shouldDisableMissedMessageRecovery,
     validateWorkspaceWhatsAppIdentity,
@@ -109,4 +112,38 @@ test("missed-message scanner disables itself without treating scanner failures a
     assert.equal(shouldDisableMissedMessageRecovery(2, 3), false);
     assert.equal(shouldDisableMissedMessageRecovery(3, 3), true);
     assert.equal(shouldDisableMissedMessageRecovery(4, 3), true);
+});
+
+test("WhatsApp health requires a connected client state before traffic remains enabled", () => {
+    assert.equal(isHealthyWhatsAppClientState("CONNECTED"), true);
+    assert.equal(isHealthyWhatsAppClientState(" connected "), true);
+    assert.equal(isHealthyWhatsAppClientState("OPENING"), false);
+    assert.equal(isHealthyWhatsAppClientState(null), false);
+    assert.equal(shouldRecoverWhatsAppHealth(1, 2), false);
+    assert.equal(shouldRecoverWhatsAppHealth(2, 2), true);
+});
+
+test("stale browser cleanup targets only the exact root WhatsApp profile process", () => {
+    const profilePath = "/srv/app/.wa-qr-auth-wv/session-wa-wv";
+    assert.equal(
+        isWhatsAppBrowserProcessForProfile(
+            `/usr/bin/google-chrome\0--headless\0--user-data-dir=${profilePath}\0`,
+            profilePath
+        ),
+        true
+    );
+    assert.equal(
+        isWhatsAppBrowserProcessForProfile(
+            `/usr/bin/google-chrome\0--type=renderer\0--user-data-dir=${profilePath}\0`,
+            profilePath
+        ),
+        false
+    );
+    assert.equal(
+        isWhatsAppBrowserProcessForProfile(
+            "/usr/bin/google-chrome\0--user-data-dir=/srv/app/.wa-qr-auth-wr/session-wa-wr\0",
+            profilePath
+        ),
+        false
+    );
 });

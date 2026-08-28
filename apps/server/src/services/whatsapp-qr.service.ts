@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
-import { rm } from "node:fs/promises";
+import { readFile, readdir, rm } from "node:fs/promises";
+import { resolve } from "node:path";
 import { ingestIncomingMessage } from "./whatsapp.service";
 import { getClientBySlug } from "./clients.service";
 import {
@@ -9,7 +10,10 @@ import {
 import { normalizePhone } from "../utils/phone";
 import { createComponentLogger, markErrorAsHandled } from "../utils/logger";
 import {
+    isHealthyWhatsAppClientState,
+    isWhatsAppBrowserProcessForProfile,
     shouldDisableMissedMessageRecovery,
+    shouldRecoverWhatsAppHealth,
     validateWorkspaceWhatsAppIdentity,
 } from "../utils/whatsapp-runtime";
 import {
@@ -21,6 +25,15 @@ import {
 type WebJsClient = {
     initialize: () => Promise<void>;
     destroy: () => Promise<void>;
+    getState?: () => Promise<string | null>;
+    pupBrowser?: {
+        close?: () => Promise<void>;
+        isConnected?: () => boolean;
+        process?: () => { pid?: number } | null;
+    };
+    pupPage?: {
+        isClosed?: () => boolean;
+    };
     sendMessage: (chatId: string, content: any, options?: any) => Promise<any>;
     searchMessages?: (
         query: string,
@@ -101,6 +114,9 @@ let missedMessageRecoveryRunning = false;
 let consecutiveMissedMessageRecoveryFailures = 0;
 let missedMessageRecoveryWatermarkMs = Date.now();
 let bridgeRecoveryPromise: Promise<void> | null = null;
+let healthCheckTimer: NodeJS.Timeout | null = null;
+let healthCheckRunning = false;
+let consecutiveHealthCheckFailures = 0;
 const RECENT_INBOUND_EVENT_WINDOW_MS = 5 * 60 * 1000;
 const MISSED_MESSAGE_RECOVERY_STARTUP_GRACE_MS = 5 * 60 * 1000;
 const MISSED_MESSAGE_RECOVERY_SCAN_OVERLAP_MS = 2 * 60 * 1000;
@@ -187,6 +203,34 @@ function currentWebJsSendTimeoutMs() {
     return envNumber("WA_WEBJS_SEND_TIMEOUT_MS", 60_000, {
         min: 15_000,
         max: 180_000,
+    });
+}
+
+function currentWebJsHealthCheckIntervalMs() {
+    return envNumber("WA_QR_HEALTHCHECK_MS", 30_000, {
+        min: 15_000,
+        max: 5 * 60 * 1000,
+    });
+}
+
+function currentWebJsHealthCheckTimeoutMs() {
+    return envNumber("WA_QR_HEALTHCHECK_TIMEOUT_MS", 10_000, {
+        min: 3_000,
+        max: 30_000,
+    });
+}
+
+function currentWebJsHealthCheckFailureThreshold() {
+    return Math.floor(envNumber("WA_QR_HEALTHCHECK_FAILURE_THRESHOLD", 2, {
+        min: 1,
+        max: 10,
+    }));
+}
+
+function currentWebJsDestroyTimeoutMs() {
+    return envNumber("WA_QR_CLIENT_DESTROY_TIMEOUT_MS", 10_000, {
+        min: 3_000,
+        max: 30_000,
     });
 }
 
@@ -441,9 +485,324 @@ function isTransientWebJsRuntimeError(error: unknown) {
     );
 }
 
+function currentWebJsProfilePath() {
+    return resolve(currentAuthPath(), `session-${currentWebJsClientId()}`);
+}
+
+async function runWithTimeout<T>(
+    task: () => Promise<T>,
+    timeoutMs: number,
+    timeoutCode: string
+) {
+    let timeout: NodeJS.Timeout | null = null;
+    try {
+        return await Promise.race([
+            task(),
+            new Promise<never>((_, reject) => {
+                timeout = setTimeout(() => reject(new Error(timeoutCode)), timeoutMs);
+            }),
+        ]);
+    } finally {
+        if (timeout) {
+            clearTimeout(timeout);
+        }
+    }
+}
+
+function isProcessAlive(pid: number) {
+    try {
+        process.kill(pid, 0);
+        return true;
+    } catch (error) {
+        return (error as NodeJS.ErrnoException).code === "EPERM";
+    }
+}
+
+async function waitForProcessExit(pid: number, timeoutMs: number) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        if (!isProcessAlive(pid)) {
+            return true;
+        }
+        await new Promise((resolvePromise) => setTimeout(resolvePromise, 100));
+    }
+    return !isProcessAlive(pid);
+}
+
+async function findWhatsAppBrowserRootPids() {
+    if (process.platform !== "linux") {
+        return [] as number[];
+    }
+
+    const profilePath = currentWebJsProfilePath();
+    let entries: string[] = [];
+    try {
+        entries = await readdir("/proc");
+    } catch (error) {
+        logWaQrWarn("Unable to inspect browser processes", { error });
+        return [] as number[];
+    }
+
+    const matches = await Promise.all(
+        entries
+            .filter((entry) => /^\d+$/.test(entry))
+            .map(async (entry) => {
+                try {
+                    const commandLine = await readFile(`/proc/${entry}/cmdline`, "utf8");
+                    return isWhatsAppBrowserProcessForProfile(commandLine, profilePath)
+                        ? Number(entry)
+                        : null;
+                } catch {
+                    return null;
+                }
+            })
+    );
+
+    return matches.filter(
+        (pid): pid is number => typeof pid === "number" && Number.isInteger(pid) && pid > 0
+    );
+}
+
+async function terminateBrowserPids(pids: number[]) {
+    const uniquePids = Array.from(new Set(pids)).filter(
+        (pid) => pid > 1 && pid !== process.pid && isProcessAlive(pid)
+    );
+    if (uniquePids.length === 0) {
+        return [] as number[];
+    }
+
+    for (const pid of uniquePids) {
+        try {
+            process.kill(pid, "SIGTERM");
+        } catch {
+            // Process may have already exited.
+        }
+    }
+
+    await Promise.all(uniquePids.map((pid) => waitForProcessExit(pid, 2_000)));
+
+    for (const pid of uniquePids) {
+        if (!isProcessAlive(pid)) {
+            continue;
+        }
+        try {
+            process.kill(pid, "SIGKILL");
+        } catch {
+            // Process may have already exited.
+        }
+    }
+
+    await Promise.all(uniquePids.map((pid) => waitForProcessExit(pid, 2_000)));
+    return uniquePids.filter((pid) => !isProcessAlive(pid));
+}
+
+async function cleanupStaleWhatsAppBrowsers(source: string) {
+    const pids = await findWhatsAppBrowserRootPids();
+    if (pids.length === 0) {
+        return [] as number[];
+    }
+
+    logWaQrWarn("Stale WhatsApp browser processes detected", {
+        source,
+        pids,
+        profilePath: currentWebJsProfilePath(),
+    });
+    await recordWhatsAppAlert({
+        eventCode: "whatsapp_browser_duplicate_detected",
+        component: "wa:qr",
+        message: "Browser WhatsApp lama atau duplikat terdeteksi dan sedang dibersihkan.",
+        severity: "critical",
+        workspaceSlug: currentActiveClientSlug(),
+        dedupeKey: "browser-profile",
+        metadata: {
+            source,
+            pids,
+            profilePath: currentWebJsProfilePath(),
+        },
+    });
+
+    const terminatedPids = await terminateBrowserPids(pids);
+    logWaQrWarn("Stale WhatsApp browser cleanup completed", {
+        source,
+        detectedPids: pids,
+        terminatedPids,
+    });
+    await recordWhatsAppAlert({
+        eventCode: "whatsapp_browser_forced_cleanup",
+        component: "wa:qr",
+        message: "Browser WhatsApp lama dihentikan agar hanya satu sesi aktif per workspace.",
+        severity: terminatedPids.length === pids.length ? "warning" : "critical",
+        workspaceSlug: currentActiveClientSlug(),
+        dedupeKey: "browser-profile",
+        metadata: { source, detectedPids: pids, terminatedPids },
+    });
+    return terminatedPids;
+}
+
+async function destroyWhatsAppClientCompletely(client: WebJsClient, source: string) {
+    const browserPid = client.pupBrowser?.process?.()?.pid;
+    let destroyError: unknown = null;
+
+    try {
+        await runWithTimeout(
+            () => client.destroy(),
+            currentWebJsDestroyTimeoutMs(),
+            "WA_CLIENT_DESTROY_TIMEOUT"
+        );
+    } catch (error) {
+        destroyError = error;
+        logWaQrWarn("WhatsApp client destroy did not complete cleanly", {
+            source,
+            browserPid: browserPid || null,
+            error,
+        });
+    }
+
+    if (client.pupBrowser?.isConnected?.()) {
+        try {
+            await runWithTimeout(
+                () => client.pupBrowser!.close!(),
+                currentWebJsDestroyTimeoutMs(),
+                "WA_BROWSER_CLOSE_TIMEOUT"
+            );
+        } catch (error) {
+            destroyError ||= error;
+            logWaQrWarn("WhatsApp browser close did not complete cleanly", {
+                source,
+                browserPid: browserPid || null,
+                error,
+            });
+        }
+    }
+
+    if (browserPid && isProcessAlive(browserPid)) {
+        await terminateBrowserPids([browserPid]);
+    }
+    const terminatedPids = await cleanupStaleWhatsAppBrowsers(source);
+
+    if (destroyError) {
+        await recordWhatsAppAlert({
+            eventCode: "whatsapp_client_destroy_failed",
+            component: "wa:qr",
+            message: "Cleanup normal browser WhatsApp gagal dan dilanjutkan dengan force cleanup.",
+            severity: "error",
+            workspaceSlug: currentActiveClientSlug(),
+            dedupeKey: "browser-profile",
+            metadata: {
+                source,
+                browserPid: browserPid || null,
+                terminatedPids,
+                error: readErrorMessage(destroyError),
+            },
+        });
+    }
+}
+
+function stopWhatsAppHealthCheck() {
+    if (healthCheckTimer) {
+        clearInterval(healthCheckTimer);
+        healthCheckTimer = null;
+    }
+    healthCheckRunning = false;
+    consecutiveHealthCheckFailures = 0;
+}
+
+async function runWhatsAppHealthCheck(generation: number, client: WebJsClient) {
+    if (
+        healthCheckRunning ||
+        generation !== sessionGeneration ||
+        clientRef !== client ||
+        runtimeState.status !== "connected"
+    ) {
+        return;
+    }
+
+    healthCheckRunning = true;
+    try {
+        if (client.pupPage?.isClosed?.()) {
+            throw new Error("WA_BROWSER_PAGE_CLOSED");
+        }
+        if (client.pupBrowser?.isConnected && !client.pupBrowser.isConnected()) {
+            throw new Error("WA_BROWSER_DISCONNECTED");
+        }
+        if (typeof client.getState !== "function") {
+            throw new Error("WA_CLIENT_STATE_UNAVAILABLE");
+        }
+
+        const state = await runWithTimeout(
+            () => client.getState!(),
+            currentWebJsHealthCheckTimeoutMs(),
+            "WA_HEALTHCHECK_TIMEOUT"
+        );
+        if (!isHealthyWhatsAppClientState(state)) {
+            throw new Error(`WA_CLIENT_STATE_${String(state || "UNKNOWN").toUpperCase()}`);
+        }
+
+        const hadFailures = consecutiveHealthCheckFailures > 0;
+        consecutiveHealthCheckFailures = 0;
+        markConnectedState(String(state).toUpperCase());
+        if (hadFailures) {
+            await resolveWhatsAppAlert({
+                eventCode: "whatsapp_healthcheck_failed",
+                workspaceSlug: currentActiveClientSlug(),
+                dedupeKey: "browser-session",
+            });
+        }
+    } catch (error) {
+        consecutiveHealthCheckFailures += 1;
+        const failureThreshold = currentWebJsHealthCheckFailureThreshold();
+        logWaQrWarn("WhatsApp browser health check failed", {
+            generation,
+            consecutiveFailures: consecutiveHealthCheckFailures,
+            failureThreshold,
+            error,
+        });
+        await recordWhatsAppAlert({
+            eventCode: "whatsapp_healthcheck_failed",
+            component: "wa:qr",
+            message: "Browser WhatsApp tidak merespons health check.",
+            severity: consecutiveHealthCheckFailures >= failureThreshold ? "critical" : "warning",
+            workspaceSlug: currentActiveClientSlug(),
+            dedupeKey: "browser-session",
+            metadata: {
+                generation,
+                consecutiveFailures: consecutiveHealthCheckFailures,
+                failureThreshold,
+                error: readErrorMessage(error),
+            },
+        });
+
+        if (shouldRecoverWhatsAppHealth(consecutiveHealthCheckFailures, failureThreshold)) {
+            stopWhatsAppHealthCheck();
+            await recoverWhatsAppQrBridge("whatsapp_healthcheck_failed", error);
+        }
+    } finally {
+        healthCheckRunning = false;
+    }
+}
+
+function startWhatsAppHealthCheck(generation: number, client: WebJsClient) {
+    stopWhatsAppHealthCheck();
+    const intervalMs = currentWebJsHealthCheckIntervalMs();
+    healthCheckTimer = setInterval(() => {
+        void runWhatsAppHealthCheck(generation, client);
+    }, intervalMs);
+    healthCheckTimer.unref?.();
+
+    logWaQrInfo("WhatsApp browser health check started", {
+        generation,
+        intervalMs,
+        failureThreshold: currentWebJsHealthCheckFailureThreshold(),
+    });
+}
+
 function scheduleBridgeRestart(delayMs = 2500) {
     setTimeout(() => {
-        if (!reconnectEnabled || isStarting || clientRef) {
+        if (!reconnectEnabled || clientRef) {
+            return;
+        }
+        if (isStarting || bridgeRecoveryPromise) {
+            scheduleBridgeRestart(delayMs);
             return;
         }
         void startWhatsAppQrBridge();
@@ -469,6 +828,7 @@ export async function recoverWhatsAppQrBridge(
     clientRef = null;
     sessionGeneration += 1;
     stopMissedMessageRecovery();
+    stopWhatsAppHealthCheck();
     clearActiveWhatsAppNumber();
     updateRuntimeState({
         status: options.status || "disconnected",
@@ -501,24 +861,15 @@ export async function recoverWhatsAppQrBridge(
 
     bridgeRecoveryPromise = (async () => {
         if (client) {
-            try {
-                await Promise.race([
-                    client.destroy(),
-                    new Promise<void>((resolve) => setTimeout(resolve, 10_000)),
-                ]);
-            } catch (destroyError) {
-                waQrLogger.warn("Failed destroying unhealthy WhatsApp QR bridge", {
-                    source,
-                    error: destroyError,
-                });
-            }
-        }
-
-        if (shouldReconnect && reconnectEnabled) {
-            scheduleBridgeRestart();
+            await destroyWhatsAppClientCompletely(client, source);
+        } else {
+            await cleanupStaleWhatsAppBrowsers(source);
         }
     })().finally(() => {
         bridgeRecoveryPromise = null;
+        if (shouldReconnect && reconnectEnabled) {
+            scheduleBridgeRestart();
+        }
     });
 
     return bridgeRecoveryPromise;
@@ -1717,28 +2068,19 @@ export async function stopWhatsAppQrBridge() {
     reconnectEnabled = false;
     sessionGeneration += 1;
     stopMissedMessageRecovery();
+    stopWhatsAppHealthCheck();
     clearActiveWhatsAppNumber();
-
-    if (!clientRef) {
-        updateRuntimeState({
-            status: "idle",
-            qr: null,
-            qrImageUrl: null,
-            pairingCode: null,
-            pairingPhone: null,
-            activeWaNumber: null,
-            lastClientState: null,
-        });
-        return;
-    }
 
     const client = clientRef;
     clientRef = null;
 
-    try {
-        await client.destroy();
-    } catch {
-        // ignore
+    if (bridgeRecoveryPromise) {
+        await bridgeRecoveryPromise;
+    }
+    if (client) {
+        await destroyWhatsAppClientCompletely(client, "manual_stop");
+    } else {
+        await cleanupStaleWhatsAppBrowsers("manual_stop");
     }
 
     updateRuntimeState({
@@ -1787,7 +2129,7 @@ export async function startWhatsAppQrBridge() {
         return;
     }
 
-    if (clientRef || isStarting) {
+    if (clientRef || isStarting || bridgeRecoveryPromise) {
         return;
     }
 
@@ -1807,7 +2149,13 @@ export async function startWhatsAppQrBridge() {
         activeClientSlug: currentActiveClientSlug(),
     });
 
+    let startingClient: WebJsClient | null = null;
     try {
+        await cleanupStaleWhatsAppBrowsers("before_start");
+        if (generation !== sessionGeneration || !reconnectEnabled) {
+            return;
+        }
+
         let ClientCtor: any;
         let LocalAuthCtor: any;
 
@@ -1866,6 +2214,7 @@ export async function startWhatsAppQrBridge() {
             userAgent,
         });
 
+        startingClient = client;
         clientRef = client;
         waQrLogger.info("Starting WhatsApp QR bridge", {
             authPath,
@@ -1979,6 +2328,7 @@ export async function startWhatsAppQrBridge() {
                     expectedWaNumber: identity.expectedNumber,
                 });
                 startMissedMessageRecovery(generation, client);
+                startWhatsAppHealthCheck(generation, client);
 
                 const activeClientSlug = currentActiveClientSlug();
                 const activeClient = activeClientSlug
@@ -1990,6 +2340,10 @@ export async function startWhatsAppQrBridge() {
                         "whatsapp_disconnected",
                         "whatsapp_auth_failure",
                         "workspace_identity_rejected",
+                        "whatsapp_healthcheck_failed",
+                        "whatsapp_browser_duplicate_detected",
+                        "whatsapp_browser_forced_cleanup",
+                        "whatsapp_client_destroy_failed",
                     ]);
                     const { processPendingWhatsAppOutbox } = await import(
                         "./whatsapp-outbox.service"
@@ -2049,27 +2403,20 @@ export async function startWhatsAppQrBridge() {
                 dedupeKey: "session",
                 metadata: { error: message || "Authentication failure" },
             });
+            setTimeout(() => {
+                if (generation === sessionGeneration) {
+                    void recoverWhatsAppQrBridge(
+                        "whatsapp_auth_failure",
+                        new Error(message || "Authentication failure")
+                    );
+                }
+            }, 500);
         });
 
         client.on("disconnected", (reason: string) => {
             if (generation !== sessionGeneration) {
                 return;
             }
-
-            clientRef = null;
-            stopMissedMessageRecovery();
-            clearActiveWhatsAppNumber();
-            updateRuntimeState({
-                status: "disconnected",
-                lastDisconnectCode: null,
-                activeWaNumber: null,
-                lastClientState: null,
-                lastError: reason || null,
-                qr: null,
-                qrImageUrl: null,
-                pairingCode: null,
-                pairingPhone: null,
-            });
             waQrLogger.warn("WhatsApp QR disconnected", { reason: reason || "unknown" });
             void recordWhatsAppAlert({
                 eventCode: "whatsapp_disconnected",
@@ -2081,15 +2428,10 @@ export async function startWhatsAppQrBridge() {
                 metadata: { reason: reason || "unknown" },
             });
 
-            if (!reconnectEnabled || generation !== sessionGeneration) {
-                return;
-            }
-
-            setTimeout(() => {
-                if (reconnectEnabled && generation === sessionGeneration) {
-                    void startWhatsAppQrBridge();
-                }
-            }, 2000);
+            void recoverWhatsAppQrBridge(
+                "whatsapp_disconnected",
+                new Error(reason || "WhatsApp disconnected")
+            );
         });
 
         client.on("message", async (message: any) => {
@@ -2103,17 +2445,26 @@ export async function startWhatsAppQrBridge() {
         await client.initialize();
 
         if (generation !== sessionGeneration) {
-            try {
-                await client.destroy();
-            } catch {
-                // ignore
+            if (clientRef === client) {
+                clientRef = null;
             }
-            clientRef = null;
+            await destroyWhatsAppClientCompletely(client, "stale_generation");
         }
     } catch (error) {
-        clientRef = null;
+        if (generation !== sessionGeneration) {
+            return;
+        }
+        if (clientRef === startingClient) {
+            clientRef = null;
+        }
         stopMissedMessageRecovery();
+        stopWhatsAppHealthCheck();
         clearActiveWhatsAppNumber();
+        if (startingClient) {
+            await destroyWhatsAppClientCompletely(startingClient, "start_failure");
+        } else {
+            await cleanupStaleWhatsAppBrowsers("start_failure");
+        }
         const message = error instanceof Error ? error.message : "Unknown error";
         const chromeMissing = /Could not find Chrome|executable file not found|Browser was not found/i.test(
             message
@@ -2132,6 +2483,9 @@ export async function startWhatsAppQrBridge() {
             lastClientState: null,
             lastError: uiMessage,
         });
+        if (!chromeMissing && reconnectEnabled) {
+            scheduleBridgeRestart(5_000);
+        }
     } finally {
         isStarting = false;
     }
