@@ -448,7 +448,6 @@ async function prepareWhatsAppRuntimePaths() {
     const cachePath = currentWebJsVersionCachePath();
     const directories = [
         runtimePath,
-        join(runtimePath, "tmp"),
         join(runtimePath, "cache"),
         join(runtimePath, "config"),
         join(runtimePath, "chrome-cache"),
@@ -474,7 +473,6 @@ async function prepareWhatsAppRuntimePaths() {
     return {
         runtimePath,
         cachePath,
-        tmpPath: join(runtimePath, "tmp"),
         xdgCachePath: join(runtimePath, "cache"),
         xdgConfigPath: join(runtimePath, "config"),
         chromeCachePath: join(runtimePath, "chrome-cache"),
@@ -2438,7 +2436,6 @@ export async function startWhatsAppQrBridge() {
             args: puppeteerArgs,
             env: {
                 ...process.env,
-                TMPDIR: runtimePaths.tmpPath,
                 XDG_CACHE_HOME: runtimePaths.xdgCachePath,
                 XDG_CONFIG_HOME: runtimePaths.xdgConfigPath,
             },
