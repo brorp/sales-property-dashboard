@@ -16,6 +16,8 @@ dist/
 apps/server/.wa-qr-auth/
 apps/server/.wa-qr-auth-*/
 apps/server/.wwebjs_cache/
+apps/server/.wa-web-cache-*/
+apps/server/.wa-runtime-*/
 propertylounge.pem
 
 # IDE
