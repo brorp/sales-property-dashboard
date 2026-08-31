@@ -31,6 +31,24 @@ Install PM2:
 npm i -g pm2
 ```
 
+Keep the PM2/Chrome user runtime alive after an SSH session closes:
+
+```bash
+sudo loginctl enable-linger "$USER"
+loginctl show-user "$USER" -p Linger
+```
+
+`Linger=yes` is required for `qr_local`. Without it, Ubuntu can stop Chrome's
+user scope when the deployment SSH session logs out, disconnecting every
+WhatsApp workspace started from that session.
+
+After validating a Chrome release with WhatsApp Web, keep production upgrades
+controlled instead of automatic:
+
+```bash
+sudo apt-mark hold google-chrome-stable
+```
+
 Install Redis untuk WhatsApp outbound queue:
 
 ```bash
@@ -82,3 +100,5 @@ Penting untuk mode QR:
 4. `ADMIN_WHATSAPP_TOKEN=` (opsional, untuk lock endpoint admin WhatsApp)
 5. `REDIS_URL=redis://127.0.0.1:6379`
 6. `WA_QUEUE_ENABLED=true`
+7. `WA_WEBJS_WEB_VERSION_CACHE_PATH` must be unique per workspace
+8. `WA_WEBJS_RUNTIME_PATH` must be unique per workspace
