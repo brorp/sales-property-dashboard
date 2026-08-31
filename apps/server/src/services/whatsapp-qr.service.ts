@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
-import { readFile, readdir, rm } from "node:fs/promises";
-import { resolve } from "node:path";
+import { copyFile, mkdir, readFile, readdir, rm } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import { ingestIncomingMessage } from "./whatsapp.service";
 import { getClientBySlug } from "./clients.service";
 import {
@@ -13,7 +13,7 @@ import {
     isHealthyWhatsAppClientState,
     isWhatsAppBrowserProcessForProfile,
     shouldDisableMissedMessageRecovery,
-    shouldRecoverWhatsAppHealth,
+    shouldRestartWhatsAppBridge,
     validateWorkspaceWhatsAppIdentity,
 } from "../utils/whatsapp-runtime";
 import {
@@ -26,6 +26,7 @@ type WebJsClient = {
     initialize: () => Promise<void>;
     destroy: () => Promise<void>;
     getState?: () => Promise<string | null>;
+    getWWebVersion?: () => Promise<string>;
     pupBrowser?: {
         close?: () => Promise<void>;
         isConnected?: () => boolean;
@@ -99,6 +100,10 @@ export type WhatsAppQrAdminState = {
     lastError: string | null;
     lastDisconnectCode: number | null;
     activeClientSlug: string | null;
+    activeWebVersion: string | null;
+    browserPid: number | null;
+    lastRecoverySource: string | null;
+    lastRecoveryAt: string | null;
     updatedAt: string;
 };
 
@@ -120,6 +125,7 @@ let browserListenerTimer: NodeJS.Timeout | null = null;
 let healthCheckRunning = false;
 let consecutiveHealthCheckFailures = 0;
 let healthCheckStartedAtMs = 0;
+let lastHealthRecoveryAtMs = 0;
 const monitoredBrowsers = new WeakSet<object>();
 const RECENT_INBOUND_EVENT_WINDOW_MS = 5 * 60 * 1000;
 const MISSED_MESSAGE_RECOVERY_STARTUP_GRACE_MS = 5 * 60 * 1000;
@@ -139,6 +145,10 @@ const runtimeState: Omit<WhatsAppQrAdminState, "provider" | "enabled" | "authPat
     lastError: null,
     lastDisconnectCode: null,
     activeClientSlug: null,
+    activeWebVersion: null,
+    browserPid: null,
+    lastRecoverySource: null,
+    lastRecoveryAt: null,
     updatedAt: new Date().toISOString(),
 };
 
@@ -225,10 +235,17 @@ function currentWebJsHealthCheckTimeoutMs() {
 }
 
 function currentWebJsHealthCheckFailureThreshold() {
-    return Math.floor(envNumber("WA_QR_HEALTHCHECK_FAILURE_THRESHOLD", 2, {
+    return Math.floor(envNumber("WA_QR_HEALTHCHECK_FAILURE_THRESHOLD", 5, {
         min: 1,
         max: 10,
     }));
+}
+
+function currentWebJsHealthRecoveryCooldownMs() {
+    return envNumber("WA_QR_HEALTH_RECOVERY_COOLDOWN_MS", 10 * 60_000, {
+        min: 60_000,
+        max: 60 * 60_000,
+    });
 }
 
 function currentWebJsDestroyTimeoutMs() {
@@ -242,6 +259,13 @@ function currentWebJsAuthTimeoutMs() {
     return envNumber("WA_WEBJS_AUTH_TIMEOUT_MS", 120_000, {
         min: 30_000,
         max: 5 * 60 * 1000,
+    });
+}
+
+function currentWebJsAuthFailureRetryMs() {
+    return envNumber("WA_WEBJS_AUTH_FAILURE_RETRY_MS", 60_000, {
+        min: 10_000,
+        max: 10 * 60_000,
     });
 }
 
@@ -387,7 +411,10 @@ function currentWebJsVersionCache() {
         }
     }
 
-    return { type: "local" as const };
+    return {
+        type: "local" as const,
+        path: currentWebJsVersionCachePath(),
+    };
 }
 
 function currentWebJsVersion() {
@@ -404,6 +431,55 @@ function currentWebJsUserAgent() {
         return false;
     }
     return raw;
+}
+
+function currentWebJsVersionCachePath() {
+    const explicit = String(process.env.WA_WEBJS_WEB_VERSION_CACHE_PATH || "").trim();
+    return resolve(explicit || join(currentAuthPath(), ".wwebjs_cache"));
+}
+
+function currentWebJsRuntimePath() {
+    const explicit = String(process.env.WA_WEBJS_RUNTIME_PATH || "").trim();
+    return resolve(explicit || join(currentAuthPath(), ".runtime"));
+}
+
+async function prepareWhatsAppRuntimePaths() {
+    const runtimePath = currentWebJsRuntimePath();
+    const cachePath = currentWebJsVersionCachePath();
+    const directories = [
+        runtimePath,
+        join(runtimePath, "tmp"),
+        join(runtimePath, "cache"),
+        join(runtimePath, "config"),
+        join(runtimePath, "chrome-cache"),
+        join(runtimePath, "crash-dumps"),
+        cachePath,
+    ];
+    await Promise.all(directories.map((directory) => mkdir(directory, { recursive: true })));
+
+    const configuredVersion = currentWebJsVersion();
+    if (configuredVersion) {
+        const target = join(cachePath, `${configuredVersion}.html`);
+        const legacySource = resolve(".wwebjs_cache", `${configuredVersion}.html`);
+        if (!existsSync(target) && existsSync(legacySource)) {
+            await copyFile(legacySource, target);
+            logWaQrInfo("Seeded isolated WhatsApp Web cache from legacy cache", {
+                configuredVersion,
+                source: legacySource,
+                target,
+            });
+        }
+    }
+
+    return {
+        runtimePath,
+        cachePath,
+        tmpPath: join(runtimePath, "tmp"),
+        xdgCachePath: join(runtimePath, "cache"),
+        xdgConfigPath: join(runtimePath, "config"),
+        chromeCachePath: join(runtimePath, "chrome-cache"),
+        crashDumpsPath: join(runtimePath, "crash-dumps"),
+    };
 }
 
 function findLocalChromeExecutable() {
@@ -736,6 +812,7 @@ function attachWhatsAppBrowserDisconnectListener(
     }
 
     monitoredBrowsers.add(browser as object);
+    updateRuntimeState({ browserPid: browser.process?.()?.pid || null });
     browser.on("disconnected", () => {
         if (
             generation !== sessionGeneration ||
@@ -763,7 +840,9 @@ function attachWhatsAppBrowserDisconnectListener(
                 status: runtimeState.status,
             },
         });
-        void recoverWhatsAppQrBridge("whatsapp_browser_disconnected", error);
+        if (shouldRestartWhatsAppBridge({ signal: "browser_disconnected" })) {
+            void recoverWhatsAppQrBridge("whatsapp_browser_disconnected", error);
+        }
     });
     return true;
 }
@@ -846,7 +925,39 @@ async function runWhatsAppHealthCheck(generation: number, client: WebJsClient) {
             },
         });
 
-        if (shouldRecoverWhatsAppHealth(consecutiveHealthCheckFailures, failureThreshold)) {
+        const errorMessage = readErrorMessage(error);
+        const hardBrowserFailure =
+            errorMessage === "WA_BROWSER_DISCONNECTED" ||
+            errorMessage === "WA_BROWSER_PAGE_CLOSED" ||
+            errorMessage === "WA_BROWSER_NOT_CREATED";
+        const shouldRecover = shouldRestartWhatsAppBridge({
+            signal: hardBrowserFailure
+                ? errorMessage === "WA_BROWSER_PAGE_CLOSED"
+                    ? "browser_page_closed"
+                    : "browser_disconnected"
+                : "health_check_failed",
+            consecutiveFailures: consecutiveHealthCheckFailures,
+            failureThreshold,
+        });
+
+        if (shouldRecover) {
+            const now = Date.now();
+            const cooldownMs = currentWebJsHealthRecoveryCooldownMs();
+            const cooldownRemainingMs = Math.max(
+                0,
+                lastHealthRecoveryAtMs + cooldownMs - now
+            );
+            if (!hardBrowserFailure && cooldownRemainingMs > 0) {
+                logWaQrWarn("WhatsApp health recovery suppressed by cooldown", {
+                    generation,
+                    cooldownRemainingMs,
+                    error,
+                });
+                consecutiveHealthCheckFailures = 0;
+                return;
+            }
+
+            lastHealthRecoveryAtMs = now;
             stopWhatsAppHealthCheck();
             await recoverWhatsAppQrBridge("whatsapp_healthcheck_failed", error);
         }
@@ -916,7 +1027,11 @@ export async function recoverWhatsAppQrBridge(
         status: options.status || "disconnected",
         lastError: message,
         activeWaNumber: null,
+        activeWebVersion: null,
+        browserPid: null,
         lastClientState: null,
+        lastRecoverySource: source,
+        lastRecoveryAt: new Date().toISOString(),
         qr: null,
         qrImageUrl: null,
     });
@@ -959,7 +1074,38 @@ export async function recoverWhatsAppQrBridge(
 
 function handleTransientRuntimeError(source: string, error: unknown) {
     markErrorAsHandled(error);
-    void recoverWhatsAppQrBridge(source, error);
+    const client = clientRef;
+    const browserConnected = Boolean(client?.pupBrowser?.isConnected?.());
+    const pageClosed = Boolean(client?.pupPage?.isClosed?.());
+    const signal = !browserConnected
+        ? "browser_disconnected"
+        : pageClosed
+            ? "browser_page_closed"
+            : "runtime_navigation_error";
+
+    void recordWhatsAppAlert({
+        eventCode: "whatsapp_transient_runtime_error",
+        component: "wa:qr",
+        message: "WhatsApp Web mengalami error runtime sementara.",
+        severity: signal === "runtime_navigation_error" ? "warning" : "error",
+        workspaceSlug: currentActiveClientSlug(),
+        dedupeKey: source,
+        metadata: {
+            source,
+            browserConnected,
+            pageClosed,
+            error: readErrorMessage(error),
+        },
+    });
+
+    if (shouldRestartWhatsAppBridge({ signal })) {
+        void recoverWhatsAppQrBridge(source, error);
+        return;
+    }
+
+    if (client) {
+        void runWhatsAppHealthCheck(sessionGeneration, client);
+    }
 }
 
 function installRuntimeGuard() {
@@ -2139,7 +2285,15 @@ async function sendWhatsAppQrPayloadByJid(
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         if (message.startsWith("WA_SEND_TIMEOUT")) {
-            await recoverWhatsAppQrBridge("whatsapp_send_timeout", error);
+            void recordWhatsAppAlert({
+                eventCode: "whatsapp_send_timeout",
+                component: "wa:qr",
+                message: "Pengiriman WhatsApp melewati batas waktu dan akan direkonsiliasi tanpa me-restart sesi.",
+                severity: "error",
+                workspaceSlug: currentActiveClientSlug(),
+                dedupeKey: chatId,
+                metadata: { chatId, error: message },
+            });
             return toSendError(message, "WA_SEND_TIMEOUT");
         }
         return toSendError(message, "WA_SEND_FAILED");
@@ -2172,6 +2326,8 @@ export async function stopWhatsAppQrBridge() {
         pairingCode: null,
         pairingPhone: null,
         activeWaNumber: null,
+        activeWebVersion: null,
+        browserPid: null,
         lastClientState: null,
     });
 }
@@ -2186,6 +2342,8 @@ export async function resetWhatsAppQrSession() {
         pairingCode: null,
         pairingPhone: null,
         activeWaNumber: null,
+        activeWebVersion: null,
+        browserPid: null,
         lastClientState: null,
         lastError: null,
         lastDisconnectCode: null,
@@ -2226,6 +2384,8 @@ export async function startWhatsAppQrBridge() {
         pairingCode: null,
         pairingPhone: null,
         activeWaNumber: null,
+        activeWebVersion: null,
+        browserPid: null,
         lastClientState: null,
         lastError: null,
         activeClientSlug: currentActiveClientSlug(),
@@ -2266,10 +2426,22 @@ export async function startWhatsAppQrBridge() {
         }
 
         const authPath = currentAuthPath();
+        const runtimePaths = await prepareWhatsAppRuntimePaths();
         const sessionIsolation = describeSessionIsolation();
+        const puppeteerArgs = [
+            ...currentWebJsPuppeteerArgs(),
+            `--disk-cache-dir=${runtimePaths.chromeCachePath}`,
+            `--crash-dumps-dir=${runtimePaths.crashDumpsPath}`,
+        ];
         const puppeteerOptions: Record<string, unknown> = {
             headless: currentWebJsHeadless(),
-            args: currentWebJsPuppeteerArgs(),
+            args: puppeteerArgs,
+            env: {
+                ...process.env,
+                TMPDIR: runtimePaths.tmpPath,
+                XDG_CACHE_HOME: runtimePaths.xdgCachePath,
+                XDG_CONFIG_HOME: runtimePaths.xdgConfigPath,
+            },
         };
         const chromeExecutable = findLocalChromeExecutable();
         if (chromeExecutable) {
@@ -2310,6 +2482,8 @@ export async function startWhatsAppQrBridge() {
             userAgent: userAgent || null,
             webVersion: webVersion || null,
             webVersionCacheType: webVersionCache.type,
+            webVersionCachePath: runtimePaths.cachePath,
+            runtimePath: runtimePaths.runtimePath,
             authTimeoutMs: currentWebJsAuthTimeoutMs(),
             webVersionCacheRemotePath:
                 "remotePath" in webVersionCache ? webVersionCache.remotePath : null,
@@ -2362,11 +2536,13 @@ export async function startWhatsAppQrBridge() {
             }
         });
 
+        let readyHandled = false;
         client.on("ready", () => {
             void (async () => {
-                if (generation !== sessionGeneration) {
+                if (generation !== sessionGeneration || readyHandled) {
                     return;
                 }
+                readyHandled = true;
 
                 const activeWaNumber = resolveConnectedAccountPhone(client);
                 const identity = validateWorkspaceWhatsAppIdentity({
@@ -2404,10 +2580,26 @@ export async function startWhatsAppQrBridge() {
                 }
 
                 setActiveWhatsAppNumber(activeWaNumber);
-                updateRuntimeState({ activeWaNumber });
+                const activeWebVersion = client.getWWebVersion
+                    ? await runWithTimeout(
+                        () => client.getWWebVersion!(),
+                        10_000,
+                        "WA_WEB_VERSION_READ_TIMEOUT"
+                    ).catch((error) => {
+                        logWaQrWarn("Failed reading active WhatsApp Web version", { error });
+                        return null;
+                    })
+                    : null;
+                updateRuntimeState({
+                    activeWaNumber,
+                    activeWebVersion,
+                    browserPid: client.pupBrowser?.process?.()?.pid || null,
+                });
                 markConnectedState("READY");
                 logWaQrInfo("WhatsApp QR connected", {
                     activeWaNumber: activeWaNumber || null,
+                    activeWebVersion,
+                    browserPid: client.pupBrowser?.process?.()?.pid || null,
                     activeClientSlug: currentActiveClientSlug(),
                     expectedWaNumber: identity.expectedNumber,
                 });
@@ -2462,7 +2654,15 @@ export async function startWhatsAppQrBridge() {
                 }
             })().catch((error) => {
                 waQrLogger.error("Failed finalizing WhatsApp QR ready state", { error });
-                void recoverWhatsAppQrBridge("ready_state_failure", error);
+                void recordWhatsAppAlert({
+                    eventCode: "ready_state_failure",
+                    component: "wa:qr",
+                    message: "Sesi WhatsApp terhubung, tetapi sinkronisasi data pendukung gagal.",
+                    severity: "error",
+                    workspaceSlug: currentActiveClientSlug(),
+                    dedupeKey: "ready-finalization",
+                    metadata: { error: readErrorMessage(error) },
+                });
             });
         });
 
@@ -2495,7 +2695,7 @@ export async function startWhatsAppQrBridge() {
                         new Error(message || "Authentication failure")
                     );
                 }
-            }, 500);
+            }, currentWebJsAuthFailureRetryMs());
         });
 
         client.on("disconnected", (reason: string) => {

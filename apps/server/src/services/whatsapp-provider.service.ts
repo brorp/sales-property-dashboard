@@ -3,7 +3,6 @@ import IORedis from "ioredis";
 import { normalizePhone } from "../utils/phone";
 import { createComponentLogger } from "../utils/logger";
 import {
-    recoverWhatsAppQrBridge,
     sendWhatsAppQrMedia,
     sendWhatsAppQrText,
 } from "./whatsapp-qr.service";
@@ -507,7 +506,19 @@ export function startWhatsAppOutboundWorker() {
         });
 
         if (/stalled more than allowable limit/i.test(error.message)) {
-            void recoverWhatsAppQrBridge("outbound_job_stalled", error);
+            void recordWhatsAppAlert({
+                eventCode: "outbound_job_stalled",
+                component: "wa:queue",
+                message: "Antrean WhatsApp stalled; status pengiriman akan direkonsiliasi tanpa me-restart sesi.",
+                severity: "error",
+                workspaceSlug: process.env.WA_ACTIVE_CLIENT_SLUG || null,
+                dedupeKey: String(job?.id || job?.data?.scopeKey || "queue"),
+                metadata: {
+                    jobId: job?.id || null,
+                    scopeKey: job?.data?.scopeKey || null,
+                    error: error.message,
+                },
+            });
         }
     });
 
@@ -554,7 +565,20 @@ async function enqueueOutboundJob(
         }
 
         if (/timed out|no finish notification/i.test(message)) {
-            await recoverWhatsAppQrBridge("outbound_queue_wait_timeout", error);
+            void recordWhatsAppAlert({
+                eventCode: "outbound_queue_wait_timeout",
+                component: "wa:queue",
+                message: "Konfirmasi antrean WhatsApp timeout; delivery ditandai uncertain tanpa me-restart sesi.",
+                severity: "error",
+                workspaceSlug: process.env.WA_ACTIVE_CLIENT_SLUG || null,
+                dedupeKey: String(job.id || data.scopeKey),
+                metadata: {
+                    jobId: job.id || null,
+                    scopeKey: data.scopeKey,
+                    state,
+                    error: message,
+                },
+            });
             throw new Error(`WA_QUEUE_DELIVERY_UNCERTAIN:${state}:${message}`);
         }
 

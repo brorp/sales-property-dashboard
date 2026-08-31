@@ -124,6 +124,41 @@ export function shouldRecoverWhatsAppHealth(
     return failureThreshold > 0 && consecutiveFailures >= failureThreshold;
 }
 
+export type WhatsAppRecoverySignal =
+    | "browser_disconnected"
+    | "browser_page_closed"
+    | "health_check_failed"
+    | "runtime_navigation_error"
+    | "send_timeout"
+    | "queue_timeout"
+    | "queue_stalled"
+    | "scanner_failed";
+
+export function shouldRestartWhatsAppBridge(params: {
+    signal: WhatsAppRecoverySignal;
+    consecutiveFailures?: number;
+    failureThreshold?: number;
+}) {
+    if (
+        params.signal === "browser_disconnected" ||
+        params.signal === "browser_page_closed"
+    ) {
+        return true;
+    }
+
+    if (params.signal === "health_check_failed") {
+        return shouldRecoverWhatsAppHealth(
+            params.consecutiveFailures || 0,
+            params.failureThreshold || 0
+        );
+    }
+
+    // Delivery uncertainty and transient WhatsApp Web navigation errors are
+    // handled by the durable outbox/scanner. Restarting a healthy browser here
+    // can interrupt an ACK that WhatsApp is still processing.
+    return false;
+}
+
 export function isWhatsAppBrowserProcessForProfile(
     commandLine: string,
     profilePath: string

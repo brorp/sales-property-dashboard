@@ -8,6 +8,7 @@ import {
     isHealthyWhatsAppClientState,
     isWhatsAppBrowserProcessForProfile,
     isTransientWhatsAppDeliveryFailure,
+    shouldRestartWhatsAppBridge,
     shouldRecoverWhatsAppHealth,
     shouldReconcileWhatsAppOutbox,
     shouldDisableMissedMessageRecovery,
@@ -121,6 +122,43 @@ test("WhatsApp health requires a connected client state before traffic remains e
     assert.equal(isHealthyWhatsAppClientState(null), false);
     assert.equal(shouldRecoverWhatsAppHealth(1, 2), false);
     assert.equal(shouldRecoverWhatsAppHealth(2, 2), true);
+});
+
+test("WhatsApp restart policy ignores delivery uncertainty while preserving hard recovery", () => {
+    for (const signal of [
+        "runtime_navigation_error",
+        "send_timeout",
+        "queue_timeout",
+        "queue_stalled",
+        "scanner_failed",
+    ] as const) {
+        assert.equal(shouldRestartWhatsAppBridge({ signal }), false, signal);
+    }
+
+    assert.equal(
+        shouldRestartWhatsAppBridge({ signal: "browser_disconnected" }),
+        true
+    );
+    assert.equal(
+        shouldRestartWhatsAppBridge({ signal: "browser_page_closed" }),
+        true
+    );
+    assert.equal(
+        shouldRestartWhatsAppBridge({
+            signal: "health_check_failed",
+            consecutiveFailures: 4,
+            failureThreshold: 5,
+        }),
+        false
+    );
+    assert.equal(
+        shouldRestartWhatsAppBridge({
+            signal: "health_check_failed",
+            consecutiveFailures: 5,
+            failureThreshold: 5,
+        }),
+        true
+    );
 });
 
 test("stale browser cleanup targets only the exact root WhatsApp profile process", () => {
